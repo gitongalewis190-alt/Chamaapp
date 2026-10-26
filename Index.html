@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chama</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef2f0; --card:#fff; --ink:#12231f; --mute:#5d716b; --line:#dbe4e0;
+  --brand:#0f7b5f; --brand-d:#0a5a46; --brand-t:#e0f2ec;
+  --warn:#b36b00; --warn-t:#fdf0d8; --bad:#b83a2a; --bad-t:#fbe3df;
+  --r:12px; --nav:#12231f;
+}
+*{box-sizing:border-box;margin:0}
+body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;
+  background-image:radial-gradient(900px 400px at 85% -10%,#cfe6dd 0,transparent 70%)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.num{font-variant-numeric:tabular-nums}
+
+/* shell */
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background:rgba(238,242,240,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+header h1{font-size:17px;font-weight:800;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+nav{position:fixed;z-index:20;left:0;right:0;bottom:0;display:flex;background:rgba(18,35,31,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding-bottom:env(safe-area-inset-bottom)}
+nav a{flex:1;text-align:center;padding:13px 4px;color:#9db5ad;text-decoration:none;font-size:13px;font-weight:700}
+nav a.on{color:#fff;box-shadow:inset 0 3px 0 var(--brand)}
+main{max-width:980px;margin:0 auto;padding:16px 16px 96px}
+@media(min-width:800px){
+  nav{top:0;bottom:auto;right:auto;width:190px;height:100vh;flex-direction:column;padding-top:76px;background:var(--nav)}
+  nav a{text-align:left;padding:12px 22px}
+  nav a.on{box-shadow:inset 3px 0 0 var(--brand);background:rgba(255,255,255,.06)}
+  header,main{margin-left:190px}
+  main{padding-bottom:40px}
+}
+
+/* primitives */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 1px 2px rgba(18,35,31,.04)}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.stack>*+*{margin-top:12px}
+h2{font-size:13px;font-weight:700;color:var(--mute);margin-bottom:8px}
+.big{font-size:22px;font-weight:800}
+.mute{color:var(--mute);font-size:13px}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .grow{flex:1;min-width:0}
+.row b{display:block;overflow:hidden;text-overflow:ellipsis}
+.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 13px;font-weight:700;font-size:14px;text-decoration:none;display:inline-block}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.pri:hover{background:var(--brand-d)}
+.btn.bad{color:var(--bad)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;background:var(--brand)}
+.tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--brand-t);color:var(--brand-d)}
+.tag.warn{background:var(--warn-t);color:var(--warn)} .tag.bad{background:var(--bad-t);color:var(--bad)}
+.empty{text-align:center;padding:28px 12px;color:var(--mute)}
+.head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.head h3{font-size:19px;font-weight:800}
+
+/* contribution grid */
+.scroll{overflow-x:auto;border-radius:var(--r);border:1px solid var(--line);background:#fff}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:560px}
+th,td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);font-size:13px}
+th{color:var(--mute);font-weight:700;background:#f7faf9}
+th:first-child,td:first-child{position:sticky;left:0;text-align:left;background:#fff;padding-left:12px;min-width:120px;font-weight:700;z-index:1}
+th:first-child{background:#f7faf9}
+.cell{display:block;width:100%;border:0;border-radius:7px;padding:6px 2px;font-weight:700;font-size:12px;background:transparent}
+.cell.paid{background:var(--brand-t);color:var(--brand-d)}
+.cell.partial{background:var(--warn-t);color:var(--warn)}
+.cell.late{background:var(--bad-t);color:var(--bad)}
+.cell.due{background:#eef1f0;color:var(--mute)}
+.cell.future{color:#b6c3be}
+.cell:disabled{cursor:default}
+
+/* modal + toast */
+.veil{position:fixed;inset:0;z-index:50;background:rgba(18,35,31,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:600px){.veil{align-items:center}}
+.sheet{background:rgba(255,255,255,.96);width:100%;max-width:440px;border-radius:18px 18px 0 0;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+@media(min-width:600px){.sheet{border-radius:18px}}
+.sheet h3{margin-bottom:14px}
+label{display:block;font-size:13px;font-weight:700;color:var(--mute);margin-top:12px}
+input,select,textarea{width:100%;margin-top:5px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
+input:focus,select:focus,textarea:focus,.btn:focus-visible,.cell:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.on{opacity:1}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Chama</h1>
+  <span id="roleTag" class="tag">View only</span>
+  <button class="btn sm" id="lockBtn" data-act="unlock">Treasurer</button>
+  <button class="btn sm" data-act="settings" id="setBtn" hidden>Settings</button>
+</header>
+<nav id="nav"></nav>
+<main id="view"></main>
+<div id="toast"></div>
+<div id="modalRoot"></div>
+
+<script>
+/* =====================================================================
+   0. CONFIG
+   Paste your Firebase web config to go live. Leave null for local demo mode
+   (data stays in this browser). Multiple chamas: open the page with ?c=<id>
+   ===================================================================== */
+const CONFIG = {
+  firebase: null /* { apiKey:'', authDomain:'', projectId:'', appId:'' } */,
+  defaultPin: '1234'
+};
+
+/* =====================================================================
+   1. UTILS
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const kes = n => 'KES ' + Math.round(n || 0).toLocaleString('en-KE');
+const monthKey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+const addMonths = (k, n) => { const [y, m] = k.split('-').map(Number); return monthKey(new Date(y, m - 1 + n, 1)); };
+const monthDiff = (a, b) => { const [ya, ma] = a.split('-').map(Number), [yb, mb] = b.split('-').map(Number); return (yb - ya) * 12 + (mb - ma); };
+const monthLabel = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'short', year: '2-digit' }); };
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const sum = (arr, f) => arr.reduce((a, x) => a + (f(x) || 0), 0);
+const toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2400); };
+const waLink = (phone, text) => {
+  let p = String(phone || '').replace(/\D/g, '');
+  if (p.startsWith('0')) p = '254' + p.slice(1);
+  else if (p.length === 9) p = '254' + p;
+  return 'https://wa.me/' + p + '?text=' + encodeURIComponent(text);
+};
+
+/* =====================================================================
+   2. STORE  (one adapter, two backends: Firestore or localStorage)
+   ===================================================================== */
+const Store = (() => {
+  const chamaId = (new URLSearchParams(location.search).get('c') || 'demo').replace(/[^\w-]/g, '');
+  const subs = []; let state = null, ref = null;
+  const blank = () => ({
+    chama: { name: 'My Chama', monthly: 2000, dueDay: 10, finePerLate: 100, loanRate: 10, startMonth: monthKey(new Date()), payTo: '', pin: CONFIG.defaultPin },
+    members: [], payments: [], loans: [], fines: []
+  });
+  const emit = () => subs.forEach(f => f(state));
+  const loadScript = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+  const normalise = s => { const b = blank(); return { ...b, ...s, chama: { ...b.chama, ...(s.chama || {}) } }; };
+
+  async function init() {
+    if (CONFIG.firebase) {
+      try {
+        const v = '10.12.2';
+        await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-app-compat.js`);
+        await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore-compat.js`);
+        firebase.initializeApp(CONFIG.firebase);
+        ref = firebase.firestore().collection('chamas').doc(chamaId);
+        ref.onSnapshot(snap => {
+          if (!snap.exists) { state = blank(); ref.set(state); } else state = normalise(snap.data());
+          emit();
+        }, e => toast('Sync error: ' + e.message));
+        return;
+      } catch (e) { toast('Firebase failed, using local mode'); }
+    }
+    try { state = normalise(JSON.parse(localStorage.getItem('chama:' + chamaId) || '{}')); } catch { state = blank(); }
+    emit();
+  }
+  function commit(mutator) {
+    mutator(state);
+    if (ref) ref.set(state).catch(e => toast('Save failed: ' + e.message));
+    else { try { localStorage.setItem('chama:' + chamaId, JSON.stringify(state)); } catch { toast('Storage full'); } }
+    emit();
+  }
+  return { init, commit, subscribe: f => subs.push(f), get: () => state, blank, chamaId };
+})();
+
+/* =====================================================================
+   3. DOMAIN  (pure functions, no DOM)
+   ===================================================================== */
+const Domain = {
+  now: () => monthKey(new Date()),
+  paidIn: (s, mid, mk) => sum(s.payments.filter(p => p.memberId === mid && p.month === mk), p => p.amount),
+  isOverdue(s, mk) {
+    const cur = this.now();
+    return mk < cur || (mk === cur && new Date().getDate() > s.chama.dueDay);
+  },
+  status(s, mid, mk) {
+    const paid = this.paidIn(s, mid, mk), due = s.chama.monthly;
+    if (paid >= due) return 'paid';
+    if (mk > this.now()) return 'future';
+    if (this.isOverdue(s, mk)) return paid > 0 ? 'partial' : 'late';
+    return paid > 0 ? 'partial' : 'due';
+  },
+  lateMembers(s, mk = this.now()) {
+    if (!this.isOverdue(s, mk)) return [];
+    return s.members.filter(m => this.paidIn(s, m.id, mk) < s.chama.monthly);
+  },
+  memberSaved: (s, mid) => sum(s.payments.filter(p => p.memberId === mid), p => p.amount),
+  loan(l) {
+    const total = l.principal * (1 + (l.rate / 100) * l.months);
+    const paid = sum(l.repayments, r => r.amount);
+    return { total, paid, balance: Math.max(0, total - paid), installment: total / l.months };
+  },
+  memberLoanBalance: (s, mid) => sum(s.loans.filter(l => l.memberId === mid), l => Domain.loan(l).balance),
+  memberFinesDue: (s, mid) => sum(s.fines.filter(f => f.memberId === mid && !f.paid), f => f.amount),
+  cashOnHand: s => sum(s.payments, p => p.amount) + sum(s.fines.filter(f => f.paid), f => f.amount)
+    + sum(s.loans, l => sum(l.repayments, r => r.amount)) - sum(s.loans, l => l.principal),
+  recipient(s, mk = Domain.now()) {
+    const n = s.members.length; if (!n) return null;
+    const i = ((monthDiff(s.chama.startMonth, mk) % n) + n) % n;
+    return s.members[i];
+  },
+  memberName: (s, id) => (s.members.find(m => m.id === id) || { name: 'Removed member' }).name
+};
+
+/* =====================================================================
+   4. UI KIT  (modal + form builder)
+   ===================================================================== */
+const Modal = {
+  open({ title, fields = [], body = '', submitLabel = 'Save', onSubmit, danger }) {
+    const f = fields.map(x => {
+      const v = esc(x.value ?? '');
+      let input;
+      if (x.type === 'select') input = `<select name="${x.name}">${x.options.map(([val, lab]) => `<option value="${esc(val)}" ${val == x.value ? 'selected' : ''}>${esc(lab)}</option>`).join('')}</select>`;
+      else input = `<input name="${x.name}" type="${x.type || 'text'}" value="${v}" ${x.required ? 'required' : ''} ${x.min != null ? `min="${x.min}"` : ''} ${x.type === 'number' ? 'step="any" inputmode="decimal"' : ''} placeholder="${esc(x.placeholder || '')}" autocomplete="off">`;
+      return `<label>${esc(x.label)}${input}</label>`;
+    }).join('');
+    $('#modalRoot').innerHTML = `<div class="veil" data-act="closeModal"><form class="sheet" role="dialog" aria-modal="true">
+      <h3>${esc(title)}</h3>${body}${f}
+      <div class="actions"><button type="button" class="btn" data-act="closeModal">Cancel</button>
+      ${onSubmit ? `<button class="btn ${danger ? 'bad' : 'pri'}">${esc(submitLabel)}</button>` : ''}</div></form></div>`;
+    const form = $('#modalRoot form');
+    form.addEventListener('click', e => { const a = e.target.closest('[data-act]'); if (!a || !form.contains(a)) e.stopPropagation(); });
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      try { onSubmit && onSubmit(Object.fromEntries(new FormData(form))); } catch (err) { toast(err.message); return; }
+      Modal.close();
+    });
+    const first = form.querySelector('input,select'); first && first.focus();
+  },
+  close: () => { $('#modalRoot').innerHTML = ''; }
+};
+const num = (v, label, { min = 0, allowZero = false } = {}) => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < min || (!allowZero && n === 0)) throw new Error(label + ' must be a valid number');
+  return n;
+};
+const memberOptions = s => s.members.map(m => [m.id, m.name]);
+
+/* =====================================================================
+   5. VIEWS  (state in, html out)
+   ===================================================================== */
+const Auth = {
+  isAdmin: () => sessionStorage.getItem('chama:admin') === '1',
+  set: v => v ? sessionStorage.setItem('chama:admin', '1') : sessionStorage.removeItem('chama:admin')
+};
+const adminBtn = (html) => Auth.isAdmin() ? html : '';
+
+const Views = {
+  home(s) {
+    if (!s.members.length) return `<div class="card empty"><p style="margin-bottom:12px">No members yet. Add your members or load sample data to see how it works.</p>
+      <button class="btn pri" data-act="unlock">Open as treasurer</button> <button class="btn" data-act="seed">Load sample data</button></div>`;
+    const cur = Domain.now(), exp = s.chama.monthly * s.members.length;
+    const got = sum(s.payments.filter(p => p.month === cur), p => p.amount);
+    const pct = exp ? Math.min(100, Math.round(got / exp * 100)) : 0;
+    const rec = Domain.recipient(s), late = Domain.lateMembers(s);
+    const loansOut = sum(s.loans, l => Domain.loan(l).balance), finesDue = sum(s.fines.filter(f => !f.paid), f => f.amount);
+    return `<div class="stack">
+      <div class="grid g4">
+        <div class="card"><h2>Cash on hand</h2><div class="big num">${kes(Domain.cashOnHand(s))}</div></div>
+        <div class="card"><h2>Collected, ${monthLabel(cur)}</h2><div class="big num">${kes(got)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="mute">${pct}% of ${kes(exp)}</div></div>
+        <div class="card"><h2>Loans out</h2><div class="big num">${kes(loansOut)}</div></div>
+        <div class="card"><h2>Unpaid fines</h2><div class="big num">${kes(finesDue)}</div></div>
+      </div>
+      <div class="grid g2">
+        <div class="card"><h2>This month's payout</h2>
+          <div class="big">${esc(rec.name)}</div><div class="mute num">Receives ${kes(exp)} (turn ${((monthDiff(s.chama.startMonth, cur) % s.members.length) + s.members.length) % s.members.length + 1} of ${s.members.length})</div></div>
+        <div class="card"><h2>Behind on ${monthLabel(cur)}</h2>
+          ${late.length ? late.map(m => {
+            const bal = s.chama.monthly - Domain.paidIn(s, m.id, cur);
+            const msg = `Hi ${m.name.split(' ')[0]}, friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} contribution balance is ${kes(bal)}.${s.chama.payTo ? ' Pay to: ' + s.chama.payTo + '.' : ''} Thank you!`;
+            return `<div class="row"><div class="grow"><b>${esc(m.name)}</b><span class="mute num">${kes(bal)} due</span></div>
+              ${m.phone ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(m.phone, msg)}">Remind</a>` : '<span class="mute">no phone</span>'}</div>`;
+          }).join('') : `<p class="mute">${Domain.isOverdue(s, cur) ? 'Everyone is paid up.' : `Due by day ${s.chama.dueDay}. Nobody is late yet.`}</p>`}
+        </div>
+      </div></div>`;
+  },
+
+  grid(s) {
+    const cur = Domain.now(), months = Array.from({ length: 6 }, (_, i) => addMonths(cur, i - 5)).filter(m => m >= addMonths(s.chama.startMonth, -0) || true);
+    if (!s.members.length) return `<div class="card empty">Add members first.</div>`;
+    const label = { paid: 'Paid', late: 'Late', due: 'Due', future: '-' };
+    const rows = s.members.map(m => `<tr><td>${esc(m.name)}</td>${months.map(mk => {
+      const st = Domain.status(s, m.id, mk), paid = Domain.paidIn(s, m.id, mk);
+      const text = st === 'partial' ? paid.toLocaleString('en-KE') : label[st];
+      return `<td><button class="cell ${st}" ${Auth.isAdmin() && st !== 'future' ? `data-act="pay" data-m="${m.id}" data-mo="${mk}"` : 'disabled'}>${text}</button></td>`;
+    }).join('')}</tr>`).join('');
+    const foot = `<tr><td>Collected</td>${months.map(mk => `<td class="num"><b>${sum(s.payments.filter(p => p.month === mk), p => p.amount).toLocaleString('en-KE')}</b></td>`).join('')}</tr>`;
+    const recent = [...s.payments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+    return `<div class="head"><h3>Contributions</h3><span class="mute">${kes(s.chama.monthly)} per member per month</span></div>
+      <div class="scroll"><table><thead><tr><th>Member</th>${months.map(mk => `<th>${monthLabel(mk)}</th>`).join('')}</tr></thead><tbody>${rows}${foot}</tbody></table></div>
+      ${Auth.isAdmin() ? '<p class="mute" style="margin-top:8px">Tap a cell to record a payment.</p>' : ''}
+      <div class="card" style="margin-top:14px"><h2>Recent payments</h2>${recent.length ? recent.map(p => `<div class="row"><div class="grow"><b>${esc(Domain.memberName(s, p.memberId))}</b><span class="mute">${monthLabel(p.month)}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</span></div><span class="num"><b>${kes(p.amount)}</b></span>${adminBtn(`<button class="btn sm bad" data-act="delPay" data-id="${p.id}">Remove</button>`)}</div>`).join('') : '<p class="mute">No payments recorded.</p>'}</div>`;
+  },
+
+  members(s) {
+    return `<div class="head"><h3>Members (${s.members.length})</h3>${adminBtn('<button class="btn pri" data-act="addMember">Add member</button>')}</div>
+      <div class="card">${s.members.length ? s.members.map((m, i) => {
+        const loan = Domain.memberLoanBalance(s, m.id), fine = Domain.memberFinesDue(s, m.id);
+        return `<div class="row"><div class="grow"><b>${i + 1}. ${esc(m.name)} ${m.role ? `<span class="tag">${esc(m.role)}</span>` : ''}</b>
+          <span class="mute num">Saved ${kes(Domain.memberSaved(s, m.id))}${loan ? ` · Loan ${kes(loan)}` : ''}${fine ? ` · Fines ${kes(fine)}` : ''}</span></div>
+          ${adminBtn(`<button class="btn sm" data-act="moveMember" data-id="${m.id}" data-d="-1" aria-label="Move up">Up</button><button class="btn sm" data-act="editMember" data-id="${m.id}">Edit</button>`)}</div>`;
+      }).join('') : '<p class="empty">No members yet.</p>'}</div>
+      <p class="mute" style="margin-top:8px">The order here is the merry-go-round payout order.</p>`;
+  },
+
+  loans(s) {
+    return `<div class="head"><h3>Loans</h3>${adminBtn('<button class="btn pri" data-act="addLoan">New loan</button>')}</div>
+      ${s.loans.length ? `<div class="grid g2">${s.loans.map(l => {
+        const c = Domain.loan(l), pct = Math.min(100, Math.round(c.paid / c.total * 100));
+        return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(Domain.memberName(s, l.memberId))}</b><span class="tag ${c.balance ? 'warn' : ''}">${c.balance ? 'Active' : 'Cleared'}</span></div>
+          <div class="mute num">${kes(l.principal)} at ${l.rate}% x ${l.months} mo · ${esc(l.date)}</div>
+          <div class="big num" style="margin-top:6px">${kes(c.balance)}</div><div class="mute num">left of ${kes(c.total)} · about ${kes(c.installment)}/mo</div>
+          <div class="bar"><i style="width:${pct}%"></i></div>
+          ${Auth.isAdmin() && c.balance ? `<div class="actions"><button class="btn sm pri" data-act="repay" data-id="${l.id}">Record repayment</button></div>` : ''}</div>`;
+      }).join('')}</div>` : '<div class="card empty">No loans yet.</div>'}`;
+  },
+
+  fines(s) {
+    return `<div class="head"><h3>Fines</h3><div>${adminBtn(`<button class="btn" data-act="autoFines">Fine late members</button> <button class="btn pri" data-act="addFine">Add fine</button>`)}</div></div>
+      <div class="card">${s.fines.length ? [...s.fines].reverse().map(f => `<div class="row"><div class="grow"><b>${esc(Domain.memberName(s, f.memberId))}</b><span class="mute">${esc(f.reason)} · ${esc(f.date)}</span></div>
+        <span class="num"><b>${kes(f.amount)}</b></span><span class="tag ${f.paid ? '' : 'bad'}">${f.paid ? 'Paid' : 'Unpaid'}</span>
+        ${adminBtn(`${f.paid ? '' : `<button class="btn sm" data-act="payFine" data-id="${f.id}">Mark paid</button>`}<button class="btn sm bad" data-act="delFine" data-id="${f.id}">Remove</button>`)}</div>`).join('') : '<p class="empty">No fines.</p>'}</div>`;
+  }
+};
+
+/* =====================================================================
+   6. ACTIONS  (every mutation lives here; admin-only ones are flagged)
+   ===================================================================== */
+const S = () => Store.get();
+const Actions = {
+  closeModal: () => Modal.close(),
+
+  unlock() {
+    if (Auth.isAdmin()) return;
+    Modal.open({ title: 'Treasurer access', submitLabel: 'Unlock', fields: [{ name: 'pin', label: 'PIN', type: 'password', required: true }],
+      onSubmit: v => { if (v.pin !== S().chama.pin) throw new Error('Wrong PIN'); Auth.set(true); render(); toast('Treasurer mode on'); } });
+  },
+  lock() { Auth.set(false); render(); },
+
+  settings: { admin: true, run() {
+    const c = S().chama;
+    Modal.open({ title: 'Chama settings', fields: [
+      { name: 'name', label: 'Chama name', value: c.name, required: true },
+      { name: 'monthly', label: 'Monthly contribution (KES)', type: 'number', value: c.monthly },
+      { name: 'dueDay', label: 'Due by day of month', type: 'number', value: c.dueDay },
+      { name: 'finePerLate', label: 'Late fine (KES)', type: 'number', value: c.finePerLate },
+      { name: 'loanRate', label: 'Default loan interest (% per month)', type: 'number', value: c.loanRate },
+      { name: 'startMonth', label: 'First payout month', type: 'month', value: c.startMonth },
+      { name: 'payTo', label: 'Pay to (till, paybill or number) shown in reminders', value: c.payTo },
+      { name: 'pin', label: 'Treasurer PIN', value: c.pin, required: true }],
+      onSubmit: v => {
+        const d = { ...v, monthly: num(v.monthly, 'Contribution'), dueDay: num(v.dueDay, 'Due day', { min: 1 }), finePerLate: num(v.finePerLate, 'Fine', { allowZero: true }), loanRate: num(v.loanRate, 'Rate', { allowZero: true }) };
+        if (d.dueDay > 28) throw new Error('Due day must be 1 to 28');
+        Store.commit(s => { s.chama = { ...s.chama, ...d }; });
+      } });
+  } },
+
+  addMember: { admin: true, run: () => memberForm() },
+  editMember: { admin: true, run: d => memberForm(S().members.find(m => m.id === d.id)) },
+  moveMember: { admin: true, run(d) {
+    Store.commit(s => { const i = s.members.findIndex(m => m.id === d.id); if (i > 0) [s.members[i - 1], s.members[i]] = [s.members[i], s.members[i - 1]]; });
+  } },
+
+  pay: { admin: true, run(d) {
+    const s = S(), m = s.members.find(x => x.id === d.m); if (!m) return;
+    const left = Math.max(0, s.chama.monthly - Domain.paidIn(s, m.id, d.mo));
+    Modal.open({ title: `${m.name}, ${monthLabel(d.mo)}`, fields: [
+      { name: 'amount', label: 'Amount (KES)', type: 'number', value: left || s.chama.monthly },
+      { name: 'code', label: 'M-Pesa code (optional)', placeholder: 'e.g. SJK4L2P9QX' }],
+      onSubmit: v => { const amount = num(v.amount, 'Amount'); Store.commit(st => st.payments.push({ id: uid(), memberId: m.id, month: d.mo, amount, code: (v.code || '').trim().toUpperCase(), date: todayISO() })); toast('Payment recorded'); } });
+  } },
+  delPay: { admin: true, run: d => confirmBox('Remove this payment?', () => Store.commit(s => { s.payments = s.payments.filter(p => p.id !== d.id); })) },
+
+  addLoan: { admin: true, run() {
+    const s = S(); if (!s.members.length) return toast('Add members first');
+    Modal.open({ title: 'New loan', fields: [
+      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s) },
+      { name: 'principal', label: 'Amount (KES)', type: 'number' },
+      { name: 'rate', label: 'Interest (% per month, flat)', type: 'number', value: s.chama.loanRate },
+      { name: 'months', label: 'Repay over (months)', type: 'number', value: 3 }],
+      onSubmit: v => {
+        const principal = num(v.principal, 'Amount'), rate = num(v.rate, 'Rate', { allowZero: true }), months = Math.round(num(v.months, 'Months'));
+        if (principal > Domain.cashOnHand(S())) throw new Error('Not enough cash on hand for this loan');
+        Store.commit(st => st.loans.push({ id: uid(), memberId: v.memberId, principal, rate, months, date: todayISO(), repayments: [] })); toast('Loan issued');
+      } });
+  } },
+  repay: { admin: true, run(d) {
+    const l = S().loans.find(x => x.id === d.id); if (!l) return; const c = Domain.loan(l);
+    Modal.open({ title: 'Record repayment', fields: [{ name: 'amount', label: `Amount (balance ${kes(c.balance)})`, type: 'number', value: Math.round(Math.min(c.installment, c.balance)) }],
+      onSubmit: v => { const amount = num(v.amount, 'Amount'); if (amount > c.balance + 0.5) throw new Error('More than the balance'); Store.commit(st => st.loans.find(x => x.id === l.id).repayments.push({ amount, date: todayISO() })); toast('Repayment saved'); } });
+  } },
+
+  addFine: { admin: true, run() {
+    const s = S(); if (!s.members.length) return toast('Add members first');
+    Modal.open({ title: 'Add fine', fields: [
+      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s) },
+      { name: 'amount', label: 'Amount (KES)', type: 'number', value: s.chama.finePerLate },
+      { name: 'reason', label: 'Reason', value: 'Missed meeting', required: true }],
+      onSubmit: v => Store.commit(st => st.fines.push({ id: uid(), memberId: v.memberId, amount: num(v.amount, 'Amount'), reason: v.reason.trim(), date: todayISO(), paid: false })) });
+  } },
+  autoFines: { admin: true, run() {
+    const s = S(), cur = Domain.now(), reason = 'Late contribution ' + cur, late = Domain.lateMembers(s, cur).filter(m => !s.fines.some(f => f.memberId === m.id && f.reason === reason));
+    if (!s.chama.finePerLate) return toast('Set a late fine in settings first');
+    if (!late.length) return toast('No new late members to fine');
+    confirmBox(`Fine ${late.length} late member(s) ${kes(s.chama.finePerLate)} each?`, () => Store.commit(st => late.forEach(m => st.fines.push({ id: uid(), memberId: m.id, amount: st.chama.finePerLate, reason, date: todayISO(), paid: false }))));
+  } },
+  payFine: { admin: true, run: d => Store.commit(s => { const f = s.fines.find(x => x.id === d.id); if (f) f.paid = true; }) },
+  delFine: { admin: true, run: d => confirmBox('Remove this fine?', () => Store.commit(s => { s.fines = s.fines.filter(f => f.id !== d.id); })) },
+
+  seed() {
+    const names = ['Wanjiku Kamau', 'Otieno Odhiambo', 'Faith Mwende', 'Brian Kiptoo', 'Achieng Atieno', 'Mary Njeri', 'Hassan Ali', 'Grace Wambui'];
+    const roles = ['Chair', 'Treasurer', 'Secretary'];
+    Store.commit(s => {
+      const cur = Domain.now(); s.chama.name = 'Umoja Women & Friends'; s.chama.payTo = 'Till 5123456'; s.chama.startMonth = addMonths(cur, -2);
+      s.members = names.map((n, i) => ({ id: uid(), name: n, phone: '07' + (10000000 + i * 1111111), role: roles[i] || '' }));
+      s.payments = [];
+      [-2, -1, 0].forEach(off => s.members.forEach((m, i) => {
+        const skip = (off === 0 && i % 3 === 1) || (off === -1 && i === 4);
+        if (!skip) s.payments.push({ id: uid(), memberId: m.id, month: addMonths(cur, off), amount: (off === -1 && i === 6) ? 1000 : s.chama.monthly, code: 'SK' + uid().toUpperCase(), date: todayISO() });
+      }));
+      s.loans = [{ id: uid(), memberId: s.members[3].id, principal: 5000, rate: 10, months: 3, date: todayISO(), repayments: [{ amount: 1800, date: todayISO() }] }];
+      s.fines = [{ id: uid(), memberId: s.members[4].id, amount: 100, reason: 'Late contribution ' + addMonths(cur, -1), date: todayISO(), paid: false }];
+    });
+  },
+  reset: { admin: true, run: () => confirmBox('Delete ALL chama data? This cannot be undone.', () => Store.commit(s => Object.assign(s, Store.blank()))) }
+};
+
+function memberForm(m) {
+  Modal.open({ title: m ? 'Edit member' : 'Add member', fields: [
+    { name: 'name', label: 'Full name', value: m?.name, required: true },
+    { name: 'phone', label: 'Phone (WhatsApp)', type: 'tel', value: m?.phone, placeholder: '0712345678' },
+    { name: 'role', label: 'Role (optional)', value: m?.role, placeholder: 'Chair, Treasurer, Secretary' }],
+    body: m ? `<p class="mute" style="margin-bottom:-4px"><a href="#" data-act="delMember" data-id="${m.id}" style="color:var(--bad)">Remove this member</a></p>` : '',
+    onSubmit: v => {
+      const d = { name: v.name.trim(), phone: v.phone.trim(), role: v.role.trim() };
+      if (!d.name) throw new Error('Name is required');
+      Store.commit(s => m ? Object.assign(s.members.find(x => x.id === m.id), d) : s.members.push({ id: uid(), ...d }));
+    } });
+}
+Actions.delMember = { admin: true, run: d => { Modal.close(); confirmBox('Remove member? Their past payments stay in the records.', () => Store.commit(s => { s.members = s.members.filter(m => m.id !== d.id); })); } };
+
+function confirmBox(text, onYes) {
+  Modal.open({ title: 'Please confirm', body: `<p>${esc(text)}</p>`, submitLabel: 'Yes, continue', danger: true, onSubmit: onYes });
+}
+
+/* =====================================================================
+   7. ROUTER + RENDER
+   ===================================================================== */
+const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['loans', 'Loans'], ['fines', 'Fines'], ['members', 'Members']];
+const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) ? r : 'home'; };
+
+function render() {
+  const s = Store.get(); if (!s) return;
+  const r = route(), admin = Auth.isAdmin();
+  document.title = s.chama.name;
+  $('#title').textContent = s.chama.name;
+  $('#nav').innerHTML = ROUTES.map(([k, l]) => `<a href="#/${k}" class="${k === r ? 'on' : ''}">${l}</a>`).join('');
+  $('#roleTag').textContent = admin ? 'Treasurer' : 'View only';
+  $('#lockBtn').textContent = admin ? 'Lock' : 'Treasurer';
+  $('#lockBtn').dataset.act = admin ? 'lock' : 'unlock';
+  $('#setBtn').hidden = !admin;
+  $('#view').innerHTML = Views[r](s) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = Actions[el.dataset.act]; if (!a) return;
+  e.preventDefault();
+  const fn = typeof a === 'function' ? a : a.run, needsAdmin = typeof a === 'object' && a.admin;
+  if (needsAdmin && !Auth.isAdmin()) return Actions.unlock();
+  try { fn.call(a, el.dataset); } catch (err) { toast(err.message); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close(); });
+window.addEventListener('hashchange', render);
+Store.subscribe(render);
+Store.init();
+</script>
+</body>
+</html>
