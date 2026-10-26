@@ -1,0 +1,2 @@
+{"name":"Chama","short_name":"Chama","start_url":".","display":"standalone","background_color":"#eef2f0","theme_color":"#0f7b5f",
+"icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230f7b5f'/%3E%3Ccircle cx='256' cy='256' r='120' fill='none' stroke='white' stroke-width='36'/%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml","purpose":"any"}]}
