@@ -42,7 +42,7 @@ nav a.on svg{transform:translateY(-2px) scale(1.1)}
 nav a:focus-visible{outline:2px solid #fff;outline-offset:-4px}
 nav a,nav svg{-webkit-user-drag:none;user-drag:none}
 .liquid{position:absolute;left:0;top:0;z-index:0;width:var(--lw,0px);height:var(--lh,0px);transform:translate3d(var(--lx,0px),var(--ly,0px),0);opacity:0;pointer-events:none;
-  transition:transform 1.25s cubic-bezier(.45,.05,.25,1),width .9s ease,height .9s ease,opacity .6s ease}
+  transition:transform 1s cubic-bezier(.45,.05,.25,1),width .9s ease,height .9s ease,opacity .6s ease}
 .liquid.show{opacity:1}
 .liquid.still,.liquid.drag{transition:none}
 .blob{position:absolute;inset:0;border-radius:21px;overflow:hidden;background:linear-gradient(180deg,#1aa885 0,var(--brand) 55%,var(--brand-d) 100%);
@@ -164,9 +164,62 @@ html.big body{zoom:1.15}
 @media(max-width:559px){body.adm header .hact{grid-column:1/-1;justify-content:center;max-width:none;padding-bottom:2px}}
 @media(prefers-reduced-motion:reduce){.blob::before,.blob::after,.ptitle.enter,.pg,.sheet,.veil,.mhead h3,.dh .dt{animation:none!important}.liquid.slosh .blob{animation:none}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- added: colours, dark mode, accessibility, avatars, toast colours ---- */
+html[data-mode=dark]{color-scheme:dark;--bg:#0e1815;--card:#16241f;--ink:#e8f1ee;--mute:#a3b9b2;--line:#2c403a;--brand-t:#173a2f;--brand-d:#8fe3c8;--warn:#f0b04a;--warn-t:#3a2a0c;--bad:#ff9a8c;--bad-t:#3b1814;--nav:#0a1210}
+html[data-mode=dark] body{background-image:none}
+html[data-mode=dark] .btn:not(.pri),html[data-mode=dark] .hb,html[data-mode=dark] .xbtn,html[data-mode=dark] input,html[data-mode=dark] select,html[data-mode=dark] textarea,html[data-mode=dark] .sheet,html[data-mode=dark] .drawer,html[data-mode=dark] td,html[data-mode=dark] .syncbar{background:var(--card)}
+html[data-mode=dark] th{background:#1b2c26}
+html[data-mode=dark] .cell.due{background:#223530}
+html[data-mode=dark] .dl:hover,html[data-mode=dark] .dl:focus-visible{background:#173a2f}
+html.hc{color-scheme:light;--bg:#fff;--card:#fff;--ink:#000;--mute:#1b1b1b;--line:#000;--brand:#00543b;--brand-d:#00382a;--brand-t:#fff;--warn:#5c3300;--warn-t:#fff;--bad:#8a1000;--bad-t:#fff;--nav:#000}
+html.hc body{background-image:none}
+html.hc[data-mode=dark]{--bg:#000;--card:#000;--ink:#fff;--mute:#f2f2f2;--line:#fff;--brand:#3ff0b8;--brand-d:#9bffd9;--brand-t:#000;--warn:#ffd23f;--warn-t:#000;--bad:#ff8a7a;--bad-t:#000;--nav:#000}
+html.hc .card,html.hc .btn,html.hc input,html.hc select,html.hc textarea{border-width:2px}
+html.hc .tag{border:1.5px solid currentColor}
+html[data-size=l] body{zoom:1.15}html[data-size=x] body{zoom:1.35}
+@media(max-width:799px){html[data-size=l] main,html[data-size=x] main{padding-bottom:190px}html[data-size=l] .ra,html[data-size=x] .ra{bottom:calc(200px + env(safe-area-inset-bottom))}}
+.a-sp body{letter-spacing:.04em;word-spacing:.16em;line-height:1.8}
+.a-ft body{font-family:'Atkinson Hyperlegible',Manrope,system-ui,sans-serif}
+.a-ul a{text-decoration:underline}
+.a-tg .btn,.a-tg input,.a-tg select,.a-tg textarea{min-height:52px;font-size:17px}.a-tg .btn.sm{padding:12px 16px}.a-tg .cell{padding:14px 2px}
+.a-rm *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+.a-cb .cell.paid::before{content:'\2713 '}.a-cb .cell.partial::before{content:'\25D0 '}.a-cb .cell.late::before{content:'\2716 '}.a-cb .cell.due::before{content:'\2022 '}
+.a-cb .tag.warn::before{content:'\25B2 '}.a-cb .tag.bad::before{content:'\2716 '}
+.av{width:var(--n);height:var(--n);flex:0 0 var(--n);border-radius:50%;object-fit:cover;background:var(--brand);color:#fff;font-weight:800;font-size:calc(var(--n)*.4);display:inline-grid;place-items:center;vertical-align:middle}
+.who{display:flex;align-items:center;gap:8px;min-width:0}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+label.btn{display:inline-block;margin-top:0;color:var(--ink);cursor:pointer}
+.dwho{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);font-size:16px}
+.dwho b{overflow-wrap:anywhere}
+.dl small{display:block;font-weight:500;color:var(--mute);font-size:13px;margin-top:2px}
+.dsec{border-top:1px solid var(--line);margin-top:6px;padding-top:10px;display:grid;gap:4px;padding-left:0;padding-right:0}
+.dsec .tag{justify-self:start;margin:0 18px 6px}
+.skip{position:absolute;left:8px;top:-70px;z-index:100;background:var(--card);padding:10px 14px;border-radius:8px;border:2px solid var(--brand);font-weight:800}.skip:focus{top:8px}
+.ra{position:fixed;right:14px;bottom:calc(124px + env(safe-area-inset-bottom));z-index:25;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.pcard{text-align:center;padding:22px 16px}
+.pname{font-size:21px;font-weight:800;overflow-wrap:anywhere}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);font-size:15px}
+h2+.prow{border-top:0}
+.prow span{color:var(--mute)}
+.plain{font-size:16px;line-height:1.55}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.sw{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:14px 0;font-weight:700;color:var(--ink)}
+.sw span{flex:1}.sw small{display:block;font-weight:500;color:var(--mute);font-size:13px;margin-top:2px}
+.sw b{font-size:13px;color:var(--mute)}
+.sw i{width:48px;height:28px;flex:0 0 48px;border-radius:99px;background:var(--line);position:relative}
+.sw i::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s}
+.sw[aria-checked=true] i{background:var(--brand)}.sw[aria-checked=true] i::after{left:23px}
+.sw:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+#toast{color:#fff;background:var(--ink)}
+#toast.ok{background:#0f7b5f}
+#toast.bad{background:#b83a2a}
+#toast.warn{background:#b36b00}
+#toast.info{background:#2b5fa8}
 </style>
 </head>
 <body>
+<a href="#" class="skip" data-act="skip">Skip to content</a>
 <header>
   <button class="hb" id="menuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -175,26 +228,33 @@ html.big body{zoom:1.15}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
   </a>
   <div class="hname" id="hname">
+    <small>Your chama</small>
     <h1 id="title">Chama</h1>
   </div>
   <div class="ptitle" id="pageTitle" hidden></div>
-  <div class="hact">
-    <span id="roleTag" class="tag">View only</span>
-    <button class="btn sm" id="lockBtn" data-act="unlock">Treasurer</button>
-    <button class="btn sm" data-act="undo" id="undoBtn" hidden>Undo</button>
-    <button class="btn sm" data-act="settings" id="setBtn" hidden>Edit chama</button>
-  </div>
+  <div class="hact"></div>
 </header>
 <aside class="drawer" id="drawer" hidden aria-label="Menu">
   <div class="dh"><button type="button" class="xbtn" id="drawerX" aria-label="Close menu">&times;</button><span class="dt">Menu</span><span class="xsp" aria-hidden="true"></span></div>
-  <a class="dl" href="#/profile">My profile</a>
-  <a class="dl" href="#/settings">Settings</a>
+  <div class="dwho" id="dwho"></div>
+  <a class="dl" href="#/profile">My profile<small>Your photo, details and money</small></a>
+  <a class="dl" href="#/settings">Settings<small>Text size, colours, easy reading</small></a>
+  <a class="dl" href="#/fines">Fines<small>Late fees and penalties</small></a>
+  <a class="dl" href="#/expenses">Expenses<small>Money out: meetings, welfare, investments</small></a>
+  <a class="dl" href="#/history">History<small>Every change, with before and after</small></a>
+  <a class="dl" href="#/reports">Reports and backup<small>Summaries, statements, backup</small></a>
+  <div class="dsec">
+    <span class="tag" id="roleTag">View only</span>
+    <button class="dl" data-act="undo" id="undoBtn" hidden>Undo last change</button>
+    <button class="dl" data-act="settings" id="setBtn" hidden>Edit chama details</button>
+  </div>
 </aside>
 <div class="shade" id="shade" hidden></div>
 <div id="syncBar" class="syncbar" hidden></div>
 <nav id="nav"></nav>
 <main id="view"></main>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<button id="ra" class="btn pri ra" hidden data-act="readAloud">Read this page aloud</button>
 <div id="modalRoot"></div>
 
 <script>
@@ -222,7 +282,9 @@ const monthDiff = (a, b) => { const [ya, ma] = a.split('-').map(Number), [yb, mb
 const monthLabel = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'short', year: '2-digit' }); };
 const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const sum = (arr, f) => arr.reduce((a, x) => a + (f(x) || 0), 0);
-const toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2400); };
+const TOAST_KIND = msg => /fail|error|not |please|cannot|can.t|already|enough|full|look right|should look|choose|blocked|invalid|wrong|missing|only/i.test(msg) ? 'bad'
+  : /saved|done|added|removed|recorded|signed|undid|normal|restored|copied|exported|created|updated|sent/i.test(msg) ? 'ok' : 'info';
+const toast = (msg, kind) => { const t = $('#toast'); t.textContent = msg; t.className = 'on ' + (kind || TOAST_KIND(msg)); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), (typeof A11y !== 'undefined' && A11y.d.long ? 9000 : 2400)); };
 const waLink = (phone, text) => {
   let p = String(phone || '').replace(/\D/g, '');
   if (p.startsWith('0')) p = '254' + p.slice(1);
@@ -574,10 +636,10 @@ const Signature = {
   open(title, onSave) {
     Modal.open({ title, submitLabel: 'Save signature', body: '<canvas id="sigPad" width="600" height="240" style="width:100%;height:160px;border:1px dashed var(--line);border-radius:10px;touch-action:none;background:#fff"></canvas><p class="mute" style="margin-top:6px">Sign with your finger. <a href="#" data-act="sigClear">Clear</a></p>',
       onSubmit: () => { const c = $('#sigPad'); if (!c._ink) throw new Error('Please sign first'); const o = document.createElement('canvas'); o.width = 300; o.height = 120; o.getContext('2d').drawImage(c, 0, 0, 300, 120); onSave(o.toDataURL('image/png')); } });
-    const c = $('#sigPad'), x = c.getContext('2d'); x.lineWidth = 3; x.lineCap = 'round'; x.strokeStyle = '#12231f'; let down = false;
+    const c = $('#sigPad'), x = c.getContext('2d'); x.lineWidth = 3; x.lineCap = 'round'; x.strokeStyle = '#12231f'; let down = false, last = null;
     const pt = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
-    c.addEventListener('pointerdown', e => { down = true; c.setPointerCapture(e.pointerId); const p = pt(e); x.beginPath(); x.moveTo(p[0], p[1]); });
-    c.addEventListener('pointermove', e => { if (!down) return; const p = pt(e); x.lineTo(p[0], p[1]); x.stroke(); c._ink = true; });
+    c.addEventListener('pointerdown', e => { down = true; c.setPointerCapture(e.pointerId); const p = pt(e); last = p; c._ink = true; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(p[0] + .1, p[1] + .1); x.stroke(); });
+    c.addEventListener('pointermove', e => { if (!down) return; const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; evs.forEach(ev => { const q = pt(ev); x.beginPath(); x.moveTo(last[0], last[1]); x.lineTo(q[0], q[1]); x.stroke(); last = q; c._ink = true; }); });
     ['pointerup', 'pointercancel'].forEach(t => c.addEventListener(t, () => { down = false; }));
   }
 };
@@ -591,6 +653,11 @@ const Auth = {
 };
 const adminBtn = (html) => Auth.isAdmin() ? html : '';
 
+const av = (m, n = 32) => {
+  const nm = (m && m.name) || '', ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+  return m && typeof m.photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(m.photo)
+    ? `<img class="av" style="--n:${n}px" src="${m.photo}" alt="">` : `<span class="av" style="--n:${n}px" aria-hidden="true">${esc(ini)}</span>`;
+};
 const Views = {
   profile(s) {
     const me = Me.get(), m = me.memberId ? s.members.find(x => x.id === me.memberId) : null;
@@ -612,7 +679,9 @@ const Views = {
       <p class="actions"><button class="btn pri" data-act="linkMe">Save my name</button></p>` : '<p class="mute" style="margin-top:10px">No members have been added yet.</p>'}</section>`;
     return `
     <section class="card pcard">
-      <div class="pavatar" aria-hidden="true">${esc(initials)}</div>
+      <div style="margin-bottom:10px">${av({ name, photo: (m && m.photo) || me.photo }, 88)}</div>
+      <input id="mePhoto" class="vh" type="file" accept="image/*"><label class="btn sm" for="mePhoto">${(m && m.photo) || me.photo ? 'Change photo' : 'Add a photo'}</label>
+      ${(m && m.photo) || me.photo ? '<button class="btn sm bad" data-act="removePhoto">Remove photo</button>' : ''}
       <div class="pname">${name ? esc(name) : 'Add your name below'}</div>
       <div class="mute">${esc(m && m.role ? m.role : 'Member')} in ${esc(s.chama.name)}</div>
       ${msg ? `<p style="margin-top:12px"><span class="tag ${cls}">${msg}</span></p>` : ''}
@@ -624,22 +693,27 @@ const Views = {
       <label>Email address<input id="meEmail" type="email" inputmode="email" value="${esc(me.email || '')}" placeholder="you@example.com"></label>
       <p class="mute" style="margin-top:10px">These details are only kept on this phone for now.</p>
       <p class="actions"><button class="btn pri" data-act="saveMe">Save my details</button></p>
+    </section>
+    <section class="card" style="margin-top:12px"><h2>My data</h2>
+      <p class="plain mute">Your photo is shown next to your name everywhere in this chama. You can download a copy of your own records at any time.</p>
+      <p class="actions"><button class="btn" data-act="exportMe">Download my data</button></p>
     </section>`;
   },
   settings() {
-    const large = document.documentElement.classList.contains('big'), admin = Auth.isAdmin();
-    return `
-    <section class="card"><h2>Text size</h2>
-      <p class="plain mute" style="margin-bottom:12px">Choose the size that is easiest for you to read.</p>
-      <div class="seg">
-        <button class="btn ${large ? '' : 'pri'}" data-act="textSize" data-size="normal">Normal</button>
-        <button class="btn ${large ? 'pri' : ''}" data-act="textSize" data-size="large">Large</button>
-      </div>
-    </section>
-    <section class="card" style="margin-top:12px"><h2>Treasurer mode</h2>
+    const d = A11y.d, admin = Auth.isAdmin();
+    const seg = (k, t, o) => `<section class="card" style="margin-top:12px" role="group" aria-label="${t}"><h2>${t}</h2><div class="seg">${o.map(([v, l]) => `<button class="btn ${d[k] === v ? 'pri' : ''}" aria-pressed="${d[k] === v}" data-act="a11ySet" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div></section>`;
+    const sw = (k, t, h) => `<button class="sw" role="switch" aria-checked="${!!d[k]}" data-act="a11y" data-k="${k}"><span>${t}<small>${h}</small></span><b>${d[k] ? 'On' : 'Off'}</b><i aria-hidden="true"></i></button>`;
+    const grp = (t, r) => `<section class="card" style="margin-top:12px"><h2>${t}</h2>${r.join('')}</section>`;
+    return `<p class="plain mute">Change how the app looks and works so it is easy for you. Your choices are kept on this phone.</p>`
+      + seg('size', 'Text size', [['n', 'Normal'], ['l', 'Large'], ['x', 'Extra large']])
+      + seg('theme', 'Colours', [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Same as my phone']])
+      + grp('Seeing', [sw('hc', 'Strong contrast', 'Black and white with thick lines'), sw('cb', 'Marks with colours', 'Adds a mark such as a tick or a cross, so you do not need to tell colours apart'), sw('ft', 'Easy-read lettering', 'A clear typeface made for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')])
+      + grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')])
+      + grp('Reading and messages', [sw('long', 'Keep messages longer', 'Small messages stay on the screen for 9 seconds'), sw('read', 'Read aloud button', 'Shows a button that reads the page out loud')])
+      + `<section class="card" style="margin-top:12px"><h2>Treasurer mode</h2>
       <p class="plain mute" style="margin-bottom:12px">${admin ? 'You are in treasurer mode. You can record payments and change group details. Lock the app when you are finished.' : 'Treasurer mode lets you record payments and change group details. Most members do not need it.'}</p>
-      <button class="btn ${admin ? '' : 'pri'}" data-act="${admin ? 'lock' : 'unlock'}">${admin ? 'Lock treasurer mode' : 'Open treasurer mode'}</button>
-    </section>`;
+      <button class="btn ${admin ? '' : 'pri'}" data-act="${admin ? 'lock' : 'unlock'}">${admin ? 'Lock treasurer mode' : 'Open treasurer mode'}</button></section>
+      <p class="actions"><button class="btn" data-act="a11yReset">Put everything back to normal</button></p>`;
   },
   home(s) {
     if (!s.members.length) return `<div class="card empty"><p style="margin-bottom:12px">No members yet. Add your members or load sample data to see how it works.</p>
@@ -658,13 +732,13 @@ const Views = {
       </div>
       <div class="grid g2">
         ${s.chama.mode === 'savings' ? '' : `<div class="card"><h2>This month's payout</h2>
-          <div class="big">${esc(rec.name)}</div><div class="mute num">Receives ${kes(po ? po.amount : exp)} (turn ${Math.max(1, idx + 1)} of ${s.members.length})</div>
+          <div class="big who">${av(rec, 36)}${esc(rec.name)}</div><div class="mute num">Receives ${kes(po ? po.amount : exp)} (turn ${Math.max(1, idx + 1)} of ${s.members.length})</div>
           ${po ? `<div style="margin-top:8px"><span class="tag">Sent ${kes(po.amount)} on ${esc(po.date)}</span>${sigImg(po.sig, 'Recipient signature')} ${adminBtn(`<button class="btn sm bad" data-act="undoPayout" data-id="${po.id}">Undo</button>`)}</div>` : adminBtn(`<div style="margin-top:8px"><button class="btn sm pri" data-act="markPayout" data-amt="${exp}">Mark payout as sent</button></div>`)}</div>`}
         <div class="card"><h2>Behind on ${monthLabel(cur)}</h2>
           ${late.length ? late.map(m => {
             const bal = Domain.outstanding(s, m.id, cur);
             const msg = `Hi ${m.name.split(' ')[0]}, friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} contribution balance is ${kes(bal)}.${s.chama.payTo ? ' Pay to: ' + s.chama.payTo + '.' : ''} Thank you!`;
-            return `<div class="row"><div class="grow"><b>${esc(m.name)}</b><span class="mute num">${kes(bal)} due</span></div>
+            return `<div class="row">${av(m, 30)}<div class="grow"><b>${esc(m.name)}</b><span class="mute num">${kes(bal)} due</span></div>
               ${m.phone ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(m.phone, msg)}">Remind</a>` : '<span class="mute">no phone</span>'}</div>`;
           }).join('') : `<p class="mute">${Domain.isOverdue(s, cur) ? 'Everyone is paid up.' : `Due by day ${s.chama.dueDay}. Nobody is late yet.`}</p>`}
         </div>
@@ -675,7 +749,7 @@ const Views = {
     const cur = Domain.now(), months = Array.from({ length: 6 }, (_, i) => addMonths(cur, i - 5));
     if (!s.members.length) return `<div class="card empty">Add members first.</div>`;
     const label = { paid: 'Paid', late: 'Late', due: 'Due', future: '-', na: '–' };
-    const rows = s.members.map(m => `<tr><td>${esc(m.name)}</td>${months.map(mk => {
+    const rows = s.members.map(m => `<tr><td><span class="who">${av(m, 24)}${esc(m.name)}</span></td>${months.map(mk => {
       const st = Domain.status(s, m.id, mk), paid = Domain.paidIn(s, m.id, mk);
       const text = st === 'partial' ? paid.toLocaleString('en-KE') : label[st];
       return `<td><button class="cell ${st}" ${Auth.isAdmin() && !['future', 'na'].includes(st) ? `data-act="pay" data-m="${m.id}" data-mo="${mk}"` : 'disabled'}>${text}</button></td>`;
@@ -692,7 +766,7 @@ const Views = {
     return `<div class="head"><h3>Members (${s.members.length})</h3>${adminBtn('<button class="btn pri" data-act="addMember">Add member</button>')}</div>
       <div class="card">${s.members.length ? s.members.map((m, i) => {
         const loan = Domain.memberLoanBalance(s, m.id), fine = Domain.memberFinesDue(s, m.id), rcv = sum(s.payouts.filter(p => p.memberId === m.id), p => p.amount), rel = Domain.reliability(s, m.id);
-        return `<div class="row"><div class="grow"><b>${i + 1}. <a href="#" data-act="statement" data-id="${m.id}" style="color:inherit">${esc(m.name)}</a>${(m.shares || 1) > 1 ? ` x${m.shares}` : ''} ${m.role ? `<span class="tag">${esc(m.role)}</span>` : ''}</b>
+        return `<div class="row">${av(m, 32)}<div class="grow"><b>${i + 1}. <a href="#" data-act="statement" data-id="${m.id}" style="color:inherit">${esc(m.name)}</a>${(m.shares || 1) > 1 ? ` x${m.shares}` : ''} ${m.role ? `<span class="tag">${esc(m.role)}</span>` : ''}</b>
           <span class="mute num">Saved ${kes(Domain.memberSaved(s, m.id))}${loan ? ` · Loan ${kes(loan)}` : ''}${fine ? ` · Fines ${kes(fine)}` : ''}${rcv ? ` · Received ${kes(rcv)}` : ''}${rel != null ? ` · Paid-up ${rel}%` : ''}</span></div>
           ${adminBtn(`<button class="btn sm" data-act="moveMember" data-id="${m.id}" data-d="-1" aria-label="Move up">Up</button><button class="btn sm" data-act="editMember" data-id="${m.id}">Edit</button>`)}</div>`;
       }).join('') : '<p class="empty">No members yet.</p>'}</div>
@@ -703,7 +777,7 @@ const Views = {
     return `<div class="head"><h3>Loans</h3>${adminBtn('<button class="btn pri" data-act="addLoan">New loan</button>')}</div>
       ${s.loans.length ? `<div class="grid g2">${s.loans.map(l => {
         const c = Domain.loan(l), pct = Math.min(100, Math.round(c.paid / c.total * 100));
-        return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(Domain.memberName(s, l.memberId))}</b><span class="tag ${c.balance ? 'warn' : ''}">${c.balance ? 'Active' : 'Cleared'}</span></div>
+        return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b class="who">${av(s.members.find(x => x.id === l.memberId), 28)}${esc(Domain.memberName(s, l.memberId))}</b><span class="tag ${c.balance ? 'warn' : ''}">${c.balance ? 'Active' : 'Cleared'}</span></div>
           <div class="mute num">${kes(l.principal)} at ${l.rate}% x ${l.months} mo · ${esc(l.date)}</div>
           <div class="big num" style="margin-top:6px">${kes(c.balance)}</div><div class="mute num">left of ${kes(c.total)} · about ${kes(c.installment)}/mo</div>
           <div class="bar"><i style="width:${pct}%"></i></div>
@@ -712,12 +786,6 @@ const Views = {
       }).join('')}</div>` : '<div class="card empty">No loans yet.</div>'}`;
   },
 
-  more(s) {
-    const item = (h, t, d) => `<a class="card menu" href="#/${h}"><b>${t}</b><span class="mute">${d}</span></a>`;
-    return `<div class="head"><h3>More</h3></div><div class="grid g2">
-      ${item('fines', 'Fines', 'Late fees and penalties')}${item('expenses', 'Expenses', 'Money out: meetings, welfare, investments')}
-      ${item('history', 'History', 'Every change, with before and after')}${item('reports', 'Reports and backup', 'Summaries, statements, CSV, backup')}</div>`;
-  },
 
   expenses(s) {
     return `<div class="head"><h3>Expenses</h3>${adminBtn('<button class="btn pri" data-act="addExpense">Add expense</button>')}</div>
@@ -762,13 +830,28 @@ const Actions = {
   },
   linkMe() {
     const id = $('#meLink').value; if (!id) throw new Error('Choose your name first');
-    Me.save({ ...Me.get(), memberId: id }); toast('Saved'); render();
+    const me = Me.get(); Me.save({ ...me, memberId: id }); if (me.photo) Store.commit(st => { const m = st.members.find(x => x.id === id); if (m && !m.photo) m.photo = me.photo; }, true); toast('Saved'); render();
   },
-  textSize: d => {
-    const large = d.size === 'large';
-    document.documentElement.classList.toggle('big', large);
-    try { localStorage.setItem('chama:textsize', large ? 'large' : 'normal'); } catch {}
-    render();
+  a11y: d => { A11y.d[d.k] = A11y.d[d.k] ? 0 : 1; A11y.save(); render(); A11y.refocus(`[data-act=a11y][data-k=${d.k}]`); },
+  a11ySet: d => { A11y.d[d.k] = d.v; A11y.save(); render(); A11y.refocus(`[data-act=a11ySet][data-k=${d.k}][data-v=${d.v}]`); },
+  a11yReset() { A11y.d = { ...A11y.def }; A11y.save(); render(); toast('Back to normal'); },
+  skip() { $('#view').focus(); },
+  readAloud() {
+    const ss = window.speechSynthesis, b = $('#ra'); if (!ss) throw new Error('This phone cannot read aloud');
+    if (ss.speaking) { ss.cancel(); b.textContent = 'Read this page aloud'; return; }
+    const u = new SpeechSynthesisUtterance($('#view').innerText); u.lang = 'en-KE';
+    u.onend = u.onerror = () => { b.textContent = 'Read this page aloud'; }; b.textContent = 'Stop reading'; ss.speak(u);
+  },
+  removePhoto() {
+    const me = Me.get(); delete me.photo; Me.save(me);
+    if (me.memberId) Store.commit(st => { const m = st.members.find(x => x.id === me.memberId); if (m) delete m.photo; }, true);
+    toast('Photo removed'); render();
+  },
+  exportMe() {
+    const s = S(), me = Me.get(), m = s.members.find(x => x.id === me.memberId); if (!m) throw new Error('Choose your name first');
+    const pick = a => a.filter(x => x.memberId === m.id), { photo, ...rest } = m;
+    const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), chama: s.chama.name, member: rest, payments: pick(s.payments), loans: pick(s.loans), fines: pick(s.fines), payouts: pick(s.payouts) }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'my-chama-data.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   },
 
   unlock() {
@@ -807,7 +890,7 @@ const Actions = {
     const s = S(), m = s.members.find(x => x.id === d.m); if (!m) return;
     const left = Math.max(0, Domain.dueFor(s, m.id) - Domain.paidIn(s, m.id, d.mo));
     Modal.open({ title: `${m.name}, ${monthLabel(d.mo)}`, fields: [
-      { name: 'amount', label: 'Amount (KES)', type: 'number', value: left || Domain.dueFor(s, m.id) },
+      { name: 'amount', label: 'Amount (KES)', type: 'number', placeholder: 'e.g. ' + Domain.dueFor(s, m.id).toLocaleString('en-KE') + ' (what is due)' },
       { name: 'code', label: 'M-Pesa code (optional)', placeholder: 'e.g. SJK4L2P9QX' }],
       onSubmit: v => { const amount = num(v.amount, 'Amount'); const code = (v.code || '').trim().toUpperCase(); if (code && S().payments.some(p => p.code === code)) throw new Error('That M-Pesa code is already recorded'); Store.commit(st => st.payments.push({ id: uid(), memberId: m.id, month: d.mo, amount, code: (v.code || '').trim().toUpperCase(), date: todayISO() })); toast('Payment recorded'); } });
   } },
@@ -815,7 +898,7 @@ const Actions = {
 
   markPayout: { admin: true, run(d) {
     const s = S(), rec = Domain.recipient(s), cur = Domain.now(); if (!rec) return;
-    Modal.open({ title: `Payout to ${rec.name}`, fields: [{ name: 'amount', label: 'Amount sent (KES)', type: 'number', value: d.amt }],
+    Modal.open({ title: `Payout to ${rec.name}`, fields: [{ name: 'amount', label: 'Amount sent (KES)', type: 'number', placeholder: d.amt ? 'e.g. ' + Number(d.amt).toLocaleString('en-KE') : '' }],
       onSubmit: v => { const amount = num(v.amount, 'Amount'); const id = uid(); Store.commit(st => st.payouts.push({ id, memberId: rec.id, month: cur, amount, date: todayISO() })); toast('Payout recorded');
         setTimeout(() => Signature.open(`Signature of ${rec.name}`, sig => Store.commit(st => { const p = st.payouts.find(x => x.id === id); if (p) p.sig = sig; })), 60); } });
   } },
@@ -895,7 +978,7 @@ const Actions = {
   } },
   repay: { admin: true, run(d) {
     const l = S().loans.find(x => x.id === d.id); if (!l) return; const c = Domain.loan(l);
-    Modal.open({ title: 'Record repayment', fields: [{ name: 'amount', label: `Amount (balance ${kes(c.balance)})`, type: 'number', value: Math.round(Math.min(c.installment, c.balance)) }],
+    Modal.open({ title: 'Record repayment', fields: [{ name: 'amount', label: `Amount (balance ${kes(c.balance)})`, type: 'number', placeholder: 'e.g. ' + kes(Math.round(Math.min(c.installment, c.balance))) }],
       onSubmit: v => { const amount = num(v.amount, 'Amount'); if (amount > c.balance + 0.5) throw new Error('More than the balance'); Store.commit(st => st.loans.find(x => x.id === l.id).repayments.push({ amount, date: todayISO() })); toast('Repayment saved'); } });
   } },
 
@@ -903,8 +986,8 @@ const Actions = {
     const s = S(); if (!s.members.length) return toast('Add members first');
     Modal.open({ title: 'Add fine', fields: [
       { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s) },
-      { name: 'amount', label: 'Amount (KES)', type: 'number', value: s.chama.finePerLate },
-      { name: 'reason', label: 'Reason', value: 'Missed meeting', required: true }],
+      { name: 'amount', label: 'Amount (KES)', type: 'number', placeholder: 'e.g. ' + kes(s.chama.finePerLate) },
+      { name: 'reason', label: 'Reason', placeholder: 'e.g. Missed meeting', required: true }],
       onSubmit: v => Store.commit(st => st.fines.push({ id: uid(), memberId: v.memberId, amount: num(v.amount, 'Amount'), reason: v.reason.trim(), date: todayISO(), paid: false })) });
   } },
   autoFines: { admin: true, run() {
@@ -970,20 +1053,21 @@ function confirmBox(text, onYes) {
 /* =====================================================================
    7. ROUTER + RENDER
    ===================================================================== */
-const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['loans', 'Loans'], ['members', 'Members'], ['more', 'More']];
+const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['loans', 'Loans'], ['members', 'Members'], ['profile', 'Profile']];
 const SUB = ['fines', 'expenses', 'history', 'reports'];
-const PAGES = ['profile', 'settings'];
+const PAGES = ['settings'];
 /* ---------- NAV: liquid tab bar, tap or drag ---------- */
 const NAV_ICON = {
+  profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c.8-3.9 4-6 8-6s7.2 2.1 8 6"/>',
   home: '<path d="M3 11.2 12 4l9 7.2V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/>',
   grid: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   loans: '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
   members: '<circle cx="9" cy="8.5" r="3.4"/><path d="M2.8 20c.7-3.3 3.1-5.2 6.2-5.2s5.5 1.9 6.2 5.2"/><path d="M16 4.6a3.3 3.3 0 0 1 0 6.4M18.3 14.6c1.8.6 2.9 2.2 3.3 4.4"/>',
   more: '<circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none"/>'
 };
-const NAV_LABEL = { home: 'Home', grid: 'Contribs', loans: 'Loans', members: 'Members', more: 'More' };
+const NAV_LABEL = { home: 'Home', grid: 'Contribs', loans: 'Loans', members: 'Members', profile: 'Profile' };
 const PAGE_NAME = { home: 'Home', grid: 'Contributions', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings' };
-const BACK = { fines: 'more', expenses: 'more', history: 'more', reports: 'more', profile: 'home', settings: 'home' };
+const BACK = { fines: 'home', expenses: 'home', history: 'home', reports: 'home', profile: 'home', settings: 'home' };
 let lastRoute = null;
 const restart = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
 const Nav = (() => {
@@ -994,7 +1078,7 @@ const Nav = (() => {
   const liquid = () => nav.querySelector('.liquid');
   const links = () => [...nav.querySelectorAll('a[data-k]')];
   const vertical = () => getComputedStyle(nav).flexDirection === 'column';
-  const keyFor = r => ROUTES.some(x => x[0] === r) ? r : SUB.includes(r) ? 'more' : null;
+  const keyFor = r => ROUTES.some(x => x[0] === r) ? r : SUB.includes(r) ? null : null;
   function place(key, instant) {
     const el = liquid(), a = key ? nav.querySelector(`a[data-k="${key}"]`) : null;
     links().forEach(x => x.classList.toggle('on', x === a));
@@ -1044,7 +1128,7 @@ const Nav = (() => {
     if (!moved) return;
     quiet = Date.now() + 450;
     const v = vertical(), el = liquid(), lr = el.getBoundingClientRect();
-    const c = v ? lr.top + lr.height / 2 : lr.left + lr.width / 2;
+    const c = v ? e.clientY : e.clientX;
     let best = null, bd = Infinity;
     links().forEach(a => {
       const r = a.getBoundingClientRect(), m = v ? r.top + r.height / 2 : r.left + r.width / 2, d = Math.abs(m - c);
@@ -1081,9 +1165,9 @@ function render() {
   pt.textContent = (PAGE_NAME[r] || 'Chama') + ' page';
   if (changed) { restart(pt, 'enter'); restart($('#view'), 'pg'); }
   Nav.sync(r);
+  const meD = Me.get(), mmD = meD.memberId ? s.members.find(x => x.id === meD.memberId) : null, nmD = meD.name || (mmD && mmD.name) || '';
+  $('#dwho').innerHTML = av({ name: nmD, photo: (mmD && mmD.photo) || meD.photo }, 44) + '<b>' + esc(nmD || 'Welcome') + '</b>';
   $('#roleTag').textContent = admin ? 'Treasurer' : 'View only';
-  $('#lockBtn').textContent = admin ? 'Lock' : 'Treasurer';
-  $('#lockBtn').dataset.act = admin ? 'lock' : 'unlock';
   $('#setBtn').hidden = !admin;
   $('#undoBtn').hidden = !admin;
   $('#view').innerHTML = Views[r](s) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
@@ -1099,20 +1183,54 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close(); });
 const Menu = {
-  open() { $('#drawer').hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true'); },
-  close() { $('#drawer').hidden = true; $('#shade').hidden = true; $('#menuBtn').setAttribute('aria-expanded', 'false'); }
+  open() { $('#drawer').hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true'); setTimeout(() => { const f = $('#drawer a'); if (f) f.focus(); }, 0); },
+  close() { const was = !$('#drawer').hidden; $('#drawer').hidden = true; $('#shade').hidden = true; $('#menuBtn').setAttribute('aria-expanded', 'false'); if (was) $('#menuBtn').focus(); }
 };
+$('#drawer').addEventListener('click', e => { if (e.target.closest('a,button')) Menu.close(); });
 $('#menuBtn').addEventListener('click', () => ($('#drawer').hidden ? Menu.open() : Menu.close()));
 $('#shade').addEventListener('click', () => Menu.close());
-$('#drawerX').addEventListener('click', () => Menu.close());
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Menu.close(); });
 const Me = {
   key: () => 'chama:me:' + Store.chamaId,
   get() { try { return JSON.parse(localStorage.getItem(this.key()) || 'null') || {}; } catch { return {}; } },
   save(v) { try { localStorage.setItem(this.key(), JSON.stringify(v)); } catch { toast('Storage full'); } }
 };
-if (localStorage.getItem('chama:textsize') === 'large') document.documentElement.classList.add('big');
+const A11y = {
+  key: 'chama:a11y', def: { size: 'n', theme: 'light', hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
+  load() {
+    let o = {}; try { o = JSON.parse(localStorage.getItem(this.key) || '{}') || {}; } catch {}
+    if (!o.size && localStorage.getItem('chama:textsize') === 'large') o.size = 'l';
+    this.d = { ...this.def, ...o }; this.apply();
+  },
+  save() { try { localStorage.setItem(this.key, JSON.stringify(this.d)); } catch { toast('Storage full'); } this.apply(); },
+  apply() {
+    const h = document.documentElement, d = this.d, dark = d.theme === 'dark' || (d.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    h.dataset.size = d.size; h.dataset.mode = dark ? 'dark' : 'light'; h.classList.toggle('hc', !!d.hc);
+    ['cb', 'ft', 'sp', 'ul', 'tg', 'rm'].forEach(k => h.classList.toggle('a-' + k, !!d[k]));
+    if (d.ft && !this.f) { this.f = 1; const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap'; document.head.appendChild(l); }
+    const ra = $('#ra'); if (ra) ra.hidden = !(d.read && 'speechSynthesis' in window);
+  },
+  refocus(sel) { const e = document.querySelector(sel); if (e) e.focus(); }
+};
+A11y.load();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => A11y.apply());
+const photoFrom = file => new Promise((ok, no) => {
+  const img = new Image(), u = URL.createObjectURL(file);
+  img.onload = () => { const n = Math.min(img.width, img.height), c = document.createElement('canvas'); c.width = c.height = 160;
+    c.getContext('2d').drawImage(img, (img.width - n) / 2, (img.height - n) / 2, n, n, 0, 0, 160, 160); URL.revokeObjectURL(u); ok(c.toDataURL('image/jpeg', .72)); };
+  img.onerror = () => no(new Error('That file is not a picture')); img.src = u;
+});
+document.addEventListener('change', async e => {
+  if (e.target.id !== 'mePhoto' || !e.target.files[0]) return;
+  try {
+    const url = await photoFrom(e.target.files[0]), me = Me.get(); Me.save({ ...me, photo: url });
+    if (me.memberId) Store.commit(st => { const m = st.members.find(x => x.id === me.memberId); if (m) m.photo = url; }, true);
+    toast('Photo saved'); render();
+  } catch (err) { toast(err.message); }
+});
+addEventListener('hashchange', () => { if (window.speechSynthesis) speechSynthesis.cancel(); });
 window.addEventListener('hashchange', render);
+$('#drawerX').addEventListener('click', () => Menu.close());
 Store.subscribe(render);
 Store.init();
 addEventListener('offline', () => Store.setSync('offline'));
