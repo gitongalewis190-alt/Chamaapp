@@ -699,21 +699,58 @@ const Views = {
       <p class="actions"><button class="btn" data-act="exportMe">Download my data</button></p>
     </section>`;
   },
-  settings() {
-    const d = A11y.d, admin = Auth.isAdmin();
+  settings(s, r = 'settings') {
+    const d = A11y.d, admin = Auth.isAdmin(), me = Me.get();
+    const row = (h, t, x) => `<a class="card menu" href="#/${h}" style="margin-bottom:10px"><b>${t}</b><span class="mute">${x}</span></a>`;
     const seg = (k, t, o) => `<section class="card" style="margin-top:12px" role="group" aria-label="${t}"><h2>${t}</h2><div class="seg">${o.map(([v, l]) => `<button class="btn ${d[k] === v ? 'pri' : ''}" aria-pressed="${d[k] === v}" data-act="a11ySet" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div></section>`;
     const sw = (k, t, h) => `<button class="sw" role="switch" aria-checked="${!!d[k]}" data-act="a11y" data-k="${k}"><span>${t}<small>${h}</small></span><b>${d[k] ? 'On' : 'Off'}</b><i aria-hidden="true"></i></button>`;
-    const grp = (t, r) => `<section class="card" style="margin-top:12px"><h2>${t}</h2>${r.join('')}</section>`;
-    return `<p class="plain mute">Change how the app looks and works so it is easy for you. Your choices are kept on this phone.</p>`
-      + seg('size', 'Text size', [['n', 'Normal'], ['l', 'Large'], ['x', 'Extra large']])
-      + seg('theme', 'Colours', [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Same as my phone']])
-      + grp('Seeing', [sw('hc', 'Strong contrast', 'Black and white with thick lines'), sw('cb', 'Marks with colours', 'Adds a mark such as a tick or a cross, so you do not need to tell colours apart'), sw('ft', 'Easy-read lettering', 'A clear typeface made for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')])
-      + grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')])
-      + grp('Reading and messages', [sw('long', 'Keep messages longer', 'Small messages stay on the screen for 9 seconds'), sw('read', 'Read aloud button', 'Shows a button that reads the page out loud')])
-      + `<section class="card" style="margin-top:12px"><h2>Treasurer mode</h2>
+    const grp = (t, rows) => `<section class="card" style="margin-top:12px"><h2>${t}</h2>${rows.join('')}</section>`;
+    const note = '<p class="plain mute" style="margin-bottom:12px">These choices are saved on this phone only.</p>';
+    if (r === 'settings') return `<p class="plain mute" style="margin-bottom:12px">Choose what you want to change.</p>`
+      + row('settings/account', 'My account', 'Your name, phone and email')
+      + row('settings/chama', 'Chama settings', 'Name, monthly amount, due day, fines and loans')
+      + row('settings/app', 'App preferences', 'Colours, text size, easy reading')
+      + row('reports', 'Reports and backup', 'Summaries, statements and backup')
+      + row('settings/data', 'Data and storage', 'Where your records are kept')
+      + row('settings/actions', 'Account actions', 'Treasurer mode')
+      + row('settings/about', 'About', 'App name and version');
+    if (r === 'settings/app') return note.replace('margin-bottom:12px', 'margin-bottom:4px')
+      + row('settings/app/appearance', 'Appearance', 'Light, dark or same as my phone')
+      + row('settings/app/text', 'Text size', 'Normal, large or extra large')
+      + row('settings/app/seeing', 'Seeing', 'Contrast, marks, easy-read lettering, spacing')
+      + row('settings/app/hands', 'Hands and movement', 'Bigger buttons, less movement')
+      + row('settings/app/reading', 'Reading and messages', 'Longer messages, read aloud')
+      + '<p class="actions"><button class="btn" data-act="a11yReset">Put everything back to normal</button></p>';
+    if (r === 'settings/app/appearance') return note + seg('theme', 'Colours', [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Same as my phone']]);
+    if (r === 'settings/app/text') return note + seg('size', 'Text size', [['n', 'Normal'], ['l', 'Large'], ['x', 'Extra large']]);
+    if (r === 'settings/app/seeing') return note + grp('Seeing', [sw('hc', 'Strong contrast', 'Black and white with thick lines'), sw('cb', 'Marks with colours', 'Adds a tick or a cross, so colours are not the only clue'), sw('ft', 'Easy-read lettering', 'A clear typeface made for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')]);
+    if (r === 'settings/app/hands') return note + grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')]);
+    if (r === 'settings/app/reading') return note + grp('Reading and messages', [sw('long', 'Keep messages longer', 'Small messages stay on the screen for 9 seconds'), sw('read', 'Read aloud button', 'Shows a button that reads the page out loud')]);
+    if (r === 'settings/account') return `<section class="card"><h2>Who I am</h2>
+      <div class="prow"><span>Name</span><b>${esc(me.name || 'Not added yet')}</b></div>
+      <div class="prow"><span>Phone</span><b>${esc(me.phone || 'Not added yet')}</b></div>
+      <div class="prow"><span>Email</span><b>${esc(me.email || 'Not added yet')}</b></div></section>
+      <p class="plain mute" style="margin-top:12px">To change these, open My profile. Phone and email are not checked yet.</p>
+      <p class="actions"><a class="btn pri" href="#/profile">Open my profile</a></p>`;
+    if (r === 'settings/chama') { const c = s.chama; return `<section class="card"><h2>${esc(c.name)}</h2>
+      <div class="prow"><span>Monthly amount</span><b class="num">${kes(c.monthly)}</b></div>
+      <div class="prow"><span>Due by day</span><b class="num">${esc(c.dueDay)}</b></div>
+      <div class="prow"><span>Late fine</span><b class="num">${kes(c.finePerLate)}</b></div>
+      <div class="prow"><span>Loan interest (per month)</span><b class="num">${esc(c.loanRate)}%</b></div>
+      <div class="prow"><span>Chama type</span><b>${c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round'}</b></div></section>
+      <p class="plain mute" style="margin-top:12px">${admin ? 'You are in treasurer mode, so you can change these.' : 'Only the treasurer can change these. Open treasurer mode in Account actions to edit.'}</p>
+      ${admin ? '<p class="actions"><button class="btn pri" data-act="settings">Edit chama details</button></p>' : ''}`; }
+    if (r === 'settings/data') return `<section class="card"><h2>Where records are kept</h2>
+      <p class="plain" style="margin-bottom:10px">Every record is saved on this phone as soon as you make a change.</p>
+      <p class="plain mute">${CONFIG.supabase ? 'Cloud backup is set up. A change is sent when the phone is online.' : 'Cloud backup is not set up in this app yet.'}</p></section>
+      <p class="actions"><a class="btn" href="#/reports">Reports and backup</a></p>`;
+    if (r === 'settings/actions') return `<section class="card"><h2>Treasurer mode</h2>
       <p class="plain mute" style="margin-bottom:12px">${admin ? 'You are in treasurer mode. You can record payments and change group details. Lock the app when you are finished.' : 'Treasurer mode lets you record payments and change group details. Most members do not need it.'}</p>
-      <button class="btn ${admin ? '' : 'pri'}" data-act="${admin ? 'lock' : 'unlock'}">${admin ? 'Lock treasurer mode' : 'Open treasurer mode'}</button></section>
-      <p class="actions"><button class="btn" data-act="a11yReset">Put everything back to normal</button></p>`;
+      <button class="btn ${admin ? '' : 'pri'}" data-act="${admin ? 'lock' : 'unlock'}">${admin ? 'Lock treasurer mode' : 'Open treasurer mode'}</button></section>`;
+    if (r === 'settings/about') return `<section class="card"><h2>Chama</h2>
+      <p class="plain mute">A savings and loans record for your chama.</p>
+      <div class="prow"><span>Version</span><b>1.0</b></div></section>`;
+    return '';
   },
   home(s) {
     if (!s.members.length) return `<div class="card empty"><p style="margin-bottom:12px">No members yet. Add your members or load sample data to see how it works.</p>
@@ -1066,6 +1103,7 @@ const NAV_ICON = {
   more: '<circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none"/>'
 };
 const NAV_LABEL = { home: 'Home', grid: 'Contribs', loans: 'Loans', members: 'Members', profile: 'Profile' };
+const SETTINGS_NAME = { 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/app': 'App preferences', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/actions': 'Account actions', 'settings/about': 'About' };
 const PAGE_NAME = { home: 'Home', grid: 'Contributions', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings' };
 const BACK = { fines: 'home', expenses: 'home', history: 'home', reports: 'home', profile: 'home', settings: 'home' };
 let lastRoute = null;
@@ -1147,7 +1185,7 @@ const Nav = (() => {
   window.addEventListener('resize', () => { if (cur) place(cur, true); });
   return { sync };
 })();
-const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) ? r : 'home'; };
+const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) || r.startsWith('settings/') ? r : 'home'; };
 
 function render() {
   const s = Store.get(); if (!s) return;
@@ -1161,8 +1199,9 @@ function render() {
   $('#hname').hidden = !home;
   $('#backBtn').hidden = home;
   if (BACK[r]) $('#backBtn').setAttribute('href', '#/' + BACK[r]);
+  else if (r.startsWith('settings/')) $('#backBtn').setAttribute('href', '#/' + r.slice(0, r.lastIndexOf('/')));
   pt.hidden = home;
-  pt.textContent = (PAGE_NAME[r] || 'Chama') + ' page';
+  pt.textContent = (PAGE_NAME[r] || SETTINGS_NAME[r] || 'Chama') + ' page';
   if (changed) { restart(pt, 'enter'); restart($('#view'), 'pg'); }
   Nav.sync(r);
   const meD = Me.get(), mmD = meD.memberId ? s.members.find(x => x.id === meD.memberId) : null, nmD = meD.name || (mmD && mmD.name) || '';
@@ -1170,7 +1209,7 @@ function render() {
   $('#roleTag').textContent = admin ? 'Treasurer' : 'View only';
   $('#setBtn').hidden = !admin;
   $('#undoBtn').hidden = !admin;
-  $('#view').innerHTML = Views[r](s) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
+  $('#view').innerHTML = (Views[r] ? Views[r](s) : Views.settings(s, r)) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
 }
 
 document.addEventListener('click', e => {
