@@ -23,10 +23,11 @@ button{cursor:pointer}
 .num{font-variant-numeric:tabular-nums}
 
 /* shell */
-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
-  background:rgba(238,242,240,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
-header h1{font-size:17px;font-weight:800;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-nav{position:fixed;z-index:20;left:0;right:0;bottom:0;display:flex;background:rgba(18,35,31,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding-bottom:env(safe-area-inset-bottom)}
+[hidden]{display:none!important}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+  background:var(--bg);border-bottom:1px solid var(--line)}
+header h1{font-size:18px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+nav{position:fixed;z-index:20;left:0;right:0;bottom:0;display:flex;background:#12231f;padding-bottom:env(safe-area-inset-bottom)}
 nav a{flex:1;text-align:center;padding:13px 4px;color:#9db5ad;text-decoration:none;font-size:13px;font-weight:700}
 nav a.on{color:#fff;box-shadow:inset 0 3px 0 var(--brand)}
 main{max-width:980px;margin:0 auto;padding:16px 16px 96px}
@@ -84,10 +85,35 @@ th:first-child{background:#f7faf9}
 @media(max-width:520px){#roleTag{display:none}}
 .syncbar{background:var(--warn-t);color:var(--warn);text-align:center;font-size:13px;font-weight:700;padding:6px 12px}
 @media(min-width:800px){.syncbar{margin-left:190px}}
+/* header parts */
+.hb{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;border:1px solid var(--line);background:#fff;border-radius:10px;padding:0}
+.hb svg{width:22px;height:22px;color:var(--ink)}
+.hname{flex:1;min-width:0}
+.hname small{display:block;font-size:12px;color:var(--mute);font-weight:700;margin-bottom:2px}
+.hact{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:52%}
+
+/* menu drawer */
+.shade{position:fixed;inset:0;z-index:30;background:rgba(18,35,31,.35)}
+.drawer{position:fixed;z-index:40;top:0;left:0;bottom:0;width:min(300px,84vw);background:#fff;border-right:1px solid var(--line);
+  padding:calc(18px + env(safe-area-inset-top)) 0 16px;box-shadow:4px 0 20px rgba(18,35,31,.12);display:flex;flex-direction:column}
+.drawer .dh{padding:0 18px 14px;border-bottom:1px solid var(--line);margin-bottom:6px;font-size:17px;font-weight:800}
+.dl{display:block;width:100%;text-align:left;background:none;border:0;padding:15px 18px;font-size:16px;font-weight:700;color:var(--ink);text-decoration:none;border-radius:0}
+.dl:hover,.dl:focus-visible{background:var(--brand-t);outline:none}
+
+/* my profile */
+.pcard{text-align:center;padding:22px 16px}
+.pavatar{width:72px;height:72px;border-radius:50%;margin:0 auto 10px;background:var(--brand);color:#fff;font-weight:800;font-size:26px;display:grid;place-items:center}
+.pname{font-size:21px;font-weight:800;overflow-wrap:anywhere}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);font-size:15px}
+h2+.prow{border-top:0}
+.prow span{color:var(--mute)}
+.plain{font-size:16px;line-height:1.55}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+
 /* modal + toast */
-.veil{position:fixed;inset:0;z-index:50;background:rgba(18,35,31,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center}
+.veil{position:fixed;inset:0;z-index:50;background:rgba(18,35,31,.45);display:flex;align-items:flex-end;justify-content:center}
 @media(min-width:600px){.veil{align-items:center}}
-.sheet{background:rgba(255,255,255,.96);width:100%;max-width:440px;border-radius:18px 18px 0 0;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.sheet{background:#fff;width:100%;max-width:440px;border-radius:18px 18px 0 0;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 @media(min-width:600px){.sheet{border-radius:18px}}
 .sheet h3{margin-bottom:14px}
 label{display:block;font-size:13px;font-weight:700;color:var(--mute);margin-top:12px}
@@ -96,17 +122,32 @@ input:focus,select:focus,textarea:focus,.btn:focus-visible,.cell:focus-visible{o
 .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
+html.big body{zoom:1.15}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 <header>
-  <h1 id="title">Chama</h1>
-  <span id="roleTag" class="tag">View only</span>
-  <button class="btn sm" id="lockBtn" data-act="unlock">Treasurer</button>
-  <button class="btn sm" data-act="undo" id="undoBtn" hidden>Undo</button>
-  <button class="btn sm" data-act="settings" id="setBtn" hidden>Edit chama</button>
+  <button class="hb" id="menuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="hname">
+    <small>Your chama</small>
+    <h1 id="title">Chama</h1>
+  </div>
+  <div class="hact">
+    <span id="roleTag" class="tag">View only</span>
+    <button class="btn sm" id="lockBtn" data-act="unlock">Treasurer</button>
+    <button class="btn sm" data-act="undo" id="undoBtn" hidden>Undo</button>
+    <button class="btn sm" data-act="settings" id="setBtn" hidden>Edit chama</button>
+  </div>
 </header>
+<aside class="drawer" id="drawer" hidden aria-label="Menu">
+  <div class="dh">Menu</div>
+  <a class="dl" href="#/profile">My profile</a>
+  <a class="dl" href="#/settings">Settings</a>
+</aside>
+<div class="shade" id="shade" hidden></div>
 <div id="syncBar" class="syncbar" hidden></div>
 <nav id="nav"></nav>
 <main id="view"></main>
@@ -121,7 +162,7 @@ input:focus,select:focus,textarea:focus,.btn:focus-visible,.cell:focus-visible{o
    ===================================================================== */
 const CONFIG = {
   firebase: null /* { apiKey:'', authDomain:'', projectId:'', appId:'' } */,
-  supabase: null /* { url:'https://xxxx.supabase.co', anonKey:'...' } */,
+  supabase: { url: 'https://wflnfmuxanmiamdhgrlu.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmbG5mbXV4YW5taWFtZGhncmx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMDAyNzcsImV4cCI6MjEwODc3NjI3N30.7YsCKIjlsCeVsxaA010RYzKlXQFld5lqM7C4_F4navs' },
   defaultPin: '1234'
 };
 
@@ -490,6 +531,55 @@ const Auth = {
 const adminBtn = (html) => Auth.isAdmin() ? html : '';
 
 const Views = {
+  profile(s) {
+    const me = Me.get(), m = me.memberId ? s.members.find(x => x.id === me.memberId) : null;
+    const name = me.name || (m && m.name) || '';
+    const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+    const st = m ? Domain.status(s, m.id, Domain.now()) : null;
+    const msg = { paid: 'Paid for this month', partial: 'Part paid for this month', late: 'Late. Please pay as soon as you can', due: 'Not paid yet this month' }[st] || '';
+    const cls = st === 'paid' ? '' : st === 'late' ? 'bad' : 'warn';
+    const owed = m ? sum(s.loans.filter(l => l.memberId === m.id), l => Domain.loan(l).balance) : 0;
+    const fines = m ? sum(s.fines.filter(f => f.memberId === m.id && !f.paid), f => f.amount) : 0;
+    const money = m ? `<section class="card" style="margin-top:12px"><h2>My money in this group</h2>
+      <div class="prow"><span>Monthly amount</span><b class="num">${kes(Domain.dueFor(s, m.id))}</b></div>
+      <div class="prow"><span>Paid so far</span><b class="num">${kes(Domain.memberSaved(s, m.id))}</b></div>
+      <div class="prow"><span>Loan I still owe</span><b class="num">${kes(owed)}</b></div>
+      <div class="prow"><span>Fines not yet paid</span><b class="num">${kes(fines)}</b></div></section>`
+      : `<section class="card" style="margin-top:12px"><h2>Which one am I?</h2>
+      <p class="plain mute">Choose your name from the list so the app can show your money. Your treasurer can also help you with this.</p>
+      ${s.members.length ? `<label>My name<select id="meLink"><option value="">Choose my name</option>${s.members.map(x => `<option value="${esc(x.id)}" ${me.memberId === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
+      <p class="actions"><button class="btn pri" data-act="linkMe">Save my name</button></p>` : '<p class="mute" style="margin-top:10px">No members have been added yet.</p>'}</section>`;
+    return `
+    <section class="card pcard">
+      <div class="pavatar" aria-hidden="true">${esc(initials)}</div>
+      <div class="pname">${name ? esc(name) : 'Add your name below'}</div>
+      <div class="mute">${esc(m && m.role ? m.role : 'Member')} in ${esc(s.chama.name)}</div>
+      ${msg ? `<p style="margin-top:12px"><span class="tag ${cls}">${msg}</span></p>` : ''}
+    </section>
+    ${money}
+    <section class="card" style="margin-top:12px"><h2>My details</h2>
+      <label>Full name<input id="meName" value="${esc(name)}" autocomplete="name"></label>
+      <label>Phone number<input id="mePhone" type="tel" inputmode="tel" value="${esc(me.phone || (m && m.phone) || '')}" placeholder="0712345678"></label>
+      <label>Email address<input id="meEmail" type="email" inputmode="email" value="${esc(me.email || '')}" placeholder="you@example.com"></label>
+      <p class="mute" style="margin-top:10px">These details are only kept on this phone for now.</p>
+      <p class="actions"><button class="btn pri" data-act="saveMe">Save my details</button></p>
+    </section>`;
+  },
+  settings() {
+    const large = document.documentElement.classList.contains('big'), admin = Auth.isAdmin();
+    return `
+    <section class="card"><h2>Text size</h2>
+      <p class="plain mute" style="margin-bottom:12px">Choose the size that is easiest for you to read.</p>
+      <div class="seg">
+        <button class="btn ${large ? '' : 'pri'}" data-act="textSize" data-size="normal">Normal</button>
+        <button class="btn ${large ? 'pri' : ''}" data-act="textSize" data-size="large">Large</button>
+      </div>
+    </section>
+    <section class="card" style="margin-top:12px"><h2>Treasurer mode</h2>
+      <p class="plain mute" style="margin-bottom:12px">${admin ? 'You are in treasurer mode. You can record payments and change group details. Lock the app when you are finished.' : 'Treasurer mode lets you record payments and change group details. Most members do not need it.'}</p>
+      <button class="btn ${admin ? '' : 'pri'}" data-act="${admin ? 'lock' : 'unlock'}">${admin ? 'Lock treasurer mode' : 'Open treasurer mode'}</button>
+    </section>`;
+  },
   home(s) {
     if (!s.members.length) return `<div class="card empty"><p style="margin-bottom:12px">No members yet. Add your members or load sample data to see how it works.</p>
       <button class="btn pri" data-act="unlock">Open as treasurer</button> <button class="btn" data-act="seed">Load sample data</button></div>`;
@@ -601,6 +691,24 @@ const Views = {
 const S = () => Store.get();
 const Actions = {
   closeModal: () => Modal.close(),
+  saveMe() {
+    const name = $('#meName').value.trim(), phone = $('#mePhone').value.replace(/\s/g, ''), email = $('#meEmail').value.trim();
+    if (!name) throw new Error('Please type your name');
+    if (phone && !/^(\+?254|0)[17]\d{8}$/.test(phone)) throw new Error('Phone number should look like 0712345678');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email address does not look right');
+    Me.save({ ...Me.get(), name, phone, email });
+    toast('Your details are saved'); render();
+  },
+  linkMe() {
+    const id = $('#meLink').value; if (!id) throw new Error('Choose your name first');
+    Me.save({ ...Me.get(), memberId: id }); toast('Saved'); render();
+  },
+  textSize: d => {
+    const large = d.size === 'large';
+    document.documentElement.classList.toggle('big', large);
+    try { localStorage.setItem('chama:textsize', large ? 'large' : 'normal'); } catch {}
+    render();
+  },
 
   unlock() {
     if (Auth.isAdmin()) return;
@@ -803,11 +911,13 @@ function confirmBox(text, onYes) {
    ===================================================================== */
 const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['loans', 'Loans'], ['members', 'Members'], ['more', 'More']];
 const SUB = ['fines', 'expenses', 'history', 'reports'];
-const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) ? r : 'home'; };
+const PAGES = ['profile', 'settings'];
+const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) ? r : 'home'; };
 
 function render() {
   const s = Store.get(); if (!s) return;
   const r = route(), admin = Auth.isAdmin();
+  Menu.close();
   document.title = s.chama.name;
   $('#title').textContent = s.chama.name;
   $('#nav').innerHTML = ROUTES.map(([k, l]) => `<a href="#/${k}" class="${k === r || (k === 'more' && SUB.includes(r)) ? 'on' : ''}">${l}</a>`).join('');
@@ -816,7 +926,7 @@ function render() {
   $('#lockBtn').dataset.act = admin ? 'lock' : 'unlock';
   $('#setBtn').hidden = !admin;
   $('#undoBtn').hidden = !admin;
-  $('#view').innerHTML = (SUB.includes(r) ? '<p class="mute" style="margin-bottom:10px"><a href="#/more">Back to More</a></p>' : '') + Views[r](s) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
+  $('#view').innerHTML = (SUB.includes(r) ? '<p class="mute" style="margin-bottom:10px"><a href="#/more">Back to More</a></p>' : PAGES.includes(r) ? '<p class="mute" style="margin-bottom:10px"><a href="#/home">Back to Home</a></p>' : '') + Views[r](s) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
 }
 
 document.addEventListener('click', e => {
@@ -828,6 +938,19 @@ document.addEventListener('click', e => {
   try { fn.call(a, el.dataset); } catch (err) { toast(err.message); }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close(); });
+const Menu = {
+  open() { $('#drawer').hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true'); },
+  close() { $('#drawer').hidden = true; $('#shade').hidden = true; $('#menuBtn').setAttribute('aria-expanded', 'false'); }
+};
+$('#menuBtn').addEventListener('click', () => ($('#drawer').hidden ? Menu.open() : Menu.close()));
+$('#shade').addEventListener('click', () => Menu.close());
+document.addEventListener('keydown', e => { if (e.key === 'Escape') Menu.close(); });
+const Me = {
+  key: () => 'chama:me:' + Store.chamaId,
+  get() { try { return JSON.parse(localStorage.getItem(this.key()) || 'null') || {}; } catch { return {}; } },
+  save(v) { try { localStorage.setItem(this.key(), JSON.stringify(v)); } catch { toast('Storage full'); } }
+};
+if (localStorage.getItem('chama:textsize') === 'large') document.documentElement.classList.add('big');
 window.addEventListener('hashchange', render);
 Store.subscribe(render);
 Store.init();
