@@ -407,42 +407,53 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 .dbrand b{font-size:16px}
 </style>
 <style id="otp-css">
+.btn{position:relative;overflow:hidden;transition:transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .25s ease,background .25s ease,filter .2s ease}
+.btn:hover{box-shadow:0 8px 20px rgba(15,123,95,.18);transform:translateY(-1px)}
+.btn:active{transform:scale(.94)}
+.btn.pri{background:linear-gradient(135deg,#1fa37f,#0f7b5f)}
+.btn.pri::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s ease;pointer-events:none}
+.btn.pri:hover::after{transform:translateX(120%)}
 .otp{text-align:center;margin-top:8px}
 .otp-hint{font-size:16px;color:var(--mute);margin-bottom:4px}
-.otp-stage{position:relative;height:200px;width:100%;max-width:340px;margin:0 auto;touch-action:manipulation}
-.otp-ring{position:absolute;left:50%;top:50%;width:140px;height:140px;margin:-70px;border-radius:50%;border:2px solid transparent;opacity:0;transition:opacity .5s ease,border-color 1.8s ease;pointer-events:none}
-.otp-box{position:absolute;left:50%;top:50%;width:46px;height:56px;margin:-28px 0 0 -23px;display:flex;align-items:center;justify-content:center;border:2px solid var(--line);border-radius:14px;background:var(--card);box-shadow:0 2px 8px rgba(18,35,31,.08);transform:translate(var(--x),0);transition:transform .9s cubic-bezier(.22,.8,.25,1),background .6s ease,border-color .6s ease,opacity .6s ease,box-shadow .3s ease;pointer-events:none}
-.otp-ch{font-size:24px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
-.otp-box.cur{border-color:var(--brand);box-shadow:0 0 0 4px rgba(15,123,95,.18)}
-.otp-box.on{background:#2f6fe4;border-color:#2f6fe4;animation:otpPop .45s ease}
+.otp-stage{position:relative;height:var(--sh,200px);width:100%;max-width:360px;margin:0 auto}
+.otp-ring{position:absolute;left:50%;top:50%;width:calc(var(--R,70px) * 2);height:calc(var(--R,70px) * 2);margin:calc(var(--R,70px) * -1);border-radius:50%;border:2px solid transparent;opacity:0;transition:opacity .35s ease,border-color .9s ease;pointer-events:none}
+.otp-orbit{position:absolute;left:50%;top:50%;width:0;height:0}
+.otp-box{position:absolute;left:0;top:0;width:var(--bw,46px);height:var(--bh,56px);margin:calc(var(--bh,56px) / -2) 0 0 calc(var(--bw,46px) / -2);display:flex;align-items:center;justify-content:center;border:2px solid var(--line);border-radius:14px;background:var(--card);box-shadow:0 2px 8px rgba(18,35,31,.08);transform:translate(var(--x),0);transition:transform .55s cubic-bezier(.34,1.4,.64,1),background .25s ease,border-color .25s ease,opacity .4s ease,box-shadow .25s ease;pointer-events:none}
+.otp-ch{font-size:var(--fs,24px);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.otp-box.cur{border-color:#1fa37f;box-shadow:0 0 0 4px rgba(31,163,127,.2)}
+.otp-box.on{background:linear-gradient(135deg,#1fa37f,#0f7b5f);border-color:#0f7b5f;box-shadow:0 8px 18px rgba(15,123,95,.35);animation:otpPop .32s ease}
 .otp-box.on .otp-ch{color:#fff}
-@keyframes otpPop{0%{transform:translate(var(--x),0) scale(.92)}60%{transform:translate(var(--x),0) scale(1.06)}100%{transform:translate(var(--x),0) scale(1)}}
+@keyframes otpPop{0%{transform:translate(var(--x),0) scale(.9)}60%{transform:translate(var(--x),0) scale(1.08)}100%{transform:translate(var(--x),0) scale(1)}}
 .otp.ring .otp-box{transform:translate(var(--rx),var(--ry))}
-.otp.merge .otp-box{transform:translate(0,0) scale(.5);opacity:0}
-.otp.ring .otp-ring{opacity:1;border-color:#2f6fe4}
+.otp.ring .otp-orbit{animation:otpSpin .85s linear infinite}
+.otp.grey .otp-orbit{animation-duration:1.8s}
+@keyframes otpSpin{to{transform:rotate(360deg)}}
+.otp.merge .otp-box{transform:translate(0,0) scale(.4);opacity:0}
+.otp.ring .otp-ring{opacity:1;border-color:#1fa37f}
 .otp.grey .otp-ring{border-color:#a9b7b2}
-.otp-core{position:absolute;left:50%;top:50%;width:66px;height:66px;margin:-33px;border-radius:50%;background:#a9b7b2;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.4);transition:opacity .5s ease,transform .6s cubic-bezier(.22,.8,.25,1),background .6s ease;pointer-events:none}
+.otp-core{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px;border-radius:50%;background:#a9b7b2;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.4);transition:opacity .35s ease,transform .5s cubic-bezier(.34,1.56,.64,1),background .35s ease,box-shadow .35s ease;pointer-events:none}
 .otp.merge .otp-core{opacity:1;transform:scale(1)}
-.otp.ok .otp-core{background:var(--brand)}
-.otp.bad .otp-core{background:var(--bad)}
-.otp-tick{width:30px;height:30px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:30;stroke-dashoffset:30;opacity:0;transition:stroke-dashoffset .5s ease .1s,opacity .2s}
+.otp.ok .otp-core{background:linear-gradient(135deg,#1fa37f,#0f7b5f);box-shadow:0 10px 24px rgba(15,123,95,.35)}
+.otp.bad .otp-core{background:#b83a2a;box-shadow:0 10px 24px rgba(184,58,42,.3)}
+.otp-tick{width:32px;height:32px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:30;stroke-dashoffset:30;opacity:0;transition:stroke-dashoffset .4s ease .05s,opacity .15s}
 .otp.ok .otp-tick{opacity:1;stroke-dashoffset:0}
-.otp.bad .otp-box{border-color:var(--bad);background:var(--bad-t)}
-.otp.bad .otp-box .otp-ch{color:var(--bad)}
-.otp.shake{animation:otpShake .5s}
-@keyframes otpShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(3px)}}
+.otp.bad .otp-box{border-color:#b83a2a;background:var(--bad-t)}
+.otp.bad .otp-box .otp-ch{color:#b83a2a}
+.otp.shake{animation:otpShake .45s}
+@keyframes otpShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-11px)}40%{transform:translateX(10px)}60%{transform:translateX(-6px)}80%{transform:translateX(3px)}}
 .otp-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;z-index:2;border:0;background:transparent;cursor:pointer}
 .otp.verifying .otp-input{pointer-events:none}
-.otp-msg{min-height:26px;margin:6px 0 2px;font-size:16px;font-weight:600;color:var(--mute)}
-.otp.bad .otp-msg{color:var(--bad)}
+.otp-msg{min-height:26px;margin:8px 0 2px;font-size:16px;font-weight:600;color:var(--mute);transition:color .25s ease}
+.otp.bad .otp-msg{color:#b83a2a}
 .otp.ok .otp-msg{color:var(--brand)}
 .otp-resend{font-size:15px;color:var(--mute);margin-top:4px}
-.otp-link{background:none;border:0;color:var(--brand);font:inherit;font-weight:700;padding:10px 8px;min-height:44px;cursor:pointer}
+.otp-link{background:none;border:0;color:var(--brand);font:inherit;font-weight:700;padding:10px 8px;min-height:44px;cursor:pointer;transition:transform .15s ease}
+.otp-link:active{transform:scale(.95)}
 .otp-link:disabled{color:var(--mute);cursor:default}
-@media (prefers-reduced-motion:reduce){.otp *{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){.otp *,.btn{transition:none!important;animation:none!important}}
 </style>
 </head>
-<body>
+<body><label id="hapticSw" style="position:fixed;left:-9999px;top:0;opacity:0"><input type="checkbox" switch></label>
 <div class="splash" id="splash">
   <svg class="mca-draw" id="mcaDraw" viewBox="0 0 364 132" role="img" aria-label="MCA">
     <path data-stroke="M" d="M14 118 L14 14 L70 92 L126 14 L126 118"/>
@@ -1134,14 +1145,23 @@ const { Session } = __M_src_core_session_js;
 const { esc } = __M_src_core_utils_js;
 const { $ } = __M_src_lib_dom_js;
 
+const Haptic = {
+  pulse(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} },
+  sw() { const l = document.getElementById('hapticSw'); if (l) l.click(); },
+  tap() { this.pulse(10); this.sw(); },
+  ok() { this.pulse([18, 60, 26]); this.sw(); },
+  no() { this.pulse([70, 50, 70, 50, 120]); }
+};
 const Otp = {
-  len: 6, kind: 'email', hold: false, busy: false, until: 0, timer: null,
+  len: 8, kind: 'email', hold: false, busy: false, until: 0, timer: null,
   sleep(ms) { return new Promise(r => setTimeout(r, ms)); },
   html(o) {
-    const R = 70, S = 54; let boxes = '';
-    for (let i = 0; i < this.len; i++) {
-      const x = Math.round((i - (this.len - 1) / 2) * S);
-      const a = (-90 + i * (360 / this.len)) * Math.PI / 180;
+    const n = this.len, big = n > 6;
+    const R = big ? 84 : 70, BW = big ? 36 : 46, BH = big ? 48 : 56, S = big ? 42 : 54, SH = big ? 230 : 200, FS = big ? 20 : 24;
+    let boxes = '';
+    for (let i = 0; i < n; i++) {
+      const x = Math.round((i - (n - 1) / 2) * S);
+      const a = (-90 + i * (360 / n)) * Math.PI / 180;
       const rx = Math.round(R * Math.cos(a)), ry = Math.round(R * Math.sin(a));
       boxes += `<span class="otp-box" style="--x:${x}px;--rx:${rx}px;--ry:${ry}px"><span class="otp-ch"></span></span>`;
     }
@@ -1149,10 +1169,11 @@ const Otp = {
     const change = o.change ? `<p><button class="otp-link" data-act="gateReset">Use a different email</button></p>` : '';
     return `<div class="otp" id="otpWrap">
       ${o.hint ? `<p class="otp-hint">${o.hint}</p>` : ''}
-      <div class="otp-stage" id="otpStage">
-        <span class="otp-ring"></span>${boxes}
+      <div class="otp-stage" id="otpStage" style="--sh:${SH}px;--R:${R}px;--bw:${BW}px;--bh:${BH}px;--fs:${FS}px">
+        <span class="otp-ring"></span>
+        <span class="otp-orbit">${boxes}</span>
         <span class="otp-core"><svg class="otp-tick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
-        <input id="otpIn" class="otp-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="${this.len}" aria-label="${this.len}-digit code">
+        <input id="otpIn" class="otp-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="${n}" aria-label="${n}-digit code">
       </div>
       <p class="otp-msg" id="otpMsg" role="status" aria-live="polite"></p>
       ${resend}${change}
@@ -1173,10 +1194,12 @@ const Otp = {
   },
   onInput(inp) {
     if (this.busy) return;
+    const before = inp.value.length;
     const clean = inp.value.replace(/\D/g, '').slice(0, this.len);
     if (clean !== inp.value) inp.value = clean;
     const wrap = document.getElementById('otpWrap'); if (wrap) wrap.classList.remove('bad');
     this.msg(''); this.paint(clean);
+    if (clean.length > before) Haptic.tap();
     if (clean.length === this.len) this.submit(clean);
   },
   async check(code) {
@@ -1187,9 +1210,9 @@ const Otp = {
         const id = this.kind === 'enroll' ? (Session.mfaEnroll && Session.mfaEnroll.id) : Session.mfaFactorId;
         ({ error } = await Backend.sb.auth.mfa.challengeAndVerify({ factorId: id, code }));
       }
-      if (error) return { ok: false, msg: /expired/i.test(error.message) ? 'That code has expired. Press Send again for a new one.' : "That code didn't match. Check the newest email and try again." };
+      if (error) return { ok: false, msg: /expired/i.test(error.message) ? 'That code expired. Send a fresh one.' : 'Nope. That is not the code. Check the newest email and try again.' };
       return { ok: true };
-    } catch (e) { return { ok: false, msg: 'Could not check the code. Check your connection and try again.' }; }
+    } catch (e) { return { ok: false, msg: 'Something went wrong on our side. Try again.' }; }
   },
   async submit(code) {
     const wrap = document.getElementById('otpWrap'), inp = document.getElementById('otpIn');
@@ -1203,20 +1226,22 @@ const Otp = {
     for (let i = 0; i < this.len; i++) {
       boxes[i].querySelector('.otp-ch').textContent = code[i];
       boxes[i].classList.add('on');
-      await this.sleep(500);
+      Haptic.tap();
+      await this.sleep(260);
     }
-    wrap.classList.add('ring'); await this.sleep(1100);
-    wrap.classList.add('grey'); await this.sleep(700);
-    wrap.classList.add('merge'); await this.sleep(700);
+    wrap.classList.add('ring'); await this.sleep(950);
+    wrap.classList.add('grey'); await this.sleep(600);
+    wrap.classList.add('merge'); await this.sleep(450);
     const res = await job;
     if (res.ok) {
-      wrap.classList.add('ok'); this.msg('Verified. Signing you in…');
-      await this.sleep(1000);
+      wrap.classList.add('ok'); this.msg("Verified. You're in.");
+      Haptic.ok();
+      await this.sleep(750);
       return this.done();
     }
-    wrap.classList.add('bad'); this.msg(res.msg);
-    wrap.classList.remove('merge'); await this.sleep(450);
-    wrap.classList.remove('ring', 'grey'); wrap.classList.add('shake'); await this.sleep(500);
+    wrap.classList.add('bad'); this.msg(res.msg); Haptic.no();
+    wrap.classList.remove('merge'); await this.sleep(380);
+    wrap.classList.remove('ring', 'grey'); wrap.classList.add('shake'); await this.sleep(460);
     wrap.classList.remove('shake', 'verifying');
     boxes.forEach(b => b.classList.remove('on'));
     inp.value = ''; this.paint(''); inp.disabled = false;
@@ -1237,6 +1262,7 @@ const Otp = {
   }
 };
 document.addEventListener('input', e => { if (e.target && e.target.id === 'otpIn') Otp.onInput(e.target); });
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-act]')) Haptic.tap(); }, true);
 
 const Gate = {
   email: '', sent: false,
@@ -1250,19 +1276,19 @@ const Gate = {
     const st = Session.status; let html;
     if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>');
     else if (st === 'signed-out') {
-      Otp.kind = 'email';
+      Otp.kind = 'email'; Otp.len = 8;
       html = this.sent
         ? this.card('Enter your code', Otp.html({ hint: `Sent to <b>${esc(this.email)}</b>`, change: true }))
-        : this.card('Sign in', `<p class="plain mute">Enter your email. We will send a 6-digit code.</p><label>Email address<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></label><p class="actions"><button class="btn pri" data-act="gateSend">Send code</button></p>`);
+        : this.card('Sign in', `<p class="plain mute">Enter your email. We will send an 8-digit code.</p><label>Email address<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></label><p class="actions"><button class="btn pri" data-act="gateSend">Send code</button></p>`);
     }
     else if (st === 'no-access') html = this.card('Not on the member list', `<p class="plain">${esc(Session.email)} is not a member of this chama yet. Ask the treasurer to add this email.</p><p class="actions"><button class="btn pri" data-act="gateSignOut">Start again</button></p>`);
     else if (st === 'no-chama') html = this.card('This chama is not set up yet', `<p class="plain">Start it to become its treasurer.</p><p class="actions"><button class="btn pri" data-act="gateCreate">Start this chama</button> <button class="btn" data-act="gateSignOut">Start again</button></p>`);
     else if (st === 'mfa-enroll') {
-      Otp.kind = 'enroll';
+      Otp.kind = 'enroll'; Otp.len = 6;
       const en = Session.mfaEnroll || {}; const sec = en.totp ? en.totp.secret : '';
       html = this.card('Set up two-step sign-in', `${Session.keyBlock(sec)}${Otp.html({ hint: 'Type the code from the app', resend: false })}`);
     }
-    else if (st === 'mfa-verify') { Otp.kind = 'mfa'; html = this.card('Enter your app code', Otp.html({ hint: 'From your authenticator app', resend: false })); }
+    else if (st === 'mfa-verify') { Otp.kind = 'mfa'; Otp.len = 6; html = this.card('Enter your app code', Otp.html({ hint: 'From your authenticator app', resend: false })); }
     else html = this.card('Could not connect', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button> <button class="btn" data-act="gateSignOut">Start again</button></p>`);
     $('#view').innerHTML = html;
   }
@@ -2063,11 +2089,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.6.3', released: '2026-10-30',
+  name: 'My Chama App', version: '0.6.4', released: '2026-10-30',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
+  notes: [['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 
 const PRIVACY = [
