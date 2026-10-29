@@ -216,6 +216,13 @@ h2+.prow{border-top:0}
 #toast.bad{background:#b83a2a}
 #toast.warn{background:#b36b00}
 #toast.info{background:#2b5fa8}
+a.btn{color:var(--ink);text-decoration:none;display:inline-block}a.btn.pri{color:#fff}
+details.card{margin-bottom:10px}
+details.card summary{font-weight:800;font-size:16px;cursor:pointer;padding:4px 0;list-style:none}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary::after{content:'+';float:right;color:var(--brand)}
+details.card[open] summary::after{content:'\2212'}
+details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -653,6 +660,34 @@ const Auth = {
 };
 const adminBtn = (html) => Auth.isAdmin() ? html : '';
 
+/* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
+const APP = {
+  name: 'Chama', version: '0.1.0', released: '2026-10-29',
+  support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
+  privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
+  notes: [['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, a steadier signature pad.']]
+};
+const PRIVACY = [
+  ['What we keep', 'Your name and phone number. Your email address and photo, if you add them. Your contributions, loans, repayments, fines, expenses and payouts. The signature you give on a loan form.'],
+  ['Why we keep it', 'To run your chama\'s savings and loans, and to show each member their own records.'],
+  ['Where it is kept', 'On the phone that records it. When cloud backup is on, it is also kept in the chama\'s online database. Your photo is stored inside the group record so every member can see it next to your name.'],
+  ['Who can see it', 'Right now, anyone who has your chama\'s link can open it and see the group records. Sign-in, so that each member sees only what they should, is still being added.'],
+  ['Your rights', 'Under the Kenya Data Protection Act, 2019, you can ask to be told how your information is used, to see it, to correct it, to object to its use, and to have it deleted where the law allows. Some financial records may have to be kept so the group\'s accounts stay correct.'],
+  ['How to ask', 'This app cannot take requests yet. Please ask your treasurer. You can download your own records from My profile. If you are not happy with the answer, you can complain to the Office of the Data Protection Commissioner (ODPC).']
+];
+const HELP = [
+  ['Getting started', 'Home shows the cash on hand and who is late. Contribs shows who has paid each month. Loans shows money lent and paid back. Members shows the group and the payout order. Profile is about you. The three lines at the top left open the menu: Fines, Expenses, History, Reports and backup, and Settings.'],
+  ['Record a payment', 'Only the treasurer can do this. Open Menu, then Settings, then Account actions, then Open treasurer mode, and type the PIN. Go to Contribs, tap the box for the member and the month, and type the amount.'],
+  ['Add a member', 'In treasurer mode, open Members and tap Add member. Type the name and phone number.'],
+  ['Give a loan', 'In treasurer mode, open Loans and tap New loan. Choose the member, type the amount and the months, then tap Get signature so the borrower can sign.'],
+  ['Fines', 'Open Menu, then Fines. In treasurer mode you can tap Add fine, or Fine late members to charge everyone who is late.'],
+  ['I made a mistake', 'In treasurer mode, open the Menu and tap Undo last change. Menu, then History, shows every change with before and after.'],
+  ['Save a backup', 'Open Menu, then Reports and backup. Full backup saves a file of everything. Payments CSV is for spreadsheets.'],
+  ['Make the app easier to read', 'Open Menu, then Settings, then App preferences. You can make the text bigger, use dark colours, add marks beside colours, and more.'],
+  ['I forgot the treasurer PIN', 'Ask whoever set up the chama. The treasurer can change the PIN in Edit chama details.'],
+  ['A red message says Supabase failed', 'The app could not reach the online backup, so it is saving on your phone only. Check your internet and try again.'],
+  ['Report a problem', 'Please tell your treasurer. Sending a report from inside the app is not available yet.']
+];
 const av = (m, n = 32) => {
   const nm = (m && m.name) || '', ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
   return m && typeof m.photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(m.photo)
@@ -677,6 +712,23 @@ const Views = {
       <p class="plain mute">Choose your name from the list so the app can show your money. Your treasurer can also help you with this.</p>
       ${s.members.length ? `<label>My name<select id="meLink"><option value="">Choose my name</option>${s.members.map(x => `<option value="${esc(x.id)}" ${me.memberId === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
       <p class="actions"><button class="btn pri" data-act="linkMe">Save my name</button></p>` : '<p class="mute" style="margin-top:10px">No members have been added yet.</p>'}</section>`;
+    const ph = me.phone || (m && m.phone) || '', em = me.email || '';
+    const recent = m ? s.payments.filter(p => p.memberId === m.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5) : [];
+    const more = `
+    <section class="card" style="margin-top:12px"><h2>My group</h2>
+      <div class="prow"><span>Group</span><b>${esc(s.chama.name)}</b></div>
+      <div class="prow"><span>My role</span><b>${esc((m && m.role) || 'Member')}</b></div>
+      ${m && m.joined ? `<div class="prow"><span>Joined</span><b>${esc(monthLabel(m.joined))}</b></div>` : ''}
+      <p class="plain mute" style="margin-top:10px">Other groups you belong to will show here after sign-in is added.</p></section>
+    <section class="card" style="margin-top:12px"><h2>My account</h2>
+      <div class="prow"><span>Member ID</span><b class="num">${m ? esc(String(m.id).slice(-6).toUpperCase()) : 'Not linked yet'}</b></div>
+      <div class="prow"><span>Phone</span><b>${ph ? 'Not checked yet' : 'Not added'}</b></div>
+      <div class="prow"><span>Email</span><b>${em ? 'Not checked yet' : 'Not added'}</b></div>
+      <div class="prow"><span>Sign-in</span><b>Not set up yet</b></div>
+      <p class="actions"><a class="btn" href="#/settings">Open settings</a></p></section>
+    <section class="card" style="margin-top:12px"><h2>My recent payments</h2>
+      ${recent.length ? recent.map(p => `<div class="prow"><span>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''}<br><small>${esc(p.date || '')}</small></span><b class="num">${kes(p.amount)}</b></div>`).join('') : '<p class="plain mute">No payments recorded for you yet.</p>'}
+      ${m ? `<p class="actions"><button class="btn" data-act="statement" data-id="${esc(m.id)}">View my statement</button></p>` : ''}</section>`;
     return `
     <section class="card pcard">
       <div style="margin-bottom:10px">${av({ name, photo: (m && m.photo) || me.photo }, 88)}</div>
@@ -694,6 +746,7 @@ const Views = {
       <p class="mute" style="margin-top:10px">These details are only kept on this phone for now.</p>
       <p class="actions"><button class="btn pri" data-act="saveMe">Save my details</button></p>
     </section>
+    ${more}
     <section class="card" style="margin-top:12px"><h2>My data</h2>
       <p class="plain mute">Your photo is shown next to your name everywhere in this chama. You can download a copy of your own records at any time.</p>
       <p class="actions"><button class="btn" data-act="exportMe">Download my data</button></p>
@@ -711,6 +764,8 @@ const Views = {
       + row('settings/chama', 'Chama settings', 'Name, monthly amount, due day, fines and loans')
       + row('settings/app', 'App preferences', 'Colours, text size, easy reading')
       + row('reports', 'Reports and backup', 'Summaries, statements and backup')
+      + row('settings/privacy', 'Privacy and data', 'How your information is used')
+      + row('settings/help', 'Help and support', 'Guides in simple words')
       + row('settings/data', 'Data and storage', 'Where your records are kept')
       + row('settings/actions', 'Account actions', 'Treasurer mode')
       + row('settings/about', 'About', 'App name and version');
@@ -747,9 +802,20 @@ const Views = {
     if (r === 'settings/actions') return `<section class="card"><h2>Treasurer mode</h2>
       <p class="plain mute" style="margin-bottom:12px">${admin ? 'You are in treasurer mode. You can record payments and change group details. Lock the app when you are finished.' : 'Treasurer mode lets you record payments and change group details. Most members do not need it.'}</p>
       <button class="btn ${admin ? '' : 'pri'}" data-act="${admin ? 'lock' : 'unlock'}">${admin ? 'Lock treasurer mode' : 'Open treasurer mode'}</button></section>`;
-    if (r === 'settings/about') return `<section class="card"><h2>Chama</h2>
+    if (r === 'settings/about') return `<section class="card"><h2>${esc(APP.name)}</h2>
       <p class="plain mute">A savings and loans record for your chama.</p>
-      <div class="prow"><span>Version</span><b>1.0</b></div></section>`;
+      <div class="prow"><span>Version</span><b class="num">${esc(APP.version)}</b></div>
+      <div class="prow"><span>Released</span><b class="num">${esc(APP.released)}</b></div>
+      <div class="prow"><span>Help contact</span><b>${esc(APP.support || 'Not set yet')}</b></div></section>
+      <section class="card" style="margin-top:12px"><h2>What is new</h2>${APP.notes.map(n => `<div class="prow"><span><b>${esc(n[0])}</b><br>${esc(n[1])}</span></div>`).join('')}</section>
+      <p class="plain mute" style="margin-top:12px">Terms of service have not been written yet.</p>
+      <p class="actions"><a class="btn" href="#/settings/privacy">Privacy and data</a></p>`;
+    if (r === 'settings/help') return `<p class="plain mute" style="margin-bottom:12px">Tap a question to read the answer.</p>`
+      + HELP.map(h => `<details class="card"><summary>${esc(h[0])}</summary><p class="plain">${esc(h[1])}</p></details>`).join('');
+    if (r === 'settings/privacy') return `<p style="margin-bottom:12px"><span class="tag warn">Draft for review</span></p>`
+      + PRIVACY.map(x => `<section class="card" style="margin-bottom:10px"><h2>${esc(x[0])}</h2><p class="plain">${esc(x[1])}</p></section>`).join('')
+      + `<section class="card"><h2>Privacy contact</h2><p class="plain">${esc(APP.privacyContact || 'Not set yet')}</p></section>
+      <p class="actions"><button class="btn" data-act="exportMe">Download my data</button> <a class="btn" href="#/profile">Open my profile</a></p>`;
     return '';
   },
   home(s) {
@@ -1103,7 +1169,7 @@ const NAV_ICON = {
   more: '<circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none"/>'
 };
 const NAV_LABEL = { home: 'Home', grid: 'Contribs', loans: 'Loans', members: 'Members', profile: 'Profile' };
-const SETTINGS_NAME = { 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/app': 'App preferences', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/actions': 'Account actions', 'settings/about': 'About' };
+const SETTINGS_NAME = { 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/app': 'App preferences', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/help': 'Help and support', 'settings/privacy': 'Privacy and data', 'settings/actions': 'Account actions', 'settings/about': 'About' };
 const PAGE_NAME = { home: 'Home', grid: 'Contributions', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings' };
 const BACK = { fines: 'home', expenses: 'home', history: 'home', reports: 'home', profile: 'home', settings: 'home' };
 let lastRoute = null;
