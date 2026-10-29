@@ -117,6 +117,30 @@ th:first-child{background:#f7faf9}
 .hname small{display:block;font-size:12px;color:var(--mute);font-weight:700;margin-bottom:2px}
 .hact{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;justify-content:flex-end;min-width:max-content}
 
+/* notifications, bell and help centre */
+body.menu-open #nav{visibility:hidden;opacity:0;pointer-events:none;transition:opacity .2s ease}
+.bell{position:relative;width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;border:1px solid var(--line);background:var(--card);border-radius:10px;color:var(--ink);text-decoration:none}
+.bell[hidden]{display:none}
+.bell svg{width:22px;height:22px}
+.bell .nb{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;line-height:16px;text-align:center;border:2px solid var(--bg);box-sizing:border-box}
+.bell .nb[hidden]{display:none}
+.nrow{display:flex;align-items:flex-start;gap:8px;border-top:1px solid var(--line)}
+.nitem{display:flex;gap:12px;align-items:flex-start;flex:1;min-width:0;text-align:left;background:none;border:0;padding:14px 0;color:var(--ink);font:inherit;cursor:pointer}
+.nitem .grow{flex:1;min-width:0}
+.nitem b{display:block;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
+.nitem.unread b{font-weight:800}
+.nitem .nbody{display:block;margin-top:3px;line-height:1.45;overflow-wrap:anywhere}
+.nitem small{display:block;margin-top:5px;font-size:13px}
+.ndot{width:10px;height:10px;border-radius:99px;background:var(--brand);flex:0 0 10px;margin-top:7px}
+.ndot.off{background:transparent}
+.nrow>.btn{flex:0 0 auto;margin-top:10px}
+.gh{font-size:13px;font-weight:800;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;margin:18px 0 2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.hv{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.check{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.check>div{flex:1;min-width:0}
+.check b{display:block}
+.check .plain{display:block;font-size:15px}
 /* menu drawer */
 .shade{position:fixed;inset:0;z-index:30;background:rgba(18,35,31,.35)}
 .drawer{position:fixed;z-index:40;top:0;left:0;bottom:0;width:min(300px,84vw);background:#fff;border-right:1px solid var(--line);
@@ -239,7 +263,12 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
     <h1 id="title">Chama</h1>
   </div>
   <div class="ptitle" id="pageTitle" hidden></div>
-  <div class="hact"></div>
+  <div class="hact">
+    <a class="bell" id="bell" href="#/notifications" aria-label="Notifications" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 6.5 2.5 8.5 2.5 8.5h-17S6 14.5 6 8z"/><path d="M10.2 20.2a2 2 0 0 0 3.6 0"/></svg>
+      <span class="nb" id="nbCount" hidden></span>
+    </a>
+  </div>
 </header>
 <aside class="drawer" id="drawer" hidden aria-label="Menu">
   <div class="dh"><button type="button" class="xbtn" id="drawerX" aria-label="Close menu">&times;</button><span class="dt">Menu</span><span class="xsp" aria-hidden="true"></span></div>
@@ -485,6 +514,7 @@ const Log = {
     if (ch.length) out.push({ kind: 'edit', text: 'Changed chama settings', diff: ch.map(k => `${k}: ${fmtVal(a.chama[k])} → ${fmtVal(b.chama[k])}`) });
     if (a.chama.pin !== b.chama.pin) out.push({ kind: 'edit', text: 'Changed the treasurer PIN' });
     const ts = Date.now();
+    Notify.fromChange(a, b);
     b.log = [...out.map(o => ({ id: uid(), ts, by: 'Treasurer', ...o })), ...(b.log || [])].slice(0, 300);
   }
 };
@@ -662,10 +692,11 @@ const adminBtn = (html) => Auth.isAdmin() ? html : '';
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'Chama', version: '0.1.0', released: '2026-10-29',
+  name: 'Chama', version: '0.2.0', released: '2026-10-29',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
-  notes: [['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, a steadier signature pad.']]
+  regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
+  notes: [['0.2.0', 'Notifications with a bell on the main tabs, unread counts, and What is new. Help has guides, checks and contacts. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, a steadier signature pad.']]
 };
 const PRIVACY = [
   ['What we keep', 'Your name and phone number. Your email address and photo, if you add them. Your contributions, loans, repayments, fines, expenses and payouts. The signature you give on a loan form.'],
@@ -675,24 +706,214 @@ const PRIVACY = [
   ['Your rights', 'Under the Kenya Data Protection Act, 2019, you can ask to be told how your information is used, to see it, to correct it, to object to its use, and to have it deleted where the law allows. Some financial records may have to be kept so the group\'s accounts stay correct.'],
   ['How to ask', 'This app cannot take requests yet. Please ask your treasurer. You can download your own records from My profile. If you are not happy with the answer, you can complain to the Office of the Data Protection Commissioner (ODPC).']
 ];
-const HELP = [
-  ['Getting started', 'Home shows the cash on hand and who is late. Contribs shows who has paid each month. Loans shows money lent and paid back. Members shows the group and the payout order. Profile is about you. The three lines at the top left open the menu: Fines, Expenses, History, Reports and backup, and Settings.'],
-  ['Record a payment', 'Only the treasurer can do this. Open Menu, then Settings, then Account actions, then Open treasurer mode, and type the PIN. Go to Contribs, tap the box for the member and the month, and type the amount.'],
-  ['Add a member', 'In treasurer mode, open Members and tap Add member. Type the name and phone number.'],
-  ['Give a loan', 'In treasurer mode, open Loans and tap New loan. Choose the member, type the amount and the months, then tap Get signature so the borrower can sign.'],
-  ['Fines', 'Open Menu, then Fines. In treasurer mode you can tap Add fine, or Fine late members to charge everyone who is late.'],
-  ['I made a mistake', 'In treasurer mode, open the Menu and tap Undo last change. Menu, then History, shows every change with before and after.'],
-  ['Save a backup', 'Open Menu, then Reports and backup. Full backup saves a file of everything. Payments CSV is for spreadsheets.'],
-  ['Make the app easier to read', 'Open Menu, then Settings, then App preferences. You can make the text bigger, use dark colours, add marks beside colours, and more.'],
-  ['I forgot the treasurer PIN', 'Ask whoever set up the chama. The treasurer can change the PIN in Edit chama details.'],
-  ['A red message says Supabase failed', 'The app could not reach the online backup, so it is saving on your phone only. Check your internet and try again.'],
-  ['Report a problem', 'Please tell your treasurer. Sending a report from inside the app is not available yet.']
+const HELP_ARTICLES = [
+  { id: 'start', cat: 'Getting started', q: 'Where do I find things?', a: 'Home shows the cash on hand and who is late. Contribs shows who has paid each month. Loans shows money lent and paid back. Members shows the group and the payout order. Profile is about you. The three lines at the top left open the menu.' },
+  { id: 'pay', cat: 'Payments', q: 'How is a payment recorded?', a: 'Only the treasurer records payments. Open Contribs, tap the box for the member and the month, and type the amount. The member sees a notification in Notifications.' },
+  { id: 'pay-wrong', cat: 'Payments', q: 'A payment is missing or wrong', a: 'Check the month and the member in Contribs. Open History from the menu to see every change with before and after. Ask the treasurer to correct it. Undo last change reverses only the most recent change.' },
+  { id: 'fine', cat: 'Payments', q: 'Fines', a: 'Open Menu, then Fines. In treasurer mode you can add a fine, or fine late members.' },
+  { id: 'mistake', cat: 'Payments', q: 'I made a mistake', a: 'In treasurer mode, open the Menu and tap Undo last change. Menu, then History, shows every change.' },
+  { id: 'member', cat: 'Members and loans', q: 'How do I add a member?', a: 'In treasurer mode, open Members and tap Add member. Type the name and phone number.' },
+  { id: 'loan', cat: 'Members and loans', q: 'How do I give a loan?', a: 'In treasurer mode, open Loans and tap New loan. Choose the member, type the amount and the months, then tap Get signature so the borrower can sign.' },
+  { id: 'pin', cat: 'Account and security', q: 'I forgot the treasurer PIN', a: 'Ask whoever set up the chama. The treasurer can change the PIN in Edit chama details.' },
+  { id: 'pin-changed', cat: 'Account and security', q: 'I got a "Treasurer PIN changed" notification and I did not do it', a: 'Tell the chama leaders straight away. Ask them to check who has treasurer mode open on their phone, then change the PIN.' },
+  { id: 'sync', cat: 'App and data', q: 'Changes are not reaching the cloud backup', a: 'The app saves everything on your phone first. Open Still having trouble? below and tap Run checks. If it says waiting to send, connect to the internet and keep the app open for a minute.' },
+  { id: 'easy', cat: 'App and data', q: 'Make the app easier to read', a: 'Open Menu, then Settings, then App preferences. You can make the text bigger, use dark colours, add marks beside colours, and more.' },
+  { id: 'backup', cat: 'App and data', q: 'Save a backup', a: 'Open Menu, then Reports and backup. Full backup saves a file of everything. Payments CSV is for spreadsheets.' },
+  { id: 'notif-count', cat: 'Notifications', q: 'The bell number has not gone down', a: 'Opening Notifications marks everything on the page as read. If the number still shows, open Notifications once more and check the Unread filter.' },
+  { id: 'notif-off', cat: 'Notifications', q: 'How do I turn off some notifications?', a: 'Open Notifications, then Notification settings. You can turn off contributions and app updates. Security alerts stay on so that changes to who can open treasurer mode always reach you.' },
+  { id: 'privacy', cat: 'Privacy and data', q: 'How do I see or download my information?', a: 'Open Settings, then Privacy and data, then Download my data. To ask for a correction or deletion, contact the treasurer. If you are not satisfied with the answer, contact the regulator listed under Still stuck?.' }
 ];
+
+const Help = {
+  cat: 'All', open: {}, diag: null,
+  votes() { try { return JSON.parse(localStorage.getItem('chama:help:votes') || '{}') || {}; } catch { return {}; } },
+  vote(id, v) {
+    const all = this.votes(); all[id] = v;
+    try { localStorage.setItem('chama:help:votes', JSON.stringify(all)); } catch { toast('Storage full'); }
+    if (v === 'no') this.open[id] = true;
+    render();
+  },
+  filter(q) {
+    q = String(q || '').trim().toLowerCase(); let any = false;
+    document.querySelectorAll('.hart').forEach(el => { const hit = !q || el.dataset.s.includes(q); el.hidden = !hit; any = any || hit; });
+    const none = document.getElementById('helpNone'); if (none) none.hidden = any;
+  },
+  runChecks() {
+    const s = Store.get(), out = [], probe = 'chama:help:probe', dirty = !!localStorage.getItem('chama:' + Store.chamaId + ':dirty');
+    out.push({ st: navigator.onLine ? 'ok' : 'bad', t: 'Internet connection', m: navigator.onLine ? 'This phone is connected.' : 'This phone is offline. Changes are saved and will send later.' });
+    let local = false;
+    try { localStorage.setItem(probe, '1'); local = localStorage.getItem(probe) === '1'; localStorage.removeItem(probe); } catch {}
+    out.push({ st: local ? 'ok' : 'bad', t: 'Saving on this phone', m: local ? 'Records can be saved on this phone.' : 'This phone is not letting the app save. Check that storage is not full and that private browsing is off.' });
+    out.push({ st: !CONFIG.supabase ? 'warn' : dirty ? 'warn' : 'ok', t: 'Cloud backup', m: !CONFIG.supabase ? 'Cloud backup is not set up in this app yet. Records stay on this phone.' : dirty ? 'Waiting to send. It will send when the phone is online.' : 'All changes have been sent.' });
+    out.push({ st: s && s.members ? 'ok' : 'bad', t: 'Records', m: s && s.members ? `${s.members.length} members and ${s.payments.length} payments are loaded on this phone.` : 'The records could not be read. Close the app and open it again.' });
+    out.push({ st: 'ok', t: 'App version', m: `Version ${APP.version}, released ${APP.released}.` });
+    this.diag = { at: Date.now(), out };
+    render();
+    toast(out.every(x => x.st === 'ok') ? 'All checks passed' : 'Some checks need attention');
+  },
+  reportText() {
+    const d = this.diag ? this.diag.out : [];
+    return [`${APP.name} ${APP.version} problem report`, `Chama: ${(Store.get() || {}).chama ? Store.get().chama.name : 'unknown'}`,
+      `Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })} (Nairobi time)`,
+      ...d.map(x => `${x.t}: ${x.st === 'ok' ? 'OK' : x.st === 'warn' ? 'Check' : 'Problem'}. ${x.m}`), 'What went wrong:'].join('\n');
+  },
+  copyReport() {
+    if (!this.diag) return toast('Run the checks first');
+    const text = this.reportText();
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast('Report copied'), () => toast('Could not copy. Select the text and copy it.'));
+    else toast('Copying is not supported on this phone');
+  },
+  shareReport() {
+    if (!APP.support) return toast('Support contact is not set yet');
+    if (!this.diag) return toast('Run the checks first');
+    const text = this.reportText();
+    const url = APP.support.includes('@') ? `mailto:${APP.support}?subject=${encodeURIComponent('Chama problem report')}&body=${encodeURIComponent(text)}` : waLink(APP.support, text);
+    window.open(url, '_blank', 'noopener');
+  },
+  render() {
+    const votes = this.votes(), cats = ['All', ...new Set(HELP_ARTICLES.map(a => a.cat))];
+    const chips = `<div class="chips">${cats.map(c => `<button class="btn sm ${this.cat === c ? 'pri' : ''}" aria-pressed="${this.cat === c}" data-act="helpCat" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`;
+    const arts = HELP_ARTICLES.filter(a => this.cat === 'All' || a.cat === this.cat).map(a => {
+      const v = votes[a.id];
+      const feedback = v ? `<p class="plain mute" style="margin-top:10px">${v === 'yes' ? 'Thank you for telling us.' : 'Sorry it did not help. Run the checks below, or contact support.'}</p>`
+        : `<div class="hv"><span class="mute">Did this help?</span><button class="btn sm" data-act="helpVote" data-id="${a.id}" data-v="yes">Yes</button><button class="btn sm" data-act="helpVote" data-id="${a.id}" data-v="no">No</button></div>`;
+      return `<details class="card hart" data-id="${a.id}" data-s="${esc((a.q + ' ' + a.a + ' ' + a.cat).toLowerCase())}" ${this.open[a.id] ? 'open' : ''} style="margin-bottom:10px"><summary>${esc(a.q)}</summary><p class="plain" style="margin-top:8px">${esc(a.a)}</p><small class="mute" style="display:block;margin-top:6px">${esc(a.cat)}</small>${feedback}</details>`;
+    }).join('');
+    const d = this.diag;
+    const pill = st => st === 'ok' ? '<span class="tag">OK</span>' : st === 'warn' ? '<span class="tag warn">Check</span>' : '<span class="tag bad">Problem</span>';
+    const checks = d ? d.out.map(x => `<div class="check">${pill(x.st)}<div><b>${esc(x.t)}</b><span class="plain mute">${esc(x.m)}</span></div></div>`).join('')
+      + `<p class="plain mute" style="margin-top:8px">Checked ${esc(new Date(d.at).toLocaleTimeString('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit' }))} Nairobi time.</p>`
+      : '<p class="plain mute">Run the checks to see what is working on this phone.</p>';
+    const actions = `<p class="actions" style="margin-top:12px"><button class="btn pri" data-act="helpCheck">Run checks</button>${d ? ' <button class="btn" data-act="helpCopy">Copy report</button>' : ''}${d && APP.support ? ' <button class="btn" data-act="helpShare">Send to support</button>' : ''}</p>`;
+    const regs = APP.regulators.map(r => `<div class="prow"><span>${esc(r.name)}<br><small class="mute">${esc(r.what)}</small></span><a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">Website</a></div>`).join('');
+    return `<label style="display:block;margin-bottom:6px">Search help<input id="helpQ" type="search" placeholder="Type a word, like payment or PIN" style="width:100%;margin-top:6px"></label>`
+      + chips
+      + arts
+      + `<p id="helpNone" class="plain mute" hidden>No guides match. Try another word, or contact support below.</p>`
+      + `<section class="card" style="margin-top:14px"><h2>Troubleshoot this phone</h2><p class="plain mute" style="margin-bottom:6px">Checks connection, saving and cloud backup on this phone.</p>${checks}${actions}</section>`
+      + `<section class="card" style="margin-top:12px"><h2>Still stuck?</h2>`
+      + `<div class="prow"><span>Your treasurer<br><small class="mute">Ask in person or by phone. They record payments.</small></span></div>`
+      + `<div class="prow"><span>App support<br><small class="mute">For problems with the app itself</small></span><b>${esc(APP.support || 'Not set yet')}</b></div>`
+      + `${regs}</section>`;
+  }
+};
+document.addEventListener('input', e => { if (e.target && e.target.id === 'helpQ') Help.filter(e.target.value); });
+document.addEventListener('toggle', e => { const el = e.target; if (el && el.classList && el.classList.contains('hart')) Help.open[el.dataset.id] = el.open; }, true);
+
 const av = (m, n = 32) => {
   const nm = (m && m.name) || '', ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
   return m && typeof m.photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(m.photo)
     ? `<img class="av" style="--n:${n}px" src="${m.photo}" alt="">` : `<span class="av" style="--n:${n}px" aria-hidden="true">${esc(ini)}</span>`;
 };
+/* =====================================================================
+   5a. NOTIFICATIONS
+   Events are written into state.notes inside the same commit as the change
+   (the same transaction idea as an outbox row), so they sync with the chama.
+   Reminders are worked out from the records when they are shown.
+   Read state and preferences are kept per phone and per viewer.
+   ===================================================================== */
+const NOTE_TYPES = {
+  payment_confirmed:     { cat: 'contributions', mandatory: false, label: 'Payment recorded' },
+  payment_reversed:      { cat: 'contributions', mandatory: false, label: 'Payment reversed' },
+  contribution_due_soon: { cat: 'contributions', mandatory: false, label: 'Contribution due soon' },
+  contribution_overdue:  { cat: 'contributions', mandatory: false, label: 'Contribution overdue' },
+  password_changed:      { cat: 'security', mandatory: true, label: 'Security' },
+  release_published:     { cat: 'updates', mandatory: false, label: 'App update' }
+};
+const NOTE_CATS = [
+  ['contributions', 'Contributions and payments', 'Payments recorded or reversed, and due dates'],
+  ['security', 'Security and account', 'Changes to treasurer mode. Always on'],
+  ['updates', 'App updates', 'New versions of this app']
+];
+const MANDATORY_CATS = ['security'];
+const Notify = {
+  filter: 'all', fresh: null, revealed: new Set(),
+  viewer() { const me = Me.get(), admin = Auth.isAdmin(); return { admin, memberId: me.memberId || null, key: (admin ? 'treasurer' : 'member') + ':' + (me.memberId || 'none') }; },
+  prefs() {
+    let p = {}; try { p = JSON.parse(localStorage.getItem('chama:notif:prefs:' + Store.chamaId) || '{}') || {}; } catch {}
+    return { cat: { contributions: true, security: true, updates: true, ...(p.cat || {}) }, preview: !!p.preview };
+  },
+  savePrefs(p) { try { localStorage.setItem('chama:notif:prefs:' + Store.chamaId, JSON.stringify(p)); } catch { toast('Storage full'); } },
+  readKey() { return 'chama:notif:read:' + Store.chamaId + ':' + this.viewer().key; },
+  readSet() { try { return new Set(JSON.parse(localStorage.getItem(this.readKey()) || '[]')); } catch { return new Set(); } },
+  writeSet(set) { try { localStorage.setItem(this.readKey(), JSON.stringify([...set].slice(-800))); } catch { toast('Storage full'); } },
+  markRead(ids) { const set = this.readSet(); ids.forEach(id => set.add(id)); this.writeSet(set); },
+  dayKey: ts => new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }),
+  when: ts => new Date(ts).toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+  make(type, entity, to, title, body, dest, ts) {
+    return { id: uid(), key: type + ':' + entity + ':' + to + ':' + ts, type, to, title, body, dest: dest || null, ts };
+  },
+  /* called from Log.record, so every note is written in the same commit as its change */
+  fromChange(a, b) {
+    const out = [], ts = Date.now();
+    const A = new Map((a.payments || []).map(x => [x.id, x])), B = new Map((b.payments || []).map(x => [x.id, x]));
+    B.forEach((x, id) => { if (!A.has(id)) out.push(this.make('payment_confirmed', id, x.memberId, 'Payment recorded', `${kes(x.amount)} for ${monthLabel(x.month)} has been recorded.`, '#/grid', ts)); });
+    A.forEach((x, id) => { if (!B.has(id)) out.push(this.make('payment_reversed', id, x.memberId, 'Payment reversed', `${kes(x.amount)} for ${monthLabel(x.month)} has been removed from the records.`, '#/grid', ts)); });
+    if (a.chama.pin !== b.chama.pin) out.push(this.make('password_changed', 'pin', 'treasurer', 'Treasurer PIN changed', 'The PIN that opens treasurer mode was changed. If this was not you, see Help.', '#/settings/actions', ts));
+    if (out.length) b.notes = [...out, ...(b.notes || [])].slice(0, 200);
+  },
+  derived(s, v) {
+    const out = [], mk = Domain.now(), now = new Date(), [y, mo] = mk.split('-').map(Number), dueDay = Number(s.chama.dueDay) || 10, d = now.getDate();
+    if (v.memberId && s.members.some(m => m.id === v.memberId) && Domain.status(s, v.memberId, mk) !== 'na') {
+      const owed = Domain.outstanding(s, v.memberId, mk);
+      if (owed > 0 && d >= dueDay - 3) {
+        const late = d > dueDay, type = late ? 'contribution_overdue' : 'contribution_due_soon';
+        out.push({ id: `derived:${type}:${v.memberId}:${mk}`, type, to: v.memberId,
+          title: late ? 'Contribution overdue' : 'Contribution due soon',
+          body: `${kes(owed)} is still owed. ${late ? 'It was due by day ' + dueDay + '.' : 'It is due by day ' + dueDay + ' of this month.'}`,
+          dest: '#/grid', ts: Math.min(Date.now(), new Date(y, mo - 1, dueDay, 9).getTime()) });
+      }
+    }
+    if (v.admin && Domain.isOverdue(s, mk)) {
+      const late = Domain.lateMembers(s, mk);
+      if (late.length) out.push({ id: `derived:overdue_summary:${mk}`, type: 'contribution_overdue', to: 'treasurer',
+        title: 'Late contributions', body: `${late.length} ${late.length === 1 ? 'member still owes' : 'members still owe'} for ${monthLabel(mk)}.`,
+        dest: '#/grid', ts: Math.min(Date.now(), new Date(y, mo - 1, dueDay + 1, 9).getTime()) });
+    }
+    return out;
+  },
+  releases() {
+    const ts = Date.parse(APP.released) || 0;
+    return APP.notes.slice(0, 1).map(([ver, text]) => ({ id: 'release:' + ver, type: 'release_published', to: 'all', title: `Version ${ver} is out`, body: text, dest: null, ts }));
+  },
+  visible(n, v, p) {
+    if (!n.mand && p.cat[n.cat] === false) return false;
+    if (n.to === 'all') return true;
+    if (n.to === 'treasurer') return v.admin;
+    if (v.memberId && n.to === v.memberId) return true;
+    return v.admin && n.cat === 'contributions';
+  },
+  list(s) {
+    const v = this.viewer(), p = this.prefs();
+    const all = [...(s.notes || []), ...this.derived(s, v), ...this.releases()].map(n => {
+      const t = NOTE_TYPES[n.type] || {};
+      return { ...n, cat: t.cat || 'updates', mand: !!t.mandatory };
+    });
+    return all.filter(n => this.visible(n, v, p)).sort((x, y) => y.ts - x.ts);
+  },
+  unread(s) { const r = this.readSet(); return this.list(s).filter(n => !r.has(n.id)).length; },
+  open(id) {
+    const s = Store.get(), n = this.list(s).find(x => x.id === id), r = this.readSet();
+    r.add(id); this.writeSet(r);
+    if (n && !n.dest && !this.prefs().preview) this.revealed.add(id);
+    if (n && n.dest) location.hash = n.dest; else render();
+  },
+  toggleRead(id) { const r = this.readSet(); if (r.has(id)) r.delete(id); else r.add(id); this.writeSet(r); render(); },
+  markAll() { this.markRead(this.list(Store.get()).map(n => n.id)); render(); toast('All marked as read'); },
+  setCat(k) {
+    if (MANDATORY_CATS.includes(k)) return toast('Security alerts cannot be turned off');
+    const p = this.prefs(); p.cat[k] = !p.cat[k]; this.savePrefs(p); render(); toast('Saved');
+  },
+  togglePreview() { const p = this.prefs(); p.preview = !p.preview; this.savePrefs(p); render(); toast('Saved'); },
+  resetPrefs() { this.savePrefs({ cat: { contributions: true, security: true, updates: true }, preview: false }); render(); toast('Back to normal'); },
+  paintBell(s, r) {
+    const bell = $('#bell'), badge = $('#nbCount'), n = this.unread(s);
+    bell.hidden = !ROUTES.some(x => x[0] === r);
+    bell.setAttribute('aria-label', n ? `Notifications, ${n} unread` : 'Notifications');
+    badge.hidden = !n; badge.textContent = n > 9 ? '9+' : String(n);
+  }
+};
+
 const Views = {
   profile(s) {
     const me = Me.get(), m = me.memberId ? s.members.find(x => x.id === me.memberId) : null;
@@ -807,16 +1028,50 @@ const Views = {
       <div class="prow"><span>Version</span><b class="num">${esc(APP.version)}</b></div>
       <div class="prow"><span>Released</span><b class="num">${esc(APP.released)}</b></div>
       <div class="prow"><span>Help contact</span><b>${esc(APP.support || 'Not set yet')}</b></div></section>
-      <section class="card" style="margin-top:12px"><h2>What is new</h2>${APP.notes.map(n => `<div class="prow"><span><b>${esc(n[0])}</b><br>${esc(n[1])}</span></div>`).join('')}</section>
+
       <p class="plain mute" style="margin-top:12px">Terms of service have not been written yet.</p>
       <p class="actions"><a class="btn" href="#/settings/privacy">Privacy and data</a></p>`;
-    if (r === 'settings/help') return `<p class="plain mute" style="margin-bottom:12px">Tap a question to read the answer.</p>`
-      + HELP.map(h => `<details class="card"><summary>${esc(h[0])}</summary><p class="plain">${esc(h[1])}</p></details>`).join('');
+    if (r === 'settings/help') return Help.render();
     if (r === 'settings/privacy') return `<p style="margin-bottom:12px"><span class="tag warn">Draft for review</span></p>`
       + PRIVACY.map(x => `<section class="card" style="margin-bottom:10px"><h2>${esc(x[0])}</h2><p class="plain">${esc(x[1])}</p></section>`).join('')
       + `<section class="card"><h2>Privacy contact</h2><p class="plain">${esc(APP.privacyContact || 'Not set yet')}</p></section>
       <p class="actions"><button class="btn" data-act="exportMe">Download my data</button> <a class="btn" href="#/profile">Open my profile</a></p>`;
     return '';
+  },
+  notifications(s) {
+    const list = Notify.list(s), prefs = Notify.prefs();
+    if (!Notify.fresh) {
+      /* opening the centre reads everything loaded, like opening a chat; new items are highlighted for this visit */
+      const was = Notify.readSet();
+      Notify.fresh = new Set(list.filter(n => !was.has(n.id)).map(n => n.id));
+      Notify.markRead(list.map(n => n.id));
+    }
+    const rs = Notify.readSet(), unreadOnly = Notify.filter === 'unread';
+    const shown = unreadOnly ? list.filter(n => !rs.has(n.id)) : list;
+    const row = n => {
+      const isNew = Notify.fresh.has(n.id), unread = isNew || !rs.has(n.id), showBody = prefs.preview || Notify.revealed.has(n.id);
+      const cat = (NOTE_CATS.find(c => c[0] === n.cat) || [0, 'Update'])[1];
+      return `<div class="nrow"><button class="nitem${unread ? ' unread' : ''}" data-act="noteOpen" data-id="${esc(n.id)}"><span class="ndot${unread ? '' : ' off'}" aria-hidden="true"></span><span class="grow"><b>${esc(n.title)}</b>${isNew ? ' <span class="tag">New</span>' : ''}<span class="nbody mute">${showBody ? esc(n.body) : 'Message hidden. Tap to read it.'}</span><small class="mute">${esc(cat)} · ${esc(Notify.when(n.ts))}</small></span></button><button class="btn sm" data-act="noteToggle" data-id="${esc(n.id)}">${rs.has(n.id) ? 'Mark unread' : 'Mark read'}</button></div>`;
+    };
+    const today = Notify.dayKey(Date.now());
+    const sections = [['Today', shown.filter(n => Notify.dayKey(n.ts) === today)], ['Earlier', shown.filter(n => Notify.dayKey(n.ts) !== today)]];
+    const body = shown.length
+      ? sections.filter(x => x[1].length).map(x => `<h3 class="gh">${x[0]}</h3>${x[1].map(row).join('')}`).join('')
+      : `<div class="card empty"><p>${unreadOnly ? 'Nothing unread.' : 'No notifications yet. Payments and app updates will show up here.'}</p></div>`;
+    const seg = (v, t) => `<button class="btn ${Notify.filter === v ? 'pri' : ''}" aria-pressed="${Notify.filter === v}" data-act="noteFilter" data-v="${v}">${t}</button>`;
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:4px"><div class="seg">${seg('all', 'All')}${seg('unread', 'Unread')}</div><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="noteAll">Mark all read</button><a class="btn sm" href="#/notifications/settings">Settings</a></span></div>${body}`;
+  },
+  'notifications/settings'(s) {
+    const p = Notify.prefs();
+    const sw = (k, t, h) => {
+      const on = k === 'security' ? true : p.cat[k] !== false, locked = k === 'security';
+      return `<button class="sw" role="switch" aria-checked="${on}" ${locked ? 'aria-disabled="true"' : ''} data-act="notePref" data-k="${k}"><span>${t}<small>${locked ? 'Always on. ' : ''}${h}</small></span><b>${on ? 'On' : 'Off'}</b><i aria-hidden="true"></i></button>`;
+    };
+    return `<p class="plain mute" style="margin-bottom:12px">Choose the notifications you want to see on this phone.</p>`
+      + `<section class="card"><h2>Show me</h2>${NOTE_CATS.map(c => sw(c[0], c[1], c[2])).join('')}</section>`
+      + `<section class="card" style="margin-top:12px"><h2>Message text</h2><button class="sw" role="switch" aria-checked="${p.preview}" data-act="notePreview"><span>Show message text in the list<small>Off: messages stay hidden until you tap them</small></span><b>${p.preview ? 'On' : 'Off'}</b><i aria-hidden="true"></i></button></section>`
+      + `<p class="actions" style="margin-top:12px"><button class="btn" data-act="notePrefReset">Put notifications back to normal</button></p>`
+      + `<p class="plain mute">Security alerts are always on. These choices are saved on this phone only.</p>`;
   },
   home(s) {
     if (!s.members.length) return `<div class="card empty"><p style="margin-bottom:12px">No members yet. Add your members or load sample data to see how it works.</p>
@@ -922,6 +1177,18 @@ const Views = {
    ===================================================================== */
 const S = () => Store.get();
 const Actions = {
+  noteOpen: d => Notify.open(d.id),
+  noteToggle: d => Notify.toggleRead(d.id),
+  noteAll: () => Notify.markAll(),
+  noteFilter: d => { Notify.filter = d.v; render(); },
+  notePref: d => Notify.setCat(d.k),
+  notePreview: () => Notify.togglePreview(),
+  notePrefReset: () => Notify.resetPrefs(),
+  helpCat: d => { Help.cat = d.v; render(); },
+  helpVote: d => Help.vote(d.id, d.v),
+  helpCheck: () => Help.runChecks(),
+  helpCopy: () => Help.copyReport(),
+  helpShare: () => Help.shareReport(),
   closeModal: () => Modal.close(),
   saveMe() {
     const name = $('#meName').value.trim(), phone = $('#mePhone').value.replace(/\s/g, ''), email = $('#meEmail').value.trim();
@@ -1158,7 +1425,7 @@ function confirmBox(text, onYes) {
    ===================================================================== */
 const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['loans', 'Loans'], ['members', 'Members'], ['profile', 'Profile']];
 const SUB = ['fines', 'expenses', 'history', 'reports'];
-const PAGES = ['settings'];
+const PAGES = ['settings', 'notifications'];
 /* ---------- NAV: liquid tab bar, tap or drag ---------- */
 const NAV_ICON = {
   profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c.8-3.9 4-6 8-6s7.2 2.1 8 6"/>',
@@ -1170,8 +1437,8 @@ const NAV_ICON = {
 };
 const NAV_LABEL = { home: 'Home', grid: 'Contribs', loans: 'Loans', members: 'Members', profile: 'Profile' };
 const SETTINGS_NAME = { 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/app': 'App preferences', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/help': 'Help and support', 'settings/privacy': 'Privacy and data', 'settings/actions': 'Account actions', 'settings/about': 'About' };
-const PAGE_NAME = { home: 'Home', grid: 'Contributions', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings' };
-const BACK = { fines: 'home', expenses: 'home', history: 'home', reports: 'home', profile: 'home', settings: 'home' };
+const PAGE_NAME = { home: 'Home', grid: 'Contributions', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings', notifications: 'Notifications', 'notifications/settings': 'Notification settings' };
+const BACK = { notifications: 'home', 'notifications/settings': 'notifications', fines: 'home', expenses: 'home', history: 'home', reports: 'home', profile: 'home', settings: 'home' };
 let lastRoute = null;
 const restart = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
 const Nav = (() => {
@@ -1251,7 +1518,7 @@ const Nav = (() => {
   window.addEventListener('resize', () => { if (cur) place(cur, true); });
   return { sync };
 })();
-const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) || r.startsWith('settings/') ? r : 'home'; };
+const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) || r.startsWith('settings/') || r.startsWith('notifications/') ? r : 'home'; };
 
 function render() {
   const s = Store.get(); if (!s) return;
@@ -1275,7 +1542,9 @@ function render() {
   $('#roleTag').textContent = admin ? 'Treasurer' : 'View only';
   $('#setBtn').hidden = !admin;
   $('#undoBtn').hidden = !admin;
+  if (r !== 'notifications') { Notify.fresh = null; Notify.revealed.clear(); }
   $('#view').innerHTML = (Views[r] ? Views[r](s) : Views.settings(s, r)) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
+  Notify.paintBell(s, r);
 }
 
 document.addEventListener('click', e => {
@@ -1288,8 +1557,8 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close(); });
 const Menu = {
-  open() { $('#drawer').hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true'); setTimeout(() => { const f = $('#drawer a'); if (f) f.focus(); }, 0); },
-  close() { const was = !$('#drawer').hidden; $('#drawer').hidden = true; $('#shade').hidden = true; $('#menuBtn').setAttribute('aria-expanded', 'false'); if (was) $('#menuBtn').focus(); }
+  open() { document.body.classList.add('menu-open'); $('#drawer').hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true'); setTimeout(() => { const f = $('#drawer a'); if (f) f.focus(); }, 0); },
+  close() { document.body.classList.remove('menu-open'); const was = !$('#drawer').hidden; $('#drawer').hidden = true; $('#shade').hidden = true; $('#menuBtn').setAttribute('aria-expanded', 'false'); if (was) $('#menuBtn').focus(); }
 };
 $('#drawer').addEventListener('click', e => { if (e.target.closest('a,button')) Menu.close(); });
 $('#menuBtn').addEventListener('click', () => ($('#drawer').hidden ? Menu.open() : Menu.close()));
