@@ -43,12 +43,12 @@ nav a.on svg{transform:translateY(-2px) scale(1.1)}
 nav a:focus-visible{outline:2px solid #fff;outline-offset:-4px}
 nav a,nav svg{-webkit-user-drag:none;user-drag:none}
 .liquid{position:absolute;left:0;top:0;z-index:0;width:var(--lw,0px);height:var(--lh,0px);transform:translate3d(var(--lx,0px),var(--ly,0px),0);opacity:0;pointer-events:none;
-  transition:transform 1s cubic-bezier(.45,.05,.25,1),width .9s ease,height .9s ease,opacity .6s ease}
+  transition:transform .5s cubic-bezier(.45,.05,.25,1),width .45s ease,height .45s ease,opacity .3s ease}
 .liquid.show{opacity:1}
 .liquid.still,.liquid.drag{transition:none}
 .blob{position:absolute;inset:0;border-radius:21px;overflow:hidden;background:linear-gradient(180deg,#1aa885 0,var(--brand) 55%,var(--brand-d) 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 4px 12px rgba(15,123,95,.45);transform-origin:50% 70%}
-.liquid.slosh .blob{animation:slosh 1.9s cubic-bezier(.35,.6,.35,1)}
+.liquid.slosh .blob{animation:slosh .95s cubic-bezier(.35,.6,.35,1)}
 .blob::before,.blob::after{content:"";position:absolute;left:0;top:0;width:200%;height:10px;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='10' viewBox='0 0 40 10'%3E%3Cpath d='M0 5Q10 0 20 5T40 5V10H0Z' fill='%23fff'/%3E%3C/svg%3E") 0 0/40px 10px repeat-x}
 .blob::before{opacity:.55;animation:flowA 3.6s linear infinite}
@@ -122,6 +122,11 @@ th:first-child{background:#f7faf9}
 .hname{flex:1;min-width:0}
 .hname small{display:block;font-size:12px;color:var(--mute);font-weight:700;margin-bottom:2px}
 .hact{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;justify-content:flex-end;min-width:max-content}
+/* Pin each header part to its own column. Without this, hiding the menu button (sign-in screen)
+   pushes the app name into the 44px first column and it shows as a single letter. */
+header #hname,header #pageTitle{grid-column:2;min-width:0}
+header .hact{grid-column:3}
+header .hbrand h1{font-size:clamp(16px,4.8vw,18px)}
 
 </style>
 <style>
@@ -227,7 +232,20 @@ html[data-mode=dark] .nico.danger{--tint:#3b1814;--tc:#ff9a8c}
 .drawer .dl.dfoot{margin-top:auto;margin-bottom:12px;background:var(--brand-t);border-color:transparent}
 .drawer .dsec{margin-top:4px;border-top:0;padding-top:0}
 /* menu drawer */
-.shade{position:fixed;inset:0;z-index:30;background:rgba(18,35,31,.35)}
+.shade{position:fixed;inset:0;z-index:30;background:rgba(18,35,31,.35);opacity:0;transition:opacity .25s ease}
+.shade.open{opacity:1}
+/* drawer motion: a short slide and fade, items settle in one after another, and a thin
+   marker glides to the item under the pointer or focus (or to the current page when none) */
+.drawer{transform:translateX(-14px);opacity:0;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease}
+.drawer.open{transform:none;opacity:1}
+.drawer .dl{position:relative}
+.drawer .dl[aria-current="page"]{color:var(--brand-d)}
+.drawer .dmark{position:absolute;left:5px;top:0;height:0;width:4px;border-radius:4px;background:var(--brand);opacity:0;pointer-events:none;
+  transition:top .34s cubic-bezier(.3,.7,.2,1),height .34s cubic-bezier(.3,.7,.2,1),opacity .2s ease}
+.drawer .dmark.on{opacity:1}
+.drawer.open .dl{animation:dlIn .42s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i,0) * 38ms + 70ms)}
+@keyframes dlIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.drawer,.shade,.drawer .dmark{transition:none!important}.drawer.open .dl{animation:none}}
 .drawer{position:fixed;z-index:40;top:0;left:0;bottom:0;width:min(300px,84vw);background:#fff;border-right:1px solid var(--line);
   padding:calc(18px + env(safe-area-inset-top)) 0 16px;box-shadow:4px 0 20px rgba(18,35,31,.12);display:flex;flex-direction:column}
 .drawer .dh{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:8px;padding:0 12px 12px;border-bottom:1px solid var(--line);margin-bottom:6px}
@@ -364,11 +382,20 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 .splash .word{display:flex;align-items:baseline;font:800 clamp(40px,11vw,64px)/1 Manrope,system-ui,sans-serif;white-space:nowrap}
 .splash .word span{display:inline-block;overflow:hidden;max-width:0;opacity:0;transition:max-width .9s cubic-bezier(.2,.8,.2,1),opacity .6s}
 .splash .word span.cap{max-width:1.1em;opacity:1;animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
-.splash .word span.sp{max-width:.3em;opacity:1}
+/* the word gap must have a real width: an empty inline-block with only max-width collapses to 0 */
+.splash .word span.sp{width:.28em;max-width:.28em;opacity:1}
 .splash.open .word span:not(.sp){max-width:1.1em;opacity:1}
 @keyframes rise{from{transform:translateY(18px);opacity:0}to{transform:none;opacity:1}}
-.splash .sub{font-size:14px;opacity:.8}
+.splash .word{visibility:hidden}
+.splash.open .word{visibility:visible}
+.splash .sub{font-size:14px;opacity:0;transition:opacity .7s ease}
+.splash.open .sub{opacity:.8}
 .splash .ssk{position:absolute;bottom:28px;background:none;border:0;color:#fff;opacity:.75;font:inherit;cursor:pointer}
+/* MCA drawn stroke by stroke, with a pen dot that writes it */
+.mca-draw{width:clamp(170px,58vw,280px);height:auto;overflow:visible;margin-bottom:6px}
+.mca-draw path{fill:none;stroke:#fff;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 3px rgba(0,0,0,.18))}
+.mca-draw .pen{fill:#fff;opacity:0}
+.mca-draw .pen.on{opacity:1}
 @media(prefers-reduced-motion:reduce){.splash .word span{transition:none}.splash .word span.cap{animation:none}}
 .hbrand{display:flex;align-items:center;gap:8px;min-width:0}
 .hbrand h1{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -382,6 +409,13 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 </head>
 <body>
 <div class="splash" id="splash">
+  <svg class="mca-draw" id="mcaDraw" viewBox="0 0 364 132" role="img" aria-label="MCA">
+    <path data-stroke="M" d="M14 118 L14 14 L70 92 L126 14 L126 118"/>
+    <path data-stroke="C" d="M228.7 36 A46 50 0 1 0 228.7 104"/>
+    <path data-stroke="A1" d="M262 118 L306 14 L350 118"/>
+    <path data-stroke="A2" d="M281 84 L331 84"/>
+    <circle class="pen" id="mcaPen" cx="14" cy="118" r="6.5"/>
+  </svg>
   <div class="word" id="splashWord"><span class="cap">M</span><span>y</span><span class="sp"></span><span class="cap">C</span><span>h</span><span>a</span><span>m</span><span>a</span><span class="sp"></span><span class="cap">A</span><span>p</span><span>p</span></div>
   <div class="sub">Your chama, in your pocket</div>
   <button class="ssk" id="splashSkip" type="button">Skip</button>
@@ -430,13 +464,60 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 <button id="ra" class="btn pri ra" hidden data-act="readAloud">Read this page aloud</button>
 <div id="modalRoot"></div>
 <script>
-(function(){var sp=document.getElementById('splash');
-function seen(){try{return sessionStorage.getItem('mca-splash');}catch(e){return null;}}
-if(seen()){sp.classList.add('gone');return;}
-function done(){try{sessionStorage.setItem('mca-splash','1');}catch(e){}sp.classList.add('gone');}
-setTimeout(function(){sp.classList.add('open');},1100);
-setTimeout(done,3300);
-document.getElementById('splashSkip').onclick=done;})();
+(function(){
+  var sp=document.getElementById('splash');
+  function seen(){try{return sessionStorage.getItem('mca-splash');}catch(e){return null;}}
+  if(seen()){sp.classList.add('gone');return;}
+  var finished=false, timers=[];
+  function done(){
+    if(finished) return; finished=true;
+    timers.forEach(clearTimeout);
+    try{sessionStorage.setItem('mca-splash','1');}catch(e){}
+    sp.classList.add('gone');
+  }
+  document.getElementById('splashSkip').onclick=done;
+  timers.push(setTimeout(done,7000)); /* hard stop: the splash can never block the app */
+  var reduce=false; try{reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+  var svg=document.getElementById('mcaDraw'), pen=document.getElementById('mcaPen');
+  var strokes=[].slice.call(svg.querySelectorAll('path[data-stroke]'));
+  strokes.forEach(function(p){
+    var L=p.getTotalLength(); p._L=L;
+    p.style.strokeDasharray=L+' '+L; p.style.strokeDashoffset=L;
+  });
+  if(reduce || !window.requestAnimationFrame){
+    strokes.forEach(function(p){ p.style.strokeDashoffset=0; });
+    sp.classList.add('open'); timers.push(setTimeout(done,1200)); return;
+  }
+  /* one pen writes M, then C, then A: each stroke runs at a similar pen speed, with a short lift between strokes */
+  var plan=[], t=350;
+  strokes.forEach(function(p){
+    var dur=Math.min(900,Math.max(260,p._L*2.4));
+    plan.push({p:p,start:t,dur:dur}); t+=dur+90;
+  });
+  var total=t, t0=null;
+  function ease(k){ return k<.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2; }
+  function tick(now){
+    if(finished) return;
+    if(t0===null) t0=now;
+    var el=now-t0, writing=false;
+    plan.forEach(function(s){
+      var k=(el-s.start)/s.dur;
+      if(k<=0){ s.p.style.strokeDashoffset=s.p._L; return; }
+      if(k>=1){ s.p.style.strokeDashoffset=0; return; }
+      var e=ease(k);
+      s.p.style.strokeDashoffset=s.p._L*(1-e);
+      var pt=s.p.getPointAtLength(s.p._L*e);
+      pen.setAttribute('cx',pt.x.toFixed(2)); pen.setAttribute('cy',pt.y.toFixed(2));
+      writing=true;
+    });
+    pen.classList.toggle('on',writing);
+    if(el<total){ requestAnimationFrame(tick); return; }
+    pen.classList.remove('on');
+    sp.classList.add('open');
+    timers.push(setTimeout(done,1500));
+  }
+  requestAnimationFrame(tick);
+})();
 </script>
 <script>
 /* ---- src/config.js ---- */
@@ -444,8 +525,9 @@ const __M_src_config_js = (function () {
 
 /* =====================================================================
    0. CONFIG
-   Paste your Firebase web config to go live. Leave null for local demo mode
-   (data stays in this browser). Multiple chamas: open the page with ?c=<id>
+   Cloud mode uses Supabase: set supabase to { url, anonKey } (the anon key is safe to publish;
+   Row Level Security protects the data). Set supabase to null for local demo mode
+   (data stays in this browser). Setup steps: SETUP_GUIDE.md. Multiple chamas: open the page with ?c=<id>
    ===================================================================== */
 const CONFIG = {
   firebase: null /* { apiKey:'', authDomain:'', projectId:'', appId:'' } */,
@@ -1791,11 +1873,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.5.0', released: '2026-10-29',
+  name: 'My Chama App', version: '0.5.2', released: '2026-10-29',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
+  notes: [['0.5.2', 'The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 
 const PRIVACY = [
@@ -2027,9 +2109,12 @@ const actions = {
   invite: async () => {
     const email = ($('#invEmail').value || '').trim().toLowerCase(), mid = $('#invMember').value || null, role = $('#invRole').value;
     if (!validEmail(email)) return toast('Email address does not look right');
+    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
     const { error } = await Backend.sb.rpc('invite_member', { cid: Store.chamaId, p_email: email, p_member: mid, p_role: role });
     if (error) return toast(error.message);
-    $('#invEmail').value = ''; toast('Added. They can now sign in with that email');
+    $('#invEmail').value = ''; $('#invMember').value = '';
+    toast('Added. They can now sign in with that email');
+    await Session.loadAccess(); /* refresh "People with access" so the new person appears straight away */
   },
   settings: { admin: true, run() {
     const c = S().chama;
@@ -2316,8 +2401,11 @@ const actions = {
   gateSend: async () => {
     const email = ($('#gateEmail').value || '').trim().toLowerCase();
     if (!validEmail(email)) return toast('Email address does not look right');
+    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
     Gate.email = email;
-    const { error } = await Backend.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+    /* keep ?c=<chama> in the link, or the sign-in link opens the wrong chama */
+    const back = location.origin + location.pathname + location.search;
+    const { error } = await Backend.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: back } });
     if (error) return toast(error.message);
     Gate.sent = true; render(); toast('Link sent. Check your email');
   },
@@ -2386,18 +2474,58 @@ return { get Views() { return Views; }, get Actions() { return Actions; }, };
 const __M_src_ui_menu_js = (function () {
 const { $ } = __M_src_lib_dom_js;
 
+/* Drawer: a thin marker that glides to the item under the pointer or focus, and rests on the current page */
+const Drawer = {
+  mark(item) {
+    const dr = $('#drawer'), mk = dr && dr.querySelector('.dmark'); if (!mk) return;
+    if (!item || dr.hidden) { mk.classList.remove('on'); return; }
+    mk.style.top = (item.offsetTop + item.offsetHeight * .22) + 'px';
+    mk.style.height = (item.offsetHeight * .56) + 'px';
+    mk.classList.add('on');
+  },
+  here() {
+    const h = location.hash.replace(/^#\/?/, ''), links = [...$('#drawer').querySelectorAll('a.dl[href]')];
+    let best = null;
+    links.forEach(a => {
+      a.removeAttribute('aria-current');
+      const r = a.getAttribute('href').replace(/^#\/?/, '');
+      if (r && (h === r || h.indexOf(r + '/') === 0) && (!best || r.length > best.r.length)) best = { a, r };
+    });
+    if (best) best.a.setAttribute('aria-current', 'page');
+    return best ? best.a : null;
+  },
+  init() {
+    const dr = $('#drawer'); if (!dr || dr.querySelector('.dmark')) return;
+    dr.querySelectorAll('.dl').forEach((el, i) => el.style.setProperty('--i', i));
+    const mk = document.createElement('i'); mk.className = 'dmark'; mk.setAttribute('aria-hidden', 'true'); dr.appendChild(mk);
+    dr.addEventListener('pointerover', e => { const t = e.target.closest && e.target.closest('.dl'); if (t && dr.contains(t)) this.mark(t); });
+    dr.addEventListener('pointerleave', () => this.mark(this.here()));
+    dr.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('dl')) this.mark(e.target); });
+    dr.addEventListener('focusout', () => this.mark(this.here()));
+    addEventListener('hashchange', () => { if (dr.classList.contains('open')) this.mark(this.here()); });
+  }
+};
+Drawer.init();
+
 const Menu = {
-  y: 0,
+  y: 0, timer: null,
   open() {
-    if (!$('#drawer').hidden) return;
+    const dr = $('#drawer');
+    if (dr.classList.contains('open')) return;
+    clearTimeout(this.timer);
     this.y = window.scrollY || 0;
     Object.assign(document.body.style, { position: 'fixed', top: -this.y + 'px', left: '0', right: '0', width: '100%', overflow: 'hidden' });
-    document.body.classList.add('menu-open'); $('#drawer').hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true');
-    setTimeout(() => { const f = $('#drawer a'); if (f) f.focus(); }, 0);
+    document.body.classList.add('menu-open'); dr.hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true');
+    void dr.offsetWidth; /* let the browser lay the drawer out before it animates in */
+    requestAnimationFrame(() => { dr.classList.add('open'); $('#shade').classList.add('open'); Drawer.mark(Drawer.here()); });
+    setTimeout(() => { const f = $('#drawer a'); if (f) f.focus(); Drawer.mark(Drawer.here()); }, 0);
   },
   close() {
-    const was = !$('#drawer').hidden;
-    document.body.classList.remove('menu-open'); $('#drawer').hidden = true; $('#shade').hidden = true; $('#menuBtn').setAttribute('aria-expanded', 'false');
+    const dr = $('#drawer'), was = dr.classList.contains('open');
+    document.body.classList.remove('menu-open');
+    dr.classList.remove('open'); $('#shade').classList.remove('open'); $('#menuBtn').setAttribute('aria-expanded', 'false');
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => { dr.hidden = true; $('#shade').hidden = true; }, 300); /* hide after the fade */
     if (was) { Object.assign(document.body.style, { position: '', top: '', left: '', right: '', width: '', overflow: '' }); window.scrollTo(0, this.y || 0); $('#menuBtn').focus(); }
   }
 };
@@ -2587,7 +2715,11 @@ bindRender(renderPage);
 bindChangeHandler((a, b) => Notify.fromChange(a, b));
 Nav.init();
 
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'gateEmail') Actions.gateSend(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target) return;
+  if (e.target.id === 'gateEmail') Actions.gateSend();
+  else if (e.target.id === 'invEmail') Actions.invite();
+});
 
 
 document.addEventListener('input', e => { if (e.target && e.target.id === 'helpQ') Help.filter(e.target.value); });
