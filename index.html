@@ -357,7 +357,7 @@ details.card[open] summary::after{content:'\2212'}
 details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 
 </style>
-
+<style>
 /* ---- My Chama App additions ---- */
 .splash{position:fixed;inset:0;z-index:200;background:linear-gradient(160deg,#0f7b5f,#0a5a46);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;transition:opacity .6s}
 .splash.gone{opacity:0;pointer-events:none}
@@ -368,7 +368,7 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 .splash.open .word span:not(.sp){max-width:1.1em;opacity:1}
 @keyframes rise{from{transform:translateY(18px);opacity:0}to{transform:none;opacity:1}}
 .splash .sub{font-size:14px;opacity:.8}
-.splash .skip{position:absolute;bottom:28px;background:none;border:0;color:#fff;opacity:.75;font:inherit;cursor:pointer}
+.splash .ssk{position:absolute;bottom:28px;background:none;border:0;color:#fff;opacity:.75;font:inherit;cursor:pointer}
 @media(prefers-reduced-motion:reduce){.splash .word span{transition:none}.splash .word span.cap{animation:none}}
 .hbrand{display:flex;align-items:center;gap:8px;min-width:0}
 .hbrand h1{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -384,7 +384,7 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 <div class="splash" id="splash">
   <div class="word" id="splashWord"><span class="cap">M</span><span>y</span><span class="sp"></span><span class="cap">C</span><span>h</span><span>a</span><span>m</span><span>a</span><span class="sp"></span><span class="cap">A</span><span>p</span><span>p</span></div>
   <div class="sub">Your chama, in your pocket</div>
-  <button class="skip" id="splashSkip" type="button">Skip</button>
+  <button class="ssk" id="splashSkip" type="button">Skip</button>
 </div>
 <a href="#" class="skip" data-act="skip">Skip to content</a>
 <header>
@@ -425,14 +425,15 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 <div class="shade" id="shade" hidden></div>
 <div id="syncBar" class="syncbar" hidden></div>
 <nav id="nav"></nav>
-<main id="view"></main>
+<main id="view" tabindex="-1"></main>
 <div id="toast" role="status" aria-live="polite"></div>
 <button id="ra" class="btn pri ra" hidden data-act="readAloud">Read this page aloud</button>
 <div id="modalRoot"></div>
 <script>
 (function(){var sp=document.getElementById('splash');
-if(sessionStorage.getItem('mca-splash')){sp.classList.add('gone');return;}
-function done(){sessionStorage.setItem('mca-splash','1');sp.classList.add('gone');}
+function seen(){try{return sessionStorage.getItem('mca-splash');}catch(e){return null;}}
+if(seen()){sp.classList.add('gone');return;}
+function done(){try{sessionStorage.setItem('mca-splash','1');}catch(e){}sp.classList.add('gone');}
 setTimeout(function(){sp.classList.add('open');},1100);
 setTimeout(done,3300);
 document.getElementById('splashSkip').onclick=done;})();
