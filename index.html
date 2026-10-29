@@ -204,6 +204,16 @@ html[data-mode=dark] .nico.danger{--tint:#3b1814;--tc:#ff9a8c}
 .check b{display:block}
 .check .plain{display:block;font-size:15px}
 .gh{font-size:13px;font-weight:800;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;margin:18px 0 2px}
+.gate{display:grid;place-items:center;min-height:72vh;padding:24px 16px}
+.gcard{width:min(420px,100%);padding:22px}
+.gcard h2{margin-bottom:8px}
+.gcard label{display:block;margin:14px 0 0}
+/* drawer depth */
+.drawer .dl{margin:8px 12px;padding:14px 16px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:0 1px 2px rgba(18,35,31,.07),0 8px 16px -10px rgba(18,35,31,.28);transition:transform .15s ease,box-shadow .15s ease;width:auto}
+.drawer .dl:active{transform:translateY(1px) scale(.985);box-shadow:0 1px 2px rgba(18,35,31,.1)}
+.drawer .dl:hover,.drawer .dl:focus-visible{background:var(--card);box-shadow:0 10px 22px -10px rgba(15,123,95,.4);outline:none}
+.drawer .dl.dfoot{margin-top:auto;margin-bottom:12px;background:var(--brand-t);border-color:transparent}
+.drawer .dsec{margin-top:4px;border-top:0;padding-top:0}
 /* menu drawer */
 .shade{position:fixed;inset:0;z-index:30;background:rgba(18,35,31,.35)}
 .drawer{position:fixed;z-index:40;top:0;left:0;bottom:0;width:min(300px,84vw);background:#fff;border-right:1px solid var(--line);
@@ -337,7 +347,6 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
   <div class="dh"><button type="button" class="xbtn" id="drawerX" aria-label="Close menu">&times;</button><span class="dt">Menu</span><span class="xsp" aria-hidden="true"></span></div>
   <div class="dwho" id="dwho"></div>
   <a class="dl" href="#/profile">My profile<small>Your photo, details and money</small></a>
-  <a class="dl" href="#/settings">Settings<small>Text size, colours, easy reading</small></a>
   <a class="dl" href="#/fines">Fines<small>Late fees and penalties</small></a>
   <a class="dl" href="#/expenses">Expenses<small>Money out: meetings, welfare, investments</small></a>
   <a class="dl" href="#/history">History<small>Every change, with before and after</small></a>
@@ -347,6 +356,7 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
     <button class="dl" data-act="undo" id="undoBtn" hidden>Undo last change</button>
     <button class="dl" data-act="settings" id="setBtn" hidden>Edit chama details</button>
   </div>
+  <a class="dl dfoot" href="#/settings">Settings<small>Text size, colours, easy reading</small></a>
 </aside>
 <div class="shade" id="shade" hidden></div>
 <div id="syncBar" class="syncbar" hidden></div>
@@ -398,73 +408,67 @@ const Store = (() => {
   const chamaId = (new URLSearchParams(location.search).get('c') || 'demo').replace(/[^\w-]/g, '');
   const subs = []; let state = null, ref = null;
   const blank = () => ({
-    chama: { name: 'My Chama', monthly: 2000, dueDay: 10, finePerLate: 100, loanRate: 10, startMonth: monthKey(new Date()), payTo: '', mode: 'rotation', pin: CONFIG.defaultPin },
+    chama: { name: 'My Chama', monthly: 2000, dueDay: 10, finePerLate: 100, loanRate: 10, startMonth: monthKey(new Date()), payTo: '', mode: 'rotation' },
     members: [], payments: [], loans: [], fines: [], payouts: [], expenses: [], log: []
   });
   const emit = () => subs.forEach(f => f(state));
   const loadScript = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
   const normalise = s => { const b = blank(); return { ...b, ...s, chama: { ...b.chama, ...(s.chama || {}) } }; };
 
-  /* ---- Supabase backend: local copy is always written first, cloud sync happens when online ---- */
-  let sb = null, pushing = false;
+  /* ---- Cloud backend (Supabase). A signed-in member reads the chama; only a treasurer writes it. RLS enforces this on the server. ---- */
+  let pushing = false;
   const dirtyKey = 'chama:' + chamaId + ':dirty', localKey = 'chama:' + chamaId;
   const setSync = v => {
     const bar = $('#syncBar'); if (!bar) return;
     bar.hidden = v === 'online';
-    bar.textContent = sb ? 'Offline: changes are saved on this phone and will sync when you are back online' : 'You are offline. The app still works and everything is saved on this phone';
+    bar.textContent = Backend.sb ? 'Offline: changes are saved on this phone and will sync when you are back online' : 'You are offline. The app still works and everything is saved on this phone';
   };
   const saveLocal = () => { try { localStorage.setItem(localKey, JSON.stringify(state)); } catch { toast('Storage full'); } };
+  const cleanCopy = s => { const c = JSON.parse(JSON.stringify(s)); if (c.chama) delete c.chama.pin; return c; };
   async function pushSb() {
-    if (pushing || !sb) return; pushing = true;
+    if (pushing || !Backend.sb) return;
+    if (!Session.canWrite()) { localStorage.removeItem(dirtyKey); return; }
+    pushing = true;
     try {
       while (localStorage.getItem(dirtyKey)) {
-        const snap = JSON.parse(JSON.stringify(state)); localStorage.removeItem(dirtyKey);
-        const { error } = await sb.from('chamas').upsert({ id: chamaId, data: snap, updated_at: new Date().toISOString() });
+        const snap = cleanCopy(state); localStorage.removeItem(dirtyKey);
+        const { data, error } = await Backend.sb.from('chamas').update({ data: snap, updated_at: new Date().toISOString() }).eq('id', chamaId).select('id');
         if (error) { localStorage.setItem(dirtyKey, '1'); throw error; }
+        if (!data || !data.length) { toast('Not saved. Check that you are still the treasurer.'); break; }
       }
       setSync('online');
     } catch (e) { setSync('offline'); }
     pushing = false;
   }
-  async function initSb() {
-    await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js');
-    sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey);
-    try { const l = localStorage.getItem(localKey); if (l) { state = normalise(JSON.parse(l)); emit(); } } catch {}
+  async function startSync() {
+    let loaded = false;
     try {
-      const { data, error } = await sb.from('chamas').select('data').eq('id', chamaId).maybeSingle();
+      const { data, error } = await Backend.sb.from('chamas').select('data').eq('id', chamaId).maybeSingle();
       if (error) throw error;
-      if (localStorage.getItem(dirtyKey)) pushSb();
-      else if (data) { state = normalise(data.data); saveLocal(); emit(); }
-      else { state = state || blank(); saveLocal(); localStorage.setItem(dirtyKey, '1'); pushSb(); emit(); }
-      sb.channel('c-' + chamaId).on('postgres_changes', { event: '*', schema: 'public', table: 'chamas', filter: 'id=eq.' + chamaId }, p => {
-        if (localStorage.getItem(dirtyKey) || pushing || !p.new) return;
-        state = normalise(p.new.data); saveLocal(); emit();
-      }).subscribe();
-      setSync('online');
-    } catch (e) { state = state || blank(); setSync('offline'); emit(); }
-    addEventListener('online', pushSb);
+      if (data) { state = normalise(data.data); saveLocal(); loaded = true; }
+    } catch (e) { loaded = false; }
+    if (!loaded) { try { const l = localStorage.getItem(localKey); if (l) state = normalise(JSON.parse(l)); } catch {} }
+    if (!state) state = blank();
+    emit();
+    setSync(loaded ? 'online' : 'offline');
+    if (loaded && Session.canWrite() && localStorage.getItem(dirtyKey)) pushSb();
+    Backend.sb.channel('c-' + chamaId).on('postgres_changes', { event: '*', schema: 'public', table: 'chamas', filter: 'id=eq.' + chamaId }, p => {
+      if (localStorage.getItem(dirtyKey) || pushing || !p.new) return;
+      state = normalise(p.new.data); saveLocal(); emit();
+    }).subscribe();
+    addEventListener('online', () => { if (Backend.sb) pushSb(); });
     setInterval(() => { if (localStorage.getItem(dirtyKey)) pushSb(); }, 15000);
   }
-
-  async function init() {
-    if (CONFIG.supabase) { try { await initSb(); return; } catch (e) { toast('Supabase failed, using local mode'); } }
-    if (CONFIG.firebase) {
-      try {
-        const v = '10.12.2';
-        await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-app-compat.js`);
-        await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore-compat.js`);
-        firebase.initializeApp(CONFIG.firebase);
-        ref = firebase.firestore().collection('chamas').doc(chamaId);
-        ref.onSnapshot(snap => {
-          if (!snap.exists) { state = blank(); ref.set(state); } else state = normalise(snap.data());
-          emit();
-        }, e => toast('Sync error: ' + e.message));
-        return;
-      } catch (e) { toast('Firebase failed, using local mode'); }
-    }
-    try { state = normalise(JSON.parse(localStorage.getItem('chama:' + chamaId) || '{}')); } catch { state = blank(); }
+  async function init() {   /* local-only: used when no cloud backend is configured */
+    try { state = normalise(JSON.parse(localStorage.getItem(localKey) || '{}')); } catch { state = blank(); }
     emit();
   }
+  /* removes every chama record on this phone (sign-out on a shared phone) */
+  function wipeLocal() {
+    Object.keys(localStorage).filter(k => k.startsWith('chama:')).forEach(k => localStorage.removeItem(k));
+    state = null; undoStack.length = 0;
+  }
+
   const undoStack = [];
   function commit(mutator, noLog) {
     const before = JSON.stringify(state);
@@ -477,7 +481,7 @@ const Store = (() => {
     if (!noLog) { undoStack.push(before); if (undoStack.length > 25) undoStack.shift(); Log.record(JSON.parse(before), state); }
     saveLocal();
     if (ref) ref.set(state).catch(e => toast('Save failed: ' + e.message));
-    else if (sb) { localStorage.setItem(dirtyKey, '1'); pushSb(); }
+    else if (Backend.sb) { localStorage.setItem(dirtyKey, '1'); pushSb(); }
     emit();
   }
   function undo() {
@@ -485,7 +489,7 @@ const Store = (() => {
     commit(s => { const p = normalise(JSON.parse(prev)); Object.keys(s).forEach(k => delete s[k]); Object.assign(s, p); s.log = [{ id: uid(), ts: Date.now(), by: 'Treasurer', kind: 'edit', text: 'Undid the last change' }, ...(s.log || [])]; }, true);
     return true;
   }
-  return { init, commit, undo, setSync, subscribe: f => subs.push(f), get: () => state, blank, chamaId };
+  return { init, commit, undo, setSync, startSync, wipeLocal, subscribe: f => subs.push(f), get: () => state, blank, chamaId };
 })();
 
 /* =====================================================================
@@ -748,9 +752,104 @@ const Signature = {
    5. VIEWS  (state in, html out)
    ===================================================================== */
 const Auth = {
-  isAdmin: () => sessionStorage.getItem('chama:admin') === '1',
-  set: v => v ? sessionStorage.setItem('chama:admin', '1') : sessionStorage.removeItem('chama:admin')
+  isAdmin: () => Session.role === 'treasurer'
 };
+/* =====================================================================
+   5. SIGN-IN AND ACCESS
+   The chama record is readable only by its active members and writable only
+   by its treasurer (enforced by Row Level Security in Supabase).
+   The app decides what to show from the membership row, not from a local choice.
+   ===================================================================== */
+const Backend = { sb: null };
+const loadLib = () => new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const Session = {
+  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, access: [],
+  ready() { return this.status === 'ready' || this.status === 'demo'; },
+  canWrite() { return this.role === 'treasurer'; },
+  set(st) { this.status = st; render(); },
+  async boot() {
+    if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
+    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey); }
+    catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
+    Backend.sb.auth.onAuthStateChange((ev, sess) => {
+      if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); }
+      else if (ev === 'SIGNED_IN' && sess && (!this.user || this.user.id !== sess.user.id)) this.after(sess.user);
+    });
+    const { data } = await Backend.sb.auth.getSession();
+    if (data && data.session) { if (!this.user) await this.after(data.session.user); }
+    else this.set('signed-out');
+  },
+  async after(user) {
+    if (this.busy) return; this.busy = true;
+    this.user = user; this.email = String(user.email || '').toLowerCase(); this.set('loading');
+    try {
+      await Backend.sb.rpc('claim_invites');
+      const { data: m, error } = await Backend.sb.from('chama_members').select('role,member_id').eq('chama_id', Store.chamaId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
+      if (error) throw error;
+      if (m) { await this.loadProfile(user); this.role = m.role; this.memberId = m.member_id || null; this.busy = false; this.set('ready'); if (m.role === 'treasurer') this.loadAccess(); return Store.startSync(); }
+      const { data: exists, error: e2 } = await Backend.sb.rpc('chama_exists', { cid: Store.chamaId });
+      if (e2) throw e2;
+      this.role = null; this.memberId = null;
+      this.set(exists ? 'no-access' : 'no-chama');
+    } catch (e) { this.error = e.message || 'Could not reach the cloud.'; this.set('error'); }
+    finally { this.busy = false; }
+  },
+  async loadProfile(user) {
+    const { data } = await Backend.sb.from('member_profiles').select('name,phone,email,photo').eq('chama_id', Store.chamaId).eq('user_id', user.id).maybeSingle();
+    if (!data) return;
+    const key = 'chama:me:' + Store.chamaId, cur = JSON.parse(localStorage.getItem(key) || '{}');
+    localStorage.setItem(key, JSON.stringify({ ...cur, name: data.name || cur.name || '', phone: data.phone || cur.phone || '', email: data.email || cur.email || '', photo: data.photo || cur.photo }));
+  },
+  async pushProfile() {
+    if (!Backend.sb || !this.user || this.status !== 'ready') return;
+    const me = JSON.parse(localStorage.getItem('chama:me:' + Store.chamaId) || '{}');
+    const { error } = await Backend.sb.from('member_profiles').upsert({ chama_id: Store.chamaId, user_id: this.user.id, name: me.name || null, phone: me.phone || null, email: me.email || null, photo: me.photo || null, updated_at: new Date().toISOString() });
+    if (error) toast('Your details could not be saved online: ' + error.message);
+  },
+  async loadAccess() {
+    if (this.role !== 'treasurer' || !Backend.sb) return;
+    const { data, error } = await Backend.sb.rpc('list_access', { cid: Store.chamaId });
+    if (error) toast(error.message);
+    this.access = error ? [] : (data || []); render();
+  },
+  async revoke(email) {
+    const { error } = await Backend.sb.rpc('remove_member', { cid: Store.chamaId, p_email: email });
+    if (error) throw new Error(error.message);
+    await this.loadAccess(); toast('Access removed. Their records are kept');
+  },
+  async createChama() {
+    const b = Store.blank(); delete b.chama.pin;
+    const { error } = await Backend.sb.rpc('create_chama', { cid: Store.chamaId, cname: b.chama.name, cdata: b });
+    if (error) throw new Error(error.message);
+    await this.after(this.user);
+  },
+  async signOut() {
+    try { await Backend.sb.auth.signOut(); } catch {}
+    Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out');
+  }
+};
+const Gate = {
+  email: '', sent: false,
+  card(t, body) { return `<section class="gate"><div class="card gcard"><h2>${t}</h2>${body}</div></section>`; },
+  paint() {
+    document.body.classList.add('no-tabs');
+    ['#menuBtn', '#backBtn', '#pageTitle', '#bell'].forEach(q => { const el = $(q); if (el) el.hidden = true; });
+    $('#hname').hidden = false; $('#title').textContent = 'Chama';
+    $('#syncBar').hidden = true;
+    const st = Session.status; let html;
+    if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>');
+    else if (st === 'signed-out') html = this.sent
+      ? this.card('Check your email', `<p class="plain">We sent a sign-in link to <b>${esc(this.email)}</b>. Open it on this phone.</p><p class="actions"><button class="btn" data-act="gateReset">Use a different email</button></p>`)
+      : this.card('Sign in', `<p class="plain mute">Enter the email your treasurer added for you. We will send a sign-in link to it.</p><label>Email address<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></label><p class="actions"><button class="btn pri" data-act="gateSend">Send sign-in link</button></p>`);
+    else if (st === 'no-access') html = this.card('Not on the member list', `<p class="plain">${esc(Session.email)} is not a member of this chama yet. Ask the treasurer to add this email.</p><p class="actions"><button class="btn" data-act="gateSignOut">Sign out</button></p>`);
+    else if (st === 'no-chama') html = this.card('This chama is not set up yet', `<p class="plain">Start it to become its treasurer.</p><p class="actions"><button class="btn pri" data-act="gateCreate">Start this chama</button> <button class="btn" data-act="gateSignOut">Sign out</button></p>`);
+    else html = this.card('Could not connect', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button></p>`);
+    $('#view').innerHTML = html;
+  }
+};
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'gateEmail') Actions.gateSend(); });
+
 const adminBtn = (html) => Auth.isAdmin() ? html : '';
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
@@ -777,8 +876,8 @@ const HELP_ARTICLES = [
   { id: 'mistake', cat: 'Payments', q: 'I made a mistake', a: 'In treasurer mode, open the Menu and tap Undo last change. Menu, then History, shows every change.' },
   { id: 'member', cat: 'Members and loans', q: 'How do I add a member?', a: 'In treasurer mode, open Members and tap Add member. Type the name and phone number.' },
   { id: 'loan', cat: 'Members and loans', q: 'How do I give a loan?', a: 'In treasurer mode, open Loans and tap New loan. Choose the member, type the amount and the months, then tap Get signature so the borrower can sign.' },
-  { id: 'pin', cat: 'Account and security', q: 'I forgot the treasurer PIN', a: 'Ask whoever set up the chama. The treasurer can change the PIN in Edit chama details.' },
-  { id: 'pin-changed', cat: 'Account and security', q: 'I got a "Treasurer PIN changed" notification and I did not do it', a: 'Tell the chama leaders straight away. Ask them to check who has treasurer mode open on their phone, then change the PIN.' },
+  { id: 'pin', cat: 'Account and security', q: 'How do I sign in?', a: 'Enter the email your treasurer added for you and tap Send sign-in link. Open the link on this phone. If you do not get it, check your spam folder, or ask the treasurer to check the email they added.' },
+  { id: 'pin-changed', cat: 'Account and security', q: 'I see a sign-in I did not make', a: 'Tell the treasurer straight away. They can remove access for any email you do not recognise in Settings, then Account actions.' },
   { id: 'sync', cat: 'App and data', q: 'Changes are not reaching the cloud backup', a: 'The app saves everything on your phone first. Open Still having trouble? below and tap Run checks. If it says waiting to send, connect to the internet and keep the app open for a minute.' },
   { id: 'easy', cat: 'App and data', q: 'Make the app easier to read', a: 'Open Menu, then Settings, then App preferences. You can make the text bigger, use dark colours, add marks beside colours, and more.' },
   { id: 'backup', cat: 'App and data', q: 'Save a backup', a: 'Open Menu, then Reports and backup. Full backup saves a file of everything. Payments CSV is for spreadsheets.' },
@@ -1017,6 +1116,7 @@ document.addEventListener('input', e => {
   if (e.target && e.target.id === 'notifQ') { Notify.q = e.target.value; const el = document.getElementById('notifList'); if (el) el.innerHTML = Notify.listHTML(Store.get()); }
 });
 
+const memberChip = (s, id, n = 28) => { const m = (s.members || []).find(x => x.id === id); return `<span class="who">${av(m || { name: 'Removed member' }, n)}<span>${esc(m ? m.name : 'Removed member')}</span></span>`; };
 const Views = {
   profile(s) {
     const me = Me.get(), m = me.memberId ? s.members.find(x => x.id === me.memberId) : null;
@@ -1033,9 +1133,8 @@ const Views = {
       <div class="prow"><span>Loan I still owe</span><b class="num">${kes(owed)}</b></div>
       <div class="prow"><span>Fines not yet paid</span><b class="num">${kes(fines)}</b></div></section>`
       : `<section class="card" style="margin-top:12px"><h2>Which one am I?</h2>
-      <p class="plain mute">Choose your name from the list so the app can show your money. Your treasurer can also help you with this.</p>
-      ${s.members.length ? `<label>My name<select id="meLink"><option value="">Choose my name</option>${s.members.map(x => `<option value="${esc(x.id)}" ${me.memberId === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
-      <p class="actions"><button class="btn pri" data-act="linkMe">Save my name</button></p>` : '<p class="mute" style="margin-top:10px">No members have been added yet.</p>'}</section>`;
+      <p class="plain mute">Your treasurer links your sign-in to your member record, so the app can show your money.</p>
+      ${Session.memberId ? '<p class="plain">Your treasurer linked your sign-in to your member record.</p>' : '<p class="plain mute">Your treasurer has not linked your sign-in to a member record yet.</p>'}</section>`;
     const ph = me.phone || (m && m.phone) || '', em = me.email || '';
     const recent = m ? s.payments.filter(p => p.memberId === m.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5) : [];
     const more = `
@@ -1123,9 +1222,19 @@ const Views = {
       <p class="plain" style="margin-bottom:10px">Every record is saved on this phone as soon as you make a change.</p>
       <p class="plain mute">${CONFIG.supabase ? 'Cloud backup is set up. A change is sent when the phone is online.' : 'Cloud backup is not set up in this app yet.'}</p></section>
       <p class="actions"><a class="btn" href="#/reports">Reports and backup</a></p>`;
-    if (r === 'settings/actions') return `<section class="card"><h2>Treasurer mode</h2>
-      <p class="plain mute" style="margin-bottom:12px">${admin ? 'You are in treasurer mode. You can record payments and change group details. Lock the app when you are finished.' : 'Treasurer mode lets you record payments and change group details. Most members do not need it.'}</p>
-      <button class="btn ${admin ? '' : 'pri'}" data-act="${admin ? 'lock' : 'unlock'}">${admin ? 'Lock treasurer mode' : 'Open treasurer mode'}</button></section>`;
+    if (r === 'settings/actions') {
+      const opts = s.members.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+      const label = a => a.status === 'active' ? 'signed in' : a.status === 'removed' ? 'access removed' : 'waiting to sign in';
+      const list = (Session.access || []).map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(a.role)} · ${label(a)} · ${a.member_id ? 'linked to a member' : 'not linked'}</span></div>${a.status === 'removed' ? '' : `<button class="btn sm bad" data-act="revoke" data-e="${esc(a.email)}">Remove access</button>`}</div>`).join('');
+      return `<section class="card"><h2>${admin ? 'Who can sign in' : 'Your access'}</h2>
+      <p class="plain mute" style="margin-bottom:12px">${admin ? 'You are the treasurer. Add someone by the email they will sign in with, and link them to their member record. They get a sign-in link by email.' : 'You are signed in as a ' + (Session.role === 'treasurer' ? 'treasurer' : 'member') + '. Your treasurer controls what you can see and change.'}</p>
+      ${admin ? `<label>Email address<input id="invEmail" type="email" inputmode="email" autocomplete="off" placeholder="name@example.com"></label>
+      <label>Member record<select id="invMember"><option value="">Not linked yet</option>${opts}</select></label>
+      <label>Role<select id="invRole"><option value="member">Member: can see the chama</option><option value="treasurer">Treasurer: can see and change the chama</option></select></label>
+      <p class="actions"><button class="btn pri" data-act="invite">Add person</button></p>
+      <h3 class="gh">People with access</h3>${list || '<p class="mute">Nobody else has access yet.</p>'}
+      <p class="actions"><button class="btn sm" data-act="loadAccess">Refresh list</button></p>` : ''}</section>`;
+    }
     if (r === 'settings/about') return `<section class="card"><h2>${esc(APP.name)}</h2>
       <p class="plain mute">A savings and loans record for your chama.</p>
       <div class="prow"><span>Version</span><b class="num">${esc(APP.version)}</b></div>
@@ -1187,7 +1296,7 @@ const Views = {
   },
   home(s) {
     if (!s.members.length) return `<div class="card empty"><p style="margin-bottom:12px">No members yet. Add your members or load sample data to see how it works.</p>
-      <button class="btn pri" data-act="unlock">Open as treasurer</button> <button class="btn" data-act="seed">Load sample data</button></div>`;
+      <button class="btn" data-act="seed">Load sample data</button></div>`;
     const cur = Domain.now(), exp = sum(s.members, m => Domain.dueFor(s, m.id));
     const got = sum(s.payments.filter(p => p.month === cur), p => p.amount);
     const pct = exp ? Math.min(100, Math.round(got / exp * 100)) : 0;
@@ -1229,7 +1338,7 @@ const Views = {
     return `<div class="head"><h3>Contributions</h3><span class="mute">${kes(s.chama.monthly)} per member per month</span>${adminBtn('<button class="btn pri" data-act="importPay">Import from M-Pesa</button>')}</div>
       <div class="scroll"><table><thead><tr><th>Member</th>${months.map(mk => `<th>${monthLabel(mk)}</th>`).join('')}</tr></thead><tbody>${rows}${foot}</tbody></table></div>
       ${Auth.isAdmin() ? '<p class="mute" style="margin-top:8px">Tap a cell to record a payment.</p>' : ''}
-      <div class="card" style="margin-top:14px"><h2>Recent payments</h2>${recent.length ? recent.map(p => `<div class="row"><div class="grow"><b>${esc(Domain.memberName(s, p.memberId))}</b><span class="mute">${monthLabel(p.month)}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</span></div><span class="num"><b>${kes(p.amount)}</b></span>${adminBtn(`<button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm bad" data-act="delPay" data-id="${p.id}">Remove</button>`)}</div>`).join('') : '<p class="mute">No payments recorded.</p>'}</div>`;
+      <div class="card" style="margin-top:14px"><h2>Recent payments</h2>${recent.length ? recent.map(p => `<div class="row"><div class="grow"><b>${memberChip(s, p.memberId, 26)}</b><span class="mute">${monthLabel(p.month)}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</span></div><span class="num"><b>${kes(p.amount)}</b></span>${adminBtn(`<button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm bad" data-act="delPay" data-id="${p.id}">Remove</button>`)}</div>`).join('') : '<p class="mute">No payments recorded.</p>'}</div>`;
   },
 
   members(s) {
@@ -1278,7 +1387,7 @@ const Views = {
 
   fines(s) {
     return `<div class="head"><h3>Fines</h3><div>${adminBtn(`<button class="btn" data-act="autoFines">Fine late members</button> <button class="btn pri" data-act="addFine">Add fine</button>`)}</div></div>
-      <div class="card">${s.fines.length ? [...s.fines].reverse().map(f => `<div class="row"><div class="grow"><b>${esc(Domain.memberName(s, f.memberId))}</b><span class="mute">${esc(f.reason)} · ${esc(f.date)}</span></div>
+      <div class="card">${s.fines.length ? [...s.fines].reverse().map(f => `<div class="row"><div class="grow"><b>${memberChip(s, f.memberId, 26)}</b><span class="mute">${esc(f.reason)} · ${esc(f.date)}</span></div>
         <span class="num"><b>${kes(f.amount)}</b></span><span class="tag ${f.paid ? '' : 'bad'}">${f.paid ? 'Paid' : 'Unpaid'}</span>
         ${adminBtn(`${f.paid ? '' : `<button class="btn sm" data-act="payFine" data-id="${f.id}">Mark paid</button>`}<button class="btn sm" data-act="editFine" data-id="${f.id}">Edit</button><button class="btn sm bad" data-act="delFine" data-id="${f.id}">Remove</button>`)}</div>`).join('') : '<p class="empty">No fines.</p>'}</div>`;
   }
@@ -1309,10 +1418,6 @@ const Actions = {
     Me.save({ ...Me.get(), name, phone, email });
     toast('Your details are saved'); render();
   },
-  linkMe() {
-    const id = $('#meLink').value; if (!id) throw new Error('Choose your name first');
-    const me = Me.get(); Me.save({ ...me, memberId: id }); if (me.photo) Store.commit(st => { const m = st.members.find(x => x.id === id); if (m && !m.photo) m.photo = me.photo; }, true); toast('Saved'); render();
-  },
   a11y: d => { A11y.d[d.k] = A11y.d[d.k] ? 0 : 1; A11y.save(); render(); A11y.refocus(`[data-act=a11y][data-k=${d.k}]`); },
   a11ySet: d => { A11y.d[d.k] = d.v; A11y.save(); render(); A11y.refocus(`[data-act=a11ySet][data-k=${d.k}][data-v=${d.v}]`); },
   a11yReset() { A11y.d = { ...A11y.def }; A11y.save(); render(); toast('Back to normal'); },
@@ -1335,12 +1440,27 @@ const Actions = {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'my-chama-data.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   },
 
-  unlock() {
-    if (Auth.isAdmin()) return;
-    Modal.open({ title: 'Treasurer access', submitLabel: 'Unlock', fields: [{ name: 'pin', label: 'PIN', type: 'password', required: true }],
-      onSubmit: v => { if (v.pin !== S().chama.pin) throw new Error('Wrong PIN'); Auth.set(true); render(); toast('Treasurer mode on'); } });
+  gateSend: async () => {
+    const email = ($('#gateEmail').value || '').trim().toLowerCase();
+    if (!validEmail(email)) return toast('Email address does not look right');
+    Gate.email = email;
+    const { error } = await Backend.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) return toast(error.message);
+    Gate.sent = true; render(); toast('Link sent. Check your email');
   },
-  lock() { Auth.set(false); render(); },
+  gateReset: () => { Gate.sent = false; render(); },
+  gateSignOut: () => Session.signOut(),
+  gateCreate: async () => { try { await Session.createChama(); } catch (e) { toast(e.message); } },
+  gateRetry: () => (Session.user ? Session.after(Session.user) : Session.boot()),
+  revoke: async d => { try { await Session.revoke(d.e); } catch (e) { toast(e.message); } },
+  loadAccess: () => Session.loadAccess(),
+  invite: async () => {
+    const email = ($('#invEmail').value || '').trim().toLowerCase(), mid = $('#invMember').value || null, role = $('#invRole').value;
+    if (!validEmail(email)) return toast('Email address does not look right');
+    const { error } = await Backend.sb.rpc('invite_member', { cid: Store.chamaId, p_email: email, p_member: mid, p_role: role });
+    if (error) return toast(error.message);
+    $('#invEmail').value = ''; toast('Added. They can now sign in with that email');
+  },
 
   settings: { admin: true, run() {
     const c = S().chama;
@@ -1352,8 +1472,7 @@ const Actions = {
       { name: 'loanRate', label: 'Default loan interest (% per month)', type: 'number', value: c.loanRate },
       { name: 'mode', label: 'Chama type', type: 'select', value: c.mode, options: [['rotation', 'Merry-go-round (pot rotates)'], ['savings', 'Savings or table banking (no rotation)']] },
       { name: 'startMonth', label: 'First payout month', type: 'month', value: c.startMonth },
-      { name: 'payTo', label: 'Pay to (till, paybill or number) shown in reminders', value: c.payTo },
-      { name: 'pin', label: 'Treasurer PIN', value: c.pin, required: true }],
+      { name: 'payTo', label: 'Pay to (till, paybill or number) shown in reminders', value: c.payTo }],
       onSubmit: v => {
         const d = { ...v, monthly: num(v.monthly, 'Contribution'), dueDay: num(v.dueDay, 'Due day', { min: 1 }), finePerLate: num(v.finePerLate, 'Fine', { allowZero: true }), loanRate: num(v.loanRate, 'Rate', { allowZero: true }) };
         if (d.dueDay > 28) throw new Error('Due day must be 1 to 28');
@@ -1631,9 +1750,20 @@ const Nav = (() => {
 })();
 const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) || r.startsWith('settings/') || r.startsWith('notifications/') ? r : 'home'; };
 
+const Hist = {
+  s: [],
+  visit(r, prev) {
+    const n = this.s.length;
+    if (n && this.s[n - 1] === r) this.s.pop();
+    else if (prev && prev !== r) this.s.push(prev);
+    if (this.s.length > 30) this.s.shift();
+  },
+  back() { return this.s.length ? this.s[this.s.length - 1] : 'home'; }
+};
 function render() {
+  if (!Session.ready()) return Gate.paint();
   const s = Store.get(); if (!s) return;
-  const r = route(), admin = Auth.isAdmin(), changed = r !== lastRoute; lastRoute = r;
+  const r = route(), admin = Auth.isAdmin(), changed = r !== lastRoute, prev = lastRoute; lastRoute = r; if (changed) Hist.visit(r, prev);
   Menu.close();
   document.title = s.chama.name;
   $('#title').textContent = s.chama.name;
@@ -1642,9 +1772,7 @@ function render() {
   $('#menuBtn').hidden = !home;
   $('#hname').hidden = !home;
   $('#backBtn').hidden = home;
-  if (BACK[r]) $('#backBtn').setAttribute('href', '#/' + BACK[r]);
-  else if (r.startsWith('notifications/')) $('#backBtn').setAttribute('href', '#/notifications');
-  else if (r.startsWith('settings/')) $('#backBtn').setAttribute('href', '#/' + r.slice(0, r.lastIndexOf('/')));
+  $('#backBtn').setAttribute('href', '#/' + Hist.back());
   pt.hidden = home;
   pt.textContent = (PAGE_NAME[r] || SETTINGS_NAME[r] || (r.startsWith('notifications/') ? 'Notification' : 'Chama')) + ' page';
   if (changed) { restart(pt, 'enter'); restart($('#view'), 'pg'); }
@@ -1665,7 +1793,7 @@ document.addEventListener('click', e => {
   const a = Actions[el.dataset.act]; if (!a) return;
   e.preventDefault();
   const fn = typeof a === 'function' ? a : a.run, needsAdmin = typeof a === 'object' && a.admin;
-  if (needsAdmin && !Auth.isAdmin()) return Actions.unlock();
+  if (needsAdmin && !Auth.isAdmin()) return toast('Only the treasurer can do that');
   try { fn.call(a, el.dataset); } catch (err) { toast(err.message); }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close(); });
@@ -1679,8 +1807,8 @@ $('#shade').addEventListener('click', () => Menu.close());
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Menu.close(); });
 const Me = {
   key: () => 'chama:me:' + Store.chamaId,
-  get() { try { return JSON.parse(localStorage.getItem(this.key()) || 'null') || {}; } catch { return {}; } },
-  save(v) { try { localStorage.setItem(this.key(), JSON.stringify(v)); } catch { toast('Storage full'); } }
+  get() { let o = {}; try { o = JSON.parse(localStorage.getItem(this.key()) || 'null') || {}; } catch {} return { ...o, memberId: Session.memberId || null }; },
+  save(v) { try { localStorage.setItem(this.key(), JSON.stringify(v)); } catch { toast('Storage full'); } Session.pushProfile(); }
 };
 const A11y = {
   key: 'chama:a11y', def: { size: 'n', theme: 'light', hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
@@ -1719,7 +1847,7 @@ addEventListener('hashchange', () => { if (window.speechSynthesis) speechSynthes
 window.addEventListener('hashchange', render);
 $('#drawerX').addEventListener('click', () => Menu.close());
 Store.subscribe(render);
-Store.init();
+Session.boot();
 addEventListener('offline', () => Store.setSync('offline'));
 addEventListener('online', () => { if (!CONFIG.supabase) Store.setSync('online'); });
 if (!navigator.onLine) Store.setSync('offline');
