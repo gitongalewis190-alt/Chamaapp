@@ -901,6 +901,15 @@ const Session = {
   status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, access: [],
   ready() { return this.status === 'ready' || this.status === 'demo'; },
   canWrite() { return this.role === 'treasurer'; },
+  /* Runs when the person comes back to the page: picks up a sign-in finished in another browser or app */
+  async recheck() {
+    if (!Backend.sb || this.status !== 'signed-out' || this.busy) return false;
+    try {
+      const { data } = await Backend.sb.auth.getSession();
+      if (data && data.session) { await this.after(data.session.user); return true; }
+    } catch (e) { /* stay on the sign-in screen */ }
+    return false;
+  },
   set(st) { this.status = st; render(); },
   async boot() {
     if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
@@ -1069,11 +1078,11 @@ const Gate = {
     const st = Session.status; let html;
     if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>');
     else if (st === 'signed-out') html = this.sent
-      ? this.card('Check your email', `<p class="plain">We sent a sign-in link to <b>${esc(this.email)}</b>. Open it on this phone.</p><p class="actions"><button class="btn" data-act="gateReset">Use a different email</button></p>`)
+      ? this.card('Check your email', `<p class="plain">We sent a sign-in link to <b>${esc(this.email)}</b>. Open it on this phone.</p><p class="plain mute">Open the link in Safari or Chrome, not inside the Gmail app. Then come back to this page.</p><p class="actions"><button class="btn" data-act="gateReset">Start again</button> <button class="btn pri" data-act="gateRecheck">I have opened the link</button></p>`)
       : this.card('Sign in', `<p class="plain mute">Enter the email your treasurer added for you. We will send a sign-in link to it.</p><label>Email address<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></label><p class="actions"><button class="btn pri" data-act="gateSend">Send sign-in link</button></p>`);
-    else if (st === 'no-access') html = this.card('Not on the member list', `<p class="plain">${esc(Session.email)} is not a member of this chama yet. Ask the treasurer to add this email.</p><p class="actions"><button class="btn" data-act="gateSignOut">Sign out</button></p>`);
-    else if (st === 'no-chama') html = this.card('This chama is not set up yet', `<p class="plain">Start it to become its treasurer.</p><p class="actions"><button class="btn pri" data-act="gateCreate">Start this chama</button> <button class="btn" data-act="gateSignOut">Sign out</button></p>`);
-    else html = this.card('Could not connect', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button></p>`);
+    else if (st === 'no-access') html = this.card('Not on the member list', `<p class="plain">${esc(Session.email)} is not a member of this chama yet. Ask the treasurer to add this email.</p><p class="actions"><button class="btn pri" data-act="gateSignOut">Start again</button></p>`);
+    else if (st === 'no-chama') html = this.card('This chama is not set up yet', `<p class="plain">Start it to become its treasurer.</p><p class="actions"><button class="btn pri" data-act="gateCreate">Start this chama</button> <button class="btn" data-act="gateSignOut">Start again</button></p>`);
+    else html = this.card('Could not connect', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button> <button class="btn" data-act="gateSignOut">Start again</button></p>`);
     $('#view').innerHTML = html;
   }
 };
@@ -1873,11 +1882,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.5.2', released: '2026-10-29',
+  name: 'My Chama App', version: '0.5.3', released: '2026-10-29',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.5.2', 'The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
+  notes: [['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 
 const PRIVACY = [
@@ -2410,6 +2419,7 @@ const actions = {
     Gate.sent = true; render(); toast('Link sent. Check your email');
   },
   gateReset: () => { Gate.sent = false; render(); },
+  gateRecheck: async () => { const ok = await Session.recheck(); if (!ok) toast('Not signed in yet. Open the link from your email, then try again'); },
   gateSignOut: () => Session.signOut(),
   gateCreate: async () => { try { await Session.createChama(); } catch (e) { toast(e.message); } },
   gateRetry: () => (Session.user ? Session.after(Session.user) : Session.boot()),
@@ -2771,6 +2781,10 @@ window.addEventListener('hashchange', render);
 $('#drawerX').addEventListener('click', () => Menu.close());
 
 Store.subscribe(render);
+
+/* Coming back to the app (for example after opening the sign-in link elsewhere) picks up the sign-in */
+addEventListener('focus', () => Session.recheck());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Session.recheck(); });
 
 Session.boot();
 
