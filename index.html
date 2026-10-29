@@ -857,11 +857,11 @@ const adminBtn = (html) => Auth.isAdmin() ? html : '';
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'Chama', version: '0.3.0', released: '2026-10-29',
+  name: 'Chama', version: '0.4.1', released: '2026-10-29',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page. An item is read only when you open it. The bell has depth and a ring when something new arrives. The tab bar hides on every page that is not a main tab.'], ['0.2.0', 'Notifications with a bell on the main tabs, unread counts, and What is new. Help has guides, checks and contacts. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, a steadier signature pad.']]
+  notes: [['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 const PRIVACY = [
   ['What we keep', 'Your name and phone number. Your email address and photo, if you add them. Your contributions, loans, repayments, fines, expenses and payouts. The signature you give on a loan form.'],
@@ -1058,7 +1058,7 @@ const Notify = {
   },
   releases() {
     const ts = Date.parse(APP.released) || 0;
-    return APP.notes.slice(0, 1).map(([ver, text]) => ({ id: 'release:' + ver, type: 'release_published', to: 'all', title: `Version ${ver} is out`, body: text, dest: null, facts: [['Version', ver], ['Released', APP.released]], ts }));
+    return APP.notes.map(([ver, text], i) => ({ id: 'release:' + ver, type: 'release_published', to: 'all', title: `Version ${ver} is out`, body: text, dest: null, facts: [['Version', ver], ['Released', APP.released]], ts: ts - i * 60000 }));
   },
   visible(n, v, p) {
     if (!n.mand && p.cat[n.cat] === false) return false;
@@ -1801,8 +1801,19 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close(); });
 const Menu = {
-  open() { document.body.classList.add('menu-open'); $('#drawer').hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true'); setTimeout(() => { const f = $('#drawer a'); if (f) f.focus(); }, 0); },
-  close() { document.body.classList.remove('menu-open'); const was = !$('#drawer').hidden; $('#drawer').hidden = true; $('#shade').hidden = true; $('#menuBtn').setAttribute('aria-expanded', 'false'); if (was) $('#menuBtn').focus(); }
+  y: 0,
+  open() {
+    if (!$('#drawer').hidden) return;
+    this.y = window.scrollY || 0;
+    Object.assign(document.body.style, { position: 'fixed', top: -this.y + 'px', left: '0', right: '0', width: '100%', overflow: 'hidden' });
+    document.body.classList.add('menu-open'); $('#drawer').hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true');
+    setTimeout(() => { const f = $('#drawer a'); if (f) f.focus(); }, 0);
+  },
+  close() {
+    const was = !$('#drawer').hidden;
+    document.body.classList.remove('menu-open'); $('#drawer').hidden = true; $('#shade').hidden = true; $('#menuBtn').setAttribute('aria-expanded', 'false');
+    if (was) { Object.assign(document.body.style, { position: '', top: '', left: '', right: '', width: '', overflow: '' }); window.scrollTo(0, this.y || 0); $('#menuBtn').focus(); }
+  }
 };
 $('#drawer').addEventListener('click', e => { if (e.target.closest('a,button')) Menu.close(); });
 $('#menuBtn').addEventListener('click', () => ($('#drawer').hidden ? Menu.open() : Menu.close()));
