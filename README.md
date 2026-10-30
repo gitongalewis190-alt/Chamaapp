@@ -2,7 +2,7 @@
 
 A savings-group app (chama) that runs as a plain web app on a phone. It works offline once opened and can be added to the home screen.
 
-**Version 0.6.16** · Service-worker cache `mca-app-v24` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
+**Version 0.7.0** · Service-worker cache `mca-app-v25` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
 
 This one file is the complete guide: what the app is, how it is built, how to set up Supabase, how to release, and the rules for anyone (human or AI) who changes it.
 
@@ -77,6 +77,13 @@ One `<script>` holds several IIFE modules named `__M_<path>`. Order matters:
 `loading` → `ready` (or `demo`), or `signed-out`, `no-access`, `no-chama`, `error`.
 - `error` is only for real sign-in failures. A page that fails to draw shows a toast and does not change the status.
 - `Session.verifying` is true while a code is being checked. Focus and sign-in listeners ignore events during that time, so the app cannot flash in and out.
+
+### 3.6 First run and sign-up (0.7.0)
+Order on a new device: opening animation (no Skip) → language (English or Kiswahili, stored in `mca-onboard`) → a swipeable tour (images in `tips/01-welcome.png` … `tips/08-privacy.png`; a missing image shows the coloured tile) → privacy policy, which needs both boxes ticked → sign-in screen with **Sign in** and **Sign up** tabs.
+- The policy version is `OB_POLICY_VERSION`. Change it when the policy changes, and everyone agrees again.
+- **Sign up** sends the same email code. The chama is created only if its id is in `chama_slots` (unchanged). If the email already has a chama, the app says to sign in (`my_chamas`, added in `chama_auth_addon.sql`).
+- **Sign in** never creates a chama. Access still depends only on `chama_members`.
+- Supabase creates an auth account at the first code request for any email. That is not chama access. See `chama_auth_addon.sql` notes.
 
 ### 3.5 Data
 - The chama record is one JSON document in `chamas.data`. Writes go through `Store` with a dirty flag and an offline queue.

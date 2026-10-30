@@ -558,6 +558,49 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 .otp.shatter .otp-box{animation:fallShatter .52s cubic-bezier(.45,0,.9,.5) forwards;pointer-events:none}
 @keyframes fallShatter{0%{transform:translate(var(--x),var(--y)) rotate(0);opacity:1}12%{transform:translate(calc(var(--x) + var(--sx) * .08),calc(var(--y) - 5px)) rotate(calc(var(--sr) * .04));opacity:1}100%{transform:translate(calc(var(--x) + var(--sx)),calc(var(--y) + 280px)) rotate(var(--sr));opacity:0}}
 @media(prefers-reduced-motion:reduce){.spin{animation-duration:3s}.otp.shatter .otp-box{animation-duration:.01s}.wc-l{animation:none}.sk-tile i,.sk-card i,.sk-row i,.sk-av{animation:none}.otp-box.cur .otp-ch::after{animation:none}}
+
+/* ===== 0.7.0: language, tour, privacy and sign-in / sign-up ===== */
+.ob{display:flex;flex-direction:column;gap:16px;padding:8px 2px 24px;max-width:560px;margin:0 auto}
+.ob-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ob-foot{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:8px}
+.ob-lang{display:grid;gap:12px}
+.ob-lang button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-height:64px;padding:14px 18px;border-radius:18px;border:2px solid var(--line);background:var(--card);font:inherit;font-weight:800;font-size:18px;color:var(--ink);cursor:pointer;transition:transform .15s,border-color .2s}
+.ob-lang button[aria-pressed="true"]{border-color:var(--brand);box-shadow:0 10px 24px -14px var(--brand)}
+.ob-lang button:active{transform:scale(.98)}
+.ob-lang small{font-weight:500;color:var(--mute);font-size:14px;margin-top:2px}
+.ob-vp{overflow:hidden;touch-action:pan-y;border-radius:24px}
+.ob-track{display:flex;transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.ob-slide{flex:0 0 100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:6px 8px}
+.ob-art{width:100%;max-width:320px;aspect-ratio:4/5;border-radius:24px;overflow:hidden;position:relative;background:linear-gradient(150deg,var(--brand),var(--brand-d,#0b5c47));box-shadow:0 18px 40px -18px rgba(0,0,0,.45);display:grid;place-items:center}
+.ob-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ob-ico{width:38%;height:38%;color:#fff;opacity:.92;display:grid;place-items:center}
+.ob-ico svg{width:100%;height:100%}
+.ob-slide h2{margin:18px 0 8px;font-size:clamp(21px,6vw,26px)}
+.ob-slide p{margin:0;color:var(--mute);font-size:16px;line-height:1.5;max-width:34ch}
+.ob-dots{display:flex;gap:8px;justify-content:center;align-items:center}
+.ob-dot{width:8px;height:8px;border-radius:999px;background:var(--line);border:0;padding:0;cursor:pointer;transition:width .25s,background .25s}
+.ob-dot[aria-current="true"]{width:24px;background:var(--brand)}
+.ob-check{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--line);font-size:15px;line-height:1.45;cursor:pointer}
+.ob-check input{width:22px;height:22px;margin-top:2px;flex:0 0 22px;accent-color:var(--brand)}
+.pp{display:grid;gap:12px}
+.pp-sum{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pp-sum div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;font-size:14px;line-height:1.4}
+.pp-sum b{display:block;font-size:15px;margin-bottom:4px;color:var(--brand)}
+.pp-full summary{list-style:none;cursor:pointer;display:inline-block}
+.pp-full summary::-webkit-details-marker{display:none}
+.pp-body{max-height:46vh;overflow:auto;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;font-size:15px;line-height:1.55}
+.pp-body h3{font-size:16px;margin:16px 0 6px}
+.pp-body h3:first-child{margin-top:0}
+.pp-body ul{padding-left:20px;margin:6px 0}
+.auth{padding:20px}
+.seg2{display:grid;grid-template-columns:1fr 1fr;background:var(--line);border-radius:999px;padding:4px;gap:4px;margin-bottom:16px}
+.seg2 button{border:0;border-radius:999px;min-height:44px;font:inherit;font-weight:800;background:transparent;color:var(--mute);cursor:pointer;transition:background .25s,color .25s}
+.seg2 button[aria-selected="true"]{background:var(--card);color:var(--brand);box-shadow:0 4px 12px -6px rgba(0,0,0,.35)}
+.auth-h{margin:0 0 4px;font-size:24px}
+.field-ic{position:relative;display:block}
+.field-ic svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:var(--mute);pointer-events:none}
+.field-ic input{padding-left:44px}
+.linkish{background:none;border:0;padding:6px 2px;font:inherit;font-size:14px;color:var(--brand);font-weight:700;cursor:pointer;text-decoration:underline}
 </style>
 </head>
 <body><label id="hapticSw" style="position:fixed;left:-9999px;top:0;opacity:0"><input type="checkbox" switch></label>
@@ -571,7 +614,6 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
   </svg>
   <div class="word" id="splashWord"><span class="cap">M</span><span>y</span><span class="sp"></span><span class="cap">C</span><span>h</span><span>a</span><span>m</span><span>a</span><span class="sp"></span><span class="cap">A</span><span>p</span><span>p</span></div>
   <div class="sub">Your chama, in your pocket</div>
-  <button class="ssk" id="splashSkip" type="button">Skip</button>
 </div>
 <a href="#" class="skip" data-act="skip">Skip to content</a>
 <header>
@@ -629,7 +671,6 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
     sp.classList.add('gone');
     document.dispatchEvent(new Event('mca:splash-done'));
   }
-  document.getElementById('splashSkip').onclick=done;
   timers.push(setTimeout(done,7000)); /* hard stop: the splash can never block the app */
   var reduce=false; try{reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
   var svg=document.getElementById('mcaDraw'), pen=document.getElementById('mcaPen');
@@ -1119,6 +1160,7 @@ return { get Store() { return Store; }, };
 
 /* ---- src/core/session.js ---- */
 const __M_src_core_session_js = (function () {
+const intentUp = () => { try { return sessionStorage.getItem('mca-intent') === 'up'; } catch (e) { return false; } };
 const { esc } = __M_src_core_utils_js;
 const { Policy } = __M_src_core_policy_js;
 const { CONFIG } = __M_src_config_js;
@@ -1214,7 +1256,10 @@ const Session = {
       const { data: exists, error: e2 } = await Backend.sb.rpc('chama_exists', { cid: Store.chamaId });
       if (e2) throw e2;
       this.role = null; this.memberId = null;
-      this.set(exists ? 'no-access' : 'no-chama');
+      let others = [];
+      if (intentUp()) { try { const { data: mc } = await Backend.sb.rpc('my_chamas'); others = (mc || []).filter(c => c !== Store.chamaId); } catch (e) { others = []; } }
+      if (others.length) { this.others = others; this.set('has-chama'); }
+      else this.set(exists ? 'no-access' : 'no-chama');
     } catch (e) {
       if (this.status === 'ready') { console.error(e); return; }   /* signed in already: never send the person back to sign-in */
       this.error = e.message || 'Could not reach the cloud.'; this.set('error');
@@ -1243,11 +1288,13 @@ const Session = {
     if (error) throw new Error(error.message);
     await this.loadAccess(); toast('Access removed. Their records are kept');
   },
-  async createChama() {
+  async createChama(name) {
     const b = Store.blank(); delete b.chama.pin;
+    if (name) { const key = 'chama:me:' + Store.chamaId, cur = JSON.parse(localStorage.getItem(key) || '{}'); localStorage.setItem(key, JSON.stringify({ ...cur, name })); }
     const { error } = await Backend.sb.rpc('create_chama', { cid: Store.chamaId, cname: b.chama.name, cdata: b });
     if (error) throw new Error(error.message);
     await this.after(this.user);
+    try { await this.pushProfile(); } catch (e) { /* the name stays on this phone and is saved next time */ }
   },
   async signOut() {
     try { await Backend.sb.auth.signOut(); } catch {}
@@ -1503,18 +1550,209 @@ document.addEventListener('click', e => { if (e.target.closest && e.target.close
 
 /* What the person typed survives a reload or a trip to the mail app (this tab only) */
 const gateSaved = () => { try { return JSON.parse(sessionStorage.getItem('mca-gate')) || {}; } catch (e) { return {}; } };
+/* ---- first run, before sign-in: language, a short tour, then the privacy policy ---- */
+const OB_POLICY_VERSION = '2026-10-30-v1';
+const OB_KEY = 'mca-onboard';
+const OB_ICON_MAIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>';
+const OB_T = {
+  en: { name: 'English', sub: 'Continue in English', chooseLang: 'Choose your language', langNote: 'You can change this later from the sign-in screen.',
+    next: 'Next', skip: 'Skip', back: 'Back', start: 'Get started', cont: 'Continue', tourTitle: 'A quick tour',
+    privacyTitle: 'Your privacy', privacyLead: 'Read the key points, then the full policy. Continue once you agree.',
+    agree1: 'I have read and agree to the Privacy Policy and Terms of Use.', agree2: 'I am 18 or older, or my parent or guardian agrees for me.',
+    full: 'Read the full policy', fullNote: 'The full policy is in English.',
+    sumWhatT: 'What we collect', sumWhatB: 'Your name, email, and optional phone and photo. The payments, loans, fines and expenses your chama records.',
+    sumWhyT: 'Why', sumWhyB: 'To sign you in and keep your chama’s records. Nothing else. We do not sell data or show ads.',
+    sumWhoT: 'Who can see it', sumWhoB: 'Members of your chama can see its records. Only the treasurer can change them.',
+    sumRightsT: 'Your rights', sumRightsB: 'Access, correct, download or delete your data, and complain to the Data Protection Commissioner.',
+    chooseMode: 'Sign in or sign up', signIn: 'Sign in', signUp: 'Sign up',
+    inTitle: 'Welcome back', inSub: 'Enter your email and we will send you a code. Only people your treasurer added can sign in.',
+    inHint: 'We email a code to this address. No password is needed.',
+    upTitle: 'Start your account', upSub: 'Enter your email and we will send a code to confirm it.',
+    upHint: 'By signing up you agree to the privacy policy.',
+    email: 'Email address', sendCode: 'Send code',
+    startTitle: 'Name your chama', startSub: 'Your name is shown as the treasurer.', yourName: 'Your name', namePh: 'For example, John Kamau', startBtn: 'Start this chama',
+    notSetTitle: 'This chama is not set up yet', notSetSub: 'To start it, sign up as its treasurer.',
+    upNoAccessTitle: 'This chama is already set up', upNoAccessSub: 'Ask its treasurer to add this email, then sign in.',
+    hasTitle: 'This email already has a chama', hasSub: 'This email is already linked to a chama. Please sign in to open it.',
+    signInInstead: 'Sign in instead', otherEmail: 'Use a different email', lang: 'Language', change: 'Change' },
+  sw: { name: 'Kiswahili', sub: 'Endelea kwa Kiswahili', chooseLang: 'Chagua lugha yako', langNote: 'Unaweza kubadilisha baadaye kwenye skrini ya kuingia.',
+    next: 'Endelea', skip: 'Ruka', back: 'Rudi', start: 'Anza', cont: 'Endelea', tourTitle: 'Ziara fupi',
+    privacyTitle: 'Faragha yako', privacyLead: 'Soma mambo muhimu, kisha sera kamili. Endelea ukikubali.',
+    agree1: 'Nimesoma na nakubali Sera ya Faragha na Masharti ya Matumizi.', agree2: 'Nina miaka 18 au zaidi, au mzazi au mlezi wangu ameniruhusu.',
+    full: 'Soma sera kamili', fullNote: 'Sera kamili iko kwa Kiingereza.',
+    sumWhatT: 'Tunachokusanya', sumWhatB: 'Jina lako, barua pepe, na simu na picha kwa hiari. Malipo, mikopo, faini na matumizi ambayo chama chako kinarekodi.',
+    sumWhyT: 'Kwa nini', sumWhyB: 'Kukuingiza na kuweka rekodi za chama chako. Hakuna zaidi. Hatuuzi data wala kuonyesha matangazo.',
+    sumWhoT: 'Nani anaona', sumWhoB: 'Wanachama wa chama chako wanaona rekodi zake. Mweka hazina pekee ndiye anayeweza kubadilisha.',
+    sumRightsT: 'Haki zako', sumRightsB: 'Kuona, kurekebisha, kupakua au kufuta data yako, na kulalamika kwa Kamishna wa Ulinzi wa Data.',
+    chooseMode: 'Ingia au jisajili', signIn: 'Ingia', signUp: 'Jisajili',
+    inTitle: 'Karibu tena', inSub: 'Weka barua pepe yako, nasi tutakutumia msimbo. Ni watu walioongezwa na mweka hazina pekee wanaoweza kuingia.',
+    inHint: 'Tunatuma msimbo kwenye barua pepe hii. Hakuna nenosiri linalohitajika.',
+    upTitle: 'Anza akaunti yako', upSub: 'Weka barua pepe yako, nasi tutatuma msimbo wa kuithibitisha.',
+    upHint: 'Kwa kujisajili unakubali sera ya faragha.',
+    email: 'Barua pepe', sendCode: 'Tuma msimbo',
+    startTitle: 'Taja chama chako', startSub: 'Jina lako litaonekana kama mweka hazina.', yourName: 'Jina lako', namePh: 'Mfano: John Kamau', startBtn: 'Anza chama hiki',
+    notSetTitle: 'Chama hiki hakijaanzishwa', notSetSub: 'Ili kukianzisha, jisajili kama mweka hazina wake.',
+    upNoAccessTitle: 'Chama hiki tayari kimeanzishwa', upNoAccessSub: 'Omba mweka hazina akuongeze kwa barua pepe hii, kisha uingie.',
+    hasTitle: 'Barua pepe hii tayari ina chama', hasSub: 'Barua pepe hii tayari imeunganishwa na chama. Tafadhali ingia ili kukifungua.',
+    signInInstead: 'Ingia badala yake', otherEmail: 'Tumia barua pepe nyingine', lang: 'Lugha', change: 'Badilisha' }
+};
+const OB_TIPS = {
+  en: [
+    { img: 'welcome', t: 'Welcome to My Chama App', b: 'Keep your chama’s money records in one place. Everyone sees the same, up-to-date picture.', ic: 'M12 3l8 4v6c0 4.5-3.4 8-8 8s-8-3.5-8-8V7z' },
+    { img: 'code', t: 'Sign in with a code', b: 'No password to remember. Enter your email, then the code we send you. Only people your treasurer added can sign in.', ic: 'M7 11V8a5 5 0 0110 0v3M5 11h14v10H5z' },
+    { img: 'home', t: 'Your home page', b: 'See your chama at a glance, with recent activity and anything that needs attention.', ic: 'M3 11l9-7 9 7v9H3z' },
+    { img: 'contributions', t: 'Contributions', b: 'Your treasurer records each member’s monthly payment. You can see your own history and the chama’s totals.', ic: 'M4 7h16v10H4zM12 10a2 2 0 100 4 2 2 0 000-4z' },
+    { img: 'loans-fines', t: 'Loans and fines', b: 'Track loans, repayments and late fines. Balances update as payments come in.', ic: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
+    { img: 'members', t: 'Members and roles', b: 'The treasurer adds people by email and gives each person a role. Treasurers can make changes. Members can see the records.', ic: 'M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3 2.7-5 6-5s6 2 6 5M16 11a3 3 0 100-6M17 15c2.4.3 4 2 4 4' },
+    { img: 'reports', t: 'Reports and backup', b: 'Get summaries and statements, export payments to a spreadsheet, and save a full backup.', ic: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7' },
+    { img: 'privacy', t: 'Your privacy', b: 'We collect only what your chama needs. You can download your data, ask for a correction, or ask for deletion at any time.', ic: 'M12 3l8 4v6c0 4.5-3.4 8-8 8s-8-3.5-8-8V7z' }
+  ],
+  sw: [
+    { img: 'welcome', t: 'Karibu My Chama App', b: 'Weka rekodi za pesa za chama chako sehemu moja. Kila mtu anaona picha ileile, iliyo ya sasa.', ic: 'M12 3l8 4v6c0 4.5-3.4 8-8 8s-8-3.5-8-8V7z' },
+    { img: 'code', t: 'Ingia kwa msimbo', b: 'Hakuna nenosiri la kukumbuka. Weka barua pepe yako, kisha msimbo tunaokutumia. Ni watu walioongezwa na mweka hazina pekee wanaoweza kuingia.', ic: 'M7 11V8a5 5 0 0110 0v3M5 11h14v10H5z' },
+    { img: 'home', t: 'Ukurasa wa nyumbani', b: 'Ona chama chako kwa muhtasari, pamoja na shughuli za hivi karibuni na mambo yanayohitaji uangalizi.', ic: 'M3 11l9-7 9 7v9H3z' },
+    { img: 'contributions', t: 'Michango', b: 'Mweka hazina anarekodi malipo ya kila mwanachama kwa mwezi. Unaweza kuona historia yako na jumla ya chama.', ic: 'M4 7h16v10H4zM12 10a2 2 0 100 4 2 2 0 000-4z' },
+    { img: 'loans-fines', t: 'Mikopo na faini', b: 'Fuatilia mikopo, marejesho na faini za kuchelewa. Salio linasasishwa malipo yanapoingia.', ic: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
+    { img: 'members', t: 'Wanachama na majukumu', b: 'Mweka hazina anaongeza watu kwa barua pepe na kuwapa jukumu. Mweka hazina anaweza kubadilisha. Wanachama wanaona rekodi.', ic: 'M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3 2.7-5 6-5s6 2 6 5M16 11a3 3 0 100-6M17 15c2.4.3 4 2 4 4' },
+    { img: 'reports', t: 'Ripoti na nakala ya akiba', b: 'Pata muhtasari na taarifa, hamisha malipo kwenda kwenye jedwali, na hifadhi nakala kamili.', ic: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7' },
+    { img: 'privacy', t: 'Faragha yako', b: 'Tunakusanya tu kile chama chako kinachohitaji. Unaweza kupakua data yako, kuomba marekebisho au kufutwa wakati wowote.', ic: 'M12 3l8 4v6c0 4.5-3.4 8-8 8s-8-3.5-8-8V7z' }
+  ]
+};
+
+const OB = {
+  pick: null, slide: 0, ag1: false, ag2: false, revisit: false,
+  read() { try { return JSON.parse(localStorage.getItem(OB_KEY)) || {}; } catch (e) { return {}; } },
+  write(p) { try { localStorage.setItem(OB_KEY, JSON.stringify(Object.assign(this.read(), p))); } catch (e) { toast('Storage is full. Free some space and try again'); } },
+  lang() { const l = this.read().lang; return OB_T[l] ? l : 'en'; },
+  L() { return OB_T[this.lang()]; },
+  complete() { const s = this.read(); return !!(OB_T[s.lang] && s.policy === OB_POLICY_VERSION && s.agreedAt); },
+  needed() { return !this.complete() || this.revisit; },
+  stepNow() { const s = this.read(); if (this.revisit || !OB_T[s.lang]) return 'lang'; if (!s.tipsDone) return 'tips'; return 'privacy'; },
+  html() {
+    const step = this.stepNow(), L = this.L(), lang = this.lang();
+    if (step === 'lang') {
+      const cur = this.pick || lang;
+      return `<section class="ob"><h2 class="auth-h">${L.chooseLang}</h2><p class="plain mute">${L.langNote}</p>
+<div class="ob-lang" role="group" aria-label="${L.chooseLang}">${Object.keys(OB_T).map(k => `<button type="button" data-ob="pick" data-v="${k}" aria-pressed="${cur === k}">${OB_T[k].name}<small>${OB_T[k].sub}</small></button>`).join('')}</div>
+<div class="ob-foot"><span></span><button class="btn pri" data-ob="lang-next">${L.next}</button></div></section>`;
+    }
+    if (step === 'tips') {
+      const tips = OB_TIPS[lang], i = this.slide, last = i === tips.length - 1;
+      const slides = tips.map((t, k) => `<div class="ob-slide" aria-hidden="${k !== i}"><div class="ob-art"><div class="ob-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${t.ic}"/></svg></div><img src="tips/${String(k + 1).padStart(2, '0')}-${t.img}.png" alt="" loading="lazy"></div><h2>${t.t}</h2><p>${t.b}</p></div>`).join('');
+      const dots = tips.map((t, k) => `<button type="button" class="ob-dot" data-ob="slide" data-i="${k}" aria-label="${k + 1}" aria-current="${k === i}"></button>`).join('');
+      return `<section class="ob" aria-label="${L.tourTitle}"><div class="ob-top"><span class="mute" id="obCount">${i + 1} / ${tips.length}</span><button type="button" class="btn sm" data-ob="skip-tips">${L.skip}</button></div>
+<div class="ob-vp" id="obVp"><div class="ob-track" id="obTrack" style="transform:translateX(${-i * 100}%)">${slides}</div></div>
+<div class="ob-dots">${dots}</div>
+<div class="ob-foot"><button type="button" class="btn" data-ob="prev" ${i === 0 ? 'disabled' : ''}>${L.back}</button><button type="button" class="btn pri" data-ob="next">${last ? L.start : L.next}</button></div></section>`;
+    }
+    return `<section class="ob"><div class="ob-top"><button type="button" class="btn sm" data-ob="back-tips">${L.back}</button><span class="mute">${L.privacyTitle}</span></div>
+<h2 class="auth-h">${L.privacyTitle}</h2><p class="plain mute">${L.privacyLead}</p>
+<div class="pp"><div class="pp-sum">
+<div><b>${L.sumWhatT}</b>${L.sumWhatB}</div><div><b>${L.sumWhyT}</b>${L.sumWhyB}</div>
+<div><b>${L.sumWhoT}</b>${L.sumWhoB}</div><div><b>${L.sumRightsT}</b>${L.sumRightsB}</div></div>
+<details class="pp-full"><summary class="btn">${L.full}</summary><div class="pp-body">${this.policyHTML()}</div></details>
+<p class="btn-hint">${L.fullNote}</p></div>
+<label class="ob-check"><input type="checkbox" id="obAg1" ${this.ag1 ? 'checked' : ''}><span>${L.agree1}</span></label>
+<label class="ob-check"><input type="checkbox" id="obAg2" ${this.ag2 ? 'checked' : ''}><span>${L.agree2}</span></label>
+<div class="ob-foot"><span></span><button type="button" class="btn pri" data-ob="accept" ${this.ag1 && this.ag2 ? '' : 'disabled'}>${L.cont}</button></div></section>`;
+  },
+  go(i) {
+    const tips = OB_TIPS[this.lang()], n = tips.length;
+    this.slide = Math.max(0, Math.min(n - 1, i));
+    const tr = document.getElementById('obTrack');
+    if (!tr) return Gate.paint();
+    tr.style.transform = 'translateX(' + (-this.slide * 100) + '%)';
+    document.querySelectorAll('.ob-dot').forEach((d, k) => d.setAttribute('aria-current', String(k === this.slide)));
+    document.querySelectorAll('.ob-slide').forEach((d, k) => d.setAttribute('aria-hidden', String(k !== this.slide)));
+    const c = document.getElementById('obCount'); if (c) c.textContent = (this.slide + 1) + ' / ' + n;
+    const pv = document.querySelector('[data-ob="prev"]'); if (pv) pv.disabled = this.slide === 0;
+    const nx = document.querySelector('[data-ob="next"]'); if (nx) nx.textContent = this.slide === n - 1 ? this.L().start : this.L().next;
+  },
+  move(d) { if (document.getElementById('obTrack')) this.go(this.slide + d); },
+  finishTips() { this.write({ tipsDone: true }); this.slide = 0; Gate.paint(); },
+  policyHTML() {
+    const c = (typeof APP !== 'undefined' && APP.privacyContact) ? esc(APP.privacyContact) : 'the privacy contact shown in the app settings (to be added)';
+    return `<h3>1. Who we are</h3><p>My Chama App helps a savings group (a chama) keep its records. The person or organisation that runs the app is the data controller for the personal data described here. Privacy contact: ${c}. [Registered name and Data Protection Commissioner registration number: to be added before launch.]</p>
+<h3>2. What we collect</h3><ul><li>Account details: your email address, which signs you in, and your name. Phone number and photo are optional.</li><li>Chama records: members, contributions, loans and repayments, fines, expenses, and a history of changes made by the treasurer.</li><li>Device data: your sign-in session and preferences such as language, text size and colours, kept in your browser.</li></ul>
+<h3>3. Why we use it</h3><ul><li>To sign you in and to show and protect your chama’s records. This is needed to provide the service you asked for.</li><li>To show notices about your chama inside the app.</li><li>To meet legal duties, such as keeping financial records where the law requires it.</li></ul>
+<p>The legal bases are your consent, which you give by accepting this policy, performance of the service you ask for, and our legitimate interest in keeping records accurate and secure. Late fines and reminders follow rules your treasurer sets, and a person decides whether to apply them.</p>
+<h3>4. Who can see your data</h3><ul><li>Members of your chama can read the chama’s records. Only the treasurer can change them. This is how a chama works.</li><li>Service providers that host and run the app for us under contract: Supabase (database and sign-in codes) and Vercel (website hosting).</li><li>Authorities, where the law requires it.</li></ul><p>We do not sell personal data and we do not show advertising.</p>
+<h3>5. Where data is stored</h3><p>Records are kept in a hosted database. Where data is processed or stored outside Kenya, we use the safeguards that the Data Protection Act, 2019 requires for cross-border transfers (sections 48 to 50). [Hosting region: to be confirmed.]</p>
+<h3>6. Children</h3><p>The app is for adults. By accepting, you confirm that you are 18 or older, or that a parent or guardian agrees on your behalf. Under section 33 of the Data Protection Act, 2019, a child’s personal data may be processed only with the consent of a parent or guardian.</p>
+<h3>7. How long we keep data</h3><p>Chama records are kept while the chama uses the app, and for as long as the law requires for financial records. If you are removed from a chama, your sign-in access ends, but past records stay with the chama because they belong to the group. You can ask us to delete your personal data. Where records must be kept, we will tell you why.</p>
+<h3>8. Security</h3><p>Data travels over encrypted connections. Sign-in uses one-time email codes, not passwords. In the database, access to records is limited to people who belong to the chama, and only the treasurer can write changes. If a personal data breach happens, we will notify the Data Protection Commissioner and the people affected as the Act requires, including within 72 hours where the Act sets that limit.</p>
+<h3>9. Your rights</h3><p>Under sections 26 to 34 of the Data Protection Act, 2019, you have the right to:</p><ul><li>be told how your data is used;</li><li>access your data;</li><li>have inaccurate data corrected;</li><li>have data deleted in some cases;</li><li>object to some uses, and restrict them;</li><li>receive your data in a usable form (portability);</li><li>not be subject to decisions based only on automated processing that significantly affect you.</li></ul><p>To download your data, open Settings, then Privacy and data, then Download my data. For any other request, write to the privacy contact above.</p>
+<h3>10. Complaints</h3><p>You can complain to the Office of the Data Protection Commissioner (odpc.go.ke) if you think your data is not being handled lawfully.</p>
+<h3>11. Changes</h3><p>If we make important changes, we will show you the new policy and ask you to accept it again before you continue.</p>
+<h3>12. Terms of use</h3><ul><li>Use the app for your own chama. Keep your sign-in code private and do not share your account.</li><li>The treasurer is responsible for the records they enter. The app keeps records. It does not hold or move money.</li><li>The app is a record-keeping tool. It does not give legal or financial advice.</li></ul>
+<h3>13. Withdrawing consent</h3><p>You can withdraw your consent at any time by asking your treasurer to remove your access, or by contacting us. This does not affect processing that happened before you withdrew.</p>`;
+  }
+};
+
+document.addEventListener('click', e => {
+  const t = e.target.closest ? e.target.closest('[data-ob],[data-gm]') : null;
+  if (!t) return;
+  if (t.dataset.gm) {
+    if (t.dataset.signout) { Gate.mode = 'in'; return Session.signOut(); }
+    const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value.trim();
+    Gate.mode = t.dataset.gm; return Gate.paint();
+  }
+  switch (t.dataset.ob) {
+    case 'pick': OB.pick = t.dataset.v; return Gate.paint();
+    case 'lang-next': OB.write({ lang: OB.pick || OB.lang() }); OB.revisit = false; OB.pick = null; return Gate.paint();
+    case 'change-lang': OB.revisit = true; OB.pick = null; return Gate.paint();
+    case 'slide': return OB.go(Number(t.dataset.i));
+    case 'prev': return OB.go(OB.slide - 1);
+    case 'next': return OB.slide >= OB_TIPS[OB.lang()].length - 1 ? OB.finishTips() : OB.go(OB.slide + 1);
+    case 'skip-tips': return OB.finishTips();
+    case 'back-tips': OB.write({ tipsDone: false }); OB.slide = OB_TIPS[OB.lang()].length - 1; return Gate.paint();
+    case 'accept':
+      if (OB.ag1 && OB.ag2) { OB.write({ policy: OB_POLICY_VERSION, agreedAt: new Date().toISOString() }); OB.ag1 = false; OB.ag2 = false; }
+      return Gate.paint();
+  }
+});
+document.addEventListener('change', e => {
+  const id = e.target && e.target.id;
+  if (id !== 'obAg1' && id !== 'obAg2') return;
+  if (id === 'obAg1') OB.ag1 = e.target.checked; else OB.ag2 = e.target.checked;
+  const b = document.querySelector('[data-ob="accept"]'); if (b) b.disabled = !(OB.ag1 && OB.ag2);
+});
+let obSwipeX = null;
+document.addEventListener('pointerdown', e => { obSwipeX = (e.target.closest && e.target.closest('#obVp')) ? e.clientX : null; }, true);
+document.addEventListener('pointerup', e => {
+  if (obSwipeX === null) return;
+  const dx = e.clientX - obSwipeX; obSwipeX = null;
+  if (Math.abs(dx) > 40) OB.move(dx < 0 ? 1 : -1);
+}, true);
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') OB.move(1);
+  if (e.key === 'ArrowLeft') OB.move(-1);
+});
+document.addEventListener('error', e => { if (e.target && e.target.matches && e.target.matches('.ob-art img')) e.target.remove(); }, true);
+
 const Gate = {
-  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false,
+  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, mode: (gateSaved().mode || (function () { try { return sessionStorage.getItem('mca-intent') || 'in'; } catch (e) { return 'in'; } })()) === 'up' ? 'up' : 'in',
   navRow(x) { return `<div class="navrow">${x}</div>`; },
-  card(t, body) { return `<section class="gate"><div class="card gcard"><h2>${t}</h2>${body}</div></section>`; },
+  authCard() {
+    const L = OB.L(), up = this.mode === 'up', lang = OB.lang();
+    return `<section class="gate"><div class="card gcard auth">
+<div class="seg2" role="tablist" aria-label="${L.chooseMode}"><button type="button" role="tab" data-gm="in" aria-selected="${!up}">${L.signIn}</button><button type="button" role="tab" data-gm="up" aria-selected="${up}">${L.signUp}</button></div>
+<h2 class="auth-h">${up ? L.upTitle : L.inTitle}</h2><p class="plain mute">${up ? L.upSub : L.inSub}</p>
+<label>${L.email}<span class="field-ic">${OB_ICON_MAIL}<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></span></label>
+<p class="actions"><button class="btn pri" data-act="gateSend">${L.sendCode}</button></p>
+<p class="btn-hint">${up ? L.upHint : L.inHint}</p>
+<p class="btn-hint"><button type="button" class="linkish" data-ob="change-lang">${L.lang}: ${OB_T[lang].name} · ${L.change}</button></p>
+</div></section>`;
+  },  card(t, body) { return `<section class="gate"><div class="card gcard"><h2>${t}</h2>${body}</div></section>`; },
   paint() {
     if (Otp.hold) return;
     document.body.classList.add('no-tabs');
     ['#menuBtn', '#backBtn', '#pageTitle', '#bell'].forEach(q => { const el = $(q); if (el) el.hidden = true; });
     $('#hname').hidden = false; $('#title').textContent = 'My Chama App';
     $('#syncBar').hidden = true;
+    if (Session.status === 'signed-out' && OB.needed()) { $('#view').innerHTML = OB.html(); return; }
     const st = Session.status; let html;
-    try { if (st === 'signed-out') sessionStorage.setItem('mca-gate', JSON.stringify({ email: this.email, sent: this.sent })); else sessionStorage.removeItem('mca-gate'); } catch (e) {}
+    try { if (st === 'signed-out') sessionStorage.setItem('mca-gate', JSON.stringify({ email: this.email, sent: this.sent, mode: this.mode })); else sessionStorage.removeItem('mca-gate'); } catch (e) {}
     if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>' + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'));
     else if (st === 'signed-out') {
       Otp.kind = 'email'; Otp.len = Session.otpLength;
@@ -1523,10 +1761,13 @@ const Gate = {
         ? this.card('Sending your code', `<div class="sendload" aria-live="polite"><span class="spin" aria-hidden="true"></span><p class="plain mute">Sending a code to <b>${esc(this.email)}</b></p></div>` + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'))
         : this.sent
         ? this.card('Enter your code', Otp.html({ hint: `Sent to <b>${esc(this.email)}</b>`, change: true, mail: true }))
-        : this.card('Sign in', `<p class="plain mute">Enter your email. We will send a ${Session.otpLength}-digit code.</p><label>Email address<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></label><p class="actions"><button class="btn pri" data-act="gateSend">Send code</button></p><p class="btn-hint">We email a code to this address. Only people your treasurer added can sign in.</p>`);
+        : this.authCard();
     }
+    else if (st === 'has-chama') html = this.card(OB.L().hasTitle, `<p class="plain">${OB.L().hasSub}</p><p class="actions"><button class="btn pri" data-gm="in" data-signout="1">${OB.L().signInInstead}</button></p>`);
+    else if (st === 'no-access' && this.mode === 'up') html = this.card(OB.L().upNoAccessTitle, `<p class="plain">${OB.L().upNoAccessSub}</p><p class="actions"><button class="btn pri" data-gm="in" data-signout="1">${OB.L().signInInstead}</button></p>`);
     else if (st === 'no-access') html = this.card('Not on the member list', `<p class="plain">${esc(Session.email)} is not a member of this chama yet. Ask the treasurer to add this email.</p><p class="actions"><button class="btn pri" data-act="gateSignOut">Use a different email</button></p>`);
-    else if (st === 'no-chama') html = this.card('This chama is not set up yet', `<p class="plain">Start it to become its treasurer.</p><p class="actions"><button class="btn pri" data-act="gateCreate">Start this chama</button> <button class="btn" data-act="gateSignOut">Use a different email</button></p>`);
+    else if (st === 'no-chama' && this.mode === 'up') html = this.card(OB.L().startTitle, `<p class="plain mute">${OB.L().startSub}</p><label>${OB.L().yourName}<input id="gateName" autocomplete="name" maxlength="60" placeholder="${OB.L().namePh}"></label><p class="actions"><button class="btn pri" data-act="gateCreate">${OB.L().startBtn}</button> <button class="btn" data-act="gateSignOut">${OB.L().otherEmail}</button></p>`);
+    else if (st === 'no-chama') html = this.card(OB.L().notSetTitle, `<p class="plain">${OB.L().notSetSub}</p><p class="actions"><button class="btn pri" data-gm="up">${OB.L().signUp}</button> <button class="btn" data-act="gateSignOut">${OB.L().otherEmail}</button></p>`);
     else html = this.card('Something went wrong', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button>${Session.user ? ' <button class="btn" data-act="gateSignOut">Use a different email</button>' : ''}</p>`);
     $('#view').innerHTML = html;
     Otp.fit();
@@ -2329,11 +2570,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.6.16', released: '2026-10-30',
+  name: 'My Chama App', version: '0.7.0', released: '2026-10-30',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
+  notes: [['0.7.0', 'First run: choose a language, take a short tour, then read the privacy policy and agree to it. Sign-in has Sign in and Sign up. Sign up asks for your name when you start a chama, and an email that already has a chama is asked to sign in. The opening animation has no Skip button. '], ['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 
 const PRIVACY = [
@@ -2859,6 +3100,7 @@ const actions = {
     const email = ($('#gateEmail').value || '').trim().toLowerCase();
     if (!validEmail(email)) return toast('Email address does not look right');
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    try { sessionStorage.setItem('mca-intent', Gate.mode === 'up' ? 'up' : 'in'); } catch (e) {}
     Gate.email = email; Gate.sending = true; if (btn) btn.disabled = true; Gate.paint();
     const t0 = Date.now();
     const { error } = await Backend.sb.auth.signInWithOtp({ email });
@@ -2904,7 +3146,11 @@ const actions = {
     } catch (e) { toast('Could not check the code. Try again'); }
   },
   gateSignOut: () => Session.signOut(),
-  gateCreate: async () => { try { await Session.createChama(); } catch (e) { toast(e.message); } },
+  gateCreate: async () => {
+    const n = (($('#gateName') && $('#gateName').value) || '').trim().replace(/\s+/g, ' ');
+    if (n.length < 2) return toast('Type your name first');
+    try { await Session.createChama(n); } catch (e) { toast(e.message); }
+  },
   gateRetry: () => (Session.user ? Session.after(Session.user) : Session.boot()),
 };
 
