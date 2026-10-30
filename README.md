@@ -2,7 +2,7 @@
 
 A savings-group app (chama) that runs as a plain web app on a phone. It works offline once opened and can be added to the home screen.
 
-**Version 0.8.0** · Service-worker cache `mca-app-v27` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
+**Version 0.11.0** · Service-worker cache `mca-app-v30` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
 
 This one file is the complete guide: what the app is, how it is built, how to set up Supabase, how to release, and the rules for anyone (human or AI) who changes it.
 

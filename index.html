@@ -221,6 +221,17 @@ html[data-mode=dark] .nico.danger{--tint:#3b1814;--tc:#ff9a8c}
 .gcard{width:min(420px,100%);padding:22px}
 .gcard h2{margin-bottom:8px}
 .gcard label{display:block;margin:14px 0 0}
+/* single sign-in / sign-up card */
+.auth-cta{width:100%;min-height:48px;font-size:16px}
+.auth-note{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:var(--warn-t);color:var(--warn);font-size:14px;font-weight:600;line-height:1.4}
+.auth-or{display:flex;align-items:center;gap:10px;margin:18px 0 12px;color:var(--mute);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.auth-social{display:grid;gap:10px}
+.sbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;font-weight:700;font-size:15px}
+.sbtn small{font-size:12px;color:var(--mute);font-weight:700}
+.sbtn:disabled{opacity:.6;cursor:not-allowed}
+.acct-banner{border-color:var(--warn);background:var(--warn-t);margin-bottom:12px}
+.acct-notice{border-color:var(--warn);margin-bottom:10px}
 
 </style>
 <style>
@@ -666,7 +677,7 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
     <button class="dl" data-act="undo" id="undoBtn" hidden>Undo last change</button>
     <button class="dl" data-act="settings" id="setBtn" hidden>Edit chama details</button>
   </div>
-  <button class="dl" data-act="signOutApp">Sign out<small>Closes the app and shows the opening screen</small></button>
+  <button class="dl" data-act="signOutAsk">Sign out<small>Closes the app and shows the opening screen</small></button>
   <a class="dl dfoot" href="#/settings">Settings<small>Text size, colours, easy reading</small></a>
 </aside>
 <div class="shade" id="shade" hidden></div>
@@ -1718,7 +1729,7 @@ document.addEventListener('click', e => {
   if (t.dataset.gm) {
     if (t.dataset.signout) { Gate.mode = 'in'; return Session.signOut(); }
     const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value.trim();
-    Gate.mode = t.dataset.gm; return Gate.paint();
+    Gate.mode = t.dataset.gm; Gate.notice = ''; return Gate.paint();
   }
   switch (t.dataset.ob) {
     case 'pick': OB.pick = t.dataset.v; return Gate.paint();
@@ -1754,6 +1765,11 @@ document.addEventListener('keydown', e => {
 document.addEventListener('error', e => { if (e.target && e.target.matches && e.target.matches('.ob-art img')) e.target.remove(); }, true);
 document.addEventListener('input', e => { if (e.target && (e.target.id === 'gatePw' || e.target.id === 'gatePw2')) Gate.refreshRules(); });
 
+const AUTH_T = {
+  en: { title: 'Welcome to Chama', sub: 'Sign in with your email and password. Only people your treasurer added can sign in.', upTitle: 'Create your account', upSub: 'Set a password, then we send a code to confirm your email.', ctaContinue: 'Continue', ctaCreate: 'Create account', hint: 'We email you a one-time code next.', or: 'or', apple: 'Continue with Apple', google: 'Continue with Google', soon: 'Coming soon', wrongNotice: 'Email or password is not right. New here? Create your password below.', backIn: 'Back to sign in' },
+  sw: { title: 'Karibu Chama', sub: 'Ingia kwa barua pepe na nenosiri lako. Ni watu walioongezwa na mweka hazina pekee wanaoweza kuingia.', upTitle: 'Tengeneza akaunti yako', upSub: 'Weka nenosiri, kisha tutatuma msimbo wa kuthibitisha barua pepe yako.', ctaContinue: 'Endelea', ctaCreate: 'Tengeneza akaunti', hint: 'Tutakutumia msimbo wa mara moja baadaye.', or: 'au', apple: 'Endelea na Apple', google: 'Endelea na Google', soon: 'Inakuja hivi karibuni', wrongNotice: 'Barua pepe au nenosiri si sahihi. Mpya hapa? Tengeneza nenosiri hapa chini.', backIn: 'Rudi kuingia' }
+};
+
 const Gate = {
   email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, stage: 'entry', pw: null, mode: (gateSaved().mode || (function () { try { return sessionStorage.getItem('mca-intent') || 'in'; } catch (e) { return 'in'; } })()) === 'up' ? 'up' : 'in',
   navRow(x) { return `<div class="navrow">${x}</div>`; },
@@ -1770,14 +1786,21 @@ const Gate = {
       `<ul class="pwr" id="pwRules" aria-live="polite"><li data-r="len">${L.pwRuleLen}</li><li data-r="cap">${L.pwRuleCap}</li><li data-r="sym">${L.pwRuleSym}</li>${withConfirm ? `<li data-r="same">${L.pwRuleSame}</li>` : ''}</ul>`;
   },
   authCard() {
-    const L = OB.L(), up = this.mode === 'up', lang = OB.lang();
+    const L = OB.L(), A = AUTH_T[OB.lang()] || AUTH_T.en, up = this.mode === 'up', lang = OB.lang();
+    const note = this.notice ? `<p class="auth-note" role="status">${esc(this.notice)}</p>` : '';
     return `<section class="gate"><div class="card gcard auth">
-<div class="seg2" role="tablist" aria-label="${L.chooseMode}"><button type="button" role="tab" data-gm="in" aria-selected="${!up}">${L.signIn}</button><button type="button" role="tab" data-gm="up" aria-selected="${up}">${L.signUp}</button></div>
-<h2 class="auth-h">${up ? L.upTitle : L.inTitle}</h2><p class="plain mute">${up ? L.upSub : L.inSub}</p>
+<h2 class="auth-h">${up ? A.upTitle : A.title}</h2><p class="plain mute">${up ? A.upSub : A.sub}</p>
+${note}
 <label>${L.email}<span class="field-ic">${OB_ICON_MAIL}<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></span></label>
 ${up ? this.pwFields(true) : `<label>${L.pwLabel}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw" type="password" autocomplete="current-password" placeholder="${L.pwPh}"></span></label>`}
-<p class="actions"><button class="btn pri" data-act="gateSend">${up ? L.sendCode : L.signIn}</button></p>
-<p class="btn-hint">${up ? L.upHint : L.inHint}</p>
+<p class="actions"><button class="btn pri auth-cta" data-act="gateSend">${up ? A.ctaCreate : A.ctaContinue}</button></p>
+<p class="btn-hint">${up ? L.upHint : A.hint}</p>
+${up ? `<p class="btn-hint"><button type="button" class="linkish" data-gm="in">&larr; ${A.backIn}</button></p>` : ''}
+<div class="auth-or"><span>${A.or}</span></div>
+<div class="auth-social">
+<button type="button" class="sbtn" disabled aria-disabled="true">${A.apple}<small>${A.soon}</small></button>
+<button type="button" class="sbtn" disabled aria-disabled="true">${A.google}<small>${A.soon}</small></button>
+</div>
 <p class="btn-hint"><button type="button" class="linkish" data-ob="change-lang">${L.lang}: ${OB_T[lang].name} · ${L.change}</button></p>
 </div></section>`;
   },
@@ -2616,11 +2639,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.8.0', released: '2026-10-30',
+  name: 'My Chama App', version: '0.11.0', released: '2026-10-30',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.8.0', 'Sign-in takes your email and password first. Invited people set a password once. Sign-up asks for a password with live checks: 6 characters, a capital letter and a symbol. One email can join several chamas, but each chama needs its own password for that email. The email code is still the last step. '], ['0.7.1', 'Sign out in the menu closes the session and plays the opening animation again. The menu has a green background with white entries. '], ['0.7.0', 'First run: choose a language, take a short tour, then read the privacy policy and agree to it. Sign-in has Sign in and Sign up. Sign up asks for your name when you start a chama, and an email that already has a chama is asked to sign in. The opening animation has no Skip button. '], ['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
+  notes: [['0.11.0', 'Sign out asks you to confirm before it closes the app. When a member asks to delete their account, the other members see a notice on the Notifications page with a live countdown. They can hide it, and Show hidden brings it back. The notice does not show the reason. '], ['0.10.0', 'Delete my account is in Settings, Privacy and data. Pick a reason, confirm your password and read the disclaimer: the account is not permanently deleted and is kept for 30 days, when you can restore it. Signing in shows the days left with a Restore button. '], ['0.9.0', 'Sign-in and sign-up are one card with one button. Enter your email and password and press Continue: if you have an account you go on to the email code; if not, the card offers Create account with the same password checks as before. Apple and Google sign-in are shown as coming soon. '], ['0.8.0', 'Sign-in takes your email and password first. Invited people set a password once. Sign-up asks for a password with live checks: 6 characters, a capital letter and a symbol. One email can join several chamas, but each chama needs its own password for that email. The email code is still the last step. '], ['0.7.1', 'Sign out in the menu closes the session and plays the opening animation again. The menu has a green background with white entries. '], ['0.7.0', 'First run: choose a language, take a short tour, then read the privacy policy and agree to it. Sign-in has Sign in and Sign up. Sign up asks for your name when you start a chama, and an email that already has a chama is asked to sign in. The opening animation has no Skip button. '], ['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 
 const PRIVACY = [
@@ -2739,8 +2762,187 @@ const Help = {
 return { get Help() { return Help; }, };
 })();
 
+/* ---- src/features/account/deletion.js ---- */
+const __M_src_features_account_deletion_js = (function () {
+const { esc } = __M_src_core_utils_js;
+const { toast } = __M_src_ui_toast_js;
+const { Modal } = __M_src_ui_modal_js;
+const { Backend } = __M_src_core_backend_js;
+const { Session } = __M_src_core_session_js;
+const { render } = __M_src_core_rerender_js;
+
+/* Account deletion with a 30-day hold. The server does the real work (chama_deletion.sql):
+   it checks the password, sets the date, and restores or purges. This file shows the state and asks. */
+const DAYS = 30;
+const REASONS = [
+  ['no-need', 'I no longer need the app'],
+  ['leaving', 'I am leaving the chama'],
+  ['privacy', 'Privacy concerns'],
+  ['broken', 'Something is not working'],
+  ['other', 'Other (say why in the note)'],
+];
+const reasonLabel = k => (REASONS.find(r => r[0] === k) || [null, k])[1];
+const fmtDate = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const daysLeft = d => Math.max(0, Math.ceil((d.getTime() - Date.now()) / 86400000));
+const plural = n => `${n} ${n === 1 ? 'day' : 'days'}`;
+const countdown = d => {
+  let ms = Math.max(0, d.getTime() - Date.now());
+  const dd = Math.floor(ms / 86400000); ms -= dd * 86400000;
+  const hh = Math.floor(ms / 3600000); ms -= hh * 3600000;
+  const mm = Math.floor(ms / 60000); ms -= mm * 60000;
+  return `${dd}d ${hh}h ${mm}m ${Math.floor(ms / 1000)}s`;
+};
+
+const Account = {
+  pending: null, checked: false, busy: false, uid: null,
+  notices: [], noticesAt: 0, noticesBusy: false, noticesSig: '', hidden: null, ticker: null,
+
+  daysLeft(due) { return daysLeft(due); },
+
+  /* Reads the deletion state once per signed-in person. A failed read shows nothing and is not retried until the next open. */
+  async load() {
+    if (!Session.user || !Session.ready()) return;
+    if (Session.user.id !== this.uid) { this.uid = Session.user.id; this.checked = false; this.pending = null; this.notices = []; this.noticesSig = ''; }
+    if (this.checked || this.busy || !Backend.sb) return;
+    this.busy = true;
+    try {
+      const { data, error } = await Backend.sb.rpc('account_deletion_status', { cid: Session.cid() });
+      if (!error) {
+        const row = Array.isArray(data) ? data[0] : data;
+        this.pending = row && row.due ? { due: new Date(row.due), reason: row.reason || '' } : null;
+      }
+    } catch (e) { this.pending = null; }
+    this.busy = false; this.checked = true; render();
+  },
+
+  /* Shown above every page while a deletion is waiting */
+  banner() {
+    if (!this.pending) return '';
+    const n = daysLeft(this.pending.due);
+    return `<section class="card acct-banner" role="status"><h2>Account deletion scheduled</h2>
+      <p class="plain">Your account will be deleted in ${plural(n)}, on ${esc(fmtDate(this.pending.due))}. It is not permanently deleted yet. Restore it before then and nothing is lost.</p>
+      <p class="actions"><button class="btn pri" data-act="restoreAccount">Restore my account</button></p></section>`;
+  },
+
+  /* The card on Settings, Privacy and data */
+  card() {
+    if (this.pending) {
+      const n = daysLeft(this.pending.due);
+      return `<section class="card" style="margin-bottom:10px"><h2>Delete my account</h2>
+        <p class="plain">Deletion is scheduled for ${esc(fmtDate(this.pending.due))}: ${plural(n)} left. Restore it to keep your account.</p>
+        <p class="actions"><button class="btn pri" data-act="restoreAccount">Restore my account</button></p></section>`;
+    }
+    return `<section class="card" style="margin-bottom:10px"><h2>Delete my account</h2>
+      <p class="plain">Your account is <b>not permanently deleted</b> straight away. It is kept for ${DAYS} days, and you can come back within that time to restore it. After ${DAYS} days it is deleted.</p>
+      <p class="actions"><button class="btn bad" data-act="deleteAccount">Delete my account</button></p></section>`;
+  },
+
+  openDelete(prev = {}, err = '') {
+    Modal.open({
+      title: 'Delete my account',
+      submitLabel: 'Delete my account', danger: true,
+      body: `<p class="plain"><b>Your account is not permanently deleted.</b> It is kept for ${DAYS} days. Come back within those ${DAYS} days to restore it. After that it is deleted.</p>
+        <p class="plain mute">Other members of your chama will be told that you asked to leave, with a countdown.</p>
+        ${err ? `<p class="auth-note" role="alert">${esc(err)}</p>` : ''}`,
+      fields: [
+        { name: 'reason', label: 'Reason', type: 'select', options: REASONS, value: prev.reason || REASONS[0][0] },
+        { name: 'note', label: 'Tell us more (required for Other)', value: prev.note || '', placeholder: 'Optional' },
+        { name: 'password', label: 'Your password', type: 'password', value: '', placeholder: 'Your password', required: true },
+      ],
+      // Modal closes itself after onSubmit returns, so the async work starts on the next tick
+      onSubmit: v => { setTimeout(() => Account.submitDelete(v), 0); },
+    });
+  },
+
+  async submitDelete(v) {
+    const reason = v.reason || REASONS[0][0], note = (v.note || '').trim(), pw = v.password || '';
+    if (reason === 'other' && !note) return this.openDelete(v, 'Tell us why in the note, so the treasurer knows.');
+    if (!pw) return this.openDelete(v, 'Type your password to continue.');
+    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    const { data, error } = await Backend.sb.rpc('request_account_deletion', {
+      cid: Session.cid(), p_password: pw, p_reason: reasonLabel(reason), p_note: note || null,
+    });
+    if (error) return this.openDelete({ ...v, password: '' }, error.message);
+    toast(`Deletion scheduled. You have ${DAYS} days to restore.`);
+    // Sign out. The countdown and the Restore button show when they sign in again.
+    this.checked = false; this.pending = null;
+    return Session.signOut();
+  },
+
+  async restore() {
+    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    const { error } = await Backend.sb.rpc('cancel_account_deletion', { cid: Session.cid() });
+    if (error) return toast(error.message);
+    this.pending = null; this.checked = true;
+    toast('Restored. Your account is kept.');
+    render();
+  },
+
+  hiddenSet() {
+    if (!this.hidden) { try { this.hidden = new Set(JSON.parse(localStorage.getItem('chama:hidden-deletions') || '[]')); } catch (e) { this.hidden = new Set(); } }
+    return this.hidden;
+  },
+  saveHidden() { try { localStorage.setItem('chama:hidden-deletions', JSON.stringify([...this.hiddenSet()])); } catch (e) {} },
+
+  /* Other members' pending deletions. The server returns only the member and the date, never the reason. Checked at most once a minute. */
+  async refreshNotices() {
+    if (!Session.ready() || !Backend.sb || this.noticesBusy) return;
+    if (Date.now() - this.noticesAt < 60000) return;
+    this.noticesBusy = true; this.noticesAt = Date.now();
+    try {
+      const { data, error } = await Backend.sb.rpc('chama_deletion_notices', { cid: Session.cid() });
+      if (!error && Array.isArray(data)) {
+        const next = data.map(r => ({ key: (r.member_id || 'member') + '|' + r.due, memberId: r.member_id || null, due: new Date(r.due) }));
+        const sig = next.map(n => n.key).join(';');
+        this.noticesBusy = false;
+        if (sig !== this.noticesSig) { this.noticesSig = sig; this.notices = next; render(); }
+        return;
+      }
+    } catch (e) { /* keep what we had */ }
+    this.noticesBusy = false;
+  },
+
+  /* Notice cards for the Notifications page. The countdown updates every second without redrawing the page. */
+  noticesHTML(s) {
+    const hid = this.hiddenSet();
+    const shown = this.notices.filter(n => !hid.has(n.key));
+    const hiddenN = this.notices.length - shown.length;
+    const showBack = hiddenN ? `<p class="actions" style="margin-top:6px"><button class="btn sm" data-act="showHiddenDeletionNotices">Show ${hiddenN} hidden</button></p>` : '';
+    if (!shown.length) return showBack;
+    this.startTicker();
+    const cards = shown.map(n => {
+      const who = (s.members || []).find(m => m.id === n.memberId);
+      const name = who ? who.name : 'A member';
+      return `<section class="card acct-notice" role="status" data-deletion="${esc(n.key)}">
+        <h2>Account deletion requested</h2>
+        <p class="plain">${esc(name)} asked to delete their account. It is not permanently deleted: it will be removed on ${esc(fmtDate(n.due))} unless they restore it first.</p>
+        <p class="plain"><b class="acct-count" data-due="${n.due.toISOString()}">${esc(countdown(n.due))}</b> left</p>
+        <p class="actions"><button class="btn sm" data-act="hideDeletionNotice" data-k="${esc(n.key)}">Hide</button></p></section>`;
+    }).join('');
+    return cards + showBack;
+  },
+
+  startTicker() {
+    if (this.ticker) return;
+    this.ticker = setInterval(() => {
+      document.querySelectorAll('.acct-count[data-due]').forEach(el => { el.textContent = countdown(new Date(el.dataset.due)); });
+    }, 1000);
+  },
+};
+
+const actions = {
+  deleteAccount: () => Account.openDelete(),
+  restoreAccount: () => Account.restore(),
+  hideDeletionNotice: d => { Account.hiddenSet().add(d.k); Account.saveHidden(); render(); },
+  showHiddenDeletionNotices: () => { Account.hiddenSet().clear(); Account.saveHidden(); render(); },
+};
+
+return { get Account() { return Account; }, get actions() { return actions; }, };
+})();
+
 /* ---- src/features/settings/index.js ---- */
 const __M_src_features_settings_index_js = (function () {
+const { Account } = __M_src_features_account_deletion_js;
 const { CONFIG } = __M_src_config_js;
 const { APP, PRIVACY } = __M_src_content_app_info_js;
 const { A11y } = __M_src_core_a11y_js;
@@ -2830,7 +3032,7 @@ const views = {
     if (r === 'settings/help') return Help.render();
     if (r === 'settings/privacy') return `<p style="margin-bottom:12px"><span class="tag warn">Draft for review</span></p>`
       + PRIVACY.map(x => `<section class="card" style="margin-bottom:10px"><h2>${esc(x[0])}</h2><p class="plain">${esc(x[1])}</p></section>`).join('')
-      + `<section class="card"><h2>Privacy contact</h2><p class="plain">${esc(APP.privacyContact || 'Not set yet')}</p></section>
+      + `${Account.card()}<section class="card"><h2>Privacy contact</h2><p class="plain">${esc(APP.privacyContact || 'Not set yet')}</p></section>
       <p class="actions"><button class="btn" data-act="exportMe">Download my data</button> <a class="btn" href="#/profile">Open my profile</a></p>`;
     return '';
   },
@@ -3051,6 +3253,7 @@ return { get NOTE_TYPES() { return NOTE_TYPES; }, get NOTE_CAT_LABEL() { return 
 
 /* ---- src/features/notifications/index.js ---- */
 const __M_src_features_notifications_index_js = (function () {
+const { Account } = __M_src_features_account_deletion_js;
 const { render } = __M_src_core_rerender_js;
 const { esc } = __M_src_core_utils_js;
 const { NOTE_CAT_LABEL, NOTE_LIST_CATS, Notify, svgIcon } = __M_src_features_notifications_notify_js;
@@ -3065,6 +3268,7 @@ const views = {
     return `<div class="nsearch"><label><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="vh">Search notifications</span><input id="notifQ" type="search" placeholder="Search, e.g. unread, KES, late" value="${esc(Notify.q)}" autocomplete="off"></label><a class="fbtn" href="#/notifications/settings" aria-label="Notification settings">${svgIcon('sliders')}</a></div>`
       + chipBar
       + `<p class="nbar"><span class="mute">${unreadN ? unreadN + ' unread' : 'All caught up'}</span><button class="btn sm" data-act="noteAll">Mark all as read</button></p>`
+      + Account.noticesHTML(s)
       + `<div id="notifList">${Notify.listHTML(s)}</div>`;
   },
   notificationDetail(s, r) {
@@ -3132,6 +3336,7 @@ return { get actions() { return actions; }, };
 
 /* ---- src/features/auth/index.js ---- */
 const __M_src_features_auth_index_js = (function () {
+const { Modal } = __M_src_ui_modal_js;
 const { Backend } = __M_src_core_backend_js;
 const { render } = __M_src_core_rerender_js;
 const { Session } = __M_src_core_session_js;
@@ -3155,23 +3360,27 @@ const gateSendCode = async (email, btn) => {
 const actions = {
   gateSend: async () => {
     const btn = document.querySelector('[data-act="gateSend"]');
+    const A = AUTH_T[OB.lang()] || AUTH_T.en;
     const email = (($('#gateEmail') && $('#gateEmail').value) || '').trim().toLowerCase();
     const pw = (($('#gatePw') && $('#gatePw').value) || '');
     if (!validEmail(email)) return toast('Email address does not look right');
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    if (!pw) return toast('Type your password');
     if (Gate.mode === 'up') {
+      // Create-account step: the same rules and checks as before, then the code
       const why = Gate.pwProblem(pw); if (why) return toast(why);
       if (pw !== (($('#gatePw2') && $('#gatePw2').value) || '')) return toast('The two passwords do not match');
       const { error } = await Backend.sb.rpc('check_signup_password', { p_email: email, p_password: pw });
       if (error) return toast(error.message);
       Gate.pw = pw;
-    } else {
-      if (!pw) return toast('Type your password');
-      const { data, error } = await Backend.sb.rpc('check_login', { cid: Session.cid(), p_email: email, p_password: pw });
-      if (error) return toast(error.message);
-      if (data === 'wrong') return toast('Email or password is not right');
-      if (data === 'needs_password') { Gate.email = email; Gate.stage = 'setpw'; Gate.paint(); return; }
+      return gateSendCode(email, btn);
     }
+    // Sign-in step: check_login decides. 'wrong' covers a bad password AND an unknown email,
+    // so the card never reveals which one it was; it offers the create-account step instead.
+    const { data, error } = await Backend.sb.rpc('check_login', { cid: Session.cid(), p_email: email, p_password: pw });
+    if (error) return toast(error.message);
+    if (data === 'wrong') { Gate.email = email; Gate.mode = 'up'; Gate.notice = A.wrongNotice; Gate.paint(); return; }
+    if (data === 'needs_password') { Gate.email = email; Gate.stage = 'setpw'; Gate.paint(); return; }
     return gateSendCode(email, btn);
   },
   gateSetPw: async () => {
@@ -3221,6 +3430,14 @@ const actions = {
     } catch (e) { toast('Could not check the code. Try again'); }
   },
   gateSignOut: () => Session.signOut(),
+  signOutAsk: () => {
+    Modal.open({
+      title: 'Sign out?',
+      body: '<p class="plain">This closes the app on this phone. You will need your email code to sign in again.</p>',
+      submitLabel: 'Sign out',
+      onSubmit: () => { setTimeout(() => actions.signOutApp(), 0); },
+    });
+  },
   signOutApp: async () => {
     try { await Session.signOut(); } catch (e) { /* carry on: the reload clears the session view */ }
     try { sessionStorage.removeItem('mca-splash'); sessionStorage.removeItem('mca-gate'); sessionStorage.removeItem('mca-intent'); } catch (e) {}
@@ -3275,12 +3492,13 @@ const settingsFeature = __M_src_features_settings_index_js;
 const notificationsFeature = __M_src_features_notifications_index_js;
 const helpFeature = __M_src_features_help_index_js;
 const authFeature = __M_src_features_auth_index_js;
+const accountFeature = __M_src_features_account_deletion_js;
 const shellFeature = __M_src_features_shell_index_js;
 /* Feature registry. Each feature folder exports `views` (pages it draws) and/or `actions` (things that change data).
    This file merges them into one table, and stops at start-up if two features claim the same name.
    To add a feature: create its folder, then add one import line and one entry in FEATURE_LIST below. */
 
-const FEATURE_LIST = [homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, shellFeature];
+const FEATURE_LIST = [homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature];
 
 function merge(kind) {
   const out = Object.create(null);
@@ -3467,6 +3685,7 @@ const { $, restart } = __M_src_lib_dom_js;
 const { av } = __M_src_ui_avatar_js;
 const { Menu } = __M_src_ui_menu_js;
 const { Nav } = __M_src_ui_nav_js;
+const { Account } = __M_src_features_account_deletion_js;
 
 let lastRoute = null;
 
@@ -3495,7 +3714,8 @@ function renderPage() {
   $('#undoBtn').hidden = !admin;
   if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
   document.body.classList.toggle('no-tabs', !ROUTES.some(x => x[0] === r));
-  $('#view').innerHTML = (Views[r] ? Views[r](s) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r)) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
+  Account.load(); Account.refreshNotices();
+  $('#view').innerHTML = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r)) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
   if (Session.hydrating) $('#view').innerHTML = Skel.page(r);
   Notify.paintBell(s, r);
 }
