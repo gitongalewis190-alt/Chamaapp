@@ -2,14 +2,14 @@
 
 A savings-group app (chama) that runs as a plain web app on a phone. It works offline once opened, and can be added to the home screen.
 
-**Version 0.6.5**
+**Version 0.6.8**
 
 ## What is in this repository
 
 | File | What it does |
 |—|—|
 | `index.html` | The whole app in one file (HTML, CSS and JavaScript). This is what runs. |
-| `sw.js` | Offline cache. Cache name `mca-app-v13`. |
+| `sw.js` | Offline cache. Cache name `mca-app-v16`. |
 | `manifest.json` | Home-screen install details. |
 | `chama_auth.sql` | Supabase tables, access rules and functions for sign-in and roles. Run once in the Supabase SQL Editor. |
 | `SETUP_GUIDE.md` | Step-by-step Supabase setup and how to add a new feature to the backend. |
