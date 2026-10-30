@@ -496,6 +496,27 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 .otp-mail.off{opacity:0;transform:scale(.6) translateY(-8px);filter:blur(4px);pointer-events:none}
 @media(prefers-reduced-motion:reduce){.otp-mail .s,.otp-mail .lt{animation:none!important;stroke-dashoffset:0;opacity:1}}
 </style>
+
+<style>
+/* ---- 0.6.11: layered OTP card, 3D boxes, navigation fallbacks ---- */
+.otp-card{position:relative;max-width:400px;margin:6px auto 0;padding:18px 14px 16px;border-radius:24px;background:linear-gradient(180deg,#fff 0%,#f2f8f5 100%);border:1px solid #d9e6e0;box-shadow:inset 0 1px 0 #fff,0 1px 2px rgba(15,60,45,.06),0 16px 28px -14px rgba(15,60,45,.28),0 40px 70px -40px rgba(15,60,45,.35)}
+.otp-card .otp-hint{margin:0 0 8px}
+.otp-card .otp-msg{margin:6px 0 0}
+.otp-foot{margin-top:4px}
+.otp-foot .otp-resend{margin:0 0 2px}
+.otp-box{background:linear-gradient(180deg,#fff 0%,#e8f1ed 100%);border:1px solid #c3d6cd;border-radius:14px;box-shadow:inset 0 2px 0 #fff,inset 0 -3px 0 rgba(15,60,45,.10),0 4px 0 #b9cdc3,0 10px 16px -6px rgba(15,60,45,.35)}
+.otp-box.cur{border-color:#1fa37f;box-shadow:inset 0 2px 0 #fff,0 0 0 4px rgba(31,163,127,.22),0 4px 0 #b9cdc3,0 12px 18px -6px rgba(15,60,45,.35)}
+.otp-box.on{background:linear-gradient(180deg,#2bb892 0%,#0f7b5f 100%);border-color:#0b6a50;box-shadow:inset 0 2px 0 rgba(255,255,255,.35),0 4px 0 #0a5c45,0 12px 20px -6px rgba(15,123,95,.55)}
+.otp-input{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;color:transparent;caret-color:transparent}
+.navrow{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+.navpill{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:700;font-size:15px;box-shadow:0 2px 0 rgba(15,60,45,.06),0 8px 16px -10px rgba(15,60,45,.35);cursor:pointer;transition:transform .15s ease}
+.navpill:active{transform:scale(.96)}
+.sendload{display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 0 4px;text-align:center}
+.spin{width:36px;height:36px;border-radius:50%;border:4px solid #d6e6df;border-top-color:#1fa37f;animation:spinIt .8s linear infinite}
+@keyframes spinIt{to{transform:rotate(360deg)}}
+.wc-skip{margin-top:28px;background:none;border:1px solid var(--line);border-radius:999px;padding:9px 20px;font:inherit;font-weight:700;font-size:15px;color:var(--mute);min-height:44px;cursor:pointer}
+@media(prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+</style>
 </head>
 <body><label id="hapticSw" style="position:fixed;left:-9999px;top:0;opacity:0"><input type="checkbox" switch></label>
 <div class="splash" id="splash">
@@ -621,7 +642,7 @@ const Welcome = {
     let el = document.getElementById('welcome');
     if (!el) {
       el = document.createElement('div'); el.id = 'welcome'; el.className = 'welcome'; el.setAttribute('aria-live', 'polite');
-      el.innerHTML = '<div class="wc-sk" aria-hidden="true"><span></span><span></span><span></span></div><p class="wc-msg"></p>';
+      el.innerHTML = '<div class="wc-sk" aria-hidden="true"><span></span><span></span><span></span></div><p class="wc-msg"></p><button class="wc-skip" id="wcSkip" type="button">Skip</button>';
       document.body.appendChild(el);
     }
     return el;
@@ -637,6 +658,7 @@ const Welcome = {
     if (this.ran || !this.S || !['loading', 'ready', 'demo'].includes(this.S.status)) return;
     this.t0 = performance.now(); this.begin();
   },
+  skip() { this.hide(); },
   hide() {
     const el = document.getElementById('welcome');
     this.t0 = null; this.ran = false;
@@ -644,20 +666,25 @@ const Welcome = {
   },
   async run(name) {
     if (this.ran) return; this.ran = true;
-    while (!this.splashDone) await this.sleep(60);   /* never type over the intro */
+    /* never stuck here: after 9 s the welcome closes by itself */
+    setTimeout(() => { if (this.ran) this.hide(); }, 9000);
+    while (this.ran && !this.splashDone) await this.sleep(60);   /* never type over the intro */
+    if (!this.ran) return;
     if (this.t0 === null) this.t0 = performance.now();
     this.begin();
     const el = this.mount(), msg = el.querySelector('.wc-msg');
     await this.sleep(Math.max(0, 1850 - (performance.now() - this.t0)));
-    if (!this.ran) return;               /* the person left before the welcome */
+    if (!this.ran) return;               /* the person left, or pressed Skip */
     el.classList.add('typing');
     const text = name ? 'Welcome, ' + name : 'Welcome';
-    for (let i = 1; i <= text.length; i++) { msg.textContent = text.slice(0, i); await this.sleep(45); }
+    for (let i = 1; i <= text.length; i++) { if (!this.ran) return; msg.textContent = text.slice(0, i); await this.sleep(45); }
     await this.sleep(900);
+    if (!this.ran) return;
     el.classList.remove('on'); el.classList.add('out');
     await this.sleep(520); el.remove(); this.t0 = null;
   }
 };
+document.addEventListener('click', e => { if (e.target && e.target.id === 'wcSkip') Welcome.skip(); });
 document.addEventListener('mca:splash-done', () => Welcome.onSplashDone());
 
 /* ---- src/config.js ---- */
@@ -1082,7 +1109,8 @@ const Session = {
   displayName() {
     try { const me = JSON.parse(localStorage.getItem('chama:me:' + Store.chamaId) || '{}'); if (me.name) return String(me.name).trim().split(/\s+/)[0]; } catch (e) {}
     if (!this.email) return '';
-    return this.email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const first = this.email.split('@')[0].split(/[._+-]+/)[0].replace(/\d+/g, '');
+    return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : '';
   },
   async boot() {
     if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
@@ -1090,7 +1118,7 @@ const Session = {
     catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
       if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); }
-      else if (ev === 'SIGNED_IN' && sess && (!this.user || this.user.id !== sess.user.id)) this.after(sess.user);
+      else if (ev === 'SIGNED_IN' && sess && !Otp.busy && (!this.user || this.user.id !== sess.user.id)) this.after(sess.user);
     });
     const { data } = await Backend.sb.auth.getSession();
     if (data && data.session) { if (!this.user) await this.after(data.session.user); }
@@ -1299,8 +1327,8 @@ const Otp = {
       boxes += `<span class="otp-box" style="--x:${x}px;--rx:${rx}px;--ry:${ry}px"><span class="otp-ch"></span></span>`;
     }
     const resend = o.resend === false ? '' : `<p class="otp-resend">Didn't get the code? <button class="otp-link" id="otpResend" data-act="gateResend" disabled>Send again</button></p>`;
-    const change = o.change ? `<p><button class="otp-link" data-act="gateReset">Use a different email</button></p>` : '';
-    return `<div class="otp" id="otpWrap">
+    const change = o.change ? `<p><button class="navpill" data-act="gateReset">&larr; Use a different email</button></p>` : '';
+    return `<div class="otp" id="otpWrap"><div class="otp-card">
       ${o.hint ? `<p class="otp-hint">${o.hint}</p>` : ''}
       ${o.mail ? MAIL_ART : ''}
       <div class="otp-stage" id="otpStage" style="--sh:${SH}px;--R:${R}px;--bw:${BW}px;--bh:${BH}px;--fs:${FS}px">
@@ -1310,9 +1338,9 @@ const Otp = {
         <input id="otpIn" class="otp-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="${n}" aria-label="${n}-digit code">
       </div>
       <p class="otp-msg" id="otpMsg" role="status" aria-live="polite"></p>
-      ${resend}${change}
-      <p class="otp-paste"><button class="btn sm" data-act="otpPaste" type="button">Paste code</button></p>
-    </div>`;
+      <div class="otp-foot">${resend}${change}
+      <p class="otp-paste"><button class="btn sm" data-act="otpPaste" type="button">Paste code</button></p></div>
+    </div></div>`;
   },
   paint(v) {
     document.querySelectorAll('#otpStage .otp-box').forEach((el, i) => {
@@ -1321,6 +1349,24 @@ const Otp = {
     });
   },
   msg(t) { const m = document.getElementById('otpMsg'); if (m) m.textContent = t; },
+  /* shrink the box row to fit the card on narrow phones, so nothing pokes out */
+  fit() {
+    const st = document.getElementById('otpStage'); if (!st || !st.parentElement) return;
+    const w = st.parentElement.clientWidth - 28;
+    if (w > 0) st.style.zoom = Math.min(1, Math.max(0.6, w / 320)).toFixed(3);
+  },
+  /* empty boxes, ready for a fresh code */
+  reset() {
+    const wrap = document.getElementById('otpWrap'), inp = document.getElementById('otpIn');
+    if (wrap) wrap.classList.remove('bad', 'ok', 'ring', 'grey', 'merge', 'shake', 'verifying');
+    document.querySelectorAll('#otpStage .otp-box').forEach(b => b.classList.remove('on', 'cur'));
+    const mail = document.getElementById('otpMail'); if (mail) mail.classList.remove('off');
+    if (inp) { inp.value = ''; inp.disabled = false; }
+    this.busy = false; this.hold = false;
+    try { sessionStorage.removeItem('mca-otp'); } catch (e) {}
+    this.paint('');
+    this.msg('');
+  },
   start() { this.until = Date.now() + 60000; clearInterval(this.timer); this.tick(); this.timer = setInterval(() => this.tick(), 500); },
   tick() {
     const b = document.getElementById('otpResend'); if (!b) return;
@@ -1373,13 +1419,14 @@ const Otp = {
     if (res.ok) {
       wrap.classList.add('ok'); try { sessionStorage.removeItem('mca-otp'); sessionStorage.removeItem('mca-gate'); } catch (e) {} this.msg("Verified. You're in.");
       Haptic.ok();
-      await this.sleep(750);
+      await this.sleep(1100);
       return this.done();
     }
     wrap.classList.add('bad'); this.msg(res.msg); Haptic.no();
     wrap.classList.remove('merge'); await this.sleep(380);
     wrap.classList.remove('ring', 'grey'); wrap.classList.add('shake'); await this.sleep(460);
     wrap.classList.remove('shake', 'verifying');
+    const mailBack = document.getElementById('otpMail'); if (mailBack) mailBack.classList.remove('off');
     boxes.forEach(b => b.classList.remove('on'));
     inp.value = ''; this.paint(''); inp.disabled = false;
     this.busy = false; this.hold = false;
@@ -1389,9 +1436,10 @@ const Otp = {
     if (this.kind === 'email') {
       try {
         const { data } = await Backend.sb.auth.getSession();
-        if (data && data.session && Session.status === 'signed-out') await Session.after(data.session.user);
-      } catch (e) { /* the sign-in listener also continues */ }
-      return Session.set(Session.status);
+        if (data && data.session) return await Session.after(data.session.user);
+      } catch (e) { /* handled below */ }
+      Session.error = 'We could not finish signing in. Try again.';
+      return Session.set('error');
     }
     if (this.kind === 'mfa') return Session.mfaFinish();
     if (Session.mfaInline) { Session.mfaEnroll = null; Session.mfaInline = false; Session.mfaOn = true; toast('Two-step sign-in is on'); return Session.set(Session.status); }
@@ -1404,7 +1452,8 @@ document.addEventListener('click', e => { if (e.target.closest && e.target.close
 /* What the person typed survives a reload or a trip to the mail app (this tab only) */
 const gateSaved = () => { try { return JSON.parse(sessionStorage.getItem('mca-gate')) || {}; } catch (e) { return {}; } };
 const Gate = {
-  email: gateSaved().email || '', sent: !!gateSaved().sent,
+  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false,
+  navRow(x) { return `<div class="navrow">${x}</div>`; },
   card(t, body) { return `<section class="gate"><div class="card gcard"><h2>${t}</h2>${body}</div></section>`; },
   paint() {
     if (Otp.hold) return;
@@ -1414,11 +1463,13 @@ const Gate = {
     $('#syncBar').hidden = true;
     const st = Session.status; let html;
     try { if (st === 'signed-out') sessionStorage.setItem('mca-gate', JSON.stringify({ email: this.email, sent: this.sent })); else sessionStorage.removeItem('mca-gate'); } catch (e) {}
-    if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>');
+    if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>' + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'));
     else if (st === 'signed-out') {
       Otp.kind = 'email'; Otp.len = Session.otpLength;
       
-      html = this.sent
+      html = this.sending
+        ? this.card('Sending your code', `<div class="sendload" aria-live="polite"><span class="spin" aria-hidden="true"></span><p class="plain mute">Sending a code to <b>${esc(this.email)}</b></p></div>` + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'))
+        : this.sent
         ? this.card('Enter your code', Otp.html({ hint: `Sent to <b>${esc(this.email)}</b>`, change: true, mail: true }))
         : this.card('Sign in', `<p class="plain mute">Enter your email. We will send a ${Session.otpLength}-digit code.</p><label>Email address<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></label><p class="actions"><button class="btn pri" data-act="gateSend">Send code</button></p><p class="btn-hint">We email a code to this address. Only people your treasurer added can sign in.</p>`);
     }
@@ -1432,6 +1483,7 @@ const Gate = {
     else if (st === 'mfa-verify') { Otp.kind = 'mfa'; Otp.len = 6; html = this.card('Enter your app code', Otp.html({ hint: 'From your authenticator app', resend: false })); }
     else html = this.card('Could not connect', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button> <button class="btn" data-act="gateSignOut">Start again</button></p>`);
     $('#view').innerHTML = html;
+    Otp.fit();
     if (st === 'signed-out' && this.sent) { try { const d = sessionStorage.getItem('mca-otp') || ''; const inp = document.getElementById('otpIn'); if (inp && d) { inp.value = d; Otp.paint(d); } } catch (e) {} }
   }
 };
@@ -2231,11 +2283,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.6.10', released: '2026-10-30',
+  name: 'My Chama App', version: '0.6.11', released: '2026-10-30',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
+  notes: [['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 
 const PRIVACY = [
@@ -2760,24 +2812,31 @@ const { toast } = __M_src_ui_toast_js;
 
 const actions = {
   gateSend: async () => {
+    const btn = document.querySelector('[data-act="gateSend"]');
     const email = ($('#gateEmail').value || '').trim().toLowerCase();
     if (!validEmail(email)) return toast('Email address does not look right');
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
-    Gate.email = email;
-    /* keep ?c=<chama> in the link, or the sign-in link opens the wrong chama */
-    const back = location.origin + location.pathname + location.search;
+    Gate.email = email; Gate.sending = true; if (btn) btn.disabled = true; Gate.paint();
+    const t0 = Date.now();
     const { error } = await Backend.sb.auth.signInWithOtp({ email });
-    if (error) return toast(error.message);
+    await new Promise(r => setTimeout(r, Math.max(0, 900 - (Date.now() - t0))));
+    Gate.sending = false;
+    if (error) { Gate.paint(); return toast(error.message); }
     Gate.sent = true; render();
     try { Otp.start(); } catch (e) { /* the code screen still works without the resend timer */ }
   },
-  gateReset: () => { Gate.sent = false; render(); },
-
+  gateReset: () => { Gate.sent = false; Gate.sending = false; Otp.hold = false; Otp.busy = false; render(); },
+  gateCancel: () => {
+    Gate.sent = false; Gate.sending = false; Otp.hold = false; Otp.busy = false;
+    if (Session.status === 'loading') return Session.signOut();
+    Session.set('signed-out');
+  },
   gateResend: async () => {
     if (!Gate.email || !Backend.sb) return toast('Use a different email and start again');
+    const b = document.getElementById('otpResend'); if (b) b.disabled = true;
     const { error } = await Backend.sb.auth.signInWithOtp({ email: Gate.email });
-    if (error) return Otp.msg(/seconds|wait|rate/i.test(error.message) ? 'Please wait a minute before asking for another code.' : error.message);
-    Otp.start(); const inp = document.getElementById('otpIn'); if (inp) inp.value = ''; Otp.paint(''); Otp.msg('A new code is on its way.');
+    if (error) { if (b) b.disabled = false; return Otp.msg(/seconds|wait|rate/i.test(error.message) ? 'Please wait a minute before asking for another code.' : error.message); }
+    Otp.reset(); Otp.start(); Otp.msg('A new code is on its way.');
   },
   otpPaste: async () => {
     const inp = document.getElementById('otpIn'); if (!inp || inp.disabled) return;
@@ -3221,6 +3280,7 @@ document.addEventListener('paste', e => {
 
 /* Coming back to the app (for example after opening the sign-in link elsewhere) picks up the sign-in */
 addEventListener('focus', () => Session.recheck());
+addEventListener('resize', () => Otp.fit());
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Session.recheck(); });
 
 Welcome.bind(Session);
