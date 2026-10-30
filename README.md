@@ -2,7 +2,7 @@
 
 A savings-group app (chama) that runs as a plain web app on a phone. It works offline once opened and can be added to the home screen.
 
-**Version 0.7.0** · Service-worker cache `mca-app-v25` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
+**Version 0.8.0** · Service-worker cache `mca-app-v27` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
 
 This one file is the complete guide: what the app is, how it is built, how to set up Supabase, how to release, and the rules for anyone (human or AI) who changes it.
 
@@ -77,6 +77,15 @@ One `<script>` holds several IIFE modules named `__M_<path>`. Order matters:
 `loading` → `ready` (or `demo`), or `signed-out`, `no-access`, `no-chama`, `error`.
 - `error` is only for real sign-in failures. A page that fails to draw shows a toast and does not change the status.
 - `Session.verifying` is true while a code is being checked. Focus and sign-in listeners ignore events during that time, so the app cannot flash in and out.
+
+### 3.7 Passwords (0.8.0)
+Run the SQL in this order: `chama_auth.sql`, then `chama_auth_addon.sql`, then `chama_passwords.sql`.
+- Sign-in: email and password first (`check_login`), then the email code. A wrong email or password gives the same message.
+- Invited people with no password: the app asks them to create one once (`set_password`). Rules: 6 characters or more, a capital letter, and a symbol.
+- One email can join several chamas, but the same password cannot be used for that email in two chamas (`password_reused`).
+- Passwords are stored as bcrypt hashes in `chama_members.password_hash`. The app cannot read that column.
+- Existing treasurers have no password until their next sign-in, when they create one.
+- Rate limits: Supabase limits code requests. Password guesses are not rate-limited by the database yet; add that before public launch.
 
 ### 3.6 First run and sign-up (0.7.0)
 Order on a new device: opening animation (no Skip) → language (English or Kiswahili, stored in `mca-onboard`) → a swipeable tour (images in `tips/01-welcome.png` … `tips/08-privacy.png`; a missing image shows the coloured tile) → privacy policy, which needs both boxes ticked → sign-in screen with **Sign in** and **Sign up** tabs.
