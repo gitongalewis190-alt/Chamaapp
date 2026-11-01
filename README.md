@@ -2,7 +2,7 @@
 
 A savings-group app (chama) that runs as a plain web app on a phone. It works offline once opened and can be added to the home screen.
 
-**Version 0.12.0-dev.2 (development build)** · Service-worker cache `mca-app-v32` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
+**Version 0.12.0-dev.3 (development build)** · Service-worker cache `mca-app-v33` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
 
 This one file is the complete guide: what the app is, how it is built, how to set up Supabase, how to release, and the rules for anyone (human or AI) who changes it.
 
@@ -314,8 +314,12 @@ When a feature needs its own table or a server function:
 ### Secrets (names only; never put values in files)
 `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (a sender verified in Brevo), `BREVO_SENDER_NAME`, optional `BREVO_TEMPLATE_ID` (your customised Brevo template; it receives params `CHAMA`, `INVITER`, `ROLE`, `LINK`, `HOURS`), `APP_URL` (the real site address, no trailing slash), `ALLOWED_ORIGIN` (same), `INVITE_EXPIRY_HOURS` (default 48). `auth-login` uses `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (set by Supabase).
 
-### Database steps
-Follow `MIGRATION_AND_SETUP_GUIDE.md` (delivered alongside this README). It gives the exact order (001 to 009), the Auth dashboard settings, the function deployment commands and the test checklist.
+### Database steps (staging, then production only with explicit approval)
+1. Run the read-only check on staging.
+2. Run 001 to 006 and 008 to 009 in order. 005 gives server-made Chama ids (uuid text); existing ids such as `mrlees` are untouched.
+3. Run 007 (retires v0.11.0 password functions and per-Chama password hashes). After this, only v0.12 can sign in.
+4. Run 004 last among the security steps and test the app on staging. It removes the broad “signed-in” policies.
+5. Test with two accounts in two Chamas, a treasurer, a member and a secretary.
 
 ### Decisions taken (owner approved or recommended)
 - One global password (D7) after an email code; usernames are part of sign-in now.

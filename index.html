@@ -1107,7 +1107,7 @@ const { toast } = __M_src_ui_toast_js;
    2. STORE  (one adapter, two backends: Firestore or localStorage)
    ===================================================================== */
 const Store = (() => {
-  const chamaId = (new URLSearchParams(location.search).get('c') || 'demo').replace(/[^\w-]/g, '');
+  const chamaId = (new URLSearchParams(location.search).get('c') || '').replace(/[^\w-]/g, '');   /* no default Chama (A7) */
   const subs = []; let state = null, ref = null;
   const blank = () => ({
     chama: { name: 'My Chama', monthly: 2000, dueDay: 10, finePerLate: 100, loanRate: 10, startMonth: monthKey(new Date()), payTo: '', mode: 'rotation' },
@@ -1323,7 +1323,7 @@ const Invite = {
 Invite.init();
 
 const Session = {
-  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false,
+  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null,
   ready() { return this.status === 'ready' || this.status === 'demo'; },
   canWrite() { return Perm.can(this.role, 'finance.record'); },
   /* Runs when the person comes back to the page: picks up a sign-in finished in another browser or app */
@@ -1395,17 +1395,28 @@ const Session = {
     this.set('loading');
     try {
       this.takeDevice(user.id);
+      this.clearStaleLocal(user.id);
       let acct;
       try { const { data, error } = await Backend.sb.rpc('my_account_status'); if (error) throw error; acct = data || {}; }
       catch (e) { throw new Error('Your account could not be checked. Make sure the database steps are finished, then try again.'); }
       this.account = acct;
-      if (!acct.has_profile || !acct.has_password || intentIs('forgot')) { this.setupMode = acct.has_profile && acct.has_password ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
+      if (!acct.has_profile || !acct.has_password || acct.needs_username || intentIs('forgot')) { this.setupMode = acct.has_profile && acct.has_password && !acct.needs_username ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
       if (Invite.token && Invite.info && Invite.info.ok) { this.role = null; this.memberId = null; this.busy = false; this.set('invite'); return; }
       await this.openWorkspace(user);
     } catch (e) {
       if (this.status === 'ready') { console.error(e); return; }   /* signed in already: never send the person back to sign-in */
       this.error = e.message || 'Could not reach the cloud.'; this.set('error');
     } finally { this.busy = false; }
+  },
+  /* Removes locally cached Chama data that does not belong to the current Chama (A21). */
+  clearStaleLocal(uid) {
+    try {
+      const keep = 'chama:' + Store.chamaId;
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('mca-set-aside:')) localStorage.removeItem(k);
+        else if (k.startsWith('chama:') && !k.startsWith(keep)) localStorage.removeItem(k);
+      });
+    } catch (e) { /* storage blocked */ }
   },
   /* A phone may be shared. Another person's saved Chama data is set aside (kept, not shown), never mixed into this account. */
   takeDevice(uid) {
@@ -1420,6 +1431,7 @@ const Session = {
     if (error) throw error;
     this.workspaces = ws || [];
     const here = this.workspaces.find(w => w.chama_id === Store.chamaId);
+    this.groupName = here ? here.chama_name : null;
     if (here && !this.chooserOpen) return this.enter(user, here.role);
     if (!here && this.workspaces.length === 1 && !this.chooserOpen) return this.switchTo(this.workspaces[0].chama_id);
     this.chooserOpen = false; this.role = null; this.memberId = null; this.busy = false;
@@ -1480,6 +1492,11 @@ const Session = {
       if (error) throw new Error(error.message);
     }
     const { error: e2 } = await Backend.sb.auth.updateUser({ password });
+    if (e2 && /AAL2|MFA/i.test(e2.message)) {
+      /* A5: a stale or multi-factor session. Close it and restart with a fresh email code. */
+      try { await Backend.sb.auth.signOut(); } catch (e) {}
+      throw new Error('Your sign-in session was closed for safety. Press Start again and enter a new email code.');
+    }
     if (e2) throw new Error(/same|different/i.test(e2.message) ? 'Choose a password you have not used before' : e2.message);
     clearIntent(); this.account = null; this.busy = false;
     await this.after(this.user);
@@ -1522,12 +1539,13 @@ const Session = {
   async sendInvite(action, payload) {
     const { data, error } = await Backend.sb.functions.invoke('send-invitation', { body: { action, chama_id: Store.chamaId, ...payload } });
     if (error) {
+      /* the real reason is shown; nothing is hidden behind a fallback */
       if (error.context && typeof error.context.json === 'function') {
         const st = error.context.status; let j = {}; try { j = await error.context.json(); } catch (e) {}
-        if (st === 404) return { unavailable: true };
-        throw new Error(j.error || 'The invitation could not be sent');
+        if (st === 404) throw new Error('The invitation service is not deployed yet (404). Deploy send-invitation in Supabase.');
+        throw new Error('Invitation service (' + st + '): ' + (j.error || 'no details'));
       }
-      return { unavailable: true };
+      throw new Error('Could not reach the invitation service: ' + (error.message || 'unknown error') + '. Check the internet, then try again.');
     }
     return data || {};
   },
@@ -1827,7 +1845,7 @@ const OB_T = {
     upNoAccessTitle: 'This chama is already set up', upNoAccessSub: 'Ask its treasurer to add this email, then sign in.',
     hasTitle: 'This email already has a chama', hasSub: 'This email is already linked to a chama. Please sign in to open it.',
     signInInstead: 'Sign in instead', otherEmail: 'Use a different email', lang: 'Language', change: 'Change',
-    pwLabel: 'Password', pwNew: 'Create a password', pwConfirm: 'Confirm password', pwPh: 'Your password', pwRuleLen: 'At least 6 characters', pwRuleCap: 'A capital letter', pwRuleSym: 'A symbol, such as ! or #', pwRuleSame: 'Both passwords match', setPwTitle: 'Create your password', setPwSub: 'You were invited to this chama. Set a password, then we will send your code.', setPwBtn: 'Save password and send code', pwWrong: 'Email or password is not right' },
+    pwLabel: 'Password', pwNew: 'Create a password', pwConfirm: 'Confirm password', pwPh: 'Your password', pwRuleLen: 'At least 6 characters', pwRuleCap: 'A capital letter', pwRuleNum: 'A number', pwRuleSym: 'A symbol, such as ! or #', pwRuleSame: 'Both passwords match', setPwTitle: 'Create your password', setPwSub: 'You were invited to this chama. Set a password, then we will send your code.', setPwBtn: 'Save password and send code', pwWrong: 'Email or password is not right' },
   sw: { name: 'Kiswahili', sub: 'Endelea kwa Kiswahili', chooseLang: 'Chagua lugha yako', langNote: 'Unaweza kubadilisha baadaye kwenye skrini ya kuingia.',
     next: 'Endelea', skip: 'Ruka', back: 'Rudi', start: 'Anza', cont: 'Endelea', tourTitle: 'Ziara fupi',
     privacyTitle: 'Faragha yako', privacyLead: 'Soma mambo muhimu, kisha sera kamili. Endelea ukikubali.',
@@ -1848,7 +1866,7 @@ const OB_T = {
     upNoAccessTitle: 'Chama hiki tayari kimeanzishwa', upNoAccessSub: 'Omba mweka hazina akuongeze kwa barua pepe hii, kisha uingie.',
     hasTitle: 'Barua pepe hii tayari ina chama', hasSub: 'Barua pepe hii tayari imeunganishwa na chama. Tafadhali ingia ili kukifungua.',
     signInInstead: 'Ingia badala yake', otherEmail: 'Tumia barua pepe nyingine', lang: 'Lugha', change: 'Badilisha',
-    pwLabel: 'Nenosiri', pwNew: 'Tengeneza nenosiri', pwConfirm: 'Thibitisha nenosiri', pwPh: 'Nenosiri lako', pwRuleLen: 'Herufi 6 au zaidi', pwRuleCap: 'Herufi kubwa moja', pwRuleSym: 'Alama moja, kama ! au #', pwRuleSame: 'Yanalingana', setPwTitle: 'Tengeneza nenosiri lako', setPwSub: 'Umealikwa kwenye chama hiki. Weka nenosiri, kisha tutakutumia msimbo.', setPwBtn: 'Hifadhi nenosiri na utume msimbo', pwWrong: 'Barua pepe au nenosiri si sahihi' }
+    pwLabel: 'Nenosiri', pwNew: 'Tengeneza nenosiri', pwConfirm: 'Thibitisha nenosiri', pwPh: 'Nenosiri lako', pwRuleLen: 'Herufi 6 au zaidi', pwRuleCap: 'Herufi kubwa moja', pwRuleNum: 'Namba moja', pwRuleSym: 'Alama moja, kama ! au #', pwRuleSame: 'Yanalingana', setPwTitle: 'Tengeneza nenosiri lako', setPwSub: 'Umealikwa kwenye chama hiki. Weka nenosiri, kisha tutakutumia msimbo.', setPwBtn: 'Hifadhi nenosiri na utume msimbo', pwWrong: 'Barua pepe au nenosiri si sahihi' }
 };
 const OB_TIPS = {
   en: [
@@ -2016,17 +2034,17 @@ const AUTH_T = {
 const Gate = {
   email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', sub: null, joinMsg: '', notice: '', mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' ? m : 'in'; })(),
   navRow(x) { return `<div class="navrow">${x}</div>`; },
-  pwProblem(p) { return p.length < 6 ? 'Use at least 6 characters' : !/[A-Z]/.test(p) ? 'Add a capital letter' : !/[^A-Za-z0-9]/.test(p) ? 'Add a symbol, such as ! or #' : ''; },
+  pwProblem(p) { return p.length < 6 ? 'Use at least 6 characters' : !/[A-Z]/.test(p) ? 'Add a capital letter' : !/[0-9]/.test(p) ? 'Add a number' : !/[^A-Za-z0-9]/.test(p) ? 'Add a symbol, such as ! or #' : ''; },
   refreshRules() {
     const p = (document.getElementById('gatePw') || {}).value || '', p2 = (document.getElementById('gatePw2') || {}).value || '';
     const set = (k, ok) => { const li = document.querySelector('#pwRules [data-r="' + k + '"]'); if (li) li.classList.toggle('ok', !!ok); };
-    set('len', p.length >= 6); set('cap', /[A-Z]/.test(p)); set('sym', /[^A-Za-z0-9]/.test(p)); set('same', p.length > 0 && p === p2);
+    set('len', p.length >= 6); set('cap', /[A-Z]/.test(p)); set('num', /[0-9]/.test(p)); set('sym', /[^A-Za-z0-9]/.test(p)); set('same', p.length > 0 && p === p2);
   },
   pwFields(withConfirm) {
     const L = OB.L();
     return `<label>${L.pwNew}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw" type="password" autocomplete="new-password" placeholder="${L.pwPh}">${this.eyeBtn()}</span></label>` +
       (withConfirm ? `<label>${L.pwConfirm}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw2" type="password" autocomplete="new-password" placeholder="${L.pwConfirm}"></span></label>` : '') +
-      `<ul class="pwr" id="pwRules" aria-live="polite"><li data-r="len">${L.pwRuleLen}</li><li data-r="cap">${L.pwRuleCap}</li><li data-r="sym">${L.pwRuleSym}</li>${withConfirm ? `<li data-r="same">${L.pwRuleSame}</li>` : ''}</ul>`;
+      `<ul class="pwr" id="pwRules" aria-live="polite"><li data-r="len">${L.pwRuleLen}</li><li data-r="cap">${L.pwRuleCap}</li><li data-r="num">${L.pwRuleNum}</li><li data-r="sym">${L.pwRuleSym}</li>${withConfirm ? `<li data-r="same">${L.pwRuleSame}</li>` : ''}</ul>`;
   },
   eyeBtn() { const G = GL(); return `<button type="button" class="eye" data-act="togglePw" aria-label="${G.show} / ${G.hide}">${G.show}</button>`; },
   authCard() {
@@ -2052,7 +2070,7 @@ const Gate = {
     const G = GL(), L = OB.L(), isNew = Session.setupMode === 'new', acct = Session.account || {};
     const note = this.notice ? `<p class="auth-note" role="alert">${esc(this.notice)}</p>` : '';
     const fields = isNew ? `<label>${G.fullName}<input id="setName" autocomplete="name" maxlength="120" value="${esc(acct.full_name || '')}"></label>
-<label>${G.username}<input id="setUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(acct.username || '')}"><small class="mute">${G.usernameHint}</small></label>` : '';
+<label>${G.username}<input id="setUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(acct.username || '') ? '' : (acct.username || ''))}"><small class="mute">${G.usernameHint}</small></label>` : '';
     return `<section class="gate"><div class="card gcard auth">
 <h2 class="auth-h">${isNew ? G.setupTitle : G.resetTitle}</h2><p class="plain mute">${isNew ? G.setupSub : G.resetSub}</p>${note}
 <p class="plain mute">${esc(Session.email)}</p>${fields}${this.pwFields(true)}
@@ -2242,8 +2260,7 @@ const { toast } = __M_src_ui_toast_js;
 
 const views = {
   home(s) {
-    if (!s.members.length) return `<div class="card empty"><p style="margin-bottom:12px">No members yet. Add your members or load sample data to see how it works.</p>
-      <button class="btn" data-act="seed">Load sample data</button></div>`;
+    if (!s.members.length) return `<div class="card empty"><p>No members yet. Add your members from the Members tab.</p></div>`;
     const cur = Domain.now(), exp = sum(s.members, m => Domain.dueFor(s, m.id));
     const got = s.shared ? (s.shared.monthCollected[cur] || 0) : sum(s.payments.filter(p => p.month === cur), p => p.amount);
     const pct = exp ? Math.min(100, Math.round(got / exp * 100)) : 0;
@@ -2282,24 +2299,6 @@ const actions = {
         setTimeout(() => Signature.open(`Signature of ${rec.name}`, sig => Store.commit(st => { const p = st.payouts.find(x => x.id === id); if (p) p.sig = sig; })), 60); } });
   } },
   undoPayout: { admin: true, run: d => confirmBox('Undo this payout?', () => Store.commit(s => { s.payouts = s.payouts.filter(p => p.id !== d.id); })) },
-  seed() {
-    const names = ['Wanjiku Kamau', 'Otieno Odhiambo', 'Faith Mwende', 'Brian Kiptoo', 'Achieng Atieno', 'Mary Njeri', 'Hassan Ali', 'Grace Wambui'];
-    const roles = ['Chair', 'Treasurer', 'Secretary'];
-    Store.commit(s => {
-      const cur = Domain.now(); s.chama.name = 'Umoja Women & Friends'; s.chama.payTo = 'Till 5123456'; s.chama.startMonth = addMonths(cur, -2);
-      s.members = names.map((n, i) => ({ id: uid(), name: n, phone: '07' + (10000000 + i * 1111111), role: roles[i] || '' }));
-      s.payments = [];
-      s.payouts = [[-2, 16000], [-1, 13000]].map(([off, amount], i) => ({ id: uid(), memberId: s.members[i].id, month: addMonths(cur, off), amount, date: todayISO() }));
-      [-2, -1, 0].forEach(off => s.members.forEach((m, i) => {
-        const skip = (off === 0 && i % 3 === 1) || (off === -1 && i === 4);
-        if (!skip) s.payments.push({ id: uid(), memberId: m.id, month: addMonths(cur, off), amount: (off === -1 && i === 6) ? 1000 : s.chama.monthly, code: 'SK' + uid().toUpperCase(), date: todayISO() });
-      }));
-      s.loans = [{ id: uid(), memberId: s.members[3].id, principal: 5000, rate: 10, months: 3, date: todayISO(), repayments: [{ amount: 1800, date: todayISO() }] }];
-      s.fines = [{ id: uid(), memberId: s.members[4].id, amount: 100, reason: 'Late contribution ' + addMonths(cur, -1), date: todayISO(), paid: false }];
-      s.expenses = [{ id: uid(), title: 'Meeting venue', category: 'Meeting', amount: 1500, date: todayISO() }, { id: uid(), title: 'Welfare: Grace family', category: 'Welfare', amount: 1000, date: todayISO() }];
-      s.log = [{ id: uid(), ts: Date.now(), by: 'Treasurer', kind: 'add', text: 'Loaded sample data' }];
-    }, true);
-  },
   reset: { admin: true, run: () => confirmBox('Delete ALL chama data? This cannot be undone.', () => Store.commit(s => Object.assign(s, Store.blank()), true)) },
 };
 
@@ -2852,15 +2851,15 @@ const views = {
     const recent = m ? s.payments.filter(p => p.memberId === m.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5) : [];
     const more = `
     <section class="card" style="margin-top:12px"><h2>My group</h2>
-      <div class="prow"><span>Group</span><b>${esc(s.chama.name)}</b></div>
-      <div class="prow"><span>My role</span><b>${esc((m && m.role) || 'Member')}</b></div>
+      <div class="prow"><span>Group</span><b>${esc(Session.groupName || 'Your Chama')}</b></div>
+      <div class="prow"><span>My role</span><b>${esc(Session.role === 'treasurer' ? 'Treasurer' : Session.role === 'secretary' ? 'Secretary' : 'Member')}</b></div>
       ${m && m.joined ? `<div class="prow"><span>Joined</span><b>${esc(monthLabel(m.joined))}</b></div>` : ''}
       <p class="plain mute" style="margin-top:10px">Other groups you belong to will show here after sign-in is added.</p></section>
     <section class="card" style="margin-top:12px"><h2>My account</h2>
-      <div class="prow"><span>Member ID</span><b class="num">${m ? esc(String(m.id).slice(-6).toUpperCase()) : 'Not linked yet'}</b></div>
-      <div class="prow"><span>Phone</span><b>${ph ? 'Not checked yet' : 'Not added'}</b></div>
-      <div class="prow"><span>Email</span><b>${em ? 'Not checked yet' : 'Not added'}</b></div>
-      <div class="prow"><span>Sign-in</span><b>Not set up yet</b></div>
+      <div class="prow"><span>Member ID</span><b class="num">${Session.memberId ? esc(String(Session.memberId).slice(-6).toUpperCase()) : 'Not linked yet'}</b></div>
+      <div class="prow"><span>Phone</span><b>${ph ? esc(ph) : 'Not added'}</b></div>
+      <div class="prow"><span>Email</span><b>${esc(Session.email || 'Not added')}</b></div>
+      <div class="prow"><span>Sign-in</span><b>${Session.account && Session.account.has_password ? 'Email or username + password' : 'Not set up yet'}</b></div>
       <p class="actions"><a class="btn" href="#/settings">Open settings</a></p></section>
     <section class="card" style="margin-top:12px"><h2>My recent payments</h2>
       ${recent.length ? recent.map(p => `<div class="prow"><span>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''}<br><small>${esc(p.date || '')}</small></span><b class="num">${kes(p.amount)}</b></div>`).join('') : '<p class="plain mute">No payments recorded for you yet.</p>'}
@@ -2871,7 +2870,7 @@ const views = {
       <input id="mePhoto" class="vh" type="file" accept="image/*"><label class="btn sm" for="mePhoto">${(m && m.photo) || me.photo ? 'Change photo' : 'Add a photo'}</label>
       ${(m && m.photo) || me.photo ? '<button class="btn sm bad" data-act="removePhoto">Remove photo</button>' : ''}
       <div class="pname">${name ? esc(name) : 'Add your name below'}</div>
-      <div class="mute">${esc(m && m.role ? m.role : 'Member')} in ${esc(s.chama.name)}</div>
+      <div class="mute">${esc(Session.role === 'treasurer' ? 'Treasurer' : Session.role === 'secretary' ? 'Secretary' : 'Member')} in ${esc(Session.groupName || 'your Chama')}</div>
       ${msg ? `<p style="margin-top:12px"><span class="tag ${cls}">${msg}</span></p>` : ''}
     </section>
     ${money}
@@ -2920,11 +2919,12 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.12.0-dev.2', released: '2026-11-01',
+  name: 'My Chama App', version: '0.12.0-dev.3', released: '2026-11-01',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.12.0-dev.2', 'Development build. One account and one password for every Chama: sign in with email or username. Create your account with an email code, then choose your name, a username and a password. Members see their own payments, loans and fines plus group totals only. Hand over the treasurer role, leave a Chama, switch between Chamas, delete your account with a 30-day restore window. Invitations last 48 hours. '],
+  notes: [['0.12.0-dev.3', 'Fixes from live testing: no hidden default Chama and no sample data; the username is chosen by the person; profile shows the real group and role; leave, hand-over and delete account give a clear next step; invitations show the real error; expired codes are named; passwords need a number; the notification badge shows the exact count (up to 99+). Requires migration 010.'],
+    ['0.12.0-dev.2', 'Development build. One account and one password for every Chama: sign in with email or username. Create your account with an email code, then choose your name, a username and a password. Members see their own payments, loans and fines plus group totals only. Hand over the treasurer role, leave a Chama, switch between Chamas, delete your account with a 30-day restore window. Invitations last 48 hours. '],
     ['0.12.0-dev.1', 'Development build. Treasurers can invite people by email and choose Member, Secretary or Treasurer. The person opens the link, sees who invited them and accepts. Nobody is added until they accept. Needs the new database steps; until then the old Add person way keeps working. '], ['0.11.0', 'Sign out asks you to confirm before it closes the app. When a member asks to delete their account, the other members see a notice on the Notifications page with a live countdown. They can hide it, and Show hidden brings it back. The notice does not show the reason. '], ['0.10.0', 'Delete my account is in Settings, Privacy and data. Pick a reason, confirm your password and read the disclaimer: the account is not permanently deleted and is kept for 30 days, when you can restore it. Signing in shows the days left with a Restore button. '], ['0.9.0', 'Sign-in and sign-up are one card with one button. Enter your email and password and press Continue: if you have an account you go on to the email code; if not, the card offers Create account with the same password checks as before. Apple and Google sign-in are shown as coming soon. '], ['0.8.0', 'Sign-in takes your email and password first. Invited people set a password once. Sign-up asks for a password with live checks: 6 characters, a capital letter and a symbol. One email can join several chamas, but each chama needs its own password for that email. The email code is still the last step. '], ['0.7.1', 'Sign out in the menu closes the session and plays the opening animation again. The menu has a green background with white entries. '], ['0.7.0', 'First run: choose a language, take a short tour, then read the privacy policy and agree to it. Sign-in has Sign in and Sign up. Sign up asks for your name when you start a chama, and an email that already has a chama is asked to sign in. The opening animation has no Skip button. '], ['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 
@@ -3106,7 +3106,7 @@ const Account = {
   async submitDelete(v) {
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
     const { data, error } = await Backend.sb.rpc('request_account_deletion', { p_reason: (v.reason || '').trim() || null });
-    if (error) return this.openDelete(error.message);
+    if (error) { toast(/Leave your/i.test(error.message) ? 'You still belong to a Chama. Leave it, or hand it over, then delete your account.' : error.message); if (/Leave your/i.test(error.message)) location.hash = '#/settings/actions'; return; }
     toast(`Deletion scheduled. You have ${DAYS} days to restore.`);
     this.checked = false; this.pending = null;
     return Session.signOut();
@@ -3253,13 +3253,7 @@ const actions = {
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
     let r;
     try { r = await Session.sendInvite('create', { email, role, member_id: mid }); } catch (e) { return toast(e.message); }
-    if (r.unavailable) {   /* the invitation system is not installed on this database yet: keep the old way working */
-      const { error } = await Backend.sb.rpc('invite_member', { cid: Store.chamaId, p_email: email, p_member: mid, p_role: role });
-      if (error) return toast(error.message);
-      $('#invEmail').value = ''; $('#invMember').value = '';
-      toast('Added. They can now sign in with that email');
-      return Session.loadAccess();
-    }
+    if (r.unavailable) return toast('Invitation not sent. The invitation service did not answer.');
     $('#invEmail').value = ''; $('#invMember').value = '';
     toast(r.email_status === 'sent' ? 'Invitation emailed to ' + email
       : r.email_status === 'not_configured' ? 'Invitation saved, but email sending is not set up yet. Use Resend once it is.'
@@ -3269,7 +3263,7 @@ const actions = {
   resendInvite: async d => {
     try {
       const r = await Session.sendInvite('resend', { invitation_id: d.i });
-      if (r.unavailable) return toast('Invitations are not switched on yet');
+      if (r.unavailable) return toast('Invitation not renewed. The invitation service did not answer.');
       toast(r.email_status === 'sent' ? 'Invitation sent again. The old link no longer works' : 'Invitation renewed, but the email was not sent (' + (r.email_error || r.email_status) + ')');
       await Session.loadInvites();
     } catch (e) { toast(e.message); }
@@ -3457,7 +3451,7 @@ const Notify = {
     const bell = $('#bell'), badge = $('#nbCount'), n = this.unread(s);
     bell.hidden = !ROUTES.some(x => x[0] === r);
     bell.setAttribute('aria-label', n ? `Notifications, ${n} unread` : 'Notifications');
-    badge.hidden = !n; badge.textContent = n > 9 ? '9+' : String(n);
+    badge.hidden = !n; badge.textContent = n > 99 ? '99+' : String(n);
     if (this.lastCount !== null && n > this.lastCount && !bell.hidden) {
       bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring');
       setTimeout(() => bell.classList.remove('ring'), 1000);
@@ -3640,6 +3634,7 @@ const actions = {
   wsSwitch: () => { Gate.sub = null; Gate.notice = ''; Session.openChooser(); },
   wsBack: () => Session.closeChooser(),
   leaveChama: () => {
+    if (Session.role === 'treasurer') { toast('You are the treasurer. Hand the Chama to someone else first, or stay as co-treasurer.'); location.hash = '#/settings/actions'; return; }
     Modal.open({ title: 'Leave this Chama?', submitLabel: 'Leave Chama', danger: true,
       body: '<p class="plain">You will stop seeing this Chama. Its records stay with the Chama. A treasurer can add you back by invitation.</p>',
       onSubmit: () => { setTimeout(async () => {
@@ -3690,11 +3685,12 @@ const actions = {
   gateCode: async () => {
     const token = ($('#gateCode').value || '').replace(/\D/g, '');
     const email = Gate.email;
-    if (token.length !== 6) return toast('Type the 6-digit code from the email');
+    const len = Session.otpLength || 8;
+    if (token.length !== len) return toast(`Type the ${len}-digit code from the email`);
     if (!email || !Backend.sb) return toast('Press Start again and send a new link');
     try {
       const { error } = await Backend.sb.auth.verifyOtp({ email, token, type: 'email' });
-      if (error) return toast('That code did not work. Check it, or press Start again for a new one');
+      if (error) return toast(/expired/i.test(error.message || '') || error.code === 'otp_expired' ? 'This code has expired. Press Start again to get a new one.' : 'That code did not work. Check it, or press Start again for a new one');
       /* the sign-in listener continues; this is a fallback in case it has not yet */
       setTimeout(() => Session.recheck(), 400);
     } catch (e) { toast('Could not check the code. Try again'); }
