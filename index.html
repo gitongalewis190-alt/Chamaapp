@@ -611,6 +611,14 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 .field-ic{position:relative;display:block}
 .field-ic svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:var(--mute);pointer-events:none}
 .field-ic input{padding-left:44px}
+.field-ic .eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);min-height:36px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-weight:700;cursor:pointer}
+.field-ic .eye:focus-visible{outline:3px solid var(--acc,#0f7b5f);outline-offset:2px}
+.field-ic:has(.eye) input{padding-right:84px}
+.wsrow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;text-align:left;margin:6px 0;min-height:52px}
+.wsrow span{font-weight:700}
+.wsrow .wsrole{color:var(--mute);font-weight:600}
+.wsrow.cur{border-color:var(--acc,#0f7b5f)}
+.wslist{display:flex;flex-direction:column;margin-top:10px}
 .linkish{background:none;border:0;padding:6px 2px;font:inherit;font-size:14px;color:var(--brand);font-weight:700;cursor:pointer;text-decoration:underline}
 
 /* 0.7.1: green menu, white entries */
@@ -667,6 +675,7 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
   <div class="dbrand"><img src="icons/logo-512.png" alt="Chama logo"><b>My Chama App</b></div>
   <div class="dh"><button type="button" class="xbtn" id="drawerX" aria-label="Close menu">&times;</button><span class="dt">Menu</span><span class="xsp" aria-hidden="true"></span></div>
   <div class="dwho" id="dwho"></div>
+  <button class="dl" data-act="wsSwitch" id="switchBtn" hidden>Switch Chama<small>Open a different Chama you belong to</small></button>
   <a class="dl" href="#/profile">My profile<small>Your photo, details and money</small></a>
   <a class="dl" href="#/fines">Fines<small>Late fees and penalties</small></a>
   <a class="dl" href="#/expenses">Expenses<small>Money out: meetings, welfare, investments</small></a>
@@ -677,6 +686,7 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
     <button class="dl" data-act="undo" id="undoBtn" hidden>Undo last change</button>
     <button class="dl" data-act="settings" id="setBtn" hidden>Edit chama details</button>
   </div>
+  <button class="dl" data-act="leaveChama" id="leaveBtn" hidden>Leave this Chama<small>Your records stay with the Chama</small></button>
   <button class="dl" data-act="signOutAsk">Sign out<small>Closes the app and shows the opening screen</small></button>
   <a class="dl dfoot" href="#/settings">Settings<small>Text size, colours, easy reading</small></a>
 </aside>
@@ -989,7 +999,7 @@ const Domain = {
     return paid > 0 ? 'partial' : 'due';
   },
   lateMembers(s, mk = this.now()) {
-    if (!this.isOverdue(s, mk)) return [];
+    if (s.shared || !this.isOverdue(s, mk)) return [];   /* members never see who else is late (D3) */
     return s.members.filter(m => this.outstanding(s, m.id, mk) > 0);
   },
   memberSaved: (s, mid) => sum(s.payments.filter(p => p.memberId === mid), p => p.amount),
@@ -1000,7 +1010,7 @@ const Domain = {
   },
   memberLoanBalance: (s, mid) => sum(s.loans.filter(l => l.memberId === mid), l => Domain.loan(l).balance),
   memberFinesDue: (s, mid) => sum(s.fines.filter(f => f.memberId === mid && !f.paid), f => f.amount),
-  cashOnHand: s => sum(s.payments, p => p.amount) + sum(s.fines.filter(f => f.paid), f => f.amount)
+  cashOnHand: s => s.shared ? s.shared.cashOnHand : sum(s.payments, p => p.amount) + sum(s.fines.filter(f => f.paid), f => f.amount)
     + sum(s.loans, l => sum(l.repayments, r => r.amount)) - sum(s.loans, l => l.principal) - sum(s.payouts, p => p.amount) - sum(s.expenses, e => e.amount),
   /* a recorded payout is the truth for its month; the rotation only fills months with no payout yet */
   recipient(s, mk = Domain.now()) {
@@ -1108,8 +1118,8 @@ const Store = (() => {
   const normalise = s => { const b = blank(); return { ...b, ...s, chama: { ...b.chama, ...(s.chama || {}) } }; };
 
   /* ---- Cloud backend (Supabase). A signed-in member reads the chama; only a treasurer writes it. RLS enforces this on the server. ---- */
-  let pushing = false;
-  const dirtyKey = 'chama:' + chamaId + ':dirty', localKey = 'chama:' + chamaId;
+  let pushing = false, remoteVersion = null, limited = false, conflictOpen = false, conflictHandler = null, lastViewVersion = null;
+  const dirtyKey = 'chama:' + chamaId + ':dirty', localKey = 'chama:' + chamaId, verKey = 'chama:' + chamaId + ':ver';
   const setSync = v => {
     const bar = $('#syncBar'); if (!bar) return;
     bar.hidden = v === 'online';
@@ -1117,39 +1127,89 @@ const Store = (() => {
   };
   const saveLocal = () => { try { localStorage.setItem(localKey, JSON.stringify(state)); } catch { toast('Storage full'); } };
   const cleanCopy = s => { const c = JSON.parse(JSON.stringify(s)); if (c.chama) delete c.chama.pin; return c; };
+  const getView = async () => { const r = await Backend.sb.rpc('get_chama_view', { cid: chamaId }); if (r.error) throw r.error; return r.data; };
+  const noteVersion = v => { remoteVersion = v == null ? null : Number(v); try { if (remoteVersion !== null) localStorage.setItem(verKey, String(remoteVersion)); } catch (e) { /* storage full: the next save will ask again */ } };
+  /* Two people saved over the same version. Nothing is overwritten until the treasurer chooses. */
+  function askConflict(remote) {
+    if (conflictOpen) return; conflictOpen = true;
+    const done = () => { conflictOpen = false; };
+    const info = {
+      remote,
+      useTheirs() { state = normalise(remote.data); noteVersion(remote.version); saveLocal(); localStorage.removeItem(dirtyKey); emit(); setSync('online'); done(); toast('Loaded the latest version. Your unsent changes were dropped.'); },
+      keepMine() { noteVersion(remote.version); localStorage.setItem(dirtyKey, '1'); done(); pushSb(); }
+    };
+    if (conflictHandler) conflictHandler(info); else info.useTheirs();
+  }
   async function pushSb() {
-    if (pushing || !Backend.sb) return;
+    if (pushing || conflictOpen || !Backend.sb) return;
     if (!Policy.canWrite()) { localStorage.removeItem(dirtyKey); return; }
     pushing = true;
     try {
       while (localStorage.getItem(dirtyKey)) {
         const snap = cleanCopy(state); localStorage.removeItem(dirtyKey);
-        const { data, error } = await Backend.sb.from('chamas').update({ data: snap, updated_at: new Date().toISOString() }).eq('id', chamaId).select('id');
+        let q = Backend.sb.from('chamas').update({ data: snap, updated_at: new Date().toISOString() }).eq('id', chamaId);
+        if (remoteVersion !== null) q = q.eq('version', remoteVersion);
+        const { data, error } = await q.select(remoteVersion !== null ? 'id,version' : 'id');
         if (error) { localStorage.setItem(dirtyKey, '1'); throw error; }
-        if (!data || !data.length) { toast('Not saved. Check that you are still the treasurer.'); break; }
+        if (!data || !data.length) {
+          localStorage.setItem(dirtyKey, '1');
+          let remote = null; try { remote = await getView(); } catch (e) { /* offline: try again later */ }
+          if (remote && remoteVersion !== null && Number(remote.version) !== remoteVersion) askConflict(remote);
+          else if (remote) { localStorage.removeItem(dirtyKey); toast('Not saved. Check that you are still the treasurer.'); }
+          break;
+        }
+        if (remoteVersion !== null && data[0].version != null) noteVersion(data[0].version);
       }
       setSync('online');
     } catch (e) { setSync('offline'); }
     pushing = false;
   }
   async function startSync() {
-    let loaded = false;
-    try {
-      const { data, error } = await Backend.sb.from('chamas').select('data').eq('id', chamaId).maybeSingle();
-      if (error) throw error;
-      if (data) { state = normalise(data.data); saveLocal(); loaded = true; }
-    } catch (e) { loaded = false; }
+    let loaded = false, view = null;
+    try { view = await getView(); } catch (e) { view = null; }
+    if (view) {
+      limited = !!view.limited;
+      const localRaw = (() => { try { return localStorage.getItem(localKey); } catch (e) { return null; } })();
+      const unsent = !limited && Policy.canWrite() && localStorage.getItem(dirtyKey) && localRaw;
+      if (unsent) {
+        /* this phone holds changes that never reached the cloud: keep them, and only overwrite if the treasurer says so */
+        state = normalise(JSON.parse(localRaw)); loaded = true;
+        const base = localStorage.getItem(verKey);
+        if (base !== null && Number(base) === Number(view.version)) noteVersion(view.version);
+        else { noteVersion(view.version); localStorage.removeItem(dirtyKey); localStorage.setItem(dirtyKey, '1'); setTimeout(() => askConflict(view), 0); }
+      } else {
+        state = normalise(view.data);
+        if (limited) { state.shared = { ...(state.shared || {}), me: view.member_id || null }; lastViewVersion = view.version; }
+        else noteVersion(view.version);
+        saveLocal(); loaded = true;
+      }
+    } else {
+      try { const { data, error } = await Backend.sb.from('chamas').select('data').eq('id', chamaId).maybeSingle(); if (!error && data) { state = normalise(data.data); saveLocal(); loaded = true; } } catch (e) { loaded = false; }
+    }
     if (!loaded) { try { const l = localStorage.getItem(localKey); if (l) state = normalise(JSON.parse(l)); } catch {} }
     if (!state) state = blank();
     emit();
     setSync(loaded ? 'online' : 'offline');
-    if (loaded && Policy.canWrite() && localStorage.getItem(dirtyKey)) pushSb();
-    Backend.sb.channel('c-' + chamaId).on('postgres_changes', { event: '*', schema: 'public', table: 'chamas', filter: 'id=eq.' + chamaId }, p => {
-      if (localStorage.getItem(dirtyKey) || pushing || !p.new) return;
-      state = normalise(p.new.data); saveLocal(); emit();
-    }).subscribe();
-    addEventListener('online', () => { if (Backend.sb) pushSb(); });
-    setInterval(() => { if (localStorage.getItem(dirtyKey)) pushSb(); }, 15000);
+    if (loaded && !conflictOpen && Policy.canWrite() && localStorage.getItem(dirtyKey)) pushSb();
+    if (limited) {
+      /* members cannot receive live row changes (they may not read the full row), so they refresh by themselves */
+      const refresh = async () => {
+        try {
+          const v = await getView(); setSync('online');
+          if (v && v.version !== lastViewVersion) { lastViewVersion = v.version; state = normalise(v.data); state.shared = { ...(state.shared || {}), me: v.member_id || null }; saveLocal(); emit(); }
+        } catch (e) { setSync('offline'); }
+      };
+      setInterval(() => { if (!document.hidden) refresh(); }, 45000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+      addEventListener('online', refresh);
+    } else {
+      Backend.sb.channel('c-' + chamaId).on('postgres_changes', { event: '*', schema: 'public', table: 'chamas', filter: 'id=eq.' + chamaId }, p => {
+        if (localStorage.getItem(dirtyKey) || pushing || conflictOpen || !p.new) return;
+        state = normalise(p.new.data); if (p.new.version != null) noteVersion(p.new.version); saveLocal(); emit();
+      }).subscribe();
+      addEventListener('online', () => { if (Backend.sb) pushSb(); });
+      setInterval(() => { if (localStorage.getItem(dirtyKey)) pushSb(); }, 15000);
+    }
   }
   async function init() {   /* local-only: used when no cloud backend is configured */
     try { state = normalise(JSON.parse(localStorage.getItem(localKey) || '{}')); } catch { state = blank(); }
@@ -1181,7 +1241,8 @@ const Store = (() => {
     commit(s => { const p = normalise(JSON.parse(prev)); Object.keys(s).forEach(k => delete s[k]); Object.assign(s, p); s.log = [{ id: uid(), ts: Date.now(), by: 'Treasurer', kind: 'edit', text: 'Undid the last change' }, ...(s.log || [])]; }, true);
     return true;
   }
-  return { init, commit, undo, setSync, startSync, wipeLocal, subscribe: f => subs.push(f), get: () => state, blank, chamaId };
+  const hasUnsent = () => Object.keys(localStorage).some(k => /^chama:.+:dirty$/.test(k));
+  return { init, commit, undo, setSync, startSync, wipeLocal, hasUnsent, isLimited: () => limited, setConflictHandler: f => { conflictHandler = f; }, subscribe: f => subs.push(f), get: () => state, blank, chamaId };
 })();
 
 return { get Store() { return Store; }, };
@@ -1189,7 +1250,8 @@ return { get Store() { return Store; }, };
 
 /* ---- src/core/session.js ---- */
 const __M_src_core_session_js = (function () {
-const intentUp = () => { try { return sessionStorage.getItem('mca-intent') === 'up'; } catch (e) { return false; } };
+const intentIs = v => { try { return sessionStorage.getItem('mca-intent') === v; } catch (e) { return false; } };
+const clearIntent = () => { try { sessionStorage.removeItem('mca-intent'); } catch (e) {} };
 const { esc } = __M_src_core_utils_js;
 const { Policy } = __M_src_core_policy_js;
 const { CONFIG } = __M_src_config_js;
@@ -1198,10 +1260,72 @@ const { render } = __M_src_core_rerender_js;
 const { Store } = __M_src_core_store_js;
 const { toast } = __M_src_ui_toast_js;
 
+const Perm = {
+  /* mirror of ws/permissions/permissions.js and public.role_permissions (migration 002). The server is the authority; this only decides what to SHOW. */
+  map: {
+    treasurer: ['chama.view_shared', 'finance.view_own', 'finance.view_all', 'finance.record', 'members.view_list', 'members.invite', 'members.remove', 'roles.assign', 'chama.settings', 'audit.view'],
+    secretary: ['chama.view_shared', 'finance.view_own'],
+    member: ['chama.view_shared', 'finance.view_own']
+  },
+  can(role, perm) { return !!role && Object.prototype.hasOwnProperty.call(this.map, role) && this.map[role].indexOf(perm) >= 0; },
+  label(role) { return role === 'treasurer' ? 'Treasurer' : role === 'secretary' ? 'Secretary' : 'Member'; }
+};
+
+/* Invitation link: <app>/#invite=<64 hex>. The token is read once, kept for this tab only, and removed from the address bar.
+   Opening the link never joins anyone: it only asks the server to describe the invitation (verify_invitation changes nothing). */
+const Invite = {
+  token: null, info: null, checked: false, signin: false, msg: '', busy: false,
+  MSG: {
+    invalid: 'This invitation link is not valid. Ask the treasurer to send a new one.',
+    expired: 'This invitation has expired. Ask the treasurer to resend it.',
+    revoked: 'The treasurer cancelled this invitation.',
+    accepted: 'This invitation was already used.',
+    declined: 'This invitation was declined.'
+  },
+  init() {
+    let t = null;
+    try {
+      const m = /^#invite=([0-9a-f]{64})$/.exec(location.hash || '');
+      if (m) { t = m[1]; sessionStorage.setItem('mca-invite', t); history.replaceState(null, '', location.pathname + location.search); }
+      else t = sessionStorage.getItem('mca-invite');
+    } catch (e) { /* storage blocked: the link still works for this page view */ }
+    this.token = t && /^[0-9a-f]{64}$/.test(t) ? t : null;
+  },
+  clear() { this.token = null; this.info = null; this.msg = ''; this.signin = false; try { sessionStorage.removeItem('mca-invite'); } catch (e) {} },
+  async verify() {
+    if (!this.token || !Backend.sb) return;
+    try { const { data, error } = await Backend.sb.rpc('verify_invitation', { p_token: this.token }); this.info = error ? null : data; }
+    catch (e) { this.info = null; }
+    this.checked = true;
+  },
+  async accept() {
+    if (this.busy) return; this.busy = true; this.msg = '';
+    try {
+      const { data, error } = await Backend.sb.rpc('accept_invitation', { p_token: this.token });
+      if (error) { this.msg = error.message || 'Could not accept the invitation. Try again.'; return; }
+      if (data && data.ok) {
+        const cid = data.chama_id; this.clear(); toast(data.code === 'already_member' ? 'You are already in this Chama' : 'Welcome. You have joined the Chama');
+        if (cid === Store.chamaId) { Session.status = 'loading'; await Session.after(Session.user); }
+        else location.href = location.pathname + '?c=' + encodeURIComponent(cid);
+        return;
+      }
+      const code = data && data.code;
+      this.msg = code === 'wrong_email' ? 'You are signed in as ' + Session.email + ', but this invitation was sent to ' + ((this.info && this.info.email_hint) || 'a different email') + '. Sign out and sign in with that email.' : (this.MSG[code] || this.MSG.invalid);
+    } catch (e) { this.msg = 'Could not reach the server. Check your internet and try again.'; }
+    finally { this.busy = false; render(); }
+  },
+  async decline() {
+    if (this.busy) return; this.busy = true;
+    try { await Backend.sb.rpc('decline_invitation', { p_token: this.token }); } catch (e) { /* declining is best effort */ }
+    this.busy = false; this.clear(); Session.status = 'loading'; await Session.after(Session.user);
+  }
+};
+Invite.init();
+
 const Session = {
-  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [],
+  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false,
   ready() { return this.status === 'ready' || this.status === 'demo'; },
-  canWrite() { return this.role === 'treasurer'; },
+  canWrite() { return Perm.can(this.role, 'finance.record'); },
   /* Runs when the person comes back to the page: picks up a sign-in finished in another browser or app */
   async recheck() {
     if (!Backend.sb || this.status !== 'signed-out' || this.busy || this.verifying) return false;
@@ -1245,13 +1369,14 @@ const Session = {
     return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : '';
   },
   displayName() {
+    if (this.account && this.account.full_name) return String(this.account.full_name).trim().split(/\s+/)[0];
     if (this.email) return this.nameFrom(this.email);
     try { const me = JSON.parse(localStorage.getItem('chama:me:' + Store.chamaId) || '{}'); if (me.name) return String(me.name).trim().split(/\s+/)[0]; } catch (e) {}
     return '';
   },
   async boot() {
     if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
-    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey); await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); }
+    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey); await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); await Invite.verify(); }
     catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
       if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); }
@@ -1261,38 +1386,113 @@ const Session = {
     if (data && data.session) { if (!this.user) await this.after(data.session.user); }
     else this.set('signed-out');
   },
+  /* After any sign-in: (1) is the account finished? (2) is there an invitation to accept? (3) which Chama opens? */
   async after(user) {
     if (this.busy) return;
     if (this.status === 'ready' && this.user && this.user.id === user.id) return;
     this.busy = true;
-    this.user = user; this.email = String(user.email || '').toLowerCase(); this.set('loading');
+    this.user = user; this.email = String(user.email || '').toLowerCase();
+    this.set('loading');
     try {
-      try { await Backend.sb.rpc('claim_invites'); } catch (e) { /* invites are a bonus step; never block the sign-in */ }
-      const { data: m, error } = await Backend.sb.from('chama_members').select('role,member_id').eq('chama_id', Store.chamaId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
-      if (error) throw error;
-      if (m) {
-        this.role = m.role; this.memberId = m.member_id || null;
-        try { await this.loadProfile(user); } catch (e) { /* the profile is optional */ }
-        this.hydrating = true;
-        this.busy = false;
-        this.set('ready');
-        /* the home page shows its skeleton for the set time, then the real content */
-        setTimeout(() => { this.hydrating = false; render(); }, 1850);
-        if (m.role === 'treasurer') this.loadAccess().catch(() => {});
-        Store.startSync().catch(() => {});
-        return;
-      }
-      const { data: exists, error: e2 } = await Backend.sb.rpc('chama_exists', { cid: Store.chamaId });
-      if (e2) throw e2;
-      this.role = null; this.memberId = null;
-      let others = [];
-      if (intentUp()) { try { const { data: mc } = await Backend.sb.rpc('my_chamas'); others = (mc || []).filter(c => c !== Store.chamaId); } catch (e) { others = []; } }
-      if (others.length) { this.others = others; this.set('has-chama'); }
-      else this.set(exists ? 'no-access' : 'no-chama');
+      this.takeDevice(user.id);
+      let acct;
+      try { const { data, error } = await Backend.sb.rpc('my_account_status'); if (error) throw error; acct = data || {}; }
+      catch (e) { throw new Error('Your account could not be checked. Make sure the database steps are finished, then try again.'); }
+      this.account = acct;
+      if (!acct.has_profile || !acct.has_password || intentIs('forgot')) { this.setupMode = acct.has_profile && acct.has_password ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
+      if (Invite.token && Invite.info && Invite.info.ok) { this.role = null; this.memberId = null; this.busy = false; this.set('invite'); return; }
+      await this.openWorkspace(user);
     } catch (e) {
       if (this.status === 'ready') { console.error(e); return; }   /* signed in already: never send the person back to sign-in */
       this.error = e.message || 'Could not reach the cloud.'; this.set('error');
     } finally { this.busy = false; }
+  },
+  /* A phone may be shared. Another person's saved Chama data is set aside (kept, not shown), never mixed into this account. */
+  takeDevice(uid) {
+    try {
+      const prev = localStorage.getItem('mca-owner');
+      if (prev && prev !== uid) Object.keys(localStorage).filter(k => k.startsWith('chama:')).forEach(k => { try { localStorage.setItem('mca-set-aside:' + prev + ':' + k, localStorage.getItem(k)); localStorage.removeItem(k); } catch (e) {} });
+      localStorage.setItem('mca-owner', uid);
+    } catch (e) { /* storage blocked: nothing to protect */ }
+  },
+  async openWorkspace(user) {
+    const { data: ws, error } = await Backend.sb.rpc('my_workspaces');
+    if (error) throw error;
+    this.workspaces = ws || [];
+    const here = this.workspaces.find(w => w.chama_id === Store.chamaId);
+    if (here && !this.chooserOpen) return this.enter(user, here.role);
+    if (!here && this.workspaces.length === 1 && !this.chooserOpen) return this.switchTo(this.workspaces[0].chama_id);
+    this.chooserOpen = false; this.role = null; this.memberId = null; this.busy = false;
+    this.set(this.workspaces.length ? 'choose' : 'welcome');
+  },
+  async enter(user, roleFromList) {
+    /* the role comes from the same server answer that listed this Chama (my_workspaces); the member link is read next */
+    let { data: m, error } = await Backend.sb.from('chama_members').select('role,member_id').eq('chama_id', Store.chamaId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
+    if (error) throw error;
+    const role = (m && m.role) || roleFromList;
+    if (!role) throw new Error('Your membership could not be loaded. Try again.');
+    m = { role, member_id: m ? m.member_id : null };
+    this.role = m.role; this.memberId = m.member_id || null;
+    try { await this.loadProfile(user); } catch (e) { /* the profile is optional */ }
+    this.hydrating = true;
+    this.busy = false;
+    this.set('ready');
+    /* the home page shows its skeleton for the set time, then the real content */
+    setTimeout(() => { this.hydrating = false; render(); }, 1850);
+    if (Perm.can(m.role, 'members.invite')) { this.loadAccess().catch(() => {}); this.loadInvites().catch(() => {}); }
+    Store.startSync().catch(() => {});
+  },
+  switchTo(id) { location.href = location.pathname + '?c=' + encodeURIComponent(id); },
+  async openChooser() {
+    if (!Backend.sb || !this.user) return;
+    this.chooserOpen = true;
+    try { const { data } = await Backend.sb.rpc('my_workspaces'); this.workspaces = data || this.workspaces; } catch (e) { /* show the list we already have */ }
+    this.set('choose');
+  },
+  closeChooser() { this.chooserOpen = false; this.set(this.role ? 'ready' : 'welcome'); },
+  /* email OR username + the one global password. The server function finds the email; the browser never sees it. */
+  async passwordSignIn(identifier, password) {
+    const WRONG = 'Email, username or password is not right';
+    let r;
+    try { r = await Backend.sb.functions.invoke('auth-login', { body: { identifier, password } }); } catch (e) { r = { error: e }; }
+    if (!r.error && r.data && r.data.session) {
+      const { error } = await Backend.sb.auth.setSession({ access_token: r.data.session.access_token, refresh_token: r.data.session.refresh_token });
+      if (error) return { error: 'Could not start your session. Try again.' };
+      clearIntent(); return { ok: true };
+    }
+    const err = r.error;
+    if (err && err.context && typeof err.context.json === 'function') {
+      const st = err.context.status; let j = {}; try { j = await err.context.json(); } catch (e) {}
+      if (st !== 404) return { error: j.error || WRONG };
+    }
+    /* the sign-in function is not deployed or cannot be reached: email still works straight through Supabase */
+    if (identifier.indexOf('@') > 0) {
+      const { error } = await Backend.sb.auth.signInWithPassword({ email: identifier.toLowerCase(), password });
+      if (error) return { error: WRONG };
+      clearIntent(); return { ok: true };
+    }
+    return { error: 'Signing in with a username is not available right now. Use your email address.' };
+  },
+  /* the step after the email code: name + username (new accounts) and the one global password */
+  async finishSetup(fullName, username, password) {
+    if (this.setupMode === 'new') {
+      const { error } = await Backend.sb.rpc('set_my_profile', { p_full_name: fullName, p_username: username });
+      if (error) throw new Error(error.message);
+    }
+    const { error: e2 } = await Backend.sb.auth.updateUser({ password });
+    if (e2) throw new Error(/same|different/i.test(e2.message) ? 'Choose a password you have not used before' : e2.message);
+    clearIntent(); this.account = null; this.busy = false;
+    await this.after(this.user);
+  },
+  async joinWithLink(text) {
+    const m = /[0-9a-f]{64}/i.exec(String(text || ''));
+    if (!m) return { error: 'That does not look like an invitation link. Copy the whole link from the email.' };
+    Invite.token = m[0].toLowerCase(); Invite.checked = false; Invite.info = null; Invite.signin = true;
+    try { sessionStorage.setItem('mca-invite', Invite.token); } catch (e) {}
+    await Invite.verify();
+    if (Invite.info && Invite.info.ok) { this.set('invite'); return { ok: true }; }
+    const code = Invite.info && Invite.info.code; const msg = Invite.MSG[code] || (Invite.info ? Invite.MSG.invalid : 'Could not check the invitation. Check your internet and try again.');
+    Invite.clear(); return { error: msg };
   },
   async loadProfile(user) {
     const { data } = await Backend.sb.from('member_profiles').select('name,phone,email,photo').eq('chama_id', Store.chamaId).eq('user_id', user.id).maybeSingle();
@@ -1312,41 +1512,60 @@ const Session = {
     if (error) toast(error.message);
     this.access = error ? [] : (data || []); render();
   },
+  async loadInvites() {
+    if (!Backend.sb || !Perm.can(this.role, 'members.invite')) return;
+    const { data, error } = await Backend.sb.rpc('list_invitations', { cid: Store.chamaId });
+    this.invites = error ? null : (data || []);   /* null = the invitation system is not installed on this database yet */
+    render();
+  },
+  /* create / resend through the server function, which emails the link. { unavailable: true } = function not deployed yet. */
+  async sendInvite(action, payload) {
+    const { data, error } = await Backend.sb.functions.invoke('send-invitation', { body: { action, chama_id: Store.chamaId, ...payload } });
+    if (error) {
+      if (error.context && typeof error.context.json === 'function') {
+        const st = error.context.status; let j = {}; try { j = await error.context.json(); } catch (e) {}
+        if (st === 404) return { unavailable: true };
+        throw new Error(j.error || 'The invitation could not be sent');
+      }
+      return { unavailable: true };
+    }
+    return data || {};
+  },
   async revoke(email) {
     const { error } = await Backend.sb.rpc('remove_member', { cid: Store.chamaId, p_email: email });
     if (error) throw new Error(error.message);
     await this.loadAccess(); toast('Access removed. Their records are kept');
   },
   cid() { return Store.chamaId; },
-  async createChama(name, password) {
-    const b = Store.blank(); delete b.chama.pin;
-    if (!password) throw new Error('Type your password first');
-    if (name) { const key = 'chama:me:' + Store.chamaId, cur = JSON.parse(localStorage.getItem(key) || '{}'); localStorage.setItem(key, JSON.stringify({ ...cur, name })); }
-    const { error } = await Backend.sb.rpc('create_chama', { cid: Store.chamaId, cname: b.chama.name, cdata: b, p_password: password });
+  async createChama(name) {
+    const b = Store.blank(); delete b.chama.pin; b.chama.name = name;
+    const { data, error } = await Backend.sb.rpc('create_chama_global', { cname: name, cdata: b });
     if (error) throw new Error(error.message);
-    await this.after(this.user);
-    try { await this.pushProfile(); } catch (e) { /* the name stays on this phone and is saved next time */ }
+    try { localStorage.setItem('chama:me:' + data.chama_id, JSON.stringify({ name: (this.account && this.account.full_name) || '' })); } catch (e) { /* the name is saved from the profile screen later */ }
+    this.switchTo(data.chama_id);
   },
   async signOut() {
     try { await Backend.sb.auth.signOut(); } catch {}
+    clearIntent(); this.account = null; this.workspaces = [];
     Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out');
   }
 };
 
 Policy.canWrite = () => Session.canWrite();
 
-return { get Session() { return Session; }, };
+return { get Session() { return Session; }, get Perm() { return Perm; }, get Invite() { return Invite; }, };
 })();
 
 /* ---- src/core/auth.js ---- */
 const __M_src_core_auth_js = (function () {
-const { Session } = __M_src_core_session_js;
+const { Session, Perm } = __M_src_core_session_js;
 
 /* =====================================================================
    5. VIEWS  (state in, html out)
    ===================================================================== */
 const Auth = {
-  isAdmin: () => Session.role === 'treasurer'
+  isAdmin: () => Perm.can(Session.role, 'chama.settings'),
+  can: (perm) => Perm.can(Session.role, perm)
 };
 
 const adminBtn = (html) => Auth.isAdmin() ? html : '';
@@ -1425,7 +1644,8 @@ return { get ROUTES() { return ROUTES; }, get SUB() { return SUB; }, get PAGES()
 const __M_src_features_auth_gate_js = (function () {
 const { Backend } = __M_src_core_backend_js;
 const { toast } = __M_src_ui_toast_js;
-const { Session } = __M_src_core_session_js;
+const { Session, Perm, Invite } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
 const { esc } = __M_src_core_utils_js;
 const { $ } = __M_src_lib_dom_js;
 
@@ -1729,7 +1949,7 @@ document.addEventListener('click', e => {
   if (t.dataset.gm) {
     if (t.dataset.signout) { Gate.mode = 'in'; return Session.signOut(); }
     const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value.trim();
-    Gate.mode = t.dataset.gm; Gate.notice = ''; return Gate.paint();
+    Gate.mode = t.dataset.gm; Gate.notice = ''; Gate.sent = false; return Gate.paint();
   }
   switch (t.dataset.ob) {
     case 'pick': OB.pick = t.dataset.v; return Gate.paint();
@@ -1765,13 +1985,36 @@ document.addEventListener('keydown', e => {
 document.addEventListener('error', e => { if (e.target && e.target.matches && e.target.matches('.ob-art img')) e.target.remove(); }, true);
 document.addEventListener('input', e => { if (e.target && (e.target.id === 'gatePw' || e.target.id === 'gatePw2')) Gate.refreshRules(); });
 
+
+const GT = {
+  en: { inTitle: 'Sign in', inSub: 'Use your email or username, and your password.', idLabel: 'Email or username', idPh: 'you@example.com or username', cta: 'Sign in', signing: 'Signing in…',
+    forgot: 'Forgot your password?', newHere: 'New here? Create an account', firstTime: 'Signed in before with an email code only? Tap "Forgot your password?" once to choose your password.',
+    upTitle: 'Create your account', upSub: 'Enter your email. We send a code to confirm it is yours. Then you choose a username and a password.', sendCode: 'Send me a code', haveAcct: 'I already have an account',
+    fgTitle: 'Reset your password', fgSub: 'Enter your email. We send a code, then you choose a new password.',
+    setupTitle: 'Finish your account', setupSub: 'Choose your name, a username and one password. You will use them for every Chama you join.', resetTitle: 'Choose a new password', resetSub: 'You will use this password to sign in.',
+    fullName: 'Your full name', username: 'Username', usernameHint: '3 to 20 letters, numbers, dot, dash or underscore', saveCont: 'Save and continue', show: 'Show', hide: 'Hide',
+    welcome: n => 'Welcome' + (n ? ', ' + n : ''), welcomeSub: 'You are not in a Chama yet. What would you like to do?', createChama: 'Create a new Chama', joinChama: 'Join with an invitation',
+    chamaName: 'Name of your Chama', chamaPh: 'e.g. Umoja Savings Group', create: 'Create Chama', creating: 'Creating…', joinSub: 'Paste the whole link from your invitation email. Or open that link on this phone.', joinPh: 'Paste the invitation link', joinBtn: 'Check invitation',
+    chooseTitle: 'Choose your Chama', chooseSub: 'You belong to more than one Chama. Pick the one to open.', back: 'Back', signOut: 'Sign out', roleWord: r => ({ treasurer: 'Treasurer', secretary: 'Secretary', member: 'Member' }[r] || r), another: 'Start another Chama', notMember: 'You are not a member of that Chama. Choose one of yours.' },
+  sw: { inTitle: 'Ingia', inSub: 'Tumia barua pepe au jina la mtumiaji, na nenosiri lako.', idLabel: 'Barua pepe au jina la mtumiaji', idPh: 'wewe@mfano.com au jina', cta: 'Ingia', signing: 'Inaingia…',
+    forgot: 'Umesahau nenosiri?', newHere: 'Mgeni? Fungua akaunti', firstTime: 'Uliingia awali kwa msimbo tu? Gusa "Umesahau nenosiri?" mara moja ili uweke nenosiri.',
+    upTitle: 'Fungua akaunti yako', upSub: 'Weka barua pepe yako. Tunatuma msimbo kuthibitisha. Kisha unachagua jina la mtumiaji na nenosiri.', sendCode: 'Nitumie msimbo', haveAcct: 'Tayari nina akaunti',
+    fgTitle: 'Weka nenosiri jipya', fgSub: 'Weka barua pepe yako. Tunatuma msimbo, kisha unachagua nenosiri jipya.',
+    setupTitle: 'Kamilisha akaunti yako', setupSub: 'Chagua jina lako, jina la mtumiaji na nenosiri moja. Utavitumia kwa kila Chama.', resetTitle: 'Chagua nenosiri jipya', resetSub: 'Utatumia nenosiri hili kuingia.',
+    fullName: 'Jina lako kamili', username: 'Jina la mtumiaji', usernameHint: 'Herufi, nambari, nukta, kistari au mstari wa chini; 3 hadi 20', saveCont: 'Hifadhi na endelea', show: 'Onyesha', hide: 'Ficha',
+    welcome: n => 'Karibu' + (n ? ', ' + n : ''), welcomeSub: 'Bado hujajiunga na Chama. Ungependa kufanya nini?', createChama: 'Anzisha Chama kipya', joinChama: 'Jiunge kwa mwaliko',
+    chamaName: 'Jina la Chama chako', chamaPh: 'mf. Umoja Savings Group', create: 'Anzisha Chama', creating: 'Inaanzisha…', joinSub: 'Bandika kiungo chote kutoka barua pepe ya mwaliko. Au fungua kiungo hicho kwenye simu hii.', joinPh: 'Bandika kiungo cha mwaliko', joinBtn: 'Angalia mwaliko',
+    chooseTitle: 'Chagua Chama chako', chooseSub: 'Uko katika zaidi ya Chama kimoja. Chagua cha kufungua.', back: 'Rudi', signOut: 'Toka', roleWord: r => ({ treasurer: 'Mweka hazina', secretary: 'Katibu', member: 'Mwanachama' }[r] || r), another: 'Anzisha Chama kingine', notMember: 'Wewe si mwanachama wa Chama hicho. Chagua kimoja chako.' }
+};
+const GL = () => GT[OB.lang()] || GT.en;
+
 const AUTH_T = {
   en: { title: 'Welcome to Chama', sub: 'Sign in with your email and password. Only people your treasurer added can sign in.', upTitle: 'Create your account', upSub: 'Set a password, then we send a code to confirm your email.', ctaContinue: 'Continue', ctaCreate: 'Create account', hint: 'We email you a one-time code next.', or: 'or', apple: 'Continue with Apple', google: 'Continue with Google', soon: 'Coming soon', wrongNotice: 'Email or password is not right. New here? Create your password below.', backIn: 'Back to sign in' },
   sw: { title: 'Karibu Chama', sub: 'Ingia kwa barua pepe na nenosiri lako. Ni watu walioongezwa na mweka hazina pekee wanaoweza kuingia.', upTitle: 'Tengeneza akaunti yako', upSub: 'Weka nenosiri, kisha tutatuma msimbo wa kuthibitisha barua pepe yako.', ctaContinue: 'Endelea', ctaCreate: 'Tengeneza akaunti', hint: 'Tutakutumia msimbo wa mara moja baadaye.', or: 'au', apple: 'Endelea na Apple', google: 'Endelea na Google', soon: 'Inakuja hivi karibuni', wrongNotice: 'Barua pepe au nenosiri si sahihi. Mpya hapa? Tengeneza nenosiri hapa chini.', backIn: 'Rudi kuingia' }
 };
 
 const Gate = {
-  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, stage: 'entry', pw: null, mode: (gateSaved().mode || (function () { try { return sessionStorage.getItem('mca-intent') || 'in'; } catch (e) { return 'in'; } })()) === 'up' ? 'up' : 'in',
+  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', sub: null, joinMsg: '', notice: '', mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' ? m : 'in'; })(),
   navRow(x) { return `<div class="navrow">${x}</div>`; },
   pwProblem(p) { return p.length < 6 ? 'Use at least 6 characters' : !/[A-Z]/.test(p) ? 'Add a capital letter' : !/[^A-Za-z0-9]/.test(p) ? 'Add a symbol, such as ! or #' : ''; },
   refreshRules() {
@@ -1781,36 +2024,72 @@ const Gate = {
   },
   pwFields(withConfirm) {
     const L = OB.L();
-    return `<label>${L.pwNew}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw" type="password" autocomplete="new-password" placeholder="${L.pwPh}"></span></label>` +
+    return `<label>${L.pwNew}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw" type="password" autocomplete="new-password" placeholder="${L.pwPh}">${this.eyeBtn()}</span></label>` +
       (withConfirm ? `<label>${L.pwConfirm}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw2" type="password" autocomplete="new-password" placeholder="${L.pwConfirm}"></span></label>` : '') +
       `<ul class="pwr" id="pwRules" aria-live="polite"><li data-r="len">${L.pwRuleLen}</li><li data-r="cap">${L.pwRuleCap}</li><li data-r="sym">${L.pwRuleSym}</li>${withConfirm ? `<li data-r="same">${L.pwRuleSame}</li>` : ''}</ul>`;
   },
+  eyeBtn() { const G = GL(); return `<button type="button" class="eye" data-act="togglePw" aria-label="${G.show} / ${G.hide}">${G.show}</button>`; },
   authCard() {
-    const L = OB.L(), A = AUTH_T[OB.lang()] || AUTH_T.en, up = this.mode === 'up', lang = OB.lang();
-    const note = this.notice ? `<p class="auth-note" role="status">${esc(this.notice)}</p>` : '';
+    const L = OB.L(), G = GL(), lang = OB.lang(), mode = this.mode;
+    const note = this.notice ? `<p class="auth-note" role="alert">${esc(this.notice)}</p>` : '';
+    const lang_ = `<p class="btn-hint"><button type="button" class="linkish" data-ob="change-lang">${L.lang}: ${OB_T[lang].name} &rarr; ${L.change}</button></p>`;
+    if (mode === 'in') return `<section class="gate"><div class="card gcard auth">
+<h2 class="auth-h">${G.inTitle}</h2><p class="plain mute">${G.inSub}</p>${note}
+<label>${G.idLabel}<span class="field-ic">${OB_ICON_MAIL}<input id="gateId" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${G.idPh}" value="${esc(this.id)}"></span></label>
+<label>${L.pwLabel}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw" type="password" autocomplete="current-password" placeholder="${L.pwPh}">${this.eyeBtn()}</span></label>
+<p class="actions"><button class="btn pri auth-cta" data-act="gateSignIn"${this.signing ? ' disabled' : ''}>${this.signing ? G.signing : G.cta}</button></p>
+<p class="btn-hint"><button type="button" class="linkish" data-gm="forgot">${G.forgot}</button></p>
+<p class="btn-hint"><button type="button" class="linkish" data-gm="up">${G.newHere}</button></p>
+<p class="btn-hint mute">${G.firstTime}</p>${lang_}</div></section>`;
+    const up = mode === 'up';
     return `<section class="gate"><div class="card gcard auth">
-<h2 class="auth-h">${up ? A.upTitle : A.title}</h2><p class="plain mute">${up ? A.upSub : A.sub}</p>
-${note}
+<h2 class="auth-h">${up ? G.upTitle : G.fgTitle}</h2><p class="plain mute">${up ? G.upSub : G.fgSub}</p>${note}
 <label>${L.email}<span class="field-ic">${OB_ICON_MAIL}<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></span></label>
-${up ? this.pwFields(true) : `<label>${L.pwLabel}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw" type="password" autocomplete="current-password" placeholder="${L.pwPh}"></span></label>`}
-<p class="actions"><button class="btn pri auth-cta" data-act="gateSend">${up ? A.ctaCreate : A.ctaContinue}</button></p>
-<p class="btn-hint">${up ? L.upHint : A.hint}</p>
-${up ? `<p class="btn-hint"><button type="button" class="linkish" data-gm="in">&larr; ${A.backIn}</button></p>` : ''}
-<div class="auth-or"><span>${A.or}</span></div>
-<div class="auth-social">
-<button type="button" class="sbtn" disabled aria-disabled="true">${A.apple}<small>${A.soon}</small></button>
-<button type="button" class="sbtn" disabled aria-disabled="true">${A.google}<small>${A.soon}</small></button>
-</div>
-<p class="btn-hint"><button type="button" class="linkish" data-ob="change-lang">${L.lang}: ${OB_T[lang].name} · ${L.change}</button></p>
-</div></section>`;
+<p class="actions"><button class="btn pri auth-cta" data-act="gateSend">${G.sendCode}</button></p>
+<p class="btn-hint"><button type="button" class="linkish" data-gm="in">&larr; ${G.haveAcct}</button></p>${lang_}</div></section>`;
   },
-  setPwCard() {
-    const L = OB.L();
+  setupCard() {
+    const G = GL(), L = OB.L(), isNew = Session.setupMode === 'new', acct = Session.account || {};
+    const note = this.notice ? `<p class="auth-note" role="alert">${esc(this.notice)}</p>` : '';
+    const fields = isNew ? `<label>${G.fullName}<input id="setName" autocomplete="name" maxlength="120" value="${esc(acct.full_name || '')}"></label>
+<label>${G.username}<input id="setUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(acct.username || '')}"><small class="mute">${G.usernameHint}</small></label>` : '';
     return `<section class="gate"><div class="card gcard auth">
-<h2 class="auth-h">${L.setPwTitle}</h2><p class="plain mute">${L.setPwSub}</p>
-${this.pwFields(true)}
-<p class="actions"><button class="btn pri" data-act="gateSetPw">${L.setPwBtn}</button> <button class="btn" data-act="gateSetPwBack">${L.back}</button></p>
-</div></section>`;
+<h2 class="auth-h">${isNew ? G.setupTitle : G.resetTitle}</h2><p class="plain mute">${isNew ? G.setupSub : G.resetSub}</p>${note}
+<p class="plain mute">${esc(Session.email)}</p>${fields}${this.pwFields(true)}
+<p class="actions"><button class="btn pri" data-act="gateSetup"${this.signing ? ' disabled' : ''}>${G.saveCont}</button> <button class="btn" data-act="gateSignOut">${G.signOut}</button></p></div></section>`;
+  },
+  welcomeCard() {
+    const G = GL(); let body = '';
+    if (this.sub === 'create') body = `<label>${G.chamaName}<input id="newChamaName" maxlength="80" placeholder="${G.chamaPh}"></label><p class="actions"><button class="btn pri" data-act="wsCreate"${this.signing ? ' disabled' : ''}>${this.signing ? G.creating : G.create}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`;
+    else if (this.sub === 'join') body = `<p class="plain mute">${G.joinSub}</p><label><input id="joinLink" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${G.joinPh}"></label>${this.joinMsg ? `<p class="auth-note" role="alert">${esc(this.joinMsg)}</p>` : ''}<p class="actions"><button class="btn pri" data-act="wsJoin">${G.joinBtn}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`;
+    else body = `<p class="plain mute">${G.welcomeSub}</p><p class="actions"><button class="btn pri" data-act="wsSub" data-s="create">${G.createChama}</button></p><p class="actions"><button class="btn" data-act="wsSub" data-s="join">${G.joinChama}</button></p><p class="actions"><button class="btn" data-act="gateSignOut">${G.signOut}</button></p>`;
+    return this.card(esc(G.welcome(Session.displayName())), body);
+  },
+  chooseCard() {
+    const G = GL(), list = (Session.workspaces || []).map(w => `<button class="btn wsrow${w.chama_id === Store.chamaId ? ' cur' : ''}" data-act="wsOpen" data-id="${esc(w.chama_id)}"><span>${esc(w.chama_name || 'Chama')}</span><small class="wsrole">${esc(G.roleWord(w.role))}</small></button>`).join('');
+    const note = this.notice ? `<p class="auth-note" role="alert">${esc(this.notice)}</p>` : '';
+    const create = this.sub === 'create' ? `<label>${G.chamaName}<input id="newChamaName" maxlength="80" placeholder="${G.chamaPh}"></label><p class="actions"><button class="btn pri" data-act="wsCreate">${G.create}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`
+      : `<p class="actions"><button class="btn" data-act="wsSub" data-s="create">${G.another}</button></p>`;
+    const join = this.sub === 'join' ? `<label><input id="joinLink" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${G.joinPh}"></label>${this.joinMsg ? `<p class="auth-note" role="alert">${esc(this.joinMsg)}</p>` : ''}<p class="actions"><button class="btn pri" data-act="wsJoin">${G.joinBtn}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`
+      : `<p class="actions"><button class="btn" data-act="wsSub" data-s="join">${G.joinChama}</button></p>`;
+    const foot = `<p class="actions">${Session.role ? `<button class="btn" data-act="wsBack">${G.back}</button> ` : ''}<button class="btn" data-act="gateSignOut">${G.signOut}</button></p>`;
+    return this.card(G.chooseTitle, `<p class="plain mute">${G.chooseSub}</p>${note}<div class="wslist">${list}</div>${this.sub === 'join' ? '' : create}${this.sub === 'create' ? '' : join}${foot}`);
+  },
+  inviteCard() {
+    const I = Invite.info, signedIn = Session.status === 'invite';
+    if (Invite.token && !Invite.checked) return this.card('Checking your invitation', '<p class="plain mute">One moment…</p>');
+    if (!I) return this.card('Invitation', '<p class="plain">We could not check this invitation. Check your internet and try again.</p><p class="actions"><button class="btn pri" data-act="inviteRetry">Try again</button> <button class="btn" data-act="inviteDismiss">Skip</button></p>');
+    if (!I.ok) return this.card('Invitation', `<p class="plain">${esc(Invite.MSG[I.code] || Invite.MSG.invalid)}</p><p class="actions"><button class="btn pri" data-act="inviteDismiss">Continue</button></p>`);
+    const when = d => { try { return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } };
+    const rows = `<div class="prow"><span>Chama</span><b>${esc(I.chama_name || 'A Chama')}</b></div>
+<div class="prow"><span>Your role</span><b>${esc(Perm.label(I.role))}</b></div>
+${I.inviter_name ? `<div class="prow"><span>Invited by</span><b>${esc(I.inviter_name)}</b></div>` : ''}
+<div class="prow"><span>Sent to</span><b>${esc(I.email_hint || '')}</b></div>
+<div class="prow"><span>Expires</span><b>${esc(when(I.expires_at))}</b></div>`;
+    const note = '<p class="plain mute" style="margin-top:10px">Joining lets you see this Chama’s records for your role. You can leave later.</p>';
+    if (!signedIn) return this.card('You are invited', rows + note + '<p class="actions"><button class="btn pri" data-act="inviteContinue">Sign in or create an account to accept</button></p>');
+    const msg = Invite.msg ? `<p class="auth-note" role="alert">${esc(Invite.msg)}</p>` : '';
+    return this.card('You are invited', `<p class="plain mute">Signed in as <b>${esc(Session.email)}</b></p>${rows}${note}${msg}<p class="actions"><button class="btn pri" data-act="inviteAccept"${Invite.busy ? ' disabled' : ''}>Accept invitation</button> <button class="btn" data-act="inviteDecline">Decline</button> <button class="btn" data-act="gateSignOut">Use another email</button></p>`);
   },
   card(t, body) { return `<section class="gate"><div class="card gcard"><h2>${t}</h2>${body}</div></section>`; },
   paint() {
@@ -1820,23 +2099,21 @@ ${this.pwFields(true)}
     $('#hname').hidden = false; $('#title').textContent = 'My Chama App';
     $('#syncBar').hidden = true;
     if (Session.status === 'signed-out' && OB.needed()) { $('#view').innerHTML = OB.html(); return; }
-    const st = Session.status; let html;
+    const st = Session.status; let html; const G = GL();
+    if (st === 'invite' || (st === 'signed-out' && Invite.token && !Invite.signin && !this.sent)) { $('#view').innerHTML = this.inviteCard(); return; }
     try { if (st === 'signed-out') sessionStorage.setItem('mca-gate', JSON.stringify({ email: this.email, sent: this.sent, mode: this.mode })); else sessionStorage.removeItem('mca-gate'); } catch (e) {}
     if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>' + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'));
     else if (st === 'signed-out') {
       Otp.kind = 'email'; Otp.len = Session.otpLength;
-      
       html = this.sending
         ? this.card('Sending your code', `<div class="sendload" aria-live="polite"><span class="spin" aria-hidden="true"></span><p class="plain mute">Sending a code to <b>${esc(this.email)}</b></p></div>` + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'))
         : this.sent
         ? this.card('Enter your code', Otp.html({ hint: `Sent to <b>${esc(this.email)}</b>`, change: true, mail: true }))
-        : (this.stage === 'setpw' ? this.setPwCard() : this.authCard());
+        : this.authCard();
     }
-    else if (st === 'has-chama') html = this.card(OB.L().hasTitle, `<p class="plain">${OB.L().hasSub}</p><p class="actions"><button class="btn pri" data-gm="in" data-signout="1">${OB.L().signInInstead}</button></p>`);
-    else if (st === 'no-access' && this.mode === 'up') html = this.card(OB.L().upNoAccessTitle, `<p class="plain">${OB.L().upNoAccessSub}</p><p class="actions"><button class="btn pri" data-gm="in" data-signout="1">${OB.L().signInInstead}</button></p>`);
-    else if (st === 'no-access') html = this.card('Not on the member list', `<p class="plain">${esc(Session.email)} is not a member of this chama yet. Ask the treasurer to add this email.</p><p class="actions"><button class="btn pri" data-act="gateSignOut">Use a different email</button></p>`);
-    else if (st === 'no-chama' && this.mode === 'up') html = this.card(OB.L().startTitle, `<p class="plain mute">${OB.L().startSub}</p><label>${OB.L().yourName}<input id="gateName" autocomplete="name" maxlength="60" placeholder="${OB.L().namePh}"></label>${this.pw ? '' : this.pwFields(true)}<p class="actions"><button class="btn pri" data-act="gateCreate">${OB.L().startBtn}</button> <button class="btn" data-act="gateSignOut">${OB.L().otherEmail}</button></p>`);
-    else if (st === 'no-chama') html = this.card(OB.L().notSetTitle, `<p class="plain">${OB.L().notSetSub}</p><p class="actions"><button class="btn pri" data-gm="up">${OB.L().signUp}</button> <button class="btn" data-act="gateSignOut">${OB.L().otherEmail}</button></p>`);
+    else if (st === 'setup') html = this.setupCard();
+    else if (st === 'welcome') html = this.welcomeCard();
+    else if (st === 'choose') html = this.chooseCard();
     else html = this.card('Something went wrong', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button>${Session.user ? ' <button class="btn" data-act="gateSignOut">Use a different email</button>' : ''}</p>`);
     $('#view').innerHTML = html;
     Otp.fit();
@@ -1844,7 +2121,7 @@ ${this.pwFields(true)}
   }
 };
 
-return { get Gate() { return Gate; }, get Otp() { return Otp; }, };
+return { get Gate() { return Gate; }, get Otp() { return Otp; }, get OB() { return OB; }, get GL() { return GL; }, get GT() { return GT; }, get AUTH_T() { return AUTH_T; }, };
 })();
 
 /* ---- src/core/state.js ---- */
@@ -1968,10 +2245,11 @@ const views = {
     if (!s.members.length) return `<div class="card empty"><p style="margin-bottom:12px">No members yet. Add your members or load sample data to see how it works.</p>
       <button class="btn" data-act="seed">Load sample data</button></div>`;
     const cur = Domain.now(), exp = sum(s.members, m => Domain.dueFor(s, m.id));
-    const got = sum(s.payments.filter(p => p.month === cur), p => p.amount);
+    const got = s.shared ? (s.shared.monthCollected[cur] || 0) : sum(s.payments.filter(p => p.month === cur), p => p.amount);
     const pct = exp ? Math.min(100, Math.round(got / exp * 100)) : 0;
     const rec = Domain.recipient(s), late = Domain.lateMembers(s), po = s.payouts.find(p => p.month === cur), idx = rec ? s.members.indexOf(rec) : -1;
-    const loansOut = sum(s.loans, l => Domain.loan(l).balance), finesDue = sum(s.fines.filter(f => !f.paid), f => f.amount);
+    const loansOut = s.shared ? s.shared.loansBalance : sum(s.loans, l => Domain.loan(l).balance), finesDue = s.shared ? s.shared.finesDue : sum(s.fines.filter(f => !f.paid), f => f.amount);
+    const meId = s.shared ? s.shared.me : null;
     return `<div class="stack">
       <div class="grid g4">
         <div class="card"><h2>Cash on hand</h2><div class="big num">${kes(Domain.cashOnHand(s))}</div></div>
@@ -1982,14 +2260,15 @@ const views = {
       <div class="grid g2">
         ${s.chama.mode === 'savings' ? '' : `<div class="card"><h2>This month's payout</h2>
           <div class="big who">${av(rec, 36)}${esc(rec.name)}</div><div class="mute num">Receives ${kes(po ? po.amount : exp)} (turn ${Math.max(1, idx + 1)} of ${s.members.length})</div>
-          ${po ? `<div style="margin-top:8px"><span class="tag">Sent ${kes(po.amount)} on ${esc(po.date)}</span>${sigImg(po.sig, 'Recipient signature')} ${adminBtn(`<button class="btn sm bad" data-act="undoPayout" data-id="${po.id}">Undo</button>`)}</div>` : adminBtn(`<div style="margin-top:8px"><button class="btn sm pri" data-act="markPayout" data-amt="${exp}">Mark payout as sent</button></div>`)}</div>`}
-        <div class="card"><h2>Behind on ${monthLabel(cur)}</h2>
-          ${late.length ? late.map(m => {
+          ${s.shared ? (po ? `<div style="margin-top:8px"><span class="tag">Sent ${kes(po.amount)} on ${esc(po.date)}</span></div>` : '') : po ? `<div style="margin-top:8px"><span class="tag">Sent ${kes(po.amount)} on ${esc(po.date)}</span>${sigImg(po.sig, 'Recipient signature')} ${adminBtn(`<button class="btn sm bad" data-act="undoPayout" data-id="${po.id}">Undo</button>`)}</div>` : adminBtn(`<div style="margin-top:8px"><button class="btn sm pri" data-act="markPayout" data-amt="${exp}">Mark payout as sent</button></div>`)}</div>`}
+        <div class="card"><h2>${s.shared ? 'Your ' + monthLabel(cur) : 'Behind on ' + monthLabel(cur)}</h2>
+          ${s.shared ? (meId ? (() => { const st = Domain.status(s, meId, cur), bal = Domain.outstanding(s, meId, cur); return `<p class="plain">${st === 'paid' ? 'You are paid up for this month.' : st === 'partial' ? 'Part paid. ' + kes(bal) + ' still due.' : st === 'late' ? 'Late. ' + kes(bal) + ' is due.' : st === 'future' || st === 'na' ? 'Nothing due yet.' : kes(bal) + ' is due by day ' + s.chama.dueDay + '.'}</p><p class="mute">You see your own payments and the group totals. Other members’ money is private.</p>`; })() : '<p class="mute">Your account is not linked to a member record yet. Ask the treasurer to link it.</p>') : ''}
+          ${s.shared ? '' : late.length ? late.map(m => {
             const bal = Domain.outstanding(s, m.id, cur);
             const msg = `Hi ${m.name.split(' ')[0]}, friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} contribution balance is ${kes(bal)}.${s.chama.payTo ? ' Pay to: ' + s.chama.payTo + '.' : ''} Thank you!`;
             return `<div class="row">${av(m, 30)}<div class="grow"><b>${esc(m.name)}</b><span class="mute num">${kes(bal)} due</span></div>
               ${m.phone ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(m.phone, msg)}">Remind</a>` : '<span class="mute">no phone</span>'}</div>`;
-          }).join('') : `<p class="mute">${Domain.isOverdue(s, cur) ? 'Everyone is paid up.' : `Due by day ${s.chama.dueDay}. Nobody is late yet.`}</p>`}
+          }).join('') : (s.shared ? '' : `<p class="mute">${Domain.isOverdue(s, cur) ? 'Everyone is paid up.' : `Due by day ${s.chama.dueDay}. Nobody is late yet.`}</p>`)}
         </div>
       </div></div>`;
   },
@@ -2187,16 +2466,16 @@ const views = {
     const cur = Domain.now(), months = Array.from({ length: 6 }, (_, i) => addMonths(cur, i - 5));
     if (!s.members.length) return `<div class="card empty">Add members first.</div>`;
     const label = { paid: 'Paid', late: 'Late', due: 'Due', future: '-', na: '–' };
-    const rows = s.members.map(m => `<tr><td><span class="who">${av(m, 24)}${esc(m.name)}</span></td>${months.map(mk => {
+    const rows = (s.shared ? s.members.filter(m => m.id === s.shared.me) : s.members).map(m => `<tr><td><span class="who">${av(m, 24)}${esc(m.name)}</span></td>${months.map(mk => {
       const st = Domain.status(s, m.id, mk), paid = Domain.paidIn(s, m.id, mk);
       const text = st === 'partial' ? paid.toLocaleString('en-KE') : label[st];
       return `<td><button class="cell ${st}" ${Auth.isAdmin() && !['future', 'na'].includes(st) ? `data-act="pay" data-m="${m.id}" data-mo="${mk}"` : 'disabled'}>${text}</button></td>`;
     }).join('')}</tr>`).join('');
-    const foot = `<tr><td>Collected</td>${months.map(mk => `<td class="num"><b>${sum(s.payments.filter(p => p.month === mk), p => p.amount).toLocaleString('en-KE')}</b></td>`).join('')}</tr>`;
+    const foot = `<tr><td>${s.shared ? 'Group total' : 'Collected'}</td>${months.map(mk => `<td class="num"><b>${(s.shared ? (s.shared.monthCollected[mk] || 0) : sum(s.payments.filter(p => p.month === mk), p => p.amount)).toLocaleString('en-KE')}</b></td>`).join('')}</tr>`;
     const recent = [...s.payments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
     return `<div class="head"><h3>Contributions</h3><span class="mute">${kes(s.chama.monthly)} per member per month</span>${adminBtn('<button class="btn pri" data-act="importPay">Import from M-Pesa</button>')}</div>
       <div class="scroll"><table><thead><tr><th>Member</th>${months.map(mk => `<th>${monthLabel(mk)}</th>`).join('')}</tr></thead><tbody>${rows}${foot}</tbody></table></div>
-      ${Auth.isAdmin() ? '<p class="mute" style="margin-top:8px">Tap a cell to record a payment.</p>' : ''}
+      ${Auth.isAdmin() ? '<p class="mute" style="margin-top:8px">Tap a cell to record a payment.</p>' : (s.shared ? '<p class="mute" style="margin-top:8px">You see your own row and the group total. Other members’ payments are private.</p>' : '')}
       <div class="card" style="margin-top:14px"><h2>Recent payments</h2>${recent.length ? recent.map(p => `<div class="row"><div class="grow"><b>${memberChip(s, p.memberId, 26)}</b><span class="mute">${monthLabel(p.month)}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</span></div><span class="num"><b>${kes(p.amount)}</b></span>${adminBtn(`<button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm bad" data-act="delPay" data-id="${p.id}">Remove</button>`)}</div>`).join('') : '<p class="mute">No payments recorded.</p>'}</div>`;
   },
 };
@@ -2360,6 +2639,7 @@ const views = {
     return `<div class="head"><h3>Members (${s.members.length})</h3>${adminBtn('<button class="btn pri" data-act="addMember">Add member</button>')}</div>
       <div class="card">${s.members.length ? s.members.map((m, i) => {
         const loan = Domain.memberLoanBalance(s, m.id), fine = Domain.memberFinesDue(s, m.id), rcv = sum(s.payouts.filter(p => p.memberId === m.id), p => p.amount), rel = Domain.reliability(s, m.id);
+        if (s.shared && m.id !== s.shared.me) return `<div class="row">${av(m, 32)}<div class="grow"><b>${i + 1}. ${esc(m.name)}${(m.shares || 1) > 1 ? ` x${m.shares}` : ''}</b>${rcv ? `<span class="mute num">Received ${kes(rcv)}</span>` : ''}</div></div>`;
         return `<div class="row">${av(m, 32)}<div class="grow"><b>${i + 1}. <a href="#" data-act="statement" data-id="${m.id}" style="color:inherit">${esc(m.name)}</a>${(m.shares || 1) > 1 ? ` x${m.shares}` : ''} ${m.role ? `<span class="tag">${esc(m.role)}</span>` : ''}</b>
           <span class="mute num">Saved ${kes(Domain.memberSaved(s, m.id))}${loan ? ` · Loan ${kes(loan)}` : ''}${fine ? ` · Fines ${kes(fine)}` : ''}${rcv ? ` · Received ${kes(rcv)}` : ''}${rel != null ? ` · Paid-up ${rel}%` : ''}</span>
           ${m.phone ? `<a class="mute num" href="tel:${esc(String(m.phone).replace(/[^\d+]/g, ''))}" style="display:block;color:inherit">${esc(m.phone)}</a>` : '<span class="mute" style="display:block">No phone number</span>'}</div>
@@ -2395,7 +2675,8 @@ const { esc } = __M_src_core_utils_js;
 const views = {
   history(s) {
     const L = s.log || [], tag = k => k === 'del' ? ['bad', 'Removed'] : k === 'edit' ? ['warn', 'Edited'] : ['', 'Added'];
-    return `<div class="head"><h3>History</h3><span class="mute">${L.length} changes, visible to every member</span></div>
+    if (s.shared) return `<div class="head"><h3>History</h3></div><div class="card"><p class="plain">Only the treasurer can see the full history of changes. Your own payments and notices are on your profile.</p></div>`;
+    return `<div class="head"><h3>History</h3><span class="mute">${L.length} changes, visible to the treasurer</span></div>
       <div class="card">${L.length ? L.map(e => `<div class="row" style="align-items:flex-start"><span class="tag ${tag(e.kind)[0]}">${tag(e.kind)[1]}</span><div class="grow"><b style="white-space:normal">${esc(e.text)}</b>${(e.diff || []).map(x => `<div class="mute num">${esc(x)}</div>`).join('')}<span class="mute">${esc(new Date(e.ts).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' }))} · ${esc(e.by)}</span></div></div>`).join('') : '<p class="empty">Changes will show up here.</p>'}</div>`;
   },
 };
@@ -2639,11 +2920,12 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.11.0', released: '2026-10-30',
+  name: 'My Chama App', version: '0.12.0-dev.2', released: '2026-11-01',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.11.0', 'Sign out asks you to confirm before it closes the app. When a member asks to delete their account, the other members see a notice on the Notifications page with a live countdown. They can hide it, and Show hidden brings it back. The notice does not show the reason. '], ['0.10.0', 'Delete my account is in Settings, Privacy and data. Pick a reason, confirm your password and read the disclaimer: the account is not permanently deleted and is kept for 30 days, when you can restore it. Signing in shows the days left with a Restore button. '], ['0.9.0', 'Sign-in and sign-up are one card with one button. Enter your email and password and press Continue: if you have an account you go on to the email code; if not, the card offers Create account with the same password checks as before. Apple and Google sign-in are shown as coming soon. '], ['0.8.0', 'Sign-in takes your email and password first. Invited people set a password once. Sign-up asks for a password with live checks: 6 characters, a capital letter and a symbol. One email can join several chamas, but each chama needs its own password for that email. The email code is still the last step. '], ['0.7.1', 'Sign out in the menu closes the session and plays the opening animation again. The menu has a green background with white entries. '], ['0.7.0', 'First run: choose a language, take a short tour, then read the privacy policy and agree to it. Sign-in has Sign in and Sign up. Sign up asks for your name when you start a chama, and an email that already has a chama is asked to sign in. The opening animation has no Skip button. '], ['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
+  notes: [['0.12.0-dev.2', 'Development build. One account and one password for every Chama: sign in with email or username. Create your account with an email code, then choose your name, a username and a password. Members see their own payments, loans and fines plus group totals only. Hand over the treasurer role, leave a Chama, switch between Chamas, delete your account with a 30-day restore window. Invitations last 48 hours. '],
+    ['0.12.0-dev.1', 'Development build. Treasurers can invite people by email and choose Member, Secretary or Treasurer. The person opens the link, sees who invited them and accepts. Nobody is added until they accept. Needs the new database steps; until then the old Add person way keeps working. '], ['0.11.0', 'Sign out asks you to confirm before it closes the app. When a member asks to delete their account, the other members see a notice on the Notifications page with a live countdown. They can hide it, and Show hidden brings it back. The notice does not show the reason. '], ['0.10.0', 'Delete my account is in Settings, Privacy and data. Pick a reason, confirm your password and read the disclaimer: the account is not permanently deleted and is kept for 30 days, when you can restore it. Signing in shows the days left with a Restore button. '], ['0.9.0', 'Sign-in and sign-up are one card with one button. Enter your email and password and press Continue: if you have an account you go on to the email code; if not, the card offers Create account with the same password checks as before. Apple and Google sign-in are shown as coming soon. '], ['0.8.0', 'Sign-in takes your email and password first. Invited people set a password once. Sign-up asks for a password with live checks: 6 characters, a capital letter and a symbol. One email can join several chamas, but each chama needs its own password for that email. The email code is still the last step. '], ['0.7.1', 'Sign out in the menu closes the session and plays the opening animation again. The menu has a green background with white entries. '], ['0.7.0', 'First run: choose a language, take a short tour, then read the privacy policy and agree to it. Sign-in has Sign in and Sign up. Sign up asks for your name when you start a chama, and an email that already has a chama is asked to sign in. The opening animation has no Skip button. '], ['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
 
 const PRIVACY = [
@@ -2771,170 +3053,80 @@ const { Backend } = __M_src_core_backend_js;
 const { Session } = __M_src_core_session_js;
 const { render } = __M_src_core_rerender_js;
 
-/* Account deletion with a 30-day hold. The server does the real work (chama_deletion.sql):
-   it checks the password, sets the date, and restores or purges. This file shows the state and asks. */
+/* Deleting an ACCOUNT (not leaving a Chama, which is a different thing: D6).
+   Rules, enforced by the server (migration 009): no active Chama, a sign-in in the last 10 minutes, then a 30-day hold.
+   Restoring is possible at any time during the hold. The Chama and its records are never deleted by this. */
 const DAYS = 30;
-const REASONS = [
-  ['no-need', 'I no longer need the app'],
-  ['leaving', 'I am leaving the chama'],
-  ['privacy', 'Privacy concerns'],
-  ['broken', 'Something is not working'],
-  ['other', 'Other (say why in the note)'],
-];
-const reasonLabel = k => (REASONS.find(r => r[0] === k) || [null, k])[1];
 const fmtDate = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 const daysLeft = d => Math.max(0, Math.ceil((d.getTime() - Date.now()) / 86400000));
 const plural = n => `${n} ${n === 1 ? 'day' : 'days'}`;
-const countdown = d => {
-  let ms = Math.max(0, d.getTime() - Date.now());
-  const dd = Math.floor(ms / 86400000); ms -= dd * 86400000;
-  const hh = Math.floor(ms / 3600000); ms -= hh * 3600000;
-  const mm = Math.floor(ms / 60000); ms -= mm * 60000;
-  return `${dd}d ${hh}h ${mm}m ${Math.floor(ms / 1000)}s`;
-};
 
 const Account = {
   pending: null, checked: false, busy: false, uid: null,
-  notices: [], noticesAt: 0, noticesBusy: false, noticesSig: '', hidden: null, ticker: null,
-
-  daysLeft(due) { return daysLeft(due); },
-
-  /* Reads the deletion state once per signed-in person. A failed read shows nothing and is not retried until the next open. */
+  /* reads the server state once per signed-in person; a failed read shows nothing and is retried on the next open */
   async load() {
     if (!Session.user || !Session.ready()) return;
-    if (Session.user.id !== this.uid) { this.uid = Session.user.id; this.checked = false; this.pending = null; this.notices = []; this.noticesSig = ''; }
+    if (Session.user.id !== this.uid) { this.uid = Session.user.id; this.checked = false; this.pending = null; }
     if (this.checked || this.busy || !Backend.sb) return;
     this.busy = true;
     try {
-      const { data, error } = await Backend.sb.rpc('account_deletion_status', { cid: Session.cid() });
-      if (!error) {
-        const row = Array.isArray(data) ? data[0] : data;
-        this.pending = row && row.due ? { due: new Date(row.due), reason: row.reason || '' } : null;
-      }
+      const { data, error } = await Backend.sb.rpc('account_deletion_status');
+      if (!error) this.pending = data && data.pending ? { requestedAt: new Date(data.requested_at), purgeAt: new Date(data.purge_at) } : null;
     } catch (e) { this.pending = null; }
     this.busy = false; this.checked = true; render();
   },
-
-  /* Shown above every page while a deletion is waiting */
   banner() {
     if (!this.pending) return '';
-    const n = daysLeft(this.pending.due);
+    const n = daysLeft(this.pending.purgeAt);
     return `<section class="card acct-banner" role="status"><h2>Account deletion scheduled</h2>
-      <p class="plain">Your account will be deleted in ${plural(n)}, on ${esc(fmtDate(this.pending.due))}. It is not permanently deleted yet. Restore it before then and nothing is lost.</p>
+      <p class="plain">Your account will be deleted in ${plural(n)}, on ${esc(fmtDate(this.pending.purgeAt))}. It is not permanently deleted yet. Restore it before then and nothing is lost.</p>
       <p class="actions"><button class="btn pri" data-act="restoreAccount">Restore my account</button></p></section>`;
   },
-
-  /* The card on Settings, Privacy and data */
   card() {
     if (this.pending) {
-      const n = daysLeft(this.pending.due);
+      const n = daysLeft(this.pending.purgeAt);
       return `<section class="card" style="margin-bottom:10px"><h2>Delete my account</h2>
-        <p class="plain">Deletion is scheduled for ${esc(fmtDate(this.pending.due))}: ${plural(n)} left. Restore it to keep your account.</p>
+        <p class="plain">Deletion is scheduled for ${esc(fmtDate(this.pending.purgeAt))}: ${plural(n)} left. Restore it to keep your account.</p>
         <p class="actions"><button class="btn pri" data-act="restoreAccount">Restore my account</button></p></section>`;
     }
     return `<section class="card" style="margin-bottom:10px"><h2>Delete my account</h2>
-      <p class="plain">Your account is <b>not permanently deleted</b> straight away. It is kept for ${DAYS} days, and you can come back within that time to restore it. After ${DAYS} days it is deleted.</p>
+      <p class="plain">Your account is <b>not permanently deleted</b> straight away. It is kept for ${DAYS} days, and you can restore it within that time. After ${DAYS} days it is deleted. Your records in each Chama stay with that Chama.</p>
+      <p class="plain mute">You must leave every Chama first. Leaving a Chama is a separate step.</p>
       <p class="actions"><button class="btn bad" data-act="deleteAccount">Delete my account</button></p></section>`;
   },
-
-  openDelete(prev = {}, err = '') {
+  openDelete(err = '') {
     Modal.open({
-      title: 'Delete my account',
-      submitLabel: 'Delete my account', danger: true,
-      body: `<p class="plain"><b>Your account is not permanently deleted.</b> It is kept for ${DAYS} days. Come back within those ${DAYS} days to restore it. After that it is deleted.</p>
-        <p class="plain mute">Other members of your chama will be told that you asked to leave, with a countdown.</p>
+      title: 'Delete my account', submitLabel: 'Delete my account', danger: true,
+      body: `<p class="plain"><b>Your account is not permanently deleted.</b> It is kept for ${DAYS} days. Come back within those days to restore it. After that it is deleted.</p>
         ${err ? `<p class="auth-note" role="alert">${esc(err)}</p>` : ''}`,
-      fields: [
-        { name: 'reason', label: 'Reason', type: 'select', options: REASONS, value: prev.reason || REASONS[0][0] },
-        { name: 'note', label: 'Tell us more (required for Other)', value: prev.note || '', placeholder: 'Optional' },
-        { name: 'password', label: 'Your password', type: 'password', value: '', placeholder: 'Your password', required: true },
-      ],
-      // Modal closes itself after onSubmit returns, so the async work starts on the next tick
+      fields: [{ name: 'reason', label: 'Reason (optional)', value: '', placeholder: 'Optional' }],
       onSubmit: v => { setTimeout(() => Account.submitDelete(v), 0); },
     });
   },
-
   async submitDelete(v) {
-    const reason = v.reason || REASONS[0][0], note = (v.note || '').trim(), pw = v.password || '';
-    if (reason === 'other' && !note) return this.openDelete(v, 'Tell us why in the note, so the treasurer knows.');
-    if (!pw) return this.openDelete(v, 'Type your password to continue.');
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
-    const { data, error } = await Backend.sb.rpc('request_account_deletion', {
-      cid: Session.cid(), p_password: pw, p_reason: reasonLabel(reason), p_note: note || null,
-    });
-    if (error) return this.openDelete({ ...v, password: '' }, error.message);
+    const { data, error } = await Backend.sb.rpc('request_account_deletion', { p_reason: (v.reason || '').trim() || null });
+    if (error) return this.openDelete(error.message);
     toast(`Deletion scheduled. You have ${DAYS} days to restore.`);
-    // Sign out. The countdown and the Restore button show when they sign in again.
     this.checked = false; this.pending = null;
     return Session.signOut();
   },
-
   async restore() {
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
-    const { error } = await Backend.sb.rpc('cancel_account_deletion', { cid: Session.cid() });
+    const { error } = await Backend.sb.rpc('cancel_account_deletion');
     if (error) return toast(error.message);
     this.pending = null; this.checked = true;
     toast('Restored. Your account is kept.');
     render();
   },
-
-  hiddenSet() {
-    if (!this.hidden) { try { this.hidden = new Set(JSON.parse(localStorage.getItem('chama:hidden-deletions') || '[]')); } catch (e) { this.hidden = new Set(); } }
-    return this.hidden;
-  },
-  saveHidden() { try { localStorage.setItem('chama:hidden-deletions', JSON.stringify([...this.hiddenSet()])); } catch (e) {} },
-
-  /* Other members' pending deletions. The server returns only the member and the date, never the reason. Checked at most once a minute. */
-  async refreshNotices() {
-    if (!Session.ready() || !Backend.sb || this.noticesBusy) return;
-    if (Date.now() - this.noticesAt < 60000) return;
-    this.noticesBusy = true; this.noticesAt = Date.now();
-    try {
-      const { data, error } = await Backend.sb.rpc('chama_deletion_notices', { cid: Session.cid() });
-      if (!error && Array.isArray(data)) {
-        const next = data.map(r => ({ key: (r.member_id || 'member') + '|' + r.due, memberId: r.member_id || null, due: new Date(r.due) }));
-        const sig = next.map(n => n.key).join(';');
-        this.noticesBusy = false;
-        if (sig !== this.noticesSig) { this.noticesSig = sig; this.notices = next; render(); }
-        return;
-      }
-    } catch (e) { /* keep what we had */ }
-    this.noticesBusy = false;
-  },
-
-  /* Notice cards for the Notifications page. The countdown updates every second without redrawing the page. */
-  noticesHTML(s) {
-    const hid = this.hiddenSet();
-    const shown = this.notices.filter(n => !hid.has(n.key));
-    const hiddenN = this.notices.length - shown.length;
-    const showBack = hiddenN ? `<p class="actions" style="margin-top:6px"><button class="btn sm" data-act="showHiddenDeletionNotices">Show ${hiddenN} hidden</button></p>` : '';
-    if (!shown.length) return showBack;
-    this.startTicker();
-    const cards = shown.map(n => {
-      const who = (s.members || []).find(m => m.id === n.memberId);
-      const name = who ? who.name : 'A member';
-      return `<section class="card acct-notice" role="status" data-deletion="${esc(n.key)}">
-        <h2>Account deletion requested</h2>
-        <p class="plain">${esc(name)} asked to delete their account. It is not permanently deleted: it will be removed on ${esc(fmtDate(n.due))} unless they restore it first.</p>
-        <p class="plain"><b class="acct-count" data-due="${n.due.toISOString()}">${esc(countdown(n.due))}</b> left</p>
-        <p class="actions"><button class="btn sm" data-act="hideDeletionNotice" data-k="${esc(n.key)}">Hide</button></p></section>`;
-    }).join('');
-    return cards + showBack;
-  },
-
-  startTicker() {
-    if (this.ticker) return;
-    this.ticker = setInterval(() => {
-      document.querySelectorAll('.acct-count[data-due]').forEach(el => { el.textContent = countdown(new Date(el.dataset.due)); });
-    }, 1000);
-  },
+  /* kept so older callers do not break; deletion notices about other members are no longer shown (privacy, D8) */
+  noticesHTML() { return ''; },
+  refreshNotices() {},
 };
 
 const actions = {
   deleteAccount: () => Account.openDelete(),
   restoreAccount: () => Account.restore(),
-  hideDeletionNotice: d => { Account.hiddenSet().add(d.k); Account.saveHidden(); render(); },
-  showHiddenDeletionNotices: () => { Account.hiddenSet().clear(); Account.saveHidden(); render(); },
 };
 
 return { get Account() { return Account; }, get actions() { return actions; }, };
@@ -2950,7 +3142,7 @@ const { Auth } = __M_src_core_auth_js;
 const { Backend } = __M_src_core_backend_js;
 const { Me } = __M_src_core_me_js;
 const { render } = __M_src_core_rerender_js;
-const { Session } = __M_src_core_session_js;
+const { Session, Perm } = __M_src_core_session_js;
 const { S } = __M_src_core_state_js;
 const { Store } = __M_src_core_store_js;
 const { esc, kes } = __M_src_core_utils_js;
@@ -3011,14 +3203,18 @@ const views = {
     if (r === 'settings/actions') {
       const opts = s.members.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
       const label = a => a.status === 'active' ? 'signed in' : a.status === 'removed' ? 'access removed' : 'waiting to sign in';
-      const list = (Session.access || []).map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(a.role)} · ${label(a)} · ${a.member_id ? 'linked to a member' : 'not linked'}</span></div>${a.status === 'removed' ? '' : `<button class="btn sm bad" data-act="revoke" data-e="${esc(a.email)}">Remove access</button>`}</div>`).join('');
+      const invWhen = d => { try { return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); } catch (e) { return ''; } };
+      const invRows = (Session.invites || []).filter(i => i.status !== 'accepted').map(i => `<div class="row"><div class="grow"><b>${esc(i.invited_email)}</b><span class="mute">${esc(Perm.label(i.intended_role))} · ${i.status === 'pending' ? 'waiting, expires ' + esc(invWhen(i.expires_at)) : i.status === 'expired' ? 'expired' : esc(i.status)}${i.member_id ? ' · linked to a member' : ''}</span></div>${i.status === 'pending' || i.status === 'expired' ? `<button class="btn sm" data-act="resendInvite" data-i="${esc(i.id)}">Resend</button>` : ''}${i.status === 'pending' ? `<button class="btn sm bad" data-act="revokeInvite" data-i="${esc(i.id)}">Cancel</button>` : ''}</div>`).join('');
+      const invBlock = Array.isArray(Session.invites) ? `<h3 class="gh">Invitations</h3>${invRows || '<p class="mute">No invitations yet.</p>'}` : '';
+      const hoBlock = Session.role === 'treasurer' && (Session.access || []).some(a => a.status === 'active' && a.email !== Session.email) ? `<h3 class="gh">Hand over the Chama</h3><p class="plain mute">Make another active member the treasurer. You can stay on as a co-treasurer, or step down to Member. The Chama always keeps one treasurer.</p>${(Session.access || []).filter(a => a.status === 'active' && a.email !== Session.email).map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(Perm.label(a.role))}</span></div><button class="btn sm" data-act="handover" data-e="${esc(a.email)}">Hand over</button></div>`).join('')}` : '';
+      const list = (Session.access || []).map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(Perm.label(a.role))} · ${label(a)} · ${a.member_id ? 'linked to a member' : 'not linked'}</span></div>${a.status === 'removed' ? '' : `<button class="btn sm bad" data-act="revoke" data-e="${esc(a.email)}">Remove access</button>`}</div>`).join('');
       return `<section class="card"><h2>${admin ? 'Who can sign in' : 'Your access'}</h2>
-      <p class="plain mute" style="margin-bottom:12px">${admin ? 'You are the treasurer. Add someone by the email they will sign in with, and link them to their member record. They get a sign-in link by email.' : 'You are signed in as a ' + (Session.role === 'treasurer' ? 'treasurer' : 'member') + '. Your treasurer controls what you can see and change.'}</p>
+      <p class="plain mute" style="margin-bottom:12px">${admin ? (Array.isArray(Session.invites) ? 'You are the treasurer. Invite someone by email, choose their role and link them to their member record. They get an email, open the link and press Accept. Nobody joins until they accept.' : 'You are the treasurer. Add someone by the email they will sign in with, and link them to their member record. They get a sign-in link by email.') : 'You are signed in as a ' + Perm.label(Session.role).toLowerCase() + '. Your treasurer controls what you can see and change.'}</p>
       ${admin ? `<label>Email address<input id="invEmail" type="email" inputmode="email" autocomplete="off" placeholder="name@example.com"></label>
       <label>Member record<select id="invMember"><option value="">Not linked yet</option>${opts}</select></label>
-      <label>Role<select id="invRole"><option value="member">Member: can see the chama</option><option value="treasurer">Treasurer: can see and change the chama</option></select></label>
-      <p class="actions"><button class="btn pri" data-act="invite">Add person</button></p>
-      <h3 class="gh">People with access</h3>${list || '<p class="mute">Nobody else has access yet.</p>'}
+      <label>Role<select id="invRole"><option value="member">Member: can see the chama</option>${Array.isArray(Session.invites) ? '<option value="secretary">Secretary: same access as a member for now</option>' : ''}<option value="treasurer">Treasurer: can see and change the chama</option></select></label>
+      <p class="actions"><button class="btn pri" data-act="invite">${Array.isArray(Session.invites) ? 'Send invitation' : 'Add person'}</button></p>
+      ${invBlock}${hoBlock}<h3 class="gh">People with access</h3>${list || '<p class="mute">Nobody else has access yet.</p>'}
       <p class="actions"><button class="btn sm" data-act="loadAccess">Refresh list</button></p>` : ''}</section>`;
     }
     if (r === 'settings/about') return `<section class="card"><h2>${esc(APP.name)}</h2>
@@ -3055,11 +3251,33 @@ const actions = {
     const email = ($('#invEmail').value || '').trim().toLowerCase(), mid = $('#invMember').value || null, role = $('#invRole').value;
     if (!validEmail(email)) return toast('Email address does not look right');
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
-    const { error } = await Backend.sb.rpc('invite_member', { cid: Store.chamaId, p_email: email, p_member: mid, p_role: role });
-    if (error) return toast(error.message);
+    let r;
+    try { r = await Session.sendInvite('create', { email, role, member_id: mid }); } catch (e) { return toast(e.message); }
+    if (r.unavailable) {   /* the invitation system is not installed on this database yet: keep the old way working */
+      const { error } = await Backend.sb.rpc('invite_member', { cid: Store.chamaId, p_email: email, p_member: mid, p_role: role });
+      if (error) return toast(error.message);
+      $('#invEmail').value = ''; $('#invMember').value = '';
+      toast('Added. They can now sign in with that email');
+      return Session.loadAccess();
+    }
     $('#invEmail').value = ''; $('#invMember').value = '';
-    toast('Added. They can now sign in with that email');
-    await Session.loadAccess(); /* refresh "People with access" so the new person appears straight away */
+    toast(r.email_status === 'sent' ? 'Invitation emailed to ' + email
+      : r.email_status === 'not_configured' ? 'Invitation saved, but email sending is not set up yet. Use Resend once it is.'
+      : 'Invitation saved, but the email could not be sent (' + (r.email_error || 'unknown reason') + '). Use Resend to try again.');
+    await Promise.all([Session.loadInvites(), Session.loadAccess()]);
+  },
+  resendInvite: async d => {
+    try {
+      const r = await Session.sendInvite('resend', { invitation_id: d.i });
+      if (r.unavailable) return toast('Invitations are not switched on yet');
+      toast(r.email_status === 'sent' ? 'Invitation sent again. The old link no longer works' : 'Invitation renewed, but the email was not sent (' + (r.email_error || r.email_status) + ')');
+      await Session.loadInvites();
+    } catch (e) { toast(e.message); }
+  },
+  revokeInvite: async d => {
+    const { error } = await Backend.sb.rpc('revoke_invitation', { p_id: d.i });
+    if (error) return toast(error.message);
+    toast('Invitation cancelled'); await Session.loadInvites();
   },
   settings: { admin: true, run() {
     const c = S().chama;
@@ -3339,61 +3557,113 @@ const __M_src_features_auth_index_js = (function () {
 const { Modal } = __M_src_ui_modal_js;
 const { Backend } = __M_src_core_backend_js;
 const { render } = __M_src_core_rerender_js;
-const { Session } = __M_src_core_session_js;
-const { Gate, Otp } = __M_src_features_auth_gate_js;
+const { Session, Invite, Perm } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { esc } = __M_src_core_utils_js;
+const { Gate, Otp, OB, GL } = __M_src_features_auth_gate_js;
 const { $ } = __M_src_lib_dom_js;
 const { validEmail } = __M_src_lib_validate_js;
 const { toast } = __M_src_ui_toast_js;
 
+/* the email code confirms an email address: for a new account, and for a forgotten password. It never creates an account while resetting. */
 const gateSendCode = async (email, btn) => {
-  try { sessionStorage.setItem('mca-intent', Gate.mode === 'up' ? 'up' : 'in'); } catch (e) {}
+  try { sessionStorage.setItem('mca-intent', Gate.mode); } catch (e) {}
   Gate.email = email; Gate.sending = true; if (btn) btn.disabled = true; Gate.paint();
   const t0 = Date.now();
-  const { error } = await Backend.sb.auth.signInWithOtp({ email });
+  const { error } = await Backend.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: Gate.mode === 'up' } });
   await new Promise(r => setTimeout(r, Math.max(0, 900 - (Date.now() - t0))));
   Gate.sending = false;
-  if (error) { Gate.paint(); return toast(error.message); }
+  /* while resetting, an unknown email must look the same as a known one: no error, the code simply never arrives */
+  if (error && !(Gate.mode === 'forgot' && /signups? not allowed|not found/i.test(error.message))) { Gate.paint(); return toast(error.message); }
   Gate.sent = true; render();
   try { Otp.start(); } catch (e) { /* the code screen still works without the resend timer */ }
 };
+Store.setConflictHandler(info => {
+  Store.setSync('offline');
+  Modal.open({ title: 'Someone else saved changes', submitLabel: 'x', body: `<p class="plain">The Chama was changed by someone else while you were working. Nothing has been overwritten yet.</p>
+<p class="actions"><button type="button" class="btn pri" data-act="conflictTheirs">Load the latest (drop my unsent changes)</button></p>
+<p class="actions"><button type="button" class="btn bad" data-act="conflictMine">Keep my changes (replace theirs)</button></p>
+<p class="plain mute">If you close this, nothing is saved until you choose.</p>` });
+  Store._conflict = info;
+});
+const lowerNoSpace = v => String(v || '').trim().toLowerCase();
 
 const actions = {
+  conflictTheirs: () => { const c = Store._conflict; Modal.close(); if (c) c.useTheirs(); },
+  conflictMine: () => { const c = Store._conflict; Modal.close(); if (c) c.keepMine(); },
+  togglePw: () => { const i = document.getElementById('gatePw'); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector('[data-act="togglePw"]'); if (b) b.textContent = show ? GL().hide : GL().show; },
+  gateSignIn: async () => {
+    const id = (($('#gateId') && $('#gateId').value) || '').trim(), pw = (($('#gatePw') && $('#gatePw').value) || '');
+    if (!id) return toast('Type your email or username');
+    if (!pw) return toast('Type your password');
+    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    Gate.id = id; Gate.notice = ''; Gate.signing = true; Gate.paint();
+    const r = await Session.passwordSignIn(id, pw);
+    Gate.signing = false;
+    if (r.error) { Gate.notice = r.error; Gate.paint(); const i = document.getElementById('gatePw'); if (i) i.focus(); }
+    /* on success the sign-in listener takes over */
+  },
   gateSend: async () => {
     const btn = document.querySelector('[data-act="gateSend"]');
-    const A = AUTH_T[OB.lang()] || AUTH_T.en;
-    const email = (($('#gateEmail') && $('#gateEmail').value) || '').trim().toLowerCase();
-    const pw = (($('#gatePw') && $('#gatePw').value) || '');
+    const email = lowerNoSpace($('#gateEmail') && $('#gateEmail').value);
     if (!validEmail(email)) return toast('Email address does not look right');
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
-    if (!pw) return toast('Type your password');
-    if (Gate.mode === 'up') {
-      // Create-account step: the same rules and checks as before, then the code
-      const why = Gate.pwProblem(pw); if (why) return toast(why);
-      if (pw !== (($('#gatePw2') && $('#gatePw2').value) || '')) return toast('The two passwords do not match');
-      const { error } = await Backend.sb.rpc('check_signup_password', { p_email: email, p_password: pw });
-      if (error) return toast(error.message);
-      Gate.pw = pw;
-      return gateSendCode(email, btn);
+    return gateSendCode(email, btn);
+  },
+  gateSetup: async () => {
+    const G = GL(), isNew = Session.setupMode === 'new';
+    const name = (($('#setName') && $('#setName').value) || '').trim().replace(/\s+/g, ' '), user = lowerNoSpace($('#setUser') && $('#setUser').value);
+    const pw = (($('#gatePw') && $('#gatePw').value) || ''), pw2 = (($('#gatePw2') && $('#gatePw2').value) || '');
+    const fail = m => { Gate.notice = m; Gate.signing = false; Gate.paint(); };
+    if (isNew) {
+      if (name.length < 2) return fail('Type your full name');
+      if (!/^[a-z0-9._-]{3,20}$/.test(user)) return fail(G.usernameHint);
     }
-    // Sign-in step: check_login decides. 'wrong' covers a bad password AND an unknown email,
-    // so the card never reveals which one it was; it offers the create-account step instead.
-    const { data, error } = await Backend.sb.rpc('check_login', { cid: Session.cid(), p_email: email, p_password: pw });
-    if (error) return toast(error.message);
-    if (data === 'wrong') { Gate.email = email; Gate.mode = 'up'; Gate.notice = A.wrongNotice; Gate.paint(); return; }
-    if (data === 'needs_password') { Gate.email = email; Gate.stage = 'setpw'; Gate.paint(); return; }
-    return gateSendCode(email, btn);
+    const why = Gate.pwProblem(pw); if (why) return fail(why);
+    if (pw !== pw2) return fail('The two passwords do not match');
+    Gate.notice = ''; Gate.signing = true; Gate.paint();
+    try { await Session.finishSetup(name, user, pw); Gate.signing = false; }
+    catch (e) { fail(e.message); const n = document.getElementById('setName'); if (n) n.value = name; const u = document.getElementById('setUser'); if (u) u.value = user; }
   },
-  gateSetPw: async () => {
-    const email = Gate.email, btn = document.querySelector('[data-act="gateSetPw"]');
-    const pw = (($('#gatePw') && $('#gatePw').value) || '');
-    const why = Gate.pwProblem(pw); if (why) return toast(why);
-    if (pw !== (($('#gatePw2') && $('#gatePw2').value) || '')) return toast('The two passwords do not match');
-    const { error } = await Backend.sb.rpc('set_password', { cid: Session.cid(), p_email: email, p_password: pw });
-    if (error) return toast(error.message);
-    Gate.stage = 'entry';
-    return gateSendCode(email, btn);
+  wsSub: d => { Gate.sub = d.s || null; Gate.joinMsg = ''; Gate.paint(); },
+  wsCreate: async () => {
+    const n = (($('#newChamaName') && $('#newChamaName').value) || '').trim().replace(/\s+/g, ' ');
+    if (n.length < 2) return toast('Type a name for your Chama');
+    Gate.signing = true; Gate.paint();
+    try { await Session.createChama(n); } catch (e) { Gate.signing = false; Gate.paint(); toast(e.message); }
   },
-  gateSetPwBack: () => { Gate.stage = 'entry'; Gate.paint(); },
+  wsJoin: async () => {
+    const r = await Session.joinWithLink(($('#joinLink') && $('#joinLink').value) || '');
+    if (r.error) { Gate.joinMsg = r.error; Gate.paint(); }
+  },
+  wsOpen: d => Session.switchTo(d.id),
+  wsSwitch: () => { Gate.sub = null; Gate.notice = ''; Session.openChooser(); },
+  wsBack: () => Session.closeChooser(),
+  leaveChama: () => {
+    Modal.open({ title: 'Leave this Chama?', submitLabel: 'Leave Chama', danger: true,
+      body: '<p class="plain">You will stop seeing this Chama. Its records stay with the Chama. A treasurer can add you back by invitation.</p>',
+      onSubmit: () => { setTimeout(async () => {
+        const cid = Session.cid();
+        const { error } = await Backend.sb.rpc('leave_chama', { cid });
+        if (error) return toast(error.message);
+        toast('You left the Chama');
+        const rest = (Session.workspaces || []).filter(w => w.chama_id !== cid);
+        if (rest.length === 1) Session.switchTo(rest[0].chama_id);
+        else { location.href = location.pathname; }
+      }, 0); } });
+  },
+  handover: d => {
+    Modal.open({ title: 'Hand over the Chama', submitLabel: 'Hand over',
+      body: `<p class="plain">Make <b>${esc(d.e)}</b> the treasurer.</p>`,
+      fields: [{ name: 'mode', label: 'After handing over', type: 'select', options: [['step_down', 'Step down to Member'], ['stay', 'Stay on as co-treasurer']], value: 'step_down' }],
+      onSubmit: v => { setTimeout(async () => {
+        const { error } = await Backend.sb.rpc('transfer_ownership', { cid: Session.cid(), p_email: d.e, p_stay_as_treasurer: v.mode === 'stay' });
+        if (error) return toast(error.message);
+        toast('Treasurer updated');
+        Session.role = v.mode === 'stay' ? 'treasurer' : 'member';
+        Session.loadAccess().catch(() => {}); render();
+      }, 0); } });
+  },
   gateReset: () => { Gate.sent = false; Gate.sending = false; Otp.hold = false; Otp.busy = false; Session.verifying = false; render(); },
   gateCancel: () => {
     Gate.sent = false; Gate.sending = false; Otp.hold = false; Otp.busy = false; Session.verifying = false;
@@ -3403,8 +3673,8 @@ const actions = {
   gateResend: async () => {
     if (!Gate.email || !Backend.sb) return toast('Use a different email and start again');
     const b = document.getElementById('otpResend'); if (b) b.disabled = true;
-    const { error } = await Backend.sb.auth.signInWithOtp({ email: Gate.email });
-    if (error) { if (b) b.disabled = false; return Otp.msg(/seconds|wait|rate/i.test(error.message) ? 'Please wait a minute before asking for another code.' : error.message); }
+    const { error } = await Backend.sb.auth.signInWithOtp({ email: Gate.email, options: { shouldCreateUser: Gate.mode === 'up' } });
+    if (error && !(Gate.mode === 'forgot' && /signups? not allowed|not found/i.test(error.message))) { if (b) b.disabled = false; return Otp.msg(/seconds|wait|rate/i.test(error.message) ? 'Please wait a minute before asking for another code.' : error.message); }
     Otp.reset(); Otp.start(); Otp.msg('A new code is on its way.');
   },
   otpPaste: async () => {
@@ -3433,7 +3703,7 @@ const actions = {
   signOutAsk: () => {
     Modal.open({
       title: 'Sign out?',
-      body: '<p class="plain">This closes the app on this phone. You will need your email code to sign in again.</p>',
+      body: '<p class="plain">This closes the app on this phone. You will need your password to sign in again.</p>' + (Store.hasUnsent() ? '<p class="auth-note" role="alert">Some changes on this phone have not reached the cloud yet. Signing out now will lose them. Wait until the app says it is online.</p>' : ''),
       submitLabel: 'Sign out',
       onSubmit: () => { setTimeout(() => actions.signOutApp(), 0); },
     });
@@ -3443,19 +3713,12 @@ const actions = {
     try { sessionStorage.removeItem('mca-splash'); sessionStorage.removeItem('mca-gate'); sessionStorage.removeItem('mca-intent'); } catch (e) {}
     location.reload();
   },
-  gateCreate: async () => {
-    const n = (($('#gateName') && $('#gateName').value) || '').trim().replace(/\s+/g, ' ');
-    if (n.length < 2) return toast('Type your name first');
-    let pw = Gate.pw;
-    if (!pw) {
-      const p1 = (($('#gatePw') && $('#gatePw').value) || ''), p2 = (($('#gatePw2') && $('#gatePw2').value) || '');
-      const why = Gate.pwProblem(p1); if (why) return toast(why);
-      if (p1 !== p2) return toast('The two passwords do not match');
-      pw = p1;
-    }
-    try { await Session.createChama(n, pw); Gate.pw = null; } catch (e) { toast(e.message); }
-  },
   gateRetry: () => (Session.user ? Session.after(Session.user) : Session.boot()),
+  inviteContinue: () => { Invite.signin = true; Gate.paint(); },
+  inviteAccept: () => Invite.accept(),
+  inviteDecline: () => Invite.decline(),
+  inviteDismiss: () => { Invite.clear(); if (Session.user) { Session.status = 'loading'; Session.after(Session.user); } else Gate.paint(); },
+  inviteRetry: async () => { Invite.checked = false; Gate.paint(); await Invite.verify(); Gate.paint(); },
 };
 
 return { get actions() { return actions; }, };
@@ -3675,7 +3938,7 @@ const { Auth } = __M_src_core_auth_js;
 const { Hist } = __M_src_core_history_js;
 const { Me } = __M_src_core_me_js;
 const { PAGE_NAME, ROUTES, SETTINGS_NAME, route } = __M_src_core_routes_js;
-const { Session } = __M_src_core_session_js;
+const { Session, Perm } = __M_src_core_session_js;
 const { Store } = __M_src_core_store_js;
 const { esc } = __M_src_core_utils_js;
 const { Gate } = __M_src_features_auth_gate_js;
@@ -3690,7 +3953,7 @@ const { Account } = __M_src_features_account_deletion_js;
 let lastRoute = null;
 
 function renderPage() {
-  if (!Session.ready()) return Gate.paint();
+  if (!Session.ready()) return Gate.paint();   /* setup, welcome, chooser and sign-in are all gate screens */
   const s = Store.get(); if (!s) return;
   const r = route(), admin = Auth.isAdmin(), changed = r !== lastRoute, prev = lastRoute; lastRoute = r; if (changed) Hist.visit(r, prev);
   Menu.close();
@@ -3709,12 +3972,13 @@ function renderPage() {
   Nav.sync(r);
   const meD = Me.get(), mmD = meD.memberId ? s.members.find(x => x.id === meD.memberId) : null, nmD = meD.name || (mmD && mmD.name) || '';
   $('#dwho').innerHTML = av({ name: nmD, photo: (mmD && mmD.photo) || meD.photo }, 44) + '<b>' + esc(nmD || 'Welcome') + '</b>';
-  $('#roleTag').textContent = admin ? 'Treasurer' : 'View only';
+  $('#roleTag').textContent = Perm.label(Session.role) + (admin ? '' : ' · view only');
   $('#setBtn').hidden = !admin;
+  { const sw = $('#switchBtn'); if (sw) sw.hidden = !((Session.workspaces || []).length > 1); const lv = $('#leaveBtn'); if (lv) lv.hidden = !Session.role; }
   $('#undoBtn').hidden = !admin;
   if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
   document.body.classList.toggle('no-tabs', !ROUTES.some(x => x[0] === r));
-  Account.load(); Account.refreshNotices();
+  Account.load();
   $('#view').innerHTML = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r)) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
   if (Session.hydrating) $('#view').innerHTML = Skel.page(r);
   Notify.paintBell(s, r);

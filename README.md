@@ -2,7 +2,7 @@
 
 A savings-group app (chama) that runs as a plain web app on a phone. It works offline once opened and can be added to the home screen.
 
-**Version 0.11.0** · Service-worker cache `mca-app-v30` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
+**Version 0.12.0-dev.2 (development build)** · Service-worker cache `mca-app-v32` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
 
 This one file is the complete guide: what the app is, how it is built, how to set up Supabase, how to release, and the rules for anyone (human or AI) who changes it.
 
@@ -286,3 +286,55 @@ When a feature needs its own table or a server function:
 - Reports and backup files contain member details. Keep them private.
 - Any signed-in member can read the whole chama record (by design). Only the treasurer can change it.
 - The Supabase URL and anon key in the config are public by design. Never put the `service_role` key in this app.
+
+
+—
+
+## 0.12.0-dev.2: one account, one password, many Chamas (development build, nothing deployed)
+
+**Status: not production.** Built and tested locally (database, email function, sign-in function, browser). It has NOT run against your live Supabase project. Read “Before production” at the end.
+
+### What a person now experiences
+- **Sign in with email or username + one password.** Forgot password: an email code, then a new password. New account: email code, then name, username and one password.
+- **Choose the Chama.** After sign-in: one Chama opens directly; several show a chooser; none shows “Start a Chama” or “Join with an invitation”. A `?c=` link to a Chama you belong to opens it (the link is a hint, never proof).
+- **Switch Chama** in the menu (only when you belong to more than one). **Leave this Chama** in the menu (members). Treasurers hand over in Settings, choosing to step down to Member or stay co-treasurer. A Chama always keeps one treasurer.
+- **Invitations** by email, Member / Secretary / Treasurer, valid 48 hours. Opening a link never joins anyone; the person accepts after signing in with the invited email.
+- **Members see only their own money** (payments, loans, fines, payouts, notes addressed to them) plus group totals (collected, cash on hand, loans balance, fines due). They never see another member’s payments, loans, fines, phone number or email. Secretary currently has the same view as Member.
+- **Delete account:** needs no active Chama and a sign-in in the last 10 minutes; kept 30 days; restorable; purged by the server afterwards. Leaving a Chama is a separate step and never deletes records.
+- **Two people saving at once:** the app saves against a version number. A stale save is refused and the treasurer chooses “Load the latest” or “Keep my changes”. Nothing is overwritten silently.
+- **Shared phone:** when a different person signs in, the previous person’s cached Chama data is moved aside on that phone (kept, not shown).
+
+### Files
+- `index.html`, `sw.js`, `README.md`: replace the live files.
+- `supabase/migrations/001`–`009`: run in order, **staging first**. Each file has rollback notes. 003 has the 48-hour expiry; 007 removes the old password functions (owner approved: no live users yet).
+- `supabase/functions/send-invitation/`: deploy with `supabase functions deploy send-invitation` (JWT verification on).
+- `supabase/functions/auth-login/`: deploy with `supabase functions deploy auth-login —no-verify-jwt` (people are signed out when they call it).
+- `supabase/verification/stage0_verify_readonly.sql`: read-only check, run on staging.
+
+### Secrets (names only; never put values in files)
+`BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (a sender verified in Brevo), `BREVO_SENDER_NAME`, optional `BREVO_TEMPLATE_ID` (your customised Brevo template; it receives params `CHAMA`, `INVITER`, `ROLE`, `LINK`, `HOURS`), `APP_URL` (the real site address, no trailing slash), `ALLOWED_ORIGIN` (same), `INVITE_EXPIRY_HOURS` (default 48). `auth-login` uses `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (set by Supabase).
+
+### Database steps
+Follow `MIGRATION_AND_SETUP_GUIDE.md` (delivered alongside this README). It gives the exact order (001 to 009), the Auth dashboard settings, the function deployment commands and the test checklist.
+
+### Decisions taken (owner approved or recommended)
+- One global password (D7) after an email code; usernames are part of sign-in now.
+- Financial privacy (D3): members see own money plus group totals.
+- Secretary = member-level access until the owner configures it.
+- Invitations last 48 hours. No limit on how many Chamas a person creates or joins.
+- Chama ids: existing text ids are kept; new Chamas get server-made uuid ids.
+- Old v0.11.0 clients stop working when 007 runs (no live users yet).
+
+### Tests run (all local)
+- Database (real Postgres 16, synthetic data): 39 of 39 pass across migrations 001 to 009.
+- Email function: 13 of 13. Sign-in function: 10 of 10. Permission map: 10 of 10.
+- Browser (Chromium, stubbed backend): 23 of 23 invitation and regression checks; 16 of 16 new screens and privacy checks.
+
+### Before production (not yet done)
+- Run everything against a real staging Supabase project; the local database used a stand-in for the encryption extension.
+- Deploy both functions and set the secrets; send a real invitation and a real password reset.
+- Check that `chamas` is not visible to members directly (the member view is a server function) and that payouts and notes stay private, using two real accounts.
+- Account deletion purge needs a schedule (pg_cron) or a manual run.
+- Offline edits made by one person are kept per Chama on that phone; a full offline-first audit has not been done.
+- Realtime: treasurers get live updates; members refresh about every 45 seconds.
+- Release notes and a full migration guide are not written beyond this README.
