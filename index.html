@@ -287,7 +287,7 @@ label{display:block;font-size:13px;font-weight:700;color:var(--mute);margin-top:
 input,select,textarea{width:100%;margin-top:5px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
 input:focus,select:focus,textarea:focus,.btn:focus-visible,.cell:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
-#toast{position:fixed;left:50%;bottom:124px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast{position:fixed;left:50%;bottom:124px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:16px;max-width:90vw;text-align:center;line-height:1.35;font-size:17px;font-weight:700;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 .xbtn{width:44px;height:44px;flex:0 0 44px;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:26px;line-height:1;display:grid;place-items:center;padding:0;font-weight:500}
 .xbtn:hover{background:var(--brand-t)}
@@ -675,7 +675,7 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
   <div class="dbrand"><img src="icons/logo-512.png" alt="Chama logo"><b>My Chama App</b></div>
   <div class="dh"><button type="button" class="xbtn" id="drawerX" aria-label="Close menu">&times;</button><span class="dt">Menu</span><span class="xsp" aria-hidden="true"></span></div>
   <div class="dwho" id="dwho"></div>
-  <button class="dl" data-act="wsSwitch" id="switchBtn" hidden>Switch Chama<small>Open a different Chama you belong to</small></button>
+  <button class="dl" data-act="wsSwitch" id="switchBtn" hidden>Switch or add a Chama<small>Open another Chama, create one, or join with an invitation</small></button>
   <a class="dl" href="#/profile">My profile<small>Your photo, details and money</small></a>
   <a class="dl" href="#/fines">Fines<small>Late fees and penalties</small></a>
   <a class="dl" href="#/expenses">Expenses<small>Money out: meetings, welfare, investments</small></a>
@@ -868,7 +868,7 @@ const setToastLong = v => { toastLong = !!v; };
 const TOAST_KIND = msg => /fail|error|not |please|cannot|can.t|already|enough|full|look right|should look|choose|blocked|invalid|wrong|missing|only/i.test(msg) ? 'bad'
   : /saved|done|added|removed|recorded|signed|undid|normal|restored|copied|exported|created|updated|sent/i.test(msg) ? 'ok' : 'info';
 
-const toast = (msg, kind) => { const t = $('#toast'); t.textContent = msg; t.className = 'on ' + (kind || TOAST_KIND(msg)); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), (toastLong ? 9000 : 2400)); };
+const toast = (msg, kind) => { const t = $('#toast'); const k = kind || TOAST_KIND(msg); t.textContent = msg; t.className = 'on ' + k; clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), (toastLong ? 9000 : k === 'bad' ? 6000 : k === 'ok' ? 3500 : 2400)); };
 
 return { get toastLong() { return toastLong; }, get setToastLong() { return setToastLong; }, get TOAST_KIND() { return TOAST_KIND; }, get toast() { return toast; }, };
 })();
@@ -1183,7 +1183,7 @@ const Store = (() => {
         else noteVersion(view.version);
         saveLocal(); loaded = true;
       }
-    } else {
+    } else if (Policy.canWrite()) {
       try { const { data, error } = await Backend.sb.from('chamas').select('data').eq('id', chamaId).maybeSingle(); if (!error && data) { state = normalise(data.data); saveLocal(); loaded = true; } } catch (e) { loaded = false; }
     }
     if (!loaded) { try { const l = localStorage.getItem(localKey); if (l) state = normalise(JSON.parse(l)); } catch {} }
@@ -1475,15 +1475,12 @@ const Session = {
     const err = r.error;
     if (err && err.context && typeof err.context.json === 'function') {
       const st = err.context.status; let j = {}; try { j = await err.context.json(); } catch (e) {}
+      if (st === 429) return { error: 'Too many tries. Wait 10 minutes, then try again.' };
       if (st !== 404) return { error: j.error || WRONG };
     }
-    /* the sign-in function is not deployed or cannot be reached: email still works straight through Supabase */
-    if (identifier.indexOf('@') > 0) {
-      const { error } = await Backend.sb.auth.signInWithPassword({ email: identifier.toLowerCase(), password });
-      if (error) return { error: WRONG };
-      clearIntent(); return { ok: true };
-    }
-    return { error: 'Signing in with a username is not available right now. Use your email address.' };
+    /* no direct password fallback: it would skip the server throttle (S5). Report the real state instead. */
+    if (err && err.context && err.context.status === 404) return { error: 'Sign-in is not available yet. Please try again later.' };
+    return { error: 'Could not reach sign-in. Check your connection and try again.' };
   },
   /* the step after the email code: name + username (new accounts) and the one global password */
   async finishSetup(fullName, username, password) {
@@ -1502,6 +1499,8 @@ const Session = {
     await this.after(this.user);
   },
   async joinWithLink(text) {
+    const raw = String(text || ''), compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!/[0-9a-f]{64}/i.test(raw) && compact.length === 10) return this.joinWithCode(compact);
     const m = /[0-9a-f]{64}/i.exec(String(text || ''));
     if (!m) return { error: 'That does not look like an invitation link. Copy the whole link from the email.' };
     Invite.token = m[0].toLowerCase(); Invite.checked = false; Invite.info = null; Invite.signin = true;
@@ -1527,7 +1526,7 @@ const Session = {
     if (this.role !== 'treasurer' || !Backend.sb) return;
     const { data, error } = await Backend.sb.rpc('list_access', { cid: Store.chamaId });
     if (error) toast(error.message);
-    this.access = error ? [] : (data || []); render();
+    this.access = error ? [] : (data || []); await this.loadCodes(); render();
   },
   async loadInvites() {
     if (!Backend.sb || !Perm.can(this.role, 'members.invite')) return;
@@ -1555,12 +1554,84 @@ const Session = {
     await this.loadAccess(); toast('Access removed. Their records are kept');
   },
   cid() { return Store.chamaId; },
-  async createChama(name) {
+  async createChama(name, listed = true) {
     const b = Store.blank(); delete b.chama.pin; b.chama.name = name;
+    /* the creator is listed as member 1 unless they choose to be officer only; a listed creator gets a member link (member_id) */
+    const who = ((this.account && this.account.full_name) || '').trim() || 'Treasurer';
+    b.members = listed ? [{ id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), name: who, shares: 1, joined: (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); })() }] : [];
     const { data, error } = await Backend.sb.rpc('create_chama_global', { cname: name, cdata: b });
     if (error) throw new Error(error.message);
     try { localStorage.setItem('chama:me:' + data.chama_id, JSON.stringify({ name: (this.account && this.account.full_name) || '' })); } catch (e) { /* the name is saved from the profile screen later */ }
     this.switchTo(data.chama_id);
+  },
+  async loadCodes() {
+    if (this.role !== 'treasurer' || !Backend.sb) { this.codes = []; return; }
+    const { data, error } = await Backend.sb.rpc('list_invite_codes', { p_cid: Store.chamaId });
+    if (error) toast(error.message);
+    this.codes = error ? [] : (data || []);
+  },
+  async createCode(o) {
+    const { data, error } = await Backend.sb.rpc('create_invite_code', { p_cid: Store.chamaId, p_role: o.role, p_hours: o.hours, p_max_uses: o.maxUses, p_listed_member: o.memberId || null });
+    if (error) throw new Error(error.message);
+    const r = Array.isArray(data) ? data[0] : data;
+    this.newCode = r ? { code: r.out_code, expires_at: r.out_expires_at } : null;
+    await this.loadAccess();
+  },
+  async revokeCode(id) {
+    const { error } = await Backend.sb.rpc('revoke_invite_code', { p_id: id });
+    if (error) throw new Error(error.message);
+    await this.loadAccess();
+  },
+  async saveTag(tag) {
+    const { data, error } = await Backend.sb.rpc('set_display_tag', { p_cid: Store.chamaId, p_tag: tag });
+    if (error) throw new Error(error.message);
+    const w = (this.workspaces || []).find(x => x.chama_id === Store.chamaId); if (w) w.display_tag = data;
+    await this.loadAccess();
+    return data;
+  },
+  codeBlockHtml() {
+    if (this.role !== 'treasurer') return '';
+    const ws = (this.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
+    const tag = ws.display_tag || '';
+    const fresh = this.newCode ? `<div class="card" style="margin:8px 0"><p class="plain"><b>New invite code. Shown once.</b></p><p class="num" style="font-size:22px;letter-spacing:2px">${esc(this.newCode.code)}</p><p class="mute">Expires ${esc(new Date(this.newCode.expires_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }))}. Anyone with this code can join with the role you chose, up to the number of uses you set.</p><p class="actions"><button class="btn pri" data-act="codeCopy">Copy code</button> <button class="btn" data-act="codeDone">Done</button></p></div>` : '';
+    const now = new Date();
+    const rows = (this.codes || []).map(c => {
+      const st = c.revoked_at ? 'cancelled' : (new Date(c.expires_at) <= now ? 'expired' : (c.uses >= c.max_uses ? 'used up' : 'open'));
+      return `<div class="row"><div class="grow"><b class="num">${esc(c.prefix)}…</b><span class="mute">${esc(Perm.label(c.role))} · ${c.uses} of ${c.max_uses} used · ${esc(st)}</span></div>${st === 'open' ? `<button class="btn sm bad" data-act="codeRevoke" data-id="${esc(c.id)}">Cancel</button>` : ''}</div>`;
+    }).join('');
+    const mem = (Store.get().members || []).map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+    const roles = `<option value="member">Member</option><option value="secretary">Secretary</option>${this.role === 'treasurer' ? '<option value="treasurer">Treasurer</option>' : ''}`;
+    return `<h3 class="gh">Invite code</h3>
+      <p class="plain mute">For people who will not get an email. Share the code however you like. Each code has a role, an expiry and a limit on uses.</p>
+      <p class="plain">Chama tag: <b class="num">${esc(tag || 'none yet')}</b></p>
+      ${fresh}
+      <label>Role<select id="codeRole">${roles}</select></label>
+      <label>Valid for<select id="codeHours"><option value="24">1 day</option><option value="168" selected>7 days</option><option value="720">30 days</option></select></label>
+      <label>Number of uses (1 to 100)<input id="codeUses" type="number" inputmode="numeric" min="1" max="100" value="1"></label>
+      <label>Listed as a member<select id="codeMember"><option value="">Officer only: not listed as a member</option>${mem}</select></label>
+      <p class="actions"><button class="btn pri" data-act="codeCreate">Create code</button></p>
+      ${rows || '<p class="mute">No codes yet.</p>'}
+      <label>Chama tag (4 letters or digits)<input id="codeTag" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false" value="${esc(tag)}"></label>
+      <p class="actions"><button class="btn" data-act="tagSave">Save tag</button></p>`;
+  },
+  /* join by code: check first, then ask the person to confirm, then redeem in one database step */
+  async joinWithCode(code) {
+    if (!Backend.sb) return { error: 'Sign-in is not set up in this app yet' };
+    const { data, error } = await Backend.sb.rpc('preview_invite_code', { p_code: code });
+    if (error) return { error: error.message };
+    if (!data || !data.ok) return { error: (data && data.error) || 'That code did not work.' };
+    if (data.already_member) { this.switchTo(data.chama_id); return { ok: true }; }
+    Modal.open({ title: 'Join this Chama?', submitLabel: 'Join Chama',
+      body: `<p class="plain">You are joining <b>${esc(data.chama_name)}</b> (tag <b class="num">${esc(data.display_tag)}</b>) as <b>${esc(Perm.label(data.role))}</b>.</p><p class="plain mute">You can leave later from Settings.</p>`,
+      onSubmit: () => { setTimeout(async () => {
+        try {
+          const { data: r, error: e } = await Backend.sb.rpc('redeem_invite_code', { p_code: code });
+          if (e) throw new Error(e.message);
+          if (!r || !r.ok) { Gate.joinMsg = (r && r.error) || 'That code did not work.'; Gate.paint(); return toast(Gate.joinMsg); }
+          this.switchTo(r.chama_id);
+        } catch (err) { toast(err.message || 'Could not join. Try again.'); }
+      }, 0); } });
+    return { ok: true };
   },
   async signOut() {
     try { await Backend.sb.auth.signOut(); } catch {}
@@ -2078,15 +2149,15 @@ const Gate = {
   },
   welcomeCard() {
     const G = GL(); let body = '';
-    if (this.sub === 'create') body = `<label>${G.chamaName}<input id="newChamaName" maxlength="80" placeholder="${G.chamaPh}"></label><p class="actions"><button class="btn pri" data-act="wsCreate"${this.signing ? ' disabled' : ''}>${this.signing ? G.creating : G.create}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`;
+    if (this.sub === 'create') body = `<label>${G.chamaName}<input id="newChamaName" maxlength="80" placeholder="${G.chamaPh}"></label><label class="chk"><input type="checkbox" id="newChamaListed" checked> I am listed as a member of this Chama</label><p class="actions"><button class="btn pri" data-act="wsCreate"${this.signing ? ' disabled' : ''}>${this.signing ? G.creating : G.create}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`;
     else if (this.sub === 'join') body = `<p class="plain mute">${G.joinSub}</p><label><input id="joinLink" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${G.joinPh}"></label>${this.joinMsg ? `<p class="auth-note" role="alert">${esc(this.joinMsg)}</p>` : ''}<p class="actions"><button class="btn pri" data-act="wsJoin">${G.joinBtn}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`;
     else body = `<p class="plain mute">${G.welcomeSub}</p><p class="actions"><button class="btn pri" data-act="wsSub" data-s="create">${G.createChama}</button></p><p class="actions"><button class="btn" data-act="wsSub" data-s="join">${G.joinChama}</button></p><p class="actions"><button class="btn" data-act="gateSignOut">${G.signOut}</button></p>`;
     return this.card(esc(G.welcome(Session.displayName())), body);
   },
   chooseCard() {
-    const G = GL(), list = (Session.workspaces || []).map(w => `<button class="btn wsrow${w.chama_id === Store.chamaId ? ' cur' : ''}" data-act="wsOpen" data-id="${esc(w.chama_id)}"><span>${esc(w.chama_name || 'Chama')}</span><small class="wsrole">${esc(G.roleWord(w.role))}</small></button>`).join('');
+    const G = GL(), list = (Session.workspaces || []).map(w => `<button class="btn wsrow${w.chama_id === Store.chamaId ? ' cur' : ''}" data-act="wsOpen" data-id="${esc(w.chama_id)}"><span>${esc(w.chama_name || 'Chama')}</span><small class="wsrole">${esc(G.roleWord(w.role))}${w.display_tag ? ' · ' + esc(w.display_tag) : ''}</small></button>`).join('');
     const note = this.notice ? `<p class="auth-note" role="alert">${esc(this.notice)}</p>` : '';
-    const create = this.sub === 'create' ? `<label>${G.chamaName}<input id="newChamaName" maxlength="80" placeholder="${G.chamaPh}"></label><p class="actions"><button class="btn pri" data-act="wsCreate">${G.create}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`
+    const create = this.sub === 'create' ? `<label>${G.chamaName}<input id="newChamaName" maxlength="80" placeholder="${G.chamaPh}"></label><label class="chk"><input type="checkbox" id="newChamaListed" checked> I am listed as a member of this Chama</label><p class="actions"><button class="btn pri" data-act="wsCreate">${G.create}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`
       : `<p class="actions"><button class="btn" data-act="wsSub" data-s="create">${G.another}</button></p>`;
     const join = this.sub === 'join' ? `<label><input id="joinLink" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${G.joinPh}"></label>${this.joinMsg ? `<p class="auth-note" role="alert">${esc(this.joinMsg)}</p>` : ''}<p class="actions"><button class="btn pri" data-act="wsJoin">${G.joinBtn}</button> <button class="btn" data-act="wsSub" data-s="">${G.back}</button></p>`
       : `<p class="actions"><button class="btn" data-act="wsSub" data-s="join">${G.joinChama}</button></p>`;
@@ -2260,6 +2331,7 @@ const { toast } = __M_src_ui_toast_js;
 
 const views = {
   home(s) {
+    if (!s.members.length && s.shared) return `<div class="card empty"><p>The member list is not shared with your role yet. Ask the treasurer.</p></div>`;
     if (!s.members.length) return `<div class="card empty"><p>No members yet. Add your members from the Members tab.</p></div>`;
     const cur = Domain.now(), exp = sum(s.members, m => Domain.dueFor(s, m.id));
     const got = s.shared ? (s.shared.monthCollected[cur] || 0) : sum(s.payments.filter(p => p.month === cur), p => p.amount);
@@ -2643,7 +2715,7 @@ const views = {
           <span class="mute num">Saved ${kes(Domain.memberSaved(s, m.id))}${loan ? ` · Loan ${kes(loan)}` : ''}${fine ? ` · Fines ${kes(fine)}` : ''}${rcv ? ` · Received ${kes(rcv)}` : ''}${rel != null ? ` · Paid-up ${rel}%` : ''}</span>
           ${m.phone ? `<a class="mute num" href="tel:${esc(String(m.phone).replace(/[^\d+]/g, ''))}" style="display:block;color:inherit">${esc(m.phone)}</a>` : '<span class="mute" style="display:block">No phone number</span>'}</div>
           ${adminBtn(`<button class="btn sm" data-act="moveMember" data-id="${m.id}" data-d="-1" aria-label="Move up">Up</button><button class="btn sm" data-act="editMember" data-id="${m.id}">Edit</button>`)}</div>`;
-      }).join('') : '<p class="empty">No members yet.</p>'}</div>
+      }).join('') : (s.shared ? '<p class="empty">The member list is not shared with your role yet, or the treasurer has not saved it. Ask the treasurer.</p>' : '<p class="empty">No members yet.</p>')}</div>
       <p class="mute" style="margin-top:8px">The order here is the merry-go-round payout order.</p>`;
   },
 };
@@ -2919,11 +2991,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.12.0-dev.3', released: '2026-11-01',
+  name: 'My Chama App', version: '0.12.0-dev.4', released: '2026-11-02',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.12.0-dev.3', 'Fixes from live testing: no hidden default Chama and no sample data; the username is chosen by the person; profile shows the real group and role; leave, hand-over and delete account give a clear next step; invitations show the real error; expired codes are named; passwords need a number; the notification badge shows the exact count (up to 99+). Requires migration 010.'],
+  notes: [['0.12.0-dev.4', 'Sign-in shows the real reason and no longer falls back to a direct password check. Remove access is hidden on your own row and on treasurer rows. You can switch or add a Chama at any time, and the list shows each Chama tag. When you create a Chama or invite someone, you choose whether you are listed as a member or are an officer only. Invitations last 7 days. Invite codes: the treasurer can create a code with a role, a validity of 1, 7 or 30 days and a number of uses; a person types the code, checks the Chama on the confirmation screen, then joins. Codes can be cancelled. Members who cannot see the member list are told why. Not yet tested on a phone.'], ['0.12.0-dev.3', 'Fixes from live testing: no hidden default Chama and no sample data; the username is chosen by the person; profile shows the real group and role; leave, hand-over and delete account give a clear next step; invitations show the real error; expired codes are named; passwords need a number; the notification badge shows the exact count (up to 99+). Requires migration 010.'],
     ['0.12.0-dev.2', 'Development build. One account and one password for every Chama: sign in with email or username. Create your account with an email code, then choose your name, a username and a password. Members see their own payments, loans and fines plus group totals only. Hand over the treasurer role, leave a Chama, switch between Chamas, delete your account with a 30-day restore window. Invitations last 48 hours. '],
     ['0.12.0-dev.1', 'Development build. Treasurers can invite people by email and choose Member, Secretary or Treasurer. The person opens the link, sees who invited them and accepts. Nobody is added until they accept. Needs the new database steps; until then the old Add person way keeps working. '], ['0.11.0', 'Sign out asks you to confirm before it closes the app. When a member asks to delete their account, the other members see a notice on the Notifications page with a live countdown. They can hide it, and Show hidden brings it back. The notice does not show the reason. '], ['0.10.0', 'Delete my account is in Settings, Privacy and data. Pick a reason, confirm your password and read the disclaimer: the account is not permanently deleted and is kept for 30 days, when you can restore it. Signing in shows the days left with a Restore button. '], ['0.9.0', 'Sign-in and sign-up are one card with one button. Enter your email and password and press Continue: if you have an account you go on to the email code; if not, the card offers Create account with the same password checks as before. Apple and Google sign-in are shown as coming soon. '], ['0.8.0', 'Sign-in takes your email and password first. Invited people set a password once. Sign-up asks for a password with live checks: 6 characters, a capital letter and a symbol. One email can join several chamas, but each chama needs its own password for that email. The email code is still the last step. '], ['0.7.1', 'Sign out in the menu closes the session and plays the opening animation again. The menu has a green background with white entries. '], ['0.7.0', 'First run: choose a language, take a short tour, then read the privacy policy and agree to it. Sign-in has Sign in and Sign up. Sign up asks for your name when you start a chama, and an email that already has a chama is asked to sign in. The opening animation has no Skip button. '], ['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],
 };
@@ -3109,6 +3181,8 @@ const Account = {
     if (error) { toast(/Leave your/i.test(error.message) ? 'You still belong to a Chama. Leave it, or hand it over, then delete your account.' : error.message); if (/Leave your/i.test(error.message)) location.hash = '#/settings/actions'; return; }
     toast(`Deletion scheduled. You have ${DAYS} days to restore.`);
     this.checked = false; this.pending = null;
+    try { await Backend.sb.auth.signOut({ scope: 'global' }); } catch (e) { /* the local sign-out below still runs */ }
+    try { Object.keys(localStorage).filter(k => k.startsWith('chama:') && !/dirty/i.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) { /* storage unavailable */ }
     return Session.signOut();
   },
   async restore() {
@@ -3205,16 +3279,17 @@ const views = {
       const label = a => a.status === 'active' ? 'signed in' : a.status === 'removed' ? 'access removed' : 'waiting to sign in';
       const invWhen = d => { try { return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); } catch (e) { return ''; } };
       const invRows = (Session.invites || []).filter(i => i.status !== 'accepted').map(i => `<div class="row"><div class="grow"><b>${esc(i.invited_email)}</b><span class="mute">${esc(Perm.label(i.intended_role))} · ${i.status === 'pending' ? 'waiting, expires ' + esc(invWhen(i.expires_at)) : i.status === 'expired' ? 'expired' : esc(i.status)}${i.member_id ? ' · linked to a member' : ''}</span></div>${i.status === 'pending' || i.status === 'expired' ? `<button class="btn sm" data-act="resendInvite" data-i="${esc(i.id)}">Resend</button>` : ''}${i.status === 'pending' ? `<button class="btn sm bad" data-act="revokeInvite" data-i="${esc(i.id)}">Cancel</button>` : ''}</div>`).join('');
+      const codeBlock = Session.codeBlockHtml();
       const invBlock = Array.isArray(Session.invites) ? `<h3 class="gh">Invitations</h3>${invRows || '<p class="mute">No invitations yet.</p>'}` : '';
       const hoBlock = Session.role === 'treasurer' && (Session.access || []).some(a => a.status === 'active' && a.email !== Session.email) ? `<h3 class="gh">Hand over the Chama</h3><p class="plain mute">Make another active member the treasurer. You can stay on as a co-treasurer, or step down to Member. The Chama always keeps one treasurer.</p>${(Session.access || []).filter(a => a.status === 'active' && a.email !== Session.email).map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(Perm.label(a.role))}</span></div><button class="btn sm" data-act="handover" data-e="${esc(a.email)}">Hand over</button></div>`).join('')}` : '';
-      const list = (Session.access || []).map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(Perm.label(a.role))} · ${label(a)} · ${a.member_id ? 'linked to a member' : 'not linked'}</span></div>${a.status === 'removed' ? '' : `<button class="btn sm bad" data-act="revoke" data-e="${esc(a.email)}">Remove access</button>`}</div>`).join('');
+      const list = (Session.access || []).map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(Perm.label(a.role))} · ${label(a)} · ${a.member_id ? 'listed as a member' : 'officer only, not listed as a member'}</span></div>${a.status === 'removed' || a.role === 'treasurer' || String(a.email).toLowerCase() === String(Session.email || '').toLowerCase() ? '' : `<button class="btn sm bad" data-act="revoke" data-e="${esc(a.email)}">Remove access</button>`}</div>`).join('');
       return `<section class="card"><h2>${admin ? 'Who can sign in' : 'Your access'}</h2>
       <p class="plain mute" style="margin-bottom:12px">${admin ? (Array.isArray(Session.invites) ? 'You are the treasurer. Invite someone by email, choose their role and link them to their member record. They get an email, open the link and press Accept. Nobody joins until they accept.' : 'You are the treasurer. Add someone by the email they will sign in with, and link them to their member record. They get a sign-in link by email.') : 'You are signed in as a ' + Perm.label(Session.role).toLowerCase() + '. Your treasurer controls what you can see and change.'}</p>
       ${admin ? `<label>Email address<input id="invEmail" type="email" inputmode="email" autocomplete="off" placeholder="name@example.com"></label>
-      <label>Member record<select id="invMember"><option value="">Not linked yet</option>${opts}</select></label>
+      <label>Listed as a member<select id="invMember"><option value="">Officer only: not listed as a member</option>${opts}</select></label>
       <label>Role<select id="invRole"><option value="member">Member: can see the chama</option>${Array.isArray(Session.invites) ? '<option value="secretary">Secretary: same access as a member for now</option>' : ''}<option value="treasurer">Treasurer: can see and change the chama</option></select></label>
       <p class="actions"><button class="btn pri" data-act="invite">${Array.isArray(Session.invites) ? 'Send invitation' : 'Add person'}</button></p>
-      ${invBlock}${hoBlock}<h3 class="gh">People with access</h3>${list || '<p class="mute">Nobody else has access yet.</p>'}
+      ${codeBlock}${invBlock}${hoBlock}<h3 class="gh">People with access</h3>${list || '<p class="mute">Nobody else has access yet.</p>'}
       <p class="actions"><button class="btn sm" data-act="loadAccess">Refresh list</button></p>` : ''}</section>`;
     }
     if (r === 'settings/about') return `<section class="card"><h2>${esc(APP.name)}</h2>
@@ -3244,6 +3319,22 @@ const actions = {
     if (ss.speaking) { ss.cancel(); b.textContent = 'Read this page aloud'; return; }
     const u = new SpeechSynthesisUtterance($('#view').innerText); u.lang = 'en-KE';
     u.onend = u.onerror = () => { b.textContent = 'Read this page aloud'; }; b.textContent = 'Stop reading'; ss.speak(u);
+  },
+  codeCreate: async () => {
+    const role = $('#codeRole').value, hours = Number($('#codeHours').value), maxUses = Number($('#codeUses').value), memberId = $('#codeMember').value || null;
+    if (!(maxUses >= 1 && maxUses <= 100)) return toast('Uses must be 1 to 100');
+    try { await Session.createCode({ role, hours, maxUses, memberId }); toast('Code created. Copy it now: it is shown once'); } catch (e) { toast(e.message); }
+  },
+  codeCopy: () => {
+    const c = Session.newCode && Session.newCode.code; if (!c) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(c).then(() => toast('Code copied'), () => toast('Could not copy. Press and hold the code to copy it.'));
+    else toast('Press and hold the code to copy it.');
+  },
+  codeDone: () => { Session.newCode = null; Session.loadAccess(); },
+  codeRevoke: async d => { try { await Session.revokeCode(d.id); toast('Code cancelled'); } catch (e) { toast(e.message); } },
+  tagSave: async () => {
+    const t = ($('#codeTag').value || '').trim();
+    try { const tag = await Session.saveTag(t); toast('Chama tag saved: ' + tag); } catch (e) { toast(e.message); }
   },
   revoke: async d => { try { await Session.revoke(d.e); } catch (e) { toast(e.message); } },
   loadAccess: () => Session.loadAccess(),
@@ -3602,6 +3693,7 @@ const actions = {
     const email = lowerNoSpace($('#gateEmail') && $('#gateEmail').value);
     if (!validEmail(email)) return toast('Email address does not look right');
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    try { const { data: cur } = await Backend.sb.auth.getSession(); const curEmail = String((cur && cur.session && cur.session.user && cur.session.user.email) || '').toLowerCase(); if (curEmail && curEmail !== email) await Backend.sb.auth.signOut(); } catch (e) { /* the code step checks the session again */ }
     return gateSendCode(email, btn);
   },
   gateSetup: async () => {
@@ -3624,7 +3716,8 @@ const actions = {
     const n = (($('#newChamaName') && $('#newChamaName').value) || '').trim().replace(/\s+/g, ' ');
     if (n.length < 2) return toast('Type a name for your Chama');
     Gate.signing = true; Gate.paint();
-    try { await Session.createChama(n); } catch (e) { Gate.signing = false; Gate.paint(); toast(e.message); }
+    const listed = $('#newChamaListed') ? $('#newChamaListed').checked : true;
+    try { await Session.createChama(n, listed); } catch (e) { Gate.signing = false; Gate.paint(); toast(e.message); }
   },
   wsJoin: async () => {
     const r = await Session.joinWithLink(($('#joinLink') && $('#joinLink').value) || '');
@@ -3970,7 +4063,7 @@ function renderPage() {
   $('#dwho').innerHTML = av({ name: nmD, photo: (mmD && mmD.photo) || meD.photo }, 44) + '<b>' + esc(nmD || 'Welcome') + '</b>';
   $('#roleTag').textContent = Perm.label(Session.role) + (admin ? '' : ' · view only');
   $('#setBtn').hidden = !admin;
-  { const sw = $('#switchBtn'); if (sw) sw.hidden = !((Session.workspaces || []).length > 1); const lv = $('#leaveBtn'); if (lv) lv.hidden = !Session.role; }
+  { const sw = $('#switchBtn'); if (sw) sw.hidden = !((Session.workspaces || []).length >= 1); const lv = $('#leaveBtn'); if (lv) lv.hidden = !Session.role; }
   $('#undoBtn').hidden = !admin;
   if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
   document.body.classList.toggle('no-tabs', !ROUTES.some(x => x[0] === r));

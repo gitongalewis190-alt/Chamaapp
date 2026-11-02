@@ -1,344 +1,443 @@
 # My Chama App (MCA)
 
-A savings-group app (chama) that runs as a plain web app on a phone. It works offline once opened and can be added to the home screen.
+A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Version 0.12.0-dev.3 (development build)** · Service-worker cache `mca-app-v33` · Live site: https://chama-livid.vercel.app · Chama id `mrlees` (open with `/?c=mrlees`)
+**Current version:** 0.12.0-dev.4 (development build)
+**Owner:** Lewis Gitonga
+**Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)
+**Supabase project ref:** `sgfvjsxmchohawhqraii`
 
-This one file is the complete guide: what the app is, how it is built, how to set up Supabase, how to release, and the rules for anyone (human or AI) who changes it.
+> Status rule: a feature is “working” only when the owner has tested it on a phone and reported PASS. Anything else is listed as unverified.
 
 —
 
 ## Contents
 
-1. [Quick start for a new builder](#1-quick-start-for-a-new-builder)
-2. [Files in this folder](#2-files-in-this-folder)
-3. [How the app is built](#3-how-the-app-is-built)
-4. [Rules for builders](#4-rules-for-builders)
-5. [Supabase setup (once)](#5-supabase-setup-once)
-6. [Using the app: treasurer and members](#6-using-the-app-treasurer-and-members)
-7. [Releasing a new version](#7-releasing-a-new-version)
-8. [Testing](#8-testing)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Adding a backend feature later](#10-adding-a-backend-feature-later)
-11. [Features, known gaps and notes](#11-features-known-gaps-and-notes)
+0. Status at a glance
+1. What the app is
+2. Quick start for a builder
+3. Repository layout
+4. Architecture
+5. Roles and permissions
+6. Identity: account, access, and member record
+7. Sign-in and sessions
+8. Invitations: email and invite codes
+9. Security model
+10. Data integrity and sync
+11. Database migrations ledger
+12. Configuration and secrets (names only)
+13. Deploy runbook (phone)
+14. Testing
+15. Rules for every builder
+16. Troubleshooting
+17. Roadmap and open decisions
+18. Release history
+19. Licence and contact
 
 —
 
-## 1. Quick start for a new builder
+## 0. Status at a glance
 
-1. Read this whole file.
-2. Read section 4 (the rules) before editing anything.
-3. Copy the folder, make a backup, then edit only `index.html` for app changes.
-4. Run the checks in section 8 and the release checklist in section 7.
-5. Deliver the changed files, one per message (see section 4).
-
-—
-
-## 2. Files in this folder
-
-| File | Purpose | When it changes |
-|—|—|—|
-| `index.html` | The whole app: HTML, CSS and JavaScript in one file. This is what runs. | Most changes |
-| `sw.js` | Offline cache. The constant `V` holds the cache name. | Every release |
-| `manifest.json` | Home-screen install details | Rarely |
-| `icons/` | Home-screen and header logos | Rarely |
-| `chama_auth.sql` | Core tables, access rules (RLS) and RPC functions. Run once. | Only with a new re-runnable block |
-| `chama_upgrade.sql` | Repairs older tables, adds `app_config` and `get_app_config()`. Safe to run again. | Once per upgrade |
-| `supabase/functions/sync-config/index.ts` | Edge Function. Copies the email code length from Supabase Auth into `app_config`. | Only if that logic changes |
-| `README.md` | This file. | When a rule or step changes |
-
-`SETUP_GUIDE.md` is retired. Its steps are now in section 5 of this file.
+| Feature | Built | Deployed | Verified on phone |
+|—|—|—|—|
+| Email code sign-in | Yes | Yes | Yes (owner) |
+| Username and password sign-in | Yes | Yes | Owner reports it works. 0.12.0-dev.4 throttle messages: **pending** |
+| Email invitations (Brevo) | Yes | Yes | Sent and resent: yes. Accept flow: **not yet tested** |
+| Invitation expiry 7 days | Yes | Yes (secret set) | Owner confirmed the 168-hour setting. Email wording: **pending test** |
+| Invite codes (create, join, cancel) | Yes | **Pending deploy** | **Pending** |
+| Chama display tag | Yes | **Pending migration 012** | **Pending** |
+| Listed as member, or officer only | Yes | **Pending deploy** | **Pending** |
+| Rename, then invitation shows new name | Yes | **Pending migration 011** | **Pending** |
+| Creator linked as member | Yes | **Pending migration 011** | **Pending** |
+| Switch or add a Chama entry | Yes | **Pending deploy** | **Pending** |
+| Remove access rule (own and treasurer rows) | Yes | **Pending deploy** | **Pending** |
+| Members list for non-treasurers | Messaging fixed | **Pending deploy** | **Pending** |
+| Realtime sync (polling about 45 seconds) | Yes | Yes | Owner reports it works across browsers |
+| Account deletion with 30-day restore | Yes (0.10.0), changed in 0.12.0-dev.4 | Pending deploy | **Pending** |
 
 —
 
-## 3. How the app is built
+## 1. What the app is
 
-### 3.1 Runtime modes
-- **Cloud mode (current):** `CONFIG.supabase` is set. People sign in with an email code. The treasurer adds members by email and sets roles (`treasurer` or `member`). Data is kept in Supabase under the rules in `chama_auth.sql`.
-- **Demo mode:** `CONFIG.supabase` is `null`. Everyone is treasurer and data stays in the browser. Never use demo mode for a real group’s money.
-
-### 3.2 Layout of `index.html`
-One `<script>` holds several IIFE modules named `__M_<path>`. Order matters:
-
-1. **Top level, before any module:** `Skel` (skeleton markup) and `Welcome` (welcome typing, wave, hide). Every module can reach these.
-2. **Modules:** `config`, `lib/dom`, `ui/toast`, `core/a11y`, `core/policy`, `core/backend`, `core/rerender`, `core/utils` (`esc`, `kes`, `uid` and others), `core/domain`, `core/store`, `core/session`, `core/auth`, `core/me`, `core/history`, `core/routes`, `features/auth/gate` (sign-in screens `Gate` and `Otp`), the feature modules (home, contributions, loans, members, fines, expenses, history, reports, profile, settings, notifications, help), `ui/menu`, `ui/nav`, `core/render`, `main`.
-3. **Sharing between modules:** a module exports objects with a getter, for example `return { get Otp() { return Otp; } }`. A helper defined inside one module is not visible to another; import it (`const { esc } = __M_src_core_utils_js;`).
-
-### 3.3 Sign-in flow (email code)
-1. `Gate.paint()` shows the email screen. **Send code** calls `signInWithOtp` and shows a sending screen.
-2. The code screen (`Otp`) shows 8 boxes in two rows (the count follows `app_config.otp_length`). You can type, paste, or long-press the first box to paste. A mail icon folds away when the check starts.
-3. When the last digit lands, `Otp.submit` plays the full check animation (fill, ring, grey, merge), then calls `verifyOtp`.
-4. **Accepted:** a tick shows, then `Welcome.start(firstName)` types “Welcome, <Name>” with a wave, then `Session.after()` loads membership, then the home skeleton shows for about 1.85 s, then the real page.
-5. **Rejected:** the boxes slide back, turn red, shatter, clear, and the cursor returns to the first box.
-6. **Code length:** `Session.loadConfig()` reads `app_config.otp_length` through `get_app_config()` before the email screen is drawn. `Session.syncOtp()` calls the `sync-config` function on each open, so the number follows Supabase.
-7. **No second factor.** There is no authenticator app or QR step. Do not add one unless the owner asks.
-
-### 3.4 Session states (`Session.status`)
-`loading` → `ready` (or `demo`), or `signed-out`, `no-access`, `no-chama`, `error`.
-- `error` is only for real sign-in failures. A page that fails to draw shows a toast and does not change the status.
-- `Session.verifying` is true while a code is being checked. Focus and sign-in listeners ignore events during that time, so the app cannot flash in and out.
-
-### 3.7 Passwords (0.8.0)
-Run the SQL in this order: `chama_auth.sql`, then `chama_auth_addon.sql`, then `chama_passwords.sql`.
-- Sign-in: email and password first (`check_login`), then the email code. A wrong email or password gives the same message.
-- Invited people with no password: the app asks them to create one once (`set_password`). Rules: 6 characters or more, a capital letter, and a symbol.
-- One email can join several chamas, but the same password cannot be used for that email in two chamas (`password_reused`).
-- Passwords are stored as bcrypt hashes in `chama_members.password_hash`. The app cannot read that column.
-- Existing treasurers have no password until their next sign-in, when they create one.
-- Rate limits: Supabase limits code requests. Password guesses are not rate-limited by the database yet; add that before public launch.
-
-### 3.6 First run and sign-up (0.7.0)
-Order on a new device: opening animation (no Skip) → language (English or Kiswahili, stored in `mca-onboard`) → a swipeable tour (images in `tips/01-welcome.png` … `tips/08-privacy.png`; a missing image shows the coloured tile) → privacy policy, which needs both boxes ticked → sign-in screen with **Sign in** and **Sign up** tabs.
-- The policy version is `OB_POLICY_VERSION`. Change it when the policy changes, and everyone agrees again.
-- **Sign up** sends the same email code. The chama is created only if its id is in `chama_slots` (unchanged). If the email already has a chama, the app says to sign in (`my_chamas`, added in `chama_auth_addon.sql`).
-- **Sign in** never creates a chama. Access still depends only on `chama_members`.
-- Supabase creates an auth account at the first code request for any email. That is not chama access. See `chama_auth_addon.sql` notes.
-
-### 3.5 Data
-- The chama record is one JSON document in `chamas.data`. Writes go through `Store` with a dirty flag and an offline queue.
-- Member profiles are in `member_profiles`. Access is in `chama_members`. Chama ids allowed to start are in `chama_slots`.
-- `Store.startSync()` subscribes to realtime changes on `chamas`.
+- **Chama:** a savings group. Members pay monthly contributions, take loans, pay fines, and receive payouts in rotation.
+- **One account per person:** one email and one password open every Chama that person belongs to.
+- **Three roles:** Treasurer (full finance control), Secretary (manages members and records), Member (sees their own money plus group totals).
+- **Access is not the same as membership.** A treasurer may be an officer who is not in the member list. This is a deliberate design choice, explained in section 6.
 
 —
 
-## 4. Rules for builders
+## 2. Quick start for a builder
 
-These rules come from the owner. Follow them even if a task seems to need an exception.
+You can work entirely from a phone:
 
-1. **Do not tamper.** Change only what the task asks for. Keep working features working.
-2. **Email code sign-in only.** Do not add authenticator apps, QR codes, MFA or two-step screens.
-3. **Modules cannot see each other’s locals.** Import a helper in every module that uses it.
-4. **Every release** updates together: `APP.version` and `APP.notes` in `index.html`, `sw.js` `V`, and this file’s version line.
-5. **Deliver files individually,** one per message, captioned “n of N”. Send only the files that changed.
-6. **Audit before you present.** Run `node —check` on every `<script>` block, run the browser tests (section 8), and scan for undeclared helpers. Report done only after these pass.
-7. **Say what you could not test.** Browser tests use a stub of Supabase. Phone behaviour and the live project must be checked by the owner.
-8. **Never invent results.** Do not claim a fix works until it has run.
-9. **Show real errors.** Error screens show the actual message. A rendering error never sends a signed-in person back to sign-in.
-10. **Keep the owner’s wording.** Labels follow the owner’s copy (“Welcome, John”, “Send again”, “Use a different email”).
-11. **Secrets stay out of files.** The personal access token lives only in the Edge Function secret `SUPABASE_PAT`. Never write it into code, docs or chat.
-12. **Money rules.** Do not change the data format without a backup and a migration plan.
+1. **Code:** GitHub repo, edited with Working Copy (iPhone). Release branch `release/0.12.0-dev.2` (or the current release branch), merged to `main` when ready.
+2. **Database and functions:** Supabase dashboard in Safari. SQL Editor, Edge Functions, Secrets.
+3. **Hosting:** Vercel deploys `main` automatically.
+4. **Email:** Brevo dashboard (API keys, senders, templates).
+
+Read this file, then `MIGRATION_AND_SETUP_GUIDE.md`, then section 15 (rules) before changing anything.
 
 —
 
-## 5. Supabase setup (once)
+## 3. Repository layout
 
-You need the Supabase project for this app, the project URL and anon key (already in `index.html`), and this folder. The project reference currently in use is `sgfvjsxmchohawhqraii`.
-
-### 5.1 Create the database parts
-1. Supabase → **SQL Editor** → **New query**.
-2. Paste all of `chama_auth.sql` and press **Run**. Safe to run again. If it reports an error about an existing table or column, copy the message before running anything else.
-3. Paste all of `chama_upgrade.sql` and press **Run**. It repairs older tables and adds the code-length setting. Safe to run again.
-
-### 5.2 Set the code length (6 or 8)
-1. Supabase → **Authentication** → **Email** → **OTP length**. Choose **8** (or 6).
-2. In the SQL Editor run the same number, so the app matches:
-   ```sql
-   update public.app_config set value = ‘8’::jsonb where key = ‘otp_length’;
-   ```
-   Use `’6’` if you chose 6. Both places must match.
-
-### 5.3 Email template shows the code
-1. Supabase → **Authentication** → **Email Templates** → **Magic Link**.
-2. The body must show the code, so it includes `{{ .Token }}`, for example: “Your sign-in code is {{ .Token }}”. Without it people get a link and no code.
-
-### 5.4 Allow the site address
-1. Supabase → **Authentication** → **URL Configuration**.
-2. **Site URL:** your app’s address, for example `https://chama-livid.vercel.app/`.
-3. **Redirect URLs:** add `https://chama-livid.vercel.app/**`.
-4. Check that **Authentication** → **Providers** → **Email** is on.
-
-### 5.5 Deploy the length-sync function (recommended)
-This keeps the boxes matched to Supabase automatically. Without it, the setting in 5.2 is the only source.
-
-1. **Get a token:** Supabase → account icon → **Account** → **Access Tokens** → **Generate new token**. Give it full access (the preset **Full access**). Copy it at once; it is shown only once.
-2. **Store it:** Supabase → **Edge Functions** → **Secrets** → add `SUPABASE_PAT` with the token. Optional: add `PROJECT_REF` if the project differs from the one in the function.
-3. **Deploy:** Supabase → **Edge Functions** → **Deploy a new function**. Name it exactly `sync-config`, paste the whole of `supabase/functions/sync-config/index.ts`, leave **Verify JWT** **on**, and deploy. The app sends the project’s public key, which passes this check.
-4. **Check:** open the app on a phone. Then run `select value from public.app_config where key = ‘otp_length’;` in the SQL Editor. It should match 5.2.
-
-If the function is not deployed, nothing breaks; the app uses the value in `app_config`.
-
-### 5.6 Register the chama
-The app opens the chama in the link: `https://<site>/?c=<chama-id>`. Without `?c=` it uses `demo`. Only ids in `chama_slots` can be started, so a stranger cannot take over a chama. Run:
-
-```sql
-insert into public.chama_slots (id) values (‘mrlees’) on conflict do nothing;
+```
+index.html                       the whole frontend (single file, about 320 KB)
+sw.js                            service worker. Cache name must change every release.
+manifest.json                    PWA manifest
+icons/                           app icons (192 and 512 px)
+tips/                            onboarding images
+supabase/
+  migrations/                    ordered SQL, 001 to 012 (see section 11)
+  functions/
+    auth-login/                  sign-in by email or username (core.ts + index.ts)
+    send-invitation/             invitation email and link (core.ts + index.ts)
+  verification/
+    stage0_verify_readonly.sql   read-only checks, run before consequential changes
+README.md                        this file
+MIGRATION_AND_SETUP_GUIDE.md     first-time setup
+RELEASE_NOTES_*.md               release notes per development build
 ```
 
-Use the same id as `?c=` in the link.
+**Single source of truth for functions:** the repo copy is the source. The Supabase dashboard holds a copy too. After any change, paste the same code into the dashboard and deploy, and record that you did so in the release notes. For dashboard deploys, use the single-file version (`core.ts` and `index.ts` joined into one file).
 
 —
 
-## 6. Using the app: treasurer and members
+## 4. Architecture
 
-### 6.1 Start the chama (first treasurer)
-1. Open `https://<site>/?c=<chama-id>` on a phone.
-2. Enter your email and tap **Send code**. Enter the code from the email.
-3. You see **This chama is not set up yet**. Tap **Start this chama**. You become its treasurer.
+### 4.1 Frontend
 
-### 6.2 Add members
-1. **Menu** → **Settings** → **Account actions**.
-2. Type the person’s email, choose their member record, choose a role (member or treasurer), and tap **Add person**. Enter also works.
-3. They open the app, enter their email, tap **Send code**, and enter the code. They then appear as signed in under **People with access**.
+- One HTML file with inline CSS and JavaScript. No build step, no framework.
+- Main objects inside the script: `Backend` (Supabase client), `Session` (sign-in, workspace, roles, invitations, codes), `Store` (the Chama document, local cache, sync), `Policy` (what this role may write), `Gate` (sign-in screens), `Invite` (invitation links), `Modal`, `toast`.
+- Local cache: `localStorage` keys prefixed `chama:`. Keys containing `dirty` hold unsent changes and must not be deleted silently.
+- Screen routing uses the URL hash (for example `#/settings/actions`). Opening a Chama uses `?c=<chama-id>`.
 
-To remove access, tap **Remove access** next to their name. Their records are kept.
+### 4.2 Backend
 
-### 6.3 Before real use
-- Sign in with an email you have not added. You should see “Not on the member list”.
-- Sign in as a member. You can see the records, but the change buttons are hidden.
-- Make one change as treasurer on one phone and check it on a second phone.
-- Keep a full backup (**Menu** → **Reports and backup**) before entering real money.
+- **Supabase Postgres** holds all data. Row Level Security (RLS) is on for every table.
+- **Business logic lives in database functions** (RPCs), most marked `SECURITY DEFINER` with `search_path = public, pg_temp`. The app never trusts its own role checks.
+- **Edge Functions** (Deno) do three jobs only: sign-in throttling (`auth-login`), invitation emails (`send-invitation`), and nothing else.
+- **Email:** Brevo REST API for invitations (`BREVO_API_KEY`). Brevo SMTP is used by Supabase Auth for login emails. These are separate keys.
 
-—
+### 4.3 The Chama document and the tables
 
-## 7. Releasing a new version
-
-1. Edit `index.html`.
-2. Update `APP.version` and add a new first entry to `APP.notes` (Notifications shows it).
-3. Update `sw.js`: change `V` to the next name, for example `mca-app-v24` → `mca-app-v25`. Without this, phones may keep the old version.
-4. Update this file’s version line and cache name.
-5. If the database changes, add a re-runnable block to `chama_auth.sql` (or `chama_upgrade.sql`) and run it in Supabase.
-6. Run the tests in section 8, then the checklist below on a phone.
-7. Commit and push. GitHub Pages or Vercel updates in about a minute.
-
-### Phone checklist
-- The app name shows in full on the sign-in screen and on Home.
-- **Send code** → sending screen → 8 boxes in two rows.
-- A wrong code: the boxes shatter, clear, and the cursor returns to the first box.
-- The right code: tick → “Welcome, <First name>” → home skeleton → the page.
-- Long-press the first box and choose **Paste**.
-- The bell shows on Home, Contribs, Loans, Members and Profile.
-- The menu slides in, and Settings is last.
-- Notifications lists each version.
-
-—
-
-## 8. Testing
-
-Browser tests run with Playwright against a stub of Supabase. The harness (`harness.js`, `stub.js`, and the `t_*.js` scripts) is kept in the build workspace, not in this folder. Each run must finish with no page errors.
-
-| Script | Checks |
+| Storage | What it holds |
 |—|—|
-| `t_mail` | Mail icon renders and folds at the right moment |
-| `t_back` | Back navigation |
-| `t_persist` | Typed digits survive a reload |
-| `t_verify` | Full check, then welcome, then skeleton, then home |
-| `t_wrong` | Wrong code shatters and clears; right code signs in |
-| `t_welcome` | Treasurer welcome |
-| `t_menu` | Drawer and marker |
-| `t_enter` | Adding a member |
+| `chamas.data` (JSON) | The whole Chama document: settings, members list, payments, loans, fines, payouts, expenses, notes |
+| `chamas.name` | The Chama name, kept equal to `data.chama.name` by a trigger (migration 011) |
+| `chamas.display_tag` | 4-character tag, unique, identifies the Chama to people only (migration 012) |
+| `chamas.version` | Increases on every save. Used for optimistic concurrency |
+| `chama_members` | Access: who may sign in to which Chama, with role and status. `member_id` links to an entry in `data.members`, or is null for officers |
+| `chama_invitations` | Email invitations: token hash only, expiry, status |
+| `chama_invite_codes` | Invite codes: hash only, role, expiry, uses, limit, revocation (migration 012) |
+| `chama_invite_redemptions` | One row per person per code |
+| `chama_invite_attempts` | Failed and successful code attempts, for rate limiting |
+| `chama_audit` | Audit trail of sensitive actions (never contains codes or tokens) |
+| `auth_throttle` | Sign-in attempt counters |
 
-Before presenting work, also run:
-- `node —check` on each `<script>` block of `index.html`.
-- A scan for helpers used in a module without an import.
-
-A pass means no page errors in the stub. It does not prove the live project or a phone.
-
-—
-
-## 9. Troubleshooting
-
-| What you see | What to check |
-|—|—|
-| “Could not connect” or “Something went wrong” with a message | Read the message. It is the real cause. Check the internet and that section 5.1 has run. |
-| “This chama is not registered” | Section 5.6: the id is in `chama_slots` and matches `?c=`. |
-| Sign-in opens the wrong chama | Section 5.4: the Redirect URLs include `https://<site>/**`, and the link keeps `?c=<chama-id>`. |
-| Added person sees “Not on the member list” | They must use the exact email you typed. The app lowercases it. |
-| Code screen never submits, or every code is rejected | The number of boxes must match Supabase (section 5.2). Use the newest email; each new code cancels the old one. |
-| Email has a link but no code | Section 5.3: add `{{ .Token }}` to the Magic Link template. |
-| Boxes show 6, email has 8 | `app_config.otp_length` is wrong. Set it (5.2) and check the function logs. |
-| Stuck on “Signing in” | Wait 12 seconds. The app offers Try again and Cancel. |
-| The app shows an old version | Bump the cache name (section 7, step 3) and reload. |
+Whole-document saves go straight to `chamas` with a version check. Only treasurers may update it (policy `chamas_update_treasurer`, which uses `is_treasurer(id)`).
 
 —
 
-## 10. Adding a backend feature later
+## 5. Roles and permissions
 
-The chama record is one JSON document, so most features need no database change. Add the fields in the app and they are saved with the record.
+Enforced in the database. Hiding a button in the app is cosmetic only.
 
-When a feature needs its own table or a server function:
-1. Add the table to `chama_auth.sql` with `create table if not exists`.
-2. Turn on RLS and add policies using the helpers already there: `is_active_member(chama_id)` for reading and `is_treasurer(chama_id)` for changing.
-3. Put any treasurer-only write in an RPC that checks `is_treasurer` first, like `invite_member`, and grant it to `authenticated` only.
-4. Call it from `index.html` with `Backend.sb.from(...)` or `Backend.sb.rpc(...)`.
-5. Re-run the SQL file in the SQL Editor.
+| Action | Treasurer | Secretary | Member |
+|—|—|—|—|
+| See the full finance record | Yes | Per `role_permissions` (confirm before relying on it) | No: own money plus group totals only |
+| Change finance records | Yes | Per policy (treasurer-only writes today) | No |
+| Create an email invitation | Yes, any role | Members and secretaries only (proposed) | No |
+| Create an invite code | Yes, any role | Member and secretary codes only | No |
+| Cancel an invite code | Yes | Yes, codes they created | No |
+| Change the Chama tag | Yes | No | No |
+| Remove access (another person) | Yes, never own row or treasurer rows | No | No |
+| Hand over the treasurer role | Yes | No | No |
+| Leave a Chama | No, hand over first | Yes | Yes |
+| Delete own account | Only after leaving all Chamas | Same | Same |
 
-—
+**Last-treasurer rule:** a Chama must always have one active treasurer. Enforced by the trigger `guard_last_treasurer` (migration 002). The button is hidden as well, but the trigger is the protection.
 
-## 11. Features, known gaps and notes
-
-### Features
-- Contributions, loans, members, fines, expenses and history.
-- Reports and backup, including the full-backup file.
-- Notifications with a bell, unread counts, search and filters, and a detail page per item. An item is read only when opened.
-- Automatic reminders for amounts due, and a late-payments summary for the treasurer.
-- Help centre with searchable guides and troubleshoot checks.
-- Settings for text size, colour, contrast and read-aloud.
-- Sign-in by email code, with a treasurer who adds members and removes access.
-
-### Known gaps (open)
-- The length-sync function and the `otp_length` value are not confirmed on the live project.
-- Long-press paste on the first box is untested on an iPhone.
-- The welcome name comes from the email. Member names saved in the app are not used yet.
-- The landing page and wider design polish are planned for later.
-
-### Notes
-- Money rules and the audit trail live in the core modules. Keep a backup before any change to the data format.
-- Reports and backup files contain member details. Keep them private.
-- Any signed-in member can read the whole chama record (by design). Only the treasurer can change it.
-- The Supabase URL and anon key in the config are public by design. Never put the `service_role` key in this app.
-
+**Nobody can grant a role higher than their own.** Enforced in the invitation and code functions.
 
 —
 
-## 0.12.0-dev.2: one account, one password, many Chamas (development build, nothing deployed)
+## 6. Identity: account, access, and member record
 
-**Status: not production.** Built and tested locally (database, email function, sign-in function, browser). It has NOT run against your live Supabase project. Read “Before production” at the end.
+Three separate things. Keep them separate in code and in your head.
 
-### What a person now experiences
-- **Sign in with email or username + one password.** Forgot password: an email code, then a new password. New account: email code, then name, username and one password.
-- **Choose the Chama.** After sign-in: one Chama opens directly; several show a chooser; none shows “Start a Chama” or “Join with an invitation”. A `?c=` link to a Chama you belong to opens it (the link is a hint, never proof).
-- **Switch Chama** in the menu (only when you belong to more than one). **Leave this Chama** in the menu (members). Treasurers hand over in Settings, choosing to step down to Member or stay co-treasurer. A Chama always keeps one treasurer.
-- **Invitations** by email, Member / Secretary / Treasurer, valid 48 hours. Opening a link never joins anyone; the person accepts after signing in with the invited email.
-- **Members see only their own money** (payments, loans, fines, payouts, notes addressed to them) plus group totals (collected, cash on hand, loans balance, fines due). They never see another member’s payments, loans, fines, phone number or email. Secretary currently has the same view as Member.
-- **Delete account:** needs no active Chama and a sign-in in the last 10 minutes; kept 30 days; restorable; purged by the server afterwards. Leaving a Chama is a separate step and never deletes records.
-- **Two people saving at once:** the app saves against a version number. A stale save is refused and the treasurer chooses “Load the latest” or “Keep my changes”. Nothing is overwritten silently.
-- **Shared phone:** when a different person signs in, the previous person’s cached Chama data is moved aside on that phone (kept, not shown).
+1. **Account:** a sign-in identity (email, username, password) in Supabase Auth. Created once, reused for every Chama.
+2. **Access:** a row in `chama_members` saying this account may open this Chama, with a role. This is what the database checks for every read and write.
+3. **Member record:** an entry in the Chama’s member list (`data.members`), with its own id, name, shares, and payment history. Money belongs to member records.
 
-### Files
-- `index.html`, `sw.js`, `README.md`: replace the live files.
-- `supabase/migrations/001`–`009`: run in order, **staging first**. Each file has rollback notes. 003 has the 48-hour expiry; 007 removes the old password functions (owner approved: no live users yet).
-- `supabase/functions/send-invitation/`: deploy with `supabase functions deploy send-invitation` (JWT verification on).
-- `supabase/functions/auth-login/`: deploy with `supabase functions deploy auth-login —no-verify-jwt` (people are signed out when they call it).
-- `supabase/verification/stage0_verify_readonly.sql`: read-only check, run on staging.
+A person can be:
 
-### Secrets (names only; never put values in files)
-`BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (a sender verified in Brevo), `BREVO_SENDER_NAME`, optional `BREVO_TEMPLATE_ID` (your customised Brevo template; it receives params `CHAMA`, `INVITER`, `ROLE`, `LINK`, `HOURS`), `APP_URL` (the real site address, no trailing slash), `ALLOWED_ORIGIN` (same), `INVITE_EXPIRY_HOURS` (default 48). `auth-login` uses `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (set by Supabase).
+- **Listed:** access row with `member_id` set. Their payments and loans are linked to a member record.
+- **Officer only:** access row with `member_id` null. They manage the group but have no member record and no money of their own in the Chama. The access list says “officer only, not listed as a member”.
 
-### Database steps (staging, then production only with explicit approval)
-1. Run the read-only check on staging.
-2. Run 001 to 006 and 008 to 009 in order. 005 gives server-made Chama ids (uuid text); existing ids such as `mrlees` are untouched.
-3. Run 007 (retires v0.11.0 password functions and per-Chama password hashes). After this, only v0.12 can sign in.
-4. Run 004 last among the security steps and test the app on staging. It removes the broad “signed-in” policies.
-5. Test with two accounts in two Chamas, a treasurer, a member and a secretary.
+When creating a Chama, the creator is listed by default and can untick the box. Invitations choose the same way (“Listed as a member” or “Officer only”).
 
-### Decisions taken (owner approved or recommended)
-- One global password (D7) after an email code; usernames are part of sign-in now.
-- Financial privacy (D3): members see own money plus group totals.
-- Secretary = member-level access until the owner configures it.
-- Invitations last 48 hours. No limit on how many Chamas a person creates or joins.
-- Chama ids: existing text ids are kept; new Chamas get server-made uuid ids.
-- Old v0.11.0 clients stop working when 007 runs (no live users yet).
+**Empty member list:** a Chama can have access accounts and still have no member records. The Members page then shows an empty list, which is correct. Add member records in the Members tab, then link accounts when inviting.
 
-### Tests run (all local)
-- Database (real Postgres 16, synthetic data): 39 of 39 pass across migrations 001 to 009.
-- Email function: 13 of 13. Sign-in function: 10 of 10. Permission map: 10 of 10.
-- Browser (Chromium, stubbed backend): 23 of 23 invitation and regression checks; 16 of 16 new screens and privacy checks.
+—
 
-### Before production (not yet done)
-- Run everything against a real staging Supabase project; the local database used a stand-in for the encryption extension.
-- Deploy both functions and set the secrets; send a real invitation and a real password reset.
-- Check that `chamas` is not visible to members directly (the member view is a server function) and that payouts and notes stay private, using two real accounts.
-- Account deletion purge needs a schedule (pg_cron) or a manual run.
-- Offline edits made by one person are kept per Chama on that phone; a full offline-first audit has not been done.
-- Realtime: treasurers get live updates; members refresh about every 45 seconds.
-- Release notes and a full migration guide are not written beyond this README.
+## 7. Sign-in and sessions
+
+- **Email code (passwordless):** enter email, receive a code by email (length set in Supabase, currently 8 digits), type it. Used for first sign-in and sign-up confirmation.
+- **Email or username, plus password:** handled by the `auth-login` function. It throttles by IP (40 tries per 10 minutes) and by identifier (8 tries per 10 minutes), then returns HTTP 429 “Too many tries”. Unknown usernames get the same generic error as wrong passwords.
+- **No password fallback.** The app must never call Supabase’s password sign-in directly. That would skip the throttle.
+- **Passwords:** minimum 6 characters with letters, digits and a symbol (set in Supabase Auth).
+- **Create account:** if a session for a different email is open, it is signed out first.
+- **Account deletion:** requests a 30-day hold. The person is signed out on every device, and this phone’s Chama cache is cleared except unsent changes. Blocked while the person still belongs to any Chama. Restore is possible during the 30 days.
+
+—
+
+## 8. Invitations
+
+### 8.1 Email invitation (live)
+
+1. Treasurer enters an email, a role, and optionally a member record (or leaves it as officer only).
+2. App calls `send-invitation` (action `create`). The function calls `create_invitation_internal`, which stores a hash of the token and returns the raw token once.
+3. Brevo emails the link: `APP_URL/?c=<chama-id>#invite=<token>`. The raw token is never returned to the browser.
+4. The person opens the link, sees who invited them, signs in with the invited email, and presses **Accept**. Nobody joins until they accept.
+5. Expiry: **7 days** (secret `INVITE_EXPIRY_HOURS` = 168; code default is also 168).
+6. Resend creates a new token and invalidates the old link.
+
+### 8.2 Invite code (new in 0.12.0-dev.4)
+
+1. Treasurer (or secretary, for member and secretary codes) opens Settings, Access. The Chama tag shows at the top.
+2. Chooses role, validity (1, 7 or 30 days), number of uses (1 to 100), and optionally a listed member record.
+3. The database generates a 10-character code from a set with no look-alikes (no 0, O, 1, I, L), shown as `XXXX-XXXX-XX`. Only its SHA-256 hash is stored. The code is shown once.
+4. The person types the code (case, hyphens and spaces are ignored), sees a confirmation with the Chama name, tag and role, and confirms.
+5. The redemption locks the code row, so two people can never use the last use at the same moment.
+6. Already a member: the existing membership is returned, nothing changes, and no use is counted.
+7. Five failed attempts in 10 minutes block further attempts for that person.
+8. Codes can be cancelled. Expired and cancelled codes stay in the list for audit.
+
+Codes are never written to logs, the audit trail, or the email.
+
+—
+
+## 9. Security model
+
+### 9.1 Rules enforced in the database
+
+- RLS on every table. Tables with no client policy are closed to clients (`revoke all ... from anon, authenticated`).
+- Every RPC checks `auth.uid()` and the caller’s active membership and role before doing anything.
+- `SECURITY DEFINER` functions set `search_path` explicitly, so nothing can be hijacked by a same-named object in another schema.
+- Hashes, not secrets, are stored: invitation tokens and invite codes.
+- Membership is explicit. Removing access sets status to `removed`. Removed people cannot regain access silently.
+- Sensitive actions write to `chama_audit`. The audit record holds ids and actions, never codes, tokens or passwords.
+- Email is confirmed before creating a Chama or redeeming a code.
+
+### 9.2 Rules for the app
+
+- Hiding a control is not authorization. Every write is checked again in the database.
+- Local data is shown with its state: local only, pending sync, synced, failed, conflict, or stale. Never say a transaction is recorded remotely when it is only on the device.
+- The app does not show raw database error text to members where it would reveal internal detail.
+
+### 9.3 Known risks (open)
+
+| Risk | Impact | Status |
+|—|—|—|
+| Treasurer can set `display_tag` directly through the table, skipping the format check | Uniqueness holds; format may be wrong | Open. Fix with a column guard in a later migration |
+| Sign-out on a phone clears local Chama cache, including unsent changes | Possible loss of unsent entries | Open. Owner decision: warn before sign-out, or keep a recovery copy |
+| Realtime is polling (about 45 seconds), not push | Changes appear with a delay | Accepted for now |
+| Whole-document writes can overwrite concurrent edits | Protected by version check; conflicts shown to treasurer | Working design. Test with two devices |
+| Email sign-in depends on `auth-login` | If the function is down, password sign-in fails | Accepted. No fallback by design |
+| Brevo sends from a Gmail address; no DNS authentication | Lower deliverability, possible spam filtering | Open. Set SPF, DKIM and DMARC on a domain you control |
+| `get_app_config` is called by the app but not defined in the repo migrations | Unknown until checked in the database | Open. Confirm it exists |
+| Migration 010 is referenced by older notes but is not in the repo | Unknown content | Open. Find it in Git history, or confirm it is not needed |
+
+—
+
+## 10. Data integrity and sync
+
+- **Versioned saves:** each save sends the version it started from. If someone else saved first, the save is refused and the treasurer sees a conflict prompt. Nothing is overwritten without a choice.
+- **Derived balances:** cash on hand, loan balances and fines due are calculated from records, never edited directly.
+- **Never silently discard financial history.** Deletions of records are recorded in the Chama log.
+- **Offline:** edits are kept on the phone, marked as unsent, and sent when the connection returns. The app must not say they are recorded remotely until the server confirms.
+- **Timing:** members refresh about every 45 seconds. Treasurers save as they go.
+
+—
+
+## 11. Database migrations ledger
+
+Each migration must have: an ordered id, purpose, affected objects, prerequisites, validation queries, rollback notes, and execution status. Migrations are run by the owner in the Supabase SQL Editor, after approval.
+
+| File | Purpose | Status |
+|—|—|—|
+| 001_identity_and_profiles | Profiles and identity | Applied (per handover) |
+| 002_membership_and_roles | Membership, roles, last-treasurer trigger, audit | Applied (per handover) |
+| 003_invitations | Email invitation tables and functions | Applied |
+| 004_rls_and_security | Row Level Security hardening | Applied (see the note about `chamas_update_treasurer`) |
+| 005_chama_rpcs | Create Chama, workspace list | Applied |
+| 006_global_auth | Sign-in throttle, login email resolution | Applied (per handover) |
+| 007_retire_legacy | Removes old code paths | Applied |
+| 008_member_privacy_and_versions | Limited member view, version column | Applied |
+| 009_ownership_leaving_deletion | Hand-over, leaving, 30-day deletion | Applied |
+| 010 | Username rule and sample-data cleanup (per older notes) | **Unknown. Not in repo** |
+| 011_chama_name_and_creator_link | Name sync trigger; creator member link | **Ready. Run after approval** |
+| 012_invite_codes_and_display_tag | Display tags; invite codes; redemption; rate limit | **Ready. Run after approval** |
+
+**Note on 004:** the live policy `chamas_update_treasurer` was verified by the owner (UPDATE, `is_treasurer(id)` in both clauses). Repo copies of some policies are commented out. Keep the live policy as the reference.
+
+—
+
+## 12. Configuration and secrets
+
+Names only. Never write values in files, chats or commits.
+
+**Supabase Edge Function secrets**
+- `BREVO_API_KEY`: Brevo REST key (starts `xkeysib-`). Not the SMTP key.
+- `BREVO_SENDER_EMAIL`: verified sender address.
+- `BREVO_TEMPLATE_ID`: template number (0 means use the built-in HTML).
+- `ALLOWED_ORIGIN`: exactly `https://chama-livid.vercel.app`, no trailing slash.
+- `APP_URL`: app address used in invitation links.
+- `INVITE_EXPIRY_HOURS`: `168` (7 days).
+
+**Supabase Auth settings**
+- Email code length: 8.
+- Password: minimum 6, letters, digits and symbols.
+- Sign-up email template shows `{{ .Token }}` as a code only. Check this is still set.
+
+**Brevo**
+- Verified sender. Do not use the `brevosend.com` address suggested by the error message.
+- Unused SMTP key `chama-invites` can be deleted.
+
+—
+
+## 13. Deploy runbook (phone)
+
+Do these in order. Stop at any unexpected result and report it.
+
+1. **Read-only checks first.** Run `supabase/verification/stage0_verify_readonly.sql` in SQL Editor and paste the result.
+2. **Migrations, after approval:** 011, then 012. Copy each file’s full text into a new query, Run. Expected: “Success. No rows returned.” A message beginning “STOP:” means nothing changed.
+3. **Check:** `select name, display_tag from chamas order by name;` Every Chama has a 4-character tag.
+4. **Edge function:** Supabase, Edge Functions, `send-invitation`. Paste the single-file version, Deploy. Check secret `INVITE_EXPIRY_HOURS` = 168.
+5. **App:** Working Copy. Replace `index.html`, `sw.js`, `README.md`. Commit with a message such as `0.12.0-dev.4: invite codes, tags, sign-in fixes`. Merge to `main`. Vercel deploys.
+6. **Confirm:** reload the app. Settings, About shows the version. If an old version still appears, clear the site data in Safari and reload once.
+7. **Record:** update the status table in section 0 and the ledger in section 11.
+
+—
+
+## 14. Testing
+
+There is no automated test suite in the current repo. Testing is manual, on a phone, with at least two accounts and one Chama.
+
+### 14.1 Test plan for 0.12.0-dev.4
+
+Record PASS or FAIL with a short note.
+
+1. **Version:** Settings, About shows 0.12.0-dev.4.
+2. **Existing data intact:** open an existing Chama. Totals and past payments are unchanged.
+3. **Sign-in throttle:** eight wrong passwords. The last attempt shows “Too many tries”.
+4. **Switch entry:** menu shows “Switch or add a Chama”. The chooser lists each Chama with its tag.
+5. **Create, listed:** the creator appears as member 1 in Members.
+6. **Create, officer only:** the access list shows “officer only, not listed as a member”.
+7. **Rename, then invite:** the invitation email and link show the new name. The email says 7 days.
+8. **Invite code, happy path:** create a Member code (7 days, 1 use). A second account types it, sees the confirmation, joins. A second use says “used up”.
+9. **Invite code, failures:** six wrong codes. The sixth says “Too many tries”.
+10. **Invite code, cancel:** a cancelled code says “cancelled”.
+11. **Remove access rule:** own row and treasurer rows have no Remove button. Member rows do.
+12. **Create account:** signed in as one account, start Create account with another email. The first account is signed out.
+13. **Toasts:** errors stay about 6 seconds, text is larger.
+14. **Payments still work:** record a payment, reload on a second device, it appears.
+15. **Invitation accept flow:** open an invitation link on a second device, sign in with the invited email, press Accept. The person appears in the access list.
+16. **Wrong email on accept:** signed in as another email, the invitation is refused.
+17. **Revoke invitation:** a revoked link no longer works.
+18. **Deletion:** request deletion, the account is signed out everywhere, sign-in shows the days left, restore works.
+19. **Two-device conflict:** two devices edit the same Chama. The second save shows a conflict prompt and does not overwrite.
+
+### 14.2 Database checks (read only)
+
+- Every Chama has a `display_tag` (migration 012).
+- Every Chama’s `name` equals `data.chama.name` (migration 011).
+- No Chama has more than one active row per person.
+- No invite code has `uses` above `max_uses`.
+
+—
+
+## 15. Rules for every builder
+
+These apply to people and to AI assistants. They are not optional.
+
+1. **Security is enforced in the database.** Every sensitive action needs a server-side check: RLS, or a function that checks `auth.uid()` and the caller’s role.
+2. **Never store or log secrets.** No invitation tokens, invite codes, passwords, API keys, or service keys in code, in logs, in the audit trail, or in chat. Store hashes.
+3. **Authentication and authorization are separate.** Being signed in does not grant access to a Chama.
+4. **Removed access stays removed.** Status changes are explicit and enforced by the database.
+5. **Migrations:** numbered, one purpose per file, with the header block from section 11. Guarded with prerequisite checks that stop before changing anything. Never edit a migration that has been applied. Write a new one.
+6. **No destructive SQL** (drop, truncate, delete from financial tables, or updates to balances) without explicit owner approval, a rollback note, and a read-only check first.
+7. **SECURITY DEFINER functions** always set `search_path`, check `auth.uid()`, check membership and role, and never return hashes.
+8. **Financial integrity:** never silently discard history. Derived balances come from records. Consider duplicates, retries, network drops, and concurrency.
+9. **Offline honesty:** label local, pending, synced, failed and conflict states. Never imply remote success.
+10. **Account deletion is not leaving a Chama.** Do not combine them.
+11. **Every release:** bump the version in `index.html`, bump the service worker cache name in `sw.js`, add a release note, update this README’s status table.
+12. **Done means verified.** Report a feature as complete only after the owner reports PASS. Until then, say “built, unverified”.
+13. **Report format:** Completed / Changed / Verified / Outstanding / Risks / Approval required.
+14. **Keep the repo and the dashboard in sync** for Edge Functions. Note in the release notes which copy was deployed.
+15. **Approval is required for:** product requirement changes, sign-in strategy changes, role authority changes, financial rule changes, destructive migrations, production data changes, production RLS changes, recurring costs, and deployment environment changes.
+16. **Dependencies:** justify each new one. Avoid services that are not needed.
+17. **Privacy:** personal data is kept to what the chama needs. The in-app privacy policy must match what the app does. Changes to data use need owner approval.
+
+—
+
+## 16. Troubleshooting
+
+| Symptom | Likely cause | What to do |
+|—|—|—|
+| “Could not reach sign-in” | Edge function down, or no connection | Check internet, then check `auth-login` in Supabase |
+| “Too many tries” | Throttle reached | Wait 10 minutes |
+| Invitation email not received | Brevo sender or key, or spam | Check Brevo logs; use Resend; check spam |
+| “email service rejected our key or sender” | Wrong Brevo key type, or sender not verified | Use the REST API key, and the verified sender |
+| Invitation link shows the old Chama name | Migration 011 not run | Run 011 |
+| Members page is empty but access rows exist | Chama has no member records | Add members in Members, then link accounts when inviting |
+| Invite code says “not found” | Mistyped, or it is a link | Check the characters; a link must be pasted whole |
+| Switch Chama missing | Old build cached | Clear site data in Safari, reload |
+| Conflict prompt on save | Two devices saved | Choose which version to keep. Do not force |
+| App shows an old version | Service worker cache | Bump cache name, redeploy, reload once |
+
+—
+
+## 17. Roadmap and open decisions
+
+**Next, once the current build is verified**
+- Invite method setting (email or code as the default), when the owner decides.
+- Secretary’s panel for invite codes.
+- In-app notice to the treasurer when a code is used (proposed: yes).
+- Automatic cancellation of an inviter’s codes when they lose their role (open).
+- Display tag column guard (section 9.3).
+- Sign-out warning for unsent changes (section 9.3).
+- DNS authentication for the Brevo sender domain.
+- Automated tests for the database functions.
+
+**Later**
+- QR codes for invite codes (same backend).
+- Push notifications instead of polling.
+- Removing and changing member records (out of scope for now).
+
+**Owner decisions still open**
+- Should secretaries create treasurer codes? (Proposed: no.)
+- Should financial Chamas get a shorter default code expiry? (Open.)
+- Link or raw code as the main share method? (Open.)
+- Will email invitations ever be retired? (Open.)
+
+—
+
+## 18. Release history
+
+Short list. Full notes are in the app (Settings, About) and in the release notes files.
+
+- **0.12.0-dev.4:** sign-in messages and no password fallback; Remove access rule; switch entry; creator listed or officer only; invite codes; Chama tags; 7-day invitations; account sign-out fixes; larger toasts. Pending deploy.
+- **0.12.0-dev.3:** receipts and fixes from live testing; requires migration 010 (not in repo).
+- **0.12.0-dev.2:** one account for every Chama; username or email sign-in; 30-day account deletion.
+- **0.12.0-dev.1:** email invitations with accept step.
+- **0.11.0 and earlier:** see the in-app version history.
+
+—
+
+## 19. Licence and contact
+
+- **Owner:** Lewis Gitonga.
+- **Licence:** not yet decided. Until the owner chooses one, all rights are reserved.
+- **Data protection:** the in-app privacy policy refers to the Kenyan Data Protection Act, 2019. The owner should confirm it with a qualified adviser before public use. This README is not legal advice.
