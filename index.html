@@ -262,8 +262,15 @@ label{display:block;font-size:13px;font-weight:700;color:var(--mute);margin-top:
 input,select,textarea{width:100%;margin-top:5px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
 input:focus,select:focus,textarea:focus,.btn:focus-visible,.cell:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
-#toast{position:fixed;left:50%;bottom:124px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:16px;max-width:90vw;text-align:center;line-height:1.35;font-size:17px;font-weight:700;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
-#toast.on{opacity:1}
+#toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.92);background:var(--ink);color:#fff;padding:16px 22px;border-radius:22px;min-width:200px;max-width:86vw;text-align:center;line-height:1.4;font-size:16px;font-weight:700;z-index:60;opacity:0;pointer-events:none;box-shadow:0 18px 48px rgba(0,0,0,.22);transition:opacity .25s ease,transform .35s cubic-bezier(.32,.72,0,1)}
+#toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.scan{align-items:center;text-align:center;padding-top:56px}
+.scan-ring{position:relative;width:96px;height:96px;margin:0 auto 22px}
+.scan-ring span{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(15,123,95,.25);animation:scanPulse 1.6s cubic-bezier(.32,.72,0,1) infinite}
+.scan-ring span:nth-child(2){animation-delay:.5s}.scan-ring span:nth-child(3){animation-delay:1s}
+@keyframes scanPulse{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.25);opacity:0}}
+.hub-tag{font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--mute,#5b6b64);text-transform:uppercase}
+@media (prefers-reduced-motion:reduce){.scan-ring span{animation:none}#toast{transition:opacity .2s}}
 .xbtn{width:44px;height:44px;flex:0 0 44px;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:26px;line-height:1;display:grid;place-items:center;padding:0;font-weight:500}
 .xbtn:hover{background:var(--brand-t)}
 .xbtn:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
@@ -1377,11 +1384,11 @@ const HUB_T = {
     manage: 'Manage your Chamas', createRow: 'Create a Chama', createRowSub: 'Set up a new savings group',
     joinRow: 'Join a Chama', joinRowSub: 'Accept an invitation', selected: 'Selected',
     members: n => n + (n === 1 ? ' member' : ' members'),
-    createTitle: 'Let’s create your Chama.', createSub: 'A new group starts with a name and a shared purpose.',
+    createTitle: 'Let’s create your Chama.', createSub: 'Start a new savings group and bring your members together.', newGroup: 'New group', pickTitle: 'We have discovered you have more than one Chama.', pickSub: 'Choose the one you want to get into right now.', scanTitle: 'Scanning for your Chamas…', scanSub: 'This only takes a moment.', createdTitle: 'Chama created',
     groupDetails: 'Group details', groupDetailsSub: 'Enter the basic information for your new group.',
-    nameLabel: 'Chama name', namePh: 'Enter your Chama name', nameHelp: 'This name will identify your group across the app.',
+    nameLabel: 'Chama name', namePh: 'e.g. Umoja Savings Group', nameHelp: 'Choose a clear name your members will recognise.',
     nameNeeded: 'Type a name for your Chama. It needs at least 2 characters.',
-    membership: 'Membership status', existing: 'Existing member', existingSub: 'I am already listed as a member of this Chama.',
+    membership: 'Membership status', existing: 'I am already a member of this Chama', existingSub: 'Confirm whether you are already listed among this group’s members.',
     createBtn: 'Create Chama', creatingBtn: 'Creating…', afterNote: 'You can invite other members after creation.',
     createFail: 'The Chama was not created. Check your connection and try again. Your name is still here.',
     joinTitle: 'Have an invitation link?', joinSub: 'Enter the link below or your Chama key to join an existing group.',
@@ -1396,7 +1403,7 @@ const HUB_T = {
     back: 'Rudi', yourChamas: 'Vyama vyako', selectHint: 'Chagua kikundi ili uendelee.',
     noChamas: 'Bado hujajiunga na Chama. Anzisha kipya, au jiunge kwa mwaliko.',
     manage: 'Simamia Vyama vyako', createRow: 'Anzisha Chama', createRowSub: 'Panga kikundi kipya cha akiba',
-    joinRow: 'Jiunge na Chama', joinRowSub: 'Kubali mwaliko', selected: 'Imechaguliwa',
+    joinRow: 'Jiunge na Chama', joinRowSub: 'Kubali mwaliko', selected: 'Imechaguliwa', newGroup: 'Kikundi kipya', pickTitle: 'Tumegundua kuwa uko kwenye Chama zaidi ya kimoja.', pickSub: 'Chagua unayotaka kuingia sasa hivi.', scanTitle: 'Inatafuta Chama zako…', scanSub: 'Itachukua muda kidogo tu.', createdTitle: 'Chama kimeundwa',
     members: n => n + (n === 1 ? ' mwanachama' : ' wanachama'),
     createTitle: 'Tuanzishe Chama chako.', createSub: 'Kikundi kipya huanza kwa jina na lengo la pamoja.',
     groupDetails: 'Maelezo ya kikundi', groupDetailsSub: 'Weka taarifa za msingi za kikundi chako kipya.',
@@ -1420,7 +1427,14 @@ function flashNext(msg) { try { sessionStorage.setItem('mca-flash', String(msg |
 function showFlash() {
   let m = '';
   try { m = sessionStorage.getItem('mca-flash') || ''; sessionStorage.removeItem('mca-flash'); } catch (e) { m = ''; }
-  if (m) setTimeout(() => __M_src_ui_toast_js.toast(m, 'ok'), 700);
+  if (!m) return;
+  if (m.indexOf('dialog:') === 0) { const t = HL(); setTimeout(() => dialogNotice(t.createdTitle, m.slice(7)), 350); return; }
+  setTimeout(() => __M_src_ui_toast_js.toast(m, 'ok'), 700);
+}
+/* A centred notice with one Continue button; used where the person must acknowledge the outcome */
+function dialogNotice(title, text) {
+  const safe = String(text).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  __M_src_ui_modal_js.Modal.open({ title, body: `<p class="plain">${safe}</p>`, submitLabel: 'Continue', onSubmit: () => {}, hideCancel: true });
 }
 /* Turns a database error into a sentence the person can act on */
 function rpcMessage(err) {
@@ -1742,7 +1756,7 @@ const Session = {
     const { data, error } = await Backend.sb.rpc('create_chama_global', { cname: name, cdata: b });
     if (error) throw new Error(error.message);
     try { localStorage.setItem('chama:me:' + data.chama_id, JSON.stringify({ name: (this.account && this.account.full_name) || '' })); } catch (e) { /* the name is saved from the profile screen later */ }
-    flashNext(HL().welcomeNew(((this.account && this.account.full_name) || '').trim()));
+    flashNext('dialog:' + HL().welcomeNew(((this.account && this.account.full_name) || '').trim()));
     this.switchTo(data.chama_id);
   },
   async loadCodes() {
@@ -1802,7 +1816,7 @@ const Session = {
     if (error) return { error: rpcMessage(error) };
     if (!data || !data.ok) return { error: (data && data.error) || 'That code did not work.' };
     if (data.already_member) { this.switchTo(data.chama_id); return { ok: true }; }
-    Modal.open({ title: 'Join this Chama?', submitLabel: 'Join Chama',
+    __M_src_ui_modal_js.Modal.open({ title: 'Join this Chama?', submitLabel: 'Join Chama',
       body: `<p class="plain">You are joining <b>${esc(data.chama_name)}</b> (tag <b class="num">${esc(data.display_tag)}</b>) as <b>${esc(Perm.label(data.role))}</b>.</p><p class="plain mute">You can leave later from Settings.</p>`,
       onSubmit: () => { setTimeout(async () => {
         try {
@@ -2346,12 +2360,17 @@ const Gate = {
   hubPage(isWelcome) {
     if (this.sub === 'create') return this.createPage();
     const H = HL(), G = GL(), list = Session.workspaces || [];
+    if (!isWelcome && list.length > 1 && !this.scanned) {
+      if (!this.scanT) this.scanT = setTimeout(() => { this.scanT = null; this.scanned = true; this.paint(); }, 1400);
+      return `<section class="hub scan" role="status" aria-live="polite"><div class="scan-ring" aria-hidden="true"><span></span><span></span><span></span></div><h2 id="hubTitle">${esc(H.scanTitle)}</h2><p class="hub-sub">${esc(H.scanSub)}</p></section>`;
+    }
+    const multi = !isWelcome && list.length > 1;
     const back = !isWelcome && Session.role ? `<button type="button" class="hub-back" data-act="wsBack" aria-label="${esc(H.back)}">${HUB_ICON.back}</button>` : '';
     const body = list.length ? `<div class="chlist">${list.map(w => this.chamaRow(w)).join('')}</div>` : `<p class="hub-empty">${esc(H.noChamas)}</p>`;
     return `<section class="hub" aria-labelledby="hubTitle">
 <div class="hub-top">${back}</div>
-<h2 id="hubTitle">${esc(H.yourChamas)}</h2>
-<p class="hub-sub">${esc(H.selectHint)}</p>
+<h2 id="hubTitle">${esc(multi ? H.pickTitle : H.yourChamas)}</h2>
+<p class="hub-sub">${esc(multi ? H.pickSub : H.selectHint)}</p>
 <div class="hub-sec">${body}</div>
 <div class="hub-div" role="separator"></div>
 <div class="hub-sec">
@@ -2364,7 +2383,7 @@ const Gate = {
   },
   /* One Chama row. Only values the data layer returns are shown; a member count is omitted until the database supplies one */
   chamaRow(w) {
-    const H = HL(), G = GL(), on = w.chama_id === Store.chamaId;
+    const H = HL(), G = GL(), on = (this.picked || Store.chamaId) === w.chama_id;
     const meta = [w.display_tag, G.roleWord(w.role)].filter(Boolean).map(x => esc(x)).join(' · ');
     const count = typeof w.member_count === 'number' ? `<span class="chrow-count">${HUB_ICON.users}<span>${esc(H.members(w.member_count))}</span></span>` : '';
     const mark = on ? `<span class="chrow-sel">${HUB_ICON.check}<span>${esc(H.selected)}</span></span>` : '<span class="chrow-ring" aria-hidden="true"></span>';
@@ -2375,7 +2394,7 @@ const Gate = {
     const nameErr = this.nameErr ? `<p class="ferr" id="newChamaErr" role="alert">${esc(this.nameErr)}</p>` : '';
     const formErr = this.formErr ? `<p class="ferr" role="alert">${esc(this.formErr)}</p>` : '';
     return `<section class="hub" aria-labelledby="hubTitle">
-<div class="hub-top"><button type="button" class="hub-back" data-act="wsSub" data-s="" aria-label="${esc(H.back)}">${HUB_ICON.back}</button></div>
+<div class="hub-top"><button type="button" class="hub-back" data-act="wsSub" data-s="" aria-label="${esc(H.back)}">${HUB_ICON.back}</button><span class="hub-tag">${esc(H.newGroup)}</span></div>
 <h2 id="hubTitle">${esc(H.createTitle)}</h2>
 <p class="hub-sub">${esc(H.createSub)}</p>
 <form id="createForm" novalidate>
@@ -2445,9 +2464,11 @@ ${this.joinMsg ? `<p class="ferr" id="joinErr" role="alert">${esc(this.joinMsg)}
   openChama(id) {
     if (this.opening) return;
     this.opening = true;
+    this.picked = id;
+    this.paint();
     const w = (Session.workspaces || []).find(x => x.chama_id === id);
     flashNext(HL().switched(w && w.chama_name ? w.chama_name : 'Chama'));
-    Session.switchTo(id);
+    setTimeout(() => Session.switchTo(id), 450);
   },
   inviteCard() {
     const I = Invite.info, signedIn = Session.status === 'invite';
@@ -2475,6 +2496,7 @@ ${I.inviter_name ? `<div class="prow"><span>Invited by</span><b>${esc(I.inviter_
     { const hd = document.querySelector('header'); if (hd) hd.hidden = false; const jr = document.getElementById('jmRoot'); if (jr) jr.innerHTML = ''; }
     if (Session.status === 'signed-out' && OB.needed()) { $('#view').innerHTML = OB.html(); return; }
     const st = Session.status; let html; const G = GL();
+    if (st !== 'choose') this.scanned = false;
     if (st === 'invite' || (st === 'signed-out' && Invite.token && !Invite.signin && !this.sent)) { $('#view').innerHTML = this.inviteCard(); return; }
     try { if (st === 'signed-out') sessionStorage.setItem('mca-gate', JSON.stringify({ email: this.email, sent: this.sent, mode: this.mode })); else sessionStorage.removeItem('mca-gate'); } catch (e) {}
     if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>' + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'));
@@ -2570,7 +2592,7 @@ const { $ } = __M_src_lib_dom_js;
 const { toast } = __M_src_ui_toast_js;
 
 const Modal = {
-  open({ title, fields = [], body = '', submitLabel = 'Save', onSubmit, danger }) {
+  open({ title, fields = [], body = '', submitLabel = 'Save', onSubmit, danger, hideCancel }) {
     const f = fields.map(x => {
       const v = esc(x.value ?? '');
       let input;
@@ -2580,7 +2602,7 @@ const Modal = {
     }).join('');
     $('#modalRoot').innerHTML = `<div class="veil" data-act="closeModal"><form class="sheet" role="dialog" aria-modal="true">
       <div class="mhead"><button type="button" class="xbtn" data-act="closeModal" aria-label="Close">&times;</button><h3>${esc(title)}</h3><span class="xsp" aria-hidden="true"></span></div>${body}${f}
-      <div class="actions"><button type="button" class="btn" data-act="closeModal">Cancel</button>
+      <div class="actions">${hideCancel ? '' : '<button type="button" class="btn" data-act="closeModal">Cancel</button>'}
       ${onSubmit ? `<button class="btn ${danger ? 'bad' : 'pri'}">${esc(submitLabel)}</button>` : ''}</div></form></div>`;
     const form = $('#modalRoot form');
     form.addEventListener('click', e => { const a = e.target.closest('[data-act]'); if (!a || !form.contains(a)) e.stopPropagation(); });
@@ -3488,11 +3510,11 @@ const Account = {
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
     const { data, error } = await Backend.sb.rpc('request_account_deletion', { p_reason: (v.reason || '').trim() || null });
     if (error) { toast(/Leave your/i.test(error.message) ? 'You still belong to a Chama. Leave it, or hand it over, then delete your account.' : error.message); if (/Leave your/i.test(error.message)) location.hash = '#/settings/actions'; return; }
-    toast(`Deletion scheduled. You have ${DAYS} days to restore.`);
     this.checked = false; this.pending = null;
     try { await Backend.sb.auth.signOut({ scope: 'global' }); } catch (e) { /* the local sign-out below still runs */ }
     try { Object.keys(localStorage).filter(k => k.startsWith('chama:') && !/dirty/i.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) { /* storage unavailable */ }
-    return Session.signOut();
+    await Session.signOut();
+    dialogNotice('Deletion scheduled', `Your account is scheduled for deletion. You have ${DAYS} days to restore it by signing in again.`);
   },
   async restore() {
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');

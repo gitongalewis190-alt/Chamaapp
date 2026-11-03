@@ -2,7 +2,7 @@
 
 A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Current version:** 0.12.0-dev.4 (development build). **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v35`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
+**Current version:** 0.12.0-dev.4 (development build). **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v36`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
 **Last updated:** 2026-11-03
 **Owner:** Lewis Gitonga
 **Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)
@@ -54,6 +54,10 @@ A savings-group app for chamas (groups that save together and lend to each other
 | Choose a Chama screen (selected state, sign-out, switch toast) | Yes | **Pending deploy** | **Built, unverified** (stub tests only) |
 | Create a Chama screen (inline validation, welcome toast) | Yes | **Pending deploy** | **Built, unverified** (stub tests only) |
 | Join a Chama modal (key entry, friendly errors) | Yes | **Pending deploy and migration 012** | **Built, unverified** (stub tests only) |
+| Choose a Chama: scanning step, plural copy, selected state applied on tap | Yes | **Pending deploy** | **Built, unverified** (stub tests only) |
+| Centred pop-ups for every toast; new-Chama message as a dialog with Continue; deletion outcome as a dialog | Yes | **Pending deploy** | **Built, unverified** |
+| Join by key confirmation (fixed “Modal is not defined”) | Yes | **Pending deploy** | **Built, unverified** (stub tests only) |
+| Members: code-joined people counted as members | **Not built** | — | Needs approval of migration 013 |
 | Navigation drawer redesign (groups, version footer, Escape and swipe to close) | Yes | **Pending deploy** | **Built, unverified** |
 | Profile photo or initials in bottom bar | Yes | **Pending deploy** | **Built, unverified** |
 | Chama name in header | Yes | **Pending deploy** | **Built, unverified** |
@@ -90,7 +94,7 @@ Read this file, then `MIGRATION_AND_SETUP_GUIDE.md`, then section 15 (rules) bef
 
 ```
 index.html                       the whole frontend (single file, about 350 KB)
-sw.js                            service worker. Cache name must change every release (now mca-app-v35)
+sw.js                            service worker. Cache name must change every release (now mca-app-v36)
 manifest.json                    PWA manifest
 icons/                           app icons (192 and 512 px)
 tips/                            onboarding images
@@ -300,6 +304,7 @@ Each migration must have: an ordered id, purpose, affected objects, prerequisite
 | 010 | Username rule and sample-data cleanup (per older notes) | **Unknown. Not in repo** |
 | 011_chama_name_and_creator_link | Name sync trigger; creator member link | **Ready. Run after approval** |
 | 012_invite_codes_and_display_tag | Display tags; invite codes; redemption; rate limit | **Ready. Run after approval** |
+| 013_confirm_joined_members | Treasurer confirms a code-joined person as a member (creates the member record, links the access row) | **Proposed. NOT RUN. Needs owner approval** |
 
 The UI build in section 8.3 does not add a migration. Its chooser and Join a Chama screens depend on 012 for display tags and key-based joining.
 
@@ -424,6 +429,7 @@ These apply to people and to AI assistants. They are not optional.
 15. **Approval is required for:** product requirement changes, sign-in strategy changes, role authority changes, financial rule changes, destructive migrations, production data changes, production RLS changes, recurring costs, and deployment environment changes.
 16. **Dependencies:** justify each new one. Avoid services that are not needed.
 17. **Privacy:** personal data is kept to what the chama needs. The in-app privacy policy must match what the app does. Changes to data use need owner approval.
+18. **This README travels with every delivery.** Any agent that changes behaviour, schema, copy, a migration or the service worker updates this file in the same delivery, and sends it with the other files. A delivery without the current README is incomplete. The owner’s copy is also stored in the project (“My Chama App”) so future sessions read the latest version.
 
 —
 
@@ -477,7 +483,8 @@ These apply to people and to AI assistants. They are not optional.
 
 Short list. Full notes are in the app (Settings, About) and in the release notes files.
 
-- **UI build (version not yet bumped, service worker `mca-app-v35`):** Choose a Chama screen, Create a Chama screen, Join a Chama modal, redesigned navigation drawer with grouped menu and version footer, bottom-bar profile photo or initials, Chama name in the header, welcome and switched toasts. Built, unverified on phone. Open action: choose the version number (for example 0.12.0-dev.5), bump `index.html`, and write the release note.
+- **UI build (version not yet bumped, service worker `mca-app-v36`):** adds centred pop-ups for all toasts, a new-Chama dialog with Continue, a scanning step on the chooser, and the join-by-key fix. Migration 013 is proposed, not run.
+- **UI build, earlier (`mca-app-v35`):** Choose a Chama screen, Create a Chama screen, Join a Chama modal, redesigned navigation drawer with grouped menu and version footer, bottom-bar profile photo or initials, Chama name in the header, welcome and switched toasts. Built, unverified on phone. Open action: choose the version number (for example 0.12.0-dev.5), bump `index.html`, and write the release note.
 - **0.12.0-dev.4:** sign-in messages and no password fallback; Remove access rule; switch entry; creator listed or officer only; invite codes; Chama tags; 7-day invitations; account sign-out fixes; larger toasts. Pending deploy.
 - **0.12.0-dev.3:** receipts and fixes from live testing; requires migration 010 (not in repo).
 - **0.12.0-dev.2:** one account for every Chama; username or email sign-in; 30-day account deletion.
