@@ -305,6 +305,7 @@ Each migration must have: an ordered id, purpose, affected objects, prerequisite
 | 011_chama_name_and_creator_link | Name sync trigger; creator member link | **Ready. Run after approval** |
 | 012_invite_codes_and_display_tag | Display tags; invite codes; redemption; rate limit | **Ready. Run after approval** |
 | 013_confirm_joined_members | Treasurer confirms a code-joined person as a member (creates the member record, links the access row) | **Approved by owner. Not yet run in the database** |
+| 014_chama_members_joined_at | Adds `chama_members.joined_at`, which the invite-code join wrote to. Its absence caused every join by key or link to fail | **Applied by owner (column confirmed 2026-11-03). Join test pending** |
 
 The UI build in section 8.3 does not add a migration. Its chooser and Join a Chama screens depend on 012 for display tags and key-based joining.
 

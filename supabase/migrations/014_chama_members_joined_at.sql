@@ -1,0 +1,33 @@
+-- ============================================================================
+-- Migration 014: add joined_at to chama_members
+-- STATUS: APPLIED BY OWNER IN THE DATABASE (column confirmed present, 2026-11-03).
+-- Join-by-link and join-by-key still need a live test to be marked verified.
+-- ============================================================================
+-- Purpose
+--   redeem_invite_code (migration 012) writes chama_members.joined_at. The column
+--   did not exist, so every join by invite code failed with
+--   'column "joined_at" of relation "chama_members" does not exist'.
+--
+-- Affected objects
+--   public.chama_members.joined_at timestamptz (new, nullable)
+--
+-- Prerequisites
+--   chama_members exists (002). Migration 012 functions are present (checked).
+--
+-- Compatibility
+--   Additive only. Nullable, no default, no policy or function changes.
+--   Existing rows get joined_at = null.
+--
+-- Validation (read-only)
+--   1. select column_name, data_type from information_schema.columns
+--        where table_schema = 'public' and table_name = 'chama_members'
+--          and column_name = 'joined_at';                              -- one row
+--   2. Join with a fresh invite key or link on the app: no 'joined_at' error.
+--
+-- Rollback
+--   Only if no join has been recorded since this ran:
+--   alter table public.chama_members drop column if exists joined_at;
+--   Do not roll back after joins are recorded: the join times would be lost.
+-- ============================================================================
+
+alter table public.chama_members add column if not exists joined_at timestamptz;
