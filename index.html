@@ -1439,7 +1439,7 @@ function dialogNotice(title, text) {
 /* Turns a database error into a sentence the person can act on */
 function rpcMessage(err) {
   const m = (err && err.message) || '';
-  return /could not find the function|does not exist|schema cache/i.test(m) ? HL().keysNotReady : (m || HL().joinFail);
+  return /could not find the function|schema cache/i.test(m) ? HL().keysNotReady : (m || HL().joinFail);
 }
 
 /* ---- src/core/session.js ---- */
