@@ -2,7 +2,8 @@
 
 A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Current version:** 0.12.0-dev.4 (development build)
+**Current version:** 0.12.0-dev.4 (development build). **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v35`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
+**Last updated:** 2026-11-03
 **Owner:** Lewis Gitonga
 **Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)
 **Supabase project ref:** `sgfvjsxmchohawhqraii`
@@ -50,6 +51,12 @@ A savings-group app for chamas (groups that save together and lend to each other
 | Rename, then invitation shows new name | Yes | **Pending migration 011** | **Pending** |
 | Creator linked as member | Yes | **Pending migration 011** | **Pending** |
 | Switch or add a Chama entry | Yes | **Pending deploy** | **Pending** |
+| Choose a Chama screen (selected state, sign-out, switch toast) | Yes | **Pending deploy** | **Built, unverified** (stub tests only) |
+| Create a Chama screen (inline validation, welcome toast) | Yes | **Pending deploy** | **Built, unverified** (stub tests only) |
+| Join a Chama modal (key entry, friendly errors) | Yes | **Pending deploy and migration 012** | **Built, unverified** (stub tests only) |
+| Navigation drawer redesign (groups, version footer, Escape and swipe to close) | Yes | **Pending deploy** | **Built, unverified** |
+| Profile photo or initials in bottom bar | Yes | **Pending deploy** | **Built, unverified** |
+| Chama name in header | Yes | **Pending deploy** | **Built, unverified** |
 | Remove access rule (own and treasurer rows) | Yes | **Pending deploy** | **Pending** |
 | Members list for non-treasurers | Messaging fixed | **Pending deploy** | **Pending** |
 | Realtime sync (polling about 45 seconds) | Yes | Yes | Owner reports it works across browsers |
@@ -82,8 +89,8 @@ Read this file, then `MIGRATION_AND_SETUP_GUIDE.md`, then section 15 (rules) bef
 ## 3. Repository layout
 
 ```
-index.html                       the whole frontend (single file, about 320 KB)
-sw.js                            service worker. Cache name must change every release.
+index.html                       the whole frontend (single file, about 350 KB)
+sw.js                            service worker. Cache name must change every release (now mca-app-v35)
 manifest.json                    PWA manifest
 icons/                           app icons (192 and 512 px)
 tips/                            onboarding images
@@ -95,6 +102,7 @@ supabase/
   verification/
     stage0_verify_readonly.sql   read-only checks, run before consequential changes
 README.md                        this file
+CHANGES.md                       change note for the current UI build (merge into the release notes when the build is released)
 MIGRATION_AND_SETUP_GUIDE.md     first-time setup
 RELEASE_NOTES_*.md               release notes per development build
 ```
@@ -108,9 +116,11 @@ RELEASE_NOTES_*.md               release notes per development build
 ### 4.1 Frontend
 
 - One HTML file with inline CSS and JavaScript. No build step, no framework.
-- Main objects inside the script: `Backend` (Supabase client), `Session` (sign-in, workspace, roles, invitations, codes), `Store` (the Chama document, local cache, sync), `Policy` (what this role may write), `Gate` (sign-in screens), `Invite` (invitation links), `Modal`, `toast`.
+- Main objects inside the script: `Backend` (Supabase client), `Session` (sign-in, workspace, roles, invitations, codes, switching, creating), `Store` (the Chama document, local cache, sync), `Policy` (what this role may write), `Gate` (sign-in and Chama-hub screens: Welcome, Choose, Create, Join modal), `Invite` (invitation links), `Menu` and `Drawer` (navigation drawer), `Modal`, `toast`.
 - Local cache: `localStorage` keys prefixed `chama:`. Keys containing `dirty` hold unsent changes and must not be deleted silently.
-- Screen routing uses the URL hash (for example `#/settings/actions`). Opening a Chama uses `?c=<chama-id>`.
+- Screen routing uses the URL hash (for example `#/settings/actions`). Opening a Chama uses `?c=<chama-id>`. Switching Chamas loads `?c=<chama-id>` as a full page load.
+- One-time messages across a reload (for example “Switched to …” and the welcome message after creating a Chama) are stored in `sessionStorage` under `mca-flash`. The app reads and removes the key after sign-in and shows it as a toast.
+- Bilingual copy (English and Kiswahili) for the Chama hub screens comes from `HUB_T`, read through `HL()`.
 
 ### 4.2 Backend
 
@@ -136,6 +146,8 @@ RELEASE_NOTES_*.md               release notes per development build
 | `auth_throttle` | Sign-in attempt counters |
 
 Whole-document saves go straight to `chamas` with a version check. Only treasurers may update it (policy `chamas_update_treasurer`, which uses `is_treasurer(id)`).
+
+The Choose a Chama screen reads the signed-in person’s Chamas through `my_workspaces`. The UI reads `display_tag` and `member_count` from that result when present. Confirm the function returns them (section 9.3).
 
 —
 
@@ -188,6 +200,7 @@ When creating a Chama, the creator is listed by default and can untick the box. 
 - **No password fallback.** The app must never call Supabase’s password sign-in directly. That would skip the throttle.
 - **Passwords:** minimum 6 characters with letters, digits and a symbol (set in Supabase Auth).
 - **Create account:** if a session for a different email is open, it is signed out first.
+- **Sign-out:** available from the drawer and from the Choose a Chama screen (bottom of the screen). Signing out clears this phone’s Chama cache except unsent changes (section 9.3).
 - **Account deletion:** requests a 30-day hold. The person is signed out on every device, and this phone’s Chama cache is cleared except unsent changes. Blocked while the person still belongs to any Chama. Restore is possible during the 30 days.
 
 —
@@ -203,18 +216,24 @@ When creating a Chama, the creator is listed by default and can untick the box. 
 5. Expiry: **7 days** (secret `INVITE_EXPIRY_HOURS` = 168; code default is also 168).
 6. Resend creates a new token and invalidates the old link.
 
-### 8.2 Invite code (new in 0.12.0-dev.4)
+### 8.2 Invite code (in 0.12.0-dev.4)
 
 1. Treasurer (or secretary, for member and secretary codes) opens Settings, Access. The Chama tag shows at the top.
 2. Chooses role, validity (1, 7 or 30 days), number of uses (1 to 100), and optionally a listed member record.
 3. The database generates a 10-character code from a set with no look-alikes (no 0, O, 1, I, L), shown as `XXXX-XXXX-XX`. Only its SHA-256 hash is stored. The code is shown once.
-4. The person types the code (case, hyphens and spaces are ignored), sees a confirmation with the Chama name, tag and role, and confirms.
+4. The person opens **Join a Chama** (Choose a Chama screen), types the code (case, hyphens and spaces are ignored), sees a confirmation with the Chama name, tag and role, and confirms.
 5. The redemption locks the code row, so two people can never use the last use at the same moment.
 6. Already a member: the existing membership is returned, nothing changes, and no use is counted.
 7. Five failed attempts in 10 minutes block further attempts for that person.
 8. Codes can be cancelled. Expired and cancelled codes stay in the list for audit.
 
 Codes are never written to logs, the audit trail, or the email.
+
+### 8.3 Chama hub screens (this UI build)
+
+- **Choose a Chama:** lists the person’s Chamas under “Your Chamas”. The Chama currently open is pale green with a green border, a “Selected” label and a tick. “Manage your Chamas” holds Create a Chama and Join a Chama. Sign-out is at the bottom. Choosing a Chama opens it and shows “Switched to <name>”.
+- **Create a Chama:** “Let’s create your Chama.” Group details (name: trimmed, inner spaces collapsed, at least 2 characters, inline error) and Membership status (“Existing member” checkbox). On success the person is taken to the new Chama with: “Welcome to your new Chama <name>. You are the treasurer by default. Add members via the invitations.” The draft stays if creation fails.
+- **Join a Chama:** a centred modal with “Have an invitation link?”, Chama key entry, Join Chama, Sign out and Cancel. It closes on Cancel, Escape and a tap on the backdrop. Known database errors show a sentence the person can act on. A missing function reads as “keys not ready”.
 
 —
 
@@ -242,6 +261,8 @@ Codes are never written to logs, the audit trail, or the email.
 |—|—|—|
 | Treasurer can set `display_tag` directly through the table, skipping the format check | Uniqueness holds; format may be wrong | Open. Fix with a column guard in a later migration |
 | Sign-out on a phone clears local Chama cache, including unsent changes | Possible loss of unsent entries | Open. Owner decision: warn before sign-out, or keep a recovery copy |
+| Choose a Chama reads `display_tag` and `member_count` from `my_workspaces`, which may not return them | Tags and member counts missing on the chooser; the screen still works | Open. Confirm the function output |
+| “Existing member” checkbox on Create a Chama is misleading: checking it creates member 1 | Owner may expect a different result | Open. Owner to confirm wording or behaviour |
 | Realtime is polling (about 45 seconds), not push | Changes appear with a delay | Accepted for now |
 | Whole-document writes can overwrite concurrent edits | Protected by version check; conflicts shown to treasurer | Working design. Test with two devices |
 | Email sign-in depends on `auth-login` | If the function is down, password sign-in fails | Accepted. No fallback by design |
@@ -280,6 +301,8 @@ Each migration must have: an ordered id, purpose, affected objects, prerequisite
 | 011_chama_name_and_creator_link | Name sync trigger; creator member link | **Ready. Run after approval** |
 | 012_invite_codes_and_display_tag | Display tags; invite codes; redemption; rate limit | **Ready. Run after approval** |
 
+The UI build in section 8.3 does not add a migration. Its chooser and Join a Chama screens depend on 012 for display tags and key-based joining.
+
 **Note on 004:** the live policy `chamas_update_treasurer` was verified by the owner (UPDATE, `is_treasurer(id)` in both clauses). Repo copies of some policies are commented out. Keep the live policy as the reference.
 
 —
@@ -315,15 +338,17 @@ Do these in order. Stop at any unexpected result and report it.
 2. **Migrations, after approval:** 011, then 012. Copy each file’s full text into a new query, Run. Expected: “Success. No rows returned.” A message beginning “STOP:” means nothing changed.
 3. **Check:** `select name, display_tag from chamas order by name;` Every Chama has a 4-character tag.
 4. **Edge function:** Supabase, Edge Functions, `send-invitation`. Paste the single-file version, Deploy. Check secret `INVITE_EXPIRY_HOURS` = 168.
-5. **App:** Working Copy. Replace `index.html`, `sw.js`, `README.md`. Commit with a message such as `0.12.0-dev.4: invite codes, tags, sign-in fixes`. Merge to `main`. Vercel deploys.
-6. **Confirm:** reload the app. Settings, About shows the version. If an old version still appears, clear the site data in Safari and reload once.
-7. **Record:** update the status table in section 0 and the ledger in section 11.
+5. **App:** Working Copy. Replace `index.html`, `sw.js`, `README.md`, and add `CHANGES.md`. Commit with a message such as `UI: chooser, create, join, drawer; sw mca-app-v35`. Merge to `main`. Vercel deploys.
+6. **Confirm:** reload the app. Settings, About shows the version. If an old version still appears, clear the site data in Safari and reload once. Open Choose a Chama and confirm the screen is the new one.
+7. **Record:** update the status table in section 0, the ledger in section 11, and the release history in section 18.
 
 —
 
 ## 14. Testing
 
-There is no automated test suite in the current repo. Testing is manual, on a phone, with at least two accounts and one Chama.
+There is no automated test suite in the repo. Testing is manual, on a phone, with at least two accounts and one Chama.
+
+For the UI build in section 14.2, a browser test harness was run outside the repo (Python Playwright, Chromium, 390 × 844 viewport, Supabase library stubbed). It is evidence for layout and flow only. It is not a substitute for the phone checks.
 
 ### 14.1 Test plan for 0.12.0-dev.4
 
@@ -349,12 +374,32 @@ Record PASS or FAIL with a short note.
 18. **Deletion:** request deletion, the account is signed out everywhere, sign-in shows the days left, restore works.
 19. **Two-device conflict:** two devices edit the same Chama. The second save shows a conflict prompt and does not overwrite.
 
-### 14.2 Database checks (read only)
+### 14.2 Test plan for the UI build (chooser, create, join, drawer)
+
+Record PASS or FAIL on a phone, with a short note.
+
+1. **Choose a Chama, layout:** no header. Back arrow top-left. “Your Chamas” and “Manage your Chamas” sections. Sign-out at the bottom.
+2. **Selected state:** the open Chama is pale green with a green border, “Selected” and a tick. Only one is selected.
+3. **Switch toast:** choosing another Chama reloads and shows “Switched to <name>”. Test a long name; it wraps cleanly.
+4. **Create, validation:** blank name, or one character, shows an inline error. Spaces are collapsed. The draft survives an error.
+5. **Create, welcome:** creating shows “Welcome to your new Chama <name>. You are the treasurer by default. Add members via the invitations.” The Chama opens with the name in the header.
+6. **Join, key:** a short key shows a validation error. A well-formed key that does not exist shows a clear message that the key was not recognised (check the exact wording on the phone and record it). A valid key joins.
+7. **Join, missing database function:** before migration 012 is run, the message reads “keys not ready”, not a raw error.
+8. **Join, closing:** Cancel, Escape and a tap on the backdrop each close the modal.
+9. **Drawer, groups:** Chama, Money, Records and Account groups show. Menu wording is unchanged from before. Empty groups are hidden.
+10. **Drawer, closing:** the close button, Escape and swipe left each close it.
+11. **Drawer, version footer:** shows the same version as Settings, About.
+12. **Bottom bar:** the profile tab shows the user’s photo, or initials when there is no photo.
+13. **Mobile layout:** no horizontal scroll at 390 px width on the chooser, create and join screens.
+14. **Sign-out:** from the chooser and from the drawer, the account is signed out and the local cache is cleared except unsent changes.
+
+### 14.3 Database checks (read only)
 
 - Every Chama has a `display_tag` (migration 012).
 - Every Chama’s `name` equals `data.chama.name` (migration 011).
 - No Chama has more than one active row per person.
 - No invite code has `uses` above `max_uses`.
+- `my_workspaces` returns `display_tag` and `member_count` for a signed-in person (needed for section 9.3).
 
 —
 
@@ -372,7 +417,7 @@ These apply to people and to AI assistants. They are not optional.
 8. **Financial integrity:** never silently discard history. Derived balances come from records. Consider duplicates, retries, network drops, and concurrency.
 9. **Offline honesty:** label local, pending, synced, failed and conflict states. Never imply remote success.
 10. **Account deletion is not leaving a Chama.** Do not combine them.
-11. **Every release:** bump the version in `index.html`, bump the service worker cache name in `sw.js`, add a release note, update this README’s status table.
+11. **Every release:** bump the version in `index.html`, bump the service worker cache name in `sw.js`, add a release note, update this README’s status table. The UI build is not yet version-bumped; this is an open action (section 18).
 12. **Done means verified.** Report a feature as complete only after the owner reports PASS. Until then, say “built, unverified”.
 13. **Report format:** Completed / Changed / Verified / Outstanding / Risks / Approval required.
 14. **Keep the repo and the dashboard in sync** for Edge Functions. Note in the release notes which copy was deployed.
@@ -393,6 +438,8 @@ These apply to people and to AI assistants. They are not optional.
 | Invitation link shows the old Chama name | Migration 011 not run | Run 011 |
 | Members page is empty but access rows exist | Chama has no member records | Add members in Members, then link accounts when inviting |
 | Invite code says “not found” | Mistyped, or it is a link | Check the characters; a link must be pasted whole |
+| Join a Chama says “keys not ready” | Migration 012 not run, or functions not deployed | Run 012 and deploy the functions |
+| Chooser shows no tags or member counts | `my_workspaces` does not return them | Confirm the function output (section 9.3) |
 | Switch Chama missing | Old build cached | Clear site data in Safari, reload |
 | Conflict prompt on save | Two devices saved | Choose which version to keep. Do not force |
 | App shows an old version | Service worker cache | Bump cache name, redeploy, reload once |
@@ -408,6 +455,8 @@ These apply to people and to AI assistants. They are not optional.
 - Automatic cancellation of an inviter’s codes when they lose their role (open).
 - Display tag column guard (section 9.3).
 - Sign-out warning for unsent changes (section 9.3).
+- Confirm `my_workspaces` returns `display_tag` and `member_count`, or add them (section 9.3).
+- Decide the wording and behaviour of the “Existing member” checkbox (section 9.3).
 - DNS authentication for the Brevo sender domain.
 - Automated tests for the database functions.
 
@@ -428,6 +477,7 @@ These apply to people and to AI assistants. They are not optional.
 
 Short list. Full notes are in the app (Settings, About) and in the release notes files.
 
+- **UI build (version not yet bumped, service worker `mca-app-v35`):** Choose a Chama screen, Create a Chama screen, Join a Chama modal, redesigned navigation drawer with grouped menu and version footer, bottom-bar profile photo or initials, Chama name in the header, welcome and switched toasts. Built, unverified on phone. Open action: choose the version number (for example 0.12.0-dev.5), bump `index.html`, and write the release note.
 - **0.12.0-dev.4:** sign-in messages and no password fallback; Remove access rule; switch entry; creator listed or officer only; invite codes; Chama tags; 7-day invitations; account sign-out fixes; larger toasts. Pending deploy.
 - **0.12.0-dev.3:** receipts and fixes from live testing; requires migration 010 (not in repo).
 - **0.12.0-dev.2:** one account for every Chama; username or email sign-in; 30-day account deletion.
