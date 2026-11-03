@@ -57,7 +57,7 @@ A savings-group app for chamas (groups that save together and lend to each other
 | Choose a Chama: scanning step, plural copy, selected state applied on tap | Yes | **Pending deploy** | **Built, unverified** (stub tests only) |
 | Centred pop-ups for every toast; new-Chama message as a dialog with Continue; deletion outcome as a dialog | Yes | **Pending deploy** | **Built, unverified** |
 | Join by key confirmation (fixed “Modal is not defined”) | Yes | **Pending deploy** | **Built, unverified** (stub tests only) |
-| Members: code-joined people counted as members | **Not built** | — | Needs approval of migration 013 |
+| Members: confirm code-joined people as members (Members page, treasurer button) | Yes | **Pending migration 013 run and deploy** | **Built, unverified** (stub tests only) |
 | Navigation drawer redesign (groups, version footer, Escape and swipe to close) | Yes | **Pending deploy** | **Built, unverified** |
 | Profile photo or initials in bottom bar | Yes | **Pending deploy** | **Built, unverified** |
 | Chama name in header | Yes | **Pending deploy** | **Built, unverified** |
@@ -304,7 +304,7 @@ Each migration must have: an ordered id, purpose, affected objects, prerequisite
 | 010 | Username rule and sample-data cleanup (per older notes) | **Unknown. Not in repo** |
 | 011_chama_name_and_creator_link | Name sync trigger; creator member link | **Ready. Run after approval** |
 | 012_invite_codes_and_display_tag | Display tags; invite codes; redemption; rate limit | **Ready. Run after approval** |
-| 013_confirm_joined_members | Treasurer confirms a code-joined person as a member (creates the member record, links the access row) | **Proposed. NOT RUN. Needs owner approval** |
+| 013_confirm_joined_members | Treasurer confirms a code-joined person as a member (creates the member record, links the access row) | **Approved by owner. Not yet run in the database** |
 
 The UI build in section 8.3 does not add a migration. Its chooser and Join a Chama screens depend on 012 for display tags and key-based joining.
 
@@ -483,7 +483,7 @@ These apply to people and to AI assistants. They are not optional.
 
 Short list. Full notes are in the app (Settings, About) and in the release notes files.
 
-- **UI build (version not yet bumped, service worker `mca-app-v36`):** adds centred pop-ups for all toasts, a new-Chama dialog with Continue, a scanning step on the chooser, and the join-by-key fix. Migration 013 is proposed, not run.
+- **UI build (version not yet bumped, service worker `mca-app-v36`):** adds centred pop-ups for all toasts, a new-Chama dialog with Continue, a scanning step on the chooser, and the join-by-key fix. Migration 013 (approved by the owner) is written but not yet run in the database.
 - **UI build, earlier (`mca-app-v35`):** Choose a Chama screen, Create a Chama screen, Join a Chama modal, redesigned navigation drawer with grouped menu and version footer, bottom-bar profile photo or initials, Chama name in the header, welcome and switched toasts. Built, unverified on phone. Open action: choose the version number (for example 0.12.0-dev.5), bump `index.html`, and write the release note.
 - **0.12.0-dev.4:** sign-in messages and no password fallback; Remove access rule; switch entry; creator listed or officer only; invite codes; Chama tags; 7-day invitations; account sign-out fixes; larger toasts. Pending deploy.
 - **0.12.0-dev.3:** receipts and fixes from live testing; requires migration 010 (not in repo).

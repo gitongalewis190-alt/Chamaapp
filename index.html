@@ -3036,10 +3036,18 @@ const { Reports } = __M_src_lib_reports_js;
 const { av } = __M_src_ui_avatar_js;
 const { Modal, confirmBox } = __M_src_ui_modal_js;
 
+/* Treasurer-only card: people who joined by invite code and are not yet member records. Nothing is added until the treasurer confirms each one. */
+const joinedCard = s => {
+  const Sess = __M_src_core_session_js.Session, P = __M_src_core_session_js.Perm;
+  if (s.shared || !Sess || Sess.role !== 'treasurer') return '';
+  const rows = (Sess.access || []).filter(a => a.status === 'active' && !a.member_id && a.role === 'member');
+  if (!rows.length) return '';
+  return `<div class="card joined"><h4>Joined by invite code</h4><p class="mute">These people signed in with an invite code and are not on the member list yet. Confirm each one to add them. Nothing is added until you confirm.</p>${rows.map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(P.label(a.role))} · not yet a member</span></div><button class="btn sm pri" data-act="confirmJoined" data-email="${esc(a.email)}">Confirm member</button></div>`).join('')}</div>`;
+};
 const views = {
   members(s) {
     return `<div class="head"><h3>Members (${s.members.length})</h3>${adminBtn('<button class="btn pri" data-act="addMember">Add member</button>')}</div>
-      <div class="card">${s.members.length ? s.members.map((m, i) => {
+      ${joinedCard(s)}<div class="card">${s.members.length ? s.members.map((m, i) => {
         const loan = Domain.memberLoanBalance(s, m.id), fine = Domain.memberFinesDue(s, m.id), rcv = sum(s.payouts.filter(p => p.memberId === m.id), p => p.amount), rel = Domain.reliability(s, m.id);
         if (s.shared && m.id !== s.shared.me) return `<div class="row">${av(m, 32)}<div class="grow"><b>${i + 1}. ${esc(m.name)}${(m.shares || 1) > 1 ? ` x${m.shares}` : ''}</b>${rcv ? `<span class="mute num">Received ${kes(rcv)}</span>` : ''}</div></div>`;
         return `<div class="row">${av(m, 32)}<div class="grow"><b>${i + 1}. <a href="#" data-act="statement" data-id="${m.id}" style="color:inherit">${esc(m.name)}</a>${(m.shares || 1) > 1 ? ` x${m.shares}` : ''} ${m.role ? `<span class="tag">${esc(m.role)}</span>` : ''}</b>
@@ -3051,7 +3059,26 @@ const views = {
   },
 };
 
+/* Confirming a joined person writes the Chama document, so the treasurer's copy must be refreshed afterwards (otherwise the next save is refused as a conflict). */
+const openConfirmJoined = email => {
+  const base = email.split('@')[0].replace(/[._+\-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+  Modal.open({ title: 'Confirm member', submitLabel: 'Confirm member',
+    fields: [{ name: 'name', label: 'Full name', value: base, required: true }],
+    body: `<p class="plain"><b>${esc(email)}</b> joined with an invite code. Confirming adds them to the member list, where their payments and loans will be recorded.</p>`,
+    onSubmit: v => { setTimeout(() => confirmJoinedMember(email, String(v.name || '').trim()), 0); } });
+};
+const confirmJoinedMember = async (email, name) => {
+  if (!name) return __M_src_ui_toast_js.toast('Enter the member’s name');
+  const sb = __M_src_core_backend_js.Backend.sb;
+  if (!sb) return __M_src_ui_toast_js.toast('Sign-in is not set up in this app yet');
+  __M_src_ui_toast_js.toast('Confirming ' + email + '…', 'info');
+  const { error } = await sb.rpc('confirm_joined_member', { p_cid: Store.chamaId, p_email: email, p_name: name });
+  if (error) return __M_src_ui_toast_js.toast(rpcMessage(error), 'bad');
+  flashNext(name + ' is now a member.');
+  location.reload();
+};
 const actions = {
+  confirmJoined: { admin: true, run: d => openConfirmJoined(d.email) },
   addMember: { admin: true, run: () => memberForm() },
   editMember: { admin: true, run: d => memberForm(S().members.find(m => m.id === d.id)) },
   moveMember: { admin: true, run(d) {
