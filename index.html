@@ -7,8 +7,6 @@
 <link rel="icon" href="icons/logo-192.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f7b5f">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#eef2f0; --card:#fff; --ink:#12231f; --mute:#5d716b; --line:#dbe4e0;
@@ -17,7 +15,7 @@
   --r:12px; --nav:#12231f;
 }
 *{box-sizing:border-box;margin:0}
-body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;
   background-image:radial-gradient(900px 400px at 85% -10%,#cfe6dd 0,transparent 70%)}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -311,7 +309,7 @@ html[data-size=l] body{zoom:1.15}html[data-size=x] body{zoom:1.35}
 </style>
 <style>
 .a-sp body{letter-spacing:.04em;word-spacing:.16em;line-height:1.8}
-.a-ft body{font-family:'Atkinson Hyperlegible',Manrope,system-ui,sans-serif}
+.a-ft body{font-family:'Atkinson Hyperlegible',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,system-ui,sans-serif}
 .a-ul a{text-decoration:underline}
 .a-tg .btn,.a-tg input,.a-tg select,.a-tg textarea{min-height:52px;font-size:17px}.a-tg .btn.sm{padding:12px 16px}.a-tg .cell{padding:14px 2px}
 .a-rm *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
@@ -372,7 +370,7 @@ details.card summary:focus-visible{outline:2px solid var(--brand);outline-offset
 /* ---- My Chama App additions ---- */
 .splash{position:fixed;inset:0;z-index:200;background:linear-gradient(160deg,#0f7b5f,#0a5a46);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;transition:opacity .6s}
 .splash.gone{opacity:0;pointer-events:none}
-.splash .word{display:flex;align-items:baseline;font:800 clamp(40px,11vw,64px)/1 Manrope,system-ui,sans-serif;white-space:nowrap}
+.splash .word{display:flex;align-items:baseline;font:800 clamp(40px,11vw,64px)/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,system-ui,sans-serif;white-space:nowrap}
 .splash .word span{display:inline-block;overflow:hidden;max-width:0;opacity:0;transition:max-width .9s cubic-bezier(.2,.8,.2,1),opacity .6s}
 .splash .word span.cap{max-width:1.1em;opacity:1;animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
 /* the word gap must have a real width: an empty inline-block with only max-width collapses to 0 */
@@ -1019,7 +1017,7 @@ const A11y = {
     const h = document.documentElement, d = this.d, dark = d.theme === 'dark' || (d.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     h.dataset.size = d.size; h.dataset.mode = dark ? 'dark' : 'light'; h.classList.toggle('hc', !!d.hc);
     ['cb', 'ft', 'sp', 'ul', 'tg', 'rm'].forEach(k => h.classList.toggle('a-' + k, !!d[k]));
-    if (d.ft && !this.f) { this.f = 1; const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap'; document.head.appendChild(l); }
+    if (d.ft && !this.f) { this.f = 1;  }
     const ra = $('#ra'); if (ra) ra.hidden = !(d.read && 'speechSynthesis' in window);
   },
   refocus(sel) { const e = document.querySelector(sel); if (e) e.focus(); }
@@ -1575,6 +1573,7 @@ const Session = {
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
       if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); }
       else if (ev === 'SIGNED_IN' && sess && !this.verifying && (!this.user || this.user.id !== sess.user.id)) this.after(sess.user);
+      if (sess) OB.syncConsent();
     });
     const { data } = await Backend.sb.auth.getSession();
     if (data && data.session) { if (!this.user) await this.after(data.session.user); }
@@ -2086,7 +2085,7 @@ document.addEventListener('click', e => { if (e.target.closest && e.target.close
 /* What the person typed survives a reload or a trip to the mail app (this tab only) */
 const gateSaved = () => { try { return JSON.parse(sessionStorage.getItem('mca-gate')) || {}; } catch (e) { return {}; } };
 /* ---- first run, before sign-in: language, a short tour, then the privacy policy ---- */
-const OB_POLICY_VERSION = '2026-10-30-v1';
+const OB_POLICY_VERSION = '2026-11-04-v2';
 const OB_KEY = 'mca-onboard';
 const OB_ICON_LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>';
 const OB_ICON_MAIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>';
@@ -2160,6 +2159,8 @@ const OB_TIPS = {
 const OB = {
   pick: null, slide: 0, ag1: false, ag2: false, revisit: false,
   read() { try { return JSON.parse(localStorage.getItem(OB_KEY)) || {}; } catch (e) { return {}; } },
+  syncConsent() { const st = this.read(); if (st.policy !== OB_POLICY_VERSION || !st.agreedAt || st.serverSynced === OB_POLICY_VERSION || !Backend.sb) return;
+    Backend.sb.rpc('record_consent', { p_policy_version: OB_POLICY_VERSION, p_app_version: APP.version }).then(r => { if (!r.error && r.data && r.data.ok) this.write({ serverSynced: OB_POLICY_VERSION }); }).catch(() => {}); },
   write(p) { try { localStorage.setItem(OB_KEY, JSON.stringify(Object.assign(this.read(), p))); } catch (e) { toast('Storage is full. Free some space and try again'); } },
   lang() { const l = this.read().lang; return OB_T[l] ? l : 'en'; },
   L() { return OB_T[this.lang()]; },
@@ -2211,17 +2212,17 @@ const OB = {
   policyHTML() {
     const c = (typeof APP !== 'undefined' && APP.privacyContact) ? esc(APP.privacyContact) : 'the privacy contact shown in the app settings (to be added)';
     return `<h3>1. Who we are</h3><p>My Chama App helps a savings group (a chama) keep its records. The person or organisation that runs the app is the data controller for the personal data described here. Privacy contact: ${c}. [Registered name and Data Protection Commissioner registration number: to be added before launch.]</p>
-<h3>2. What we collect</h3><ul><li>Account details: your email address, which signs you in, and your name. Phone number and photo are optional.</li><li>Chama records: members, contributions, loans and repayments, fines, expenses, and a history of changes made by the treasurer.</li><li>Device data: your sign-in session and preferences such as language, text size and colours, kept in your browser.</li></ul>
+<h3>2. What we collect</h3><ul><li>Account details: your email address, which signs you in, a password you set (held in encrypted form by our sign-in provider), and your name. Phone number and photo are optional.</li><li>Chama records: members, contributions, loans and repayments, fines, expenses, and a history of changes made by the treasurer.</li><li>Device data: your sign-in session and preferences such as language, text size and colours, kept in your browser.</li></ul>
 <h3>3. Why we use it</h3><ul><li>To sign you in and to show and protect your chama’s records. This is needed to provide the service you asked for.</li><li>To show notices about your chama inside the app.</li><li>To meet legal duties, such as keeping financial records where the law requires it.</li></ul>
 <p>The legal bases are your consent, which you give by accepting this policy, performance of the service you ask for, and our legitimate interest in keeping records accurate and secure. Late fines and reminders follow rules your treasurer sets, and a person decides whether to apply them.</p>
-<h3>4. Who can see your data</h3><ul><li>Members of your chama can read the chama’s records. Only the treasurer can change them. This is how a chama works.</li><li>Service providers that host and run the app for us under contract: Supabase (database and sign-in codes) and Vercel (website hosting).</li><li>Authorities, where the law requires it.</li></ul><p>We do not sell personal data and we do not show advertising.</p>
+<h3>4. Who can see your data</h3><ul><li>Members of your chama can read the chama’s records. Only the treasurer can change them. This is how a chama works.</li><li>Service providers that host and run the app for us under contract: Supabase (database and sign-in), Vercel (website hosting) and Brevo (sending invitation and sign-in emails).</li><li>Authorities, where the law requires it.</li></ul><p>We do not sell personal data and we do not show advertising.</p>
 <h3>5. Where data is stored</h3><p>Records are kept in a hosted database. Where data is processed or stored outside Kenya, we use the safeguards that the Data Protection Act, 2019 requires for cross-border transfers (sections 48 to 50). [Hosting region: to be confirmed.]</p>
 <h3>6. Children</h3><p>The app is for adults. By accepting, you confirm that you are 18 or older, or that a parent or guardian agrees on your behalf. Under section 33 of the Data Protection Act, 2019, a child’s personal data may be processed only with the consent of a parent or guardian.</p>
-<h3>7. How long we keep data</h3><p>Chama records are kept while the chama uses the app, and for as long as the law requires for financial records. If you are removed from a chama, your sign-in access ends, but past records stay with the chama because they belong to the group. You can ask us to delete your personal data. Where records must be kept, we will tell you why.</p>
-<h3>8. Security</h3><p>Data travels over encrypted connections. Sign-in uses one-time email codes, not passwords. In the database, access to records is limited to people who belong to the chama, and only the treasurer can write changes. If a personal data breach happens, we will notify the Data Protection Commissioner and the people affected as the Act requires, including within 72 hours where the Act sets that limit.</p>
+<h3>7. How long we keep data</h3><p>Chama records are kept while the chama uses the app, and for as long as the law requires for financial records. If you delete your account, your sign-in details and profile are removed after 30 days. Payments and other financial records stay with the chama because the law requires them to be kept; your name may remain on those records. If you are removed from a chama, your sign-in access ends, but past records stay with the chama because they belong to the group. You can ask us to delete your personal data. Where records must be kept, we will tell you why.</p>
+<h3>8. Security</h3><p>Data travels over encrypted connections. Sign-in needs your password and a one-time code sent to your email. Treasurer-only actions are checked on the server, not only in the app. In the database, access to records is limited to people who belong to the chama, and only the treasurer can write changes. If a personal data breach happens, we will notify the Data Protection Commissioner and the people affected as the Act requires, including within 72 hours where the Act sets that limit.</p>
 <h3>9. Your rights</h3><p>Under sections 26 to 34 of the Data Protection Act, 2019, you have the right to:</p><ul><li>be told how your data is used;</li><li>access your data;</li><li>have inaccurate data corrected;</li><li>have data deleted in some cases;</li><li>object to some uses, and restrict them;</li><li>receive your data in a usable form (portability);</li><li>not be subject to decisions based only on automated processing that significantly affect you.</li></ul><p>To download your data, open Settings, then Privacy and data, then Download my data. For any other request, write to the privacy contact above.</p>
 <h3>10. Complaints</h3><p>You can complain to the Office of the Data Protection Commissioner (odpc.go.ke) if you think your data is not being handled lawfully.</p>
-<h3>11. Changes</h3><p>If we make important changes, we will show you the new policy and ask you to accept it again before you continue.</p>
+<h3>11. Changes</h3><p>If we make important changes, we will show you the new policy and ask you to accept it again before you continue. We keep a record of when you accepted each version.</p>
 <h3>12. Terms of use</h3><ul><li>Use the app for your own chama. Keep your sign-in code private and do not share your account.</li><li>The treasurer is responsible for the records they enter. The app keeps records. It does not hold or move money.</li><li>The app is a record-keeping tool. It does not give legal or financial advice.</li></ul>
 <h3>13. Withdrawing consent</h3><p>You can withdraw your consent at any time by asking your treasurer to remove your access, or by contacting us. This does not affect processing that happened before you withdrew.</p>`;
   }
@@ -2591,6 +2592,34 @@ const { esc } = __M_src_core_utils_js;
 const { $ } = __M_src_lib_dom_js;
 const { toast } = __M_src_ui_toast_js;
 
+/* Payments go to the server first (table chama_payments, RPC record_payment). A repeated tap or retry reuses the same
+   request key, so the server records it once. The local record is updated only after the server confirms. */
+const newRequestKey = () => (crypto.randomUUID ? crypto.randomUUID()
+  : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)));
+const pendingPayKeys = new Map();
+async function savePayments(list) {
+  const saved = [];
+  try {
+    for (const p of list) {
+      const sig = [p.memberId, p.month, p.amount, p.code || ''].join('|');
+      if (!pendingPayKeys.has(sig)) pendingPayKeys.set(sig, newRequestKey());
+      const { data, error } = await Backend.sb.rpc('record_payment', {
+        p_cid: Store.chamaId, p_member: p.memberId, p_month: p.month, p_amount: p.amount,
+        p_code: p.code || null, p_date: p.date, p_idem: pendingPayKeys.get(sig) });
+      if (error) throw error;
+      if (!data || !data.ok) { if (data && data.status === 'duplicate_code') pendingPayKeys.delete(sig); throw new Error((data && data.error) || 'Payment not recorded'); }
+      pendingPayKeys.delete(sig);
+      saved.push(p);
+    }
+  } catch (err) {
+    toast(err && err.message && !/fetch|network|Failed/i.test(err.message) ? err.message : 'Payment not saved. Check your connection and try again.');
+  }
+  if (saved.length) {
+    Store.commit(st => saved.forEach(p => st.payments.push({ id: uid(), memberId: p.memberId, month: p.month, amount: p.amount, code: p.code || '', date: p.date })));
+    saved.forEach(p => { if (p.learn) Matcher.learn(p.learn.m, p.learn.t); });
+    toast(saved.length === 1 ? 'Payment recorded' : saved.length + ' payments recorded');
+  }
+}
 const Modal = {
   open({ title, fields = [], body = '', submitLabel = 'Save', onSubmit, danger, hideCancel }) {
     const f = fields.map(x => {
@@ -2827,12 +2856,7 @@ const Import = {
       const picks = txs.map((t, i) => ({ t, i })).filter(x => v['inc_' + x.i] != null);
       if (!picks.length) throw new Error('Nothing selected');
       picks.forEach(({ t, i }) => { if (!v['m_' + i]) throw new Error('Choose a member for ' + t.code); });
-      Store.commit(st => picks.forEach(({ t, i }) => {
-        const m = st.members.find(x => x.id === v['m_' + i]);
-        st.payments.push({ id: uid(), memberId: m.id, month: v['mo_' + i], amount: t.amount, code: t.code, date: t.date || todayISO() });
-        Matcher.learn(m, t);
-      }));
-      toast(picks.length + ' payment(s) recorded');
+      savePayments(picks.map(({ t, i }) => { const m = S().members.find(x => x.id === v['m_' + i]); return { memberId: m.id, month: v['mo_' + i], amount: t.amount, code: t.code, date: t.date || todayISO(), name: m.name, learn: { m, t } }; }));
     } });
   }
 };
@@ -2889,7 +2913,7 @@ const actions = {
     Modal.open({ title: `${m.name}, ${monthLabel(d.mo)}`, fields: [
       { name: 'amount', label: 'Amount (KES)', type: 'number', placeholder: 'e.g. ' + Domain.dueFor(s, m.id).toLocaleString('en-KE') + ' (what is due)' },
       { name: 'code', label: 'M-Pesa code (optional)', placeholder: 'e.g. SJK4L2P9QX' }],
-      onSubmit: v => { const amount = num(v.amount, 'Amount'); const code = (v.code || '').trim().toUpperCase(); if (code && S().payments.some(p => p.code === code)) throw new Error('That M-Pesa code is already recorded'); Store.commit(st => st.payments.push({ id: uid(), memberId: m.id, month: d.mo, amount, code: (v.code || '').trim().toUpperCase(), date: todayISO() })); toast('Payment recorded'); } });
+      onSubmit: v => { const amount = num(v.amount, 'Amount'); const code = (v.code || '').trim().toUpperCase(); if (code && S().payments.some(p => p.code === code)) throw new Error('That M-Pesa code is already recorded'); savePayments([{ memberId: m.id, month: d.mo, amount, code, date: todayISO(), name: m.name }]); } });
   } },
   delPay: { admin: true, run: d => confirmBox('Remove this payment?', () => Store.commit(s => { s.payments = s.payments.filter(p => p.id !== d.id); })) },
   editPay: { admin: true, run(d) {
@@ -3349,11 +3373,13 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.12.0-dev.5', released: '2026-11-03',
+  name: 'My Chama App', version: '0.12.1-dev.2', released: '2026-11-04',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.12.0-dev.5', 'Scan fix round: centred pop-ups, a scanning step when you have more than one Chama, the join-by-key crash fix and a forced refresh of the app.'],
+  notes: [['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
+  ['0.12.1-dev.1', 'Payments are now saved on the server first, with a request key, so a double tap or a retry cannot record the same payment twice. The M-Pesa code is checked by the database too. Payments show as recorded only after the server confirms them.'],
+  ['0.12.0-dev.5', 'Scan fix round: centred pop-ups, a scanning step when you have more than one Chama, the join-by-key crash fix and a forced refresh of the app.'],
     ['0.12.0-dev.4', 'Sign-in shows the real reason and no longer falls back to a direct password check. Remove access is hidden on your own row and on treasurer rows. You can switch or add a Chama at any time, and the list shows each Chama tag. When you create a Chama or invite someone, you choose whether you are listed as a member or are an officer only. Invitations last 7 days. Invite codes: the treasurer can create a code with a role, a validity of 1, 7 or 30 days and a number of uses; a person types the code, checks the Chama on the confirmation screen, then joins. Codes can be cancelled. Members who cannot see the member list are told why. Not yet tested on a phone.'], ['0.12.0-dev.3', 'Fixes from live testing: no hidden default Chama and no sample data; the username is chosen by the person; profile shows the real group and role; leave, hand-over and delete account give a clear next step; invitations show the real error; expired codes are named; passwords need a number; the notification badge shows the exact count (up to 99+). Requires migration 010.'],
     ['0.12.0-dev.2', 'Development build. One account and one password for every Chama: sign in with email or username. Create your account with an email code, then choose your name, a username and a password. Members see their own payments, loans and fines plus group totals only. Hand over the treasurer role, leave a Chama, switch between Chamas, delete your account with a 30-day restore window. Invitations last 48 hours. '],
     ['0.12.0-dev.1', 'Development build. Treasurers can invite people by email and choose Member, Secretary or Treasurer. The person opens the link, sees who invited them and accepts. Nobody is added until they accept. Needs the new database steps; until then the old Add person way keeps working. '], ['0.11.0', 'Sign out asks you to confirm before it closes the app. When a member asks to delete their account, the other members see a notice on the Notifications page with a live countdown. They can hide it, and Show hidden brings it back. The notice does not show the reason. '], ['0.10.0', 'Delete my account is in Settings, Privacy and data. Pick a reason, confirm your password and read the disclaimer: the account is not permanently deleted and is kept for 30 days, when you can restore it. Signing in shows the days left with a Restore button. '], ['0.9.0', 'Sign-in and sign-up are one card with one button. Enter your email and password and press Continue: if you have an account you go on to the email code; if not, the card offers Create account with the same password checks as before. Apple and Google sign-in are shown as coming soon. '], ['0.8.0', 'Sign-in takes your email and password first. Invited people set a password once. Sign-up asks for a password with live checks: 6 characters, a capital letter and a symbol. One email can join several chamas, but each chama needs its own password for that email. The email code is still the last step. '], ['0.7.1', 'Sign out in the menu closes the session and plays the opening animation again. The menu has a green background with white entries. '], ['0.7.0', 'First run: choose a language, take a short tour, then read the privacy policy and agree to it. Sign-in has Sign in and Sign up. Sign up asks for your name when you start a chama, and an email that already has a chama is asked to sign in. The opening animation has no Skip button. '], ['0.6.16', 'Sign-in is by email code only. The authenticator app and QR setup are removed, so no one needs a second device. Fixes the "Can\'t find variable: esc" error, which came from that setup screen. '], ['0.6.15', 'The home page shows a full-page skeleton while it loads, and a sign-in fault that showed "Can\'t find variable: esc" is fixed. '], ['0.6.14', 'Welcome types straight after the code is accepted. The code boxes are larger, in two rows, with a blinking cursor and glossy keys. Long-press paste works on the first box. The mail icon folds away as the check starts. A page that fails to draw no longer sends you back to sign-in. '], ['0.6.13', 'The welcome types "Welcome, John" with a wave through the letters, then the home page shows its skeletons. Sign-in no longer lands on a false error page, and error pages say what went wrong. Wrong codes break apart quickly. '], ['0.6.12', 'A wrong code now shatters the boxes, clears them and puts the cursor back, ready for the new code. The app no longer flickers in and out while a code is being checked. '], ['0.6.11', 'Sign-in: a sending screen before the boxes, a full check animation before Welcome, Cancel and Skip buttons on every waiting screen, Send again empties the boxes, and the boxes sit in a layered card with depth. The welcome reads the first name from the email. '], ['0.6.10', 'The number of code boxes now follows Supabase every time the app opens, so it matches the email without anyone signing in first.'], ['0.6.9', 'The mail icon now stays until the code check starts, not on the first digit. The code length is copied from Supabase when the treasurer signs in.'], ['0.6.8', 'The code length now comes straight from Supabase: the treasurer app refreshes it after sign-in, and the sign-in screen uses it. The mail icon keeps a gentle wave while it waits.'], ['0.6.7', 'A string-art mail icon sits above the code boxes. The letter rises and floats, and the icon switches off as soon as you start typing. Smoother press feedback and cleaner spacing on the code screen.'], ['0.6.6', 'Reloads and trips to the mail app keep your place: the email and the digits typed so far come back. Paste code button on the code screen. Buttons respond to touch, and the main sign-in actions have a short note under them.'], ['0.6.5', 'Sign-in recovers on its own: a check that hangs shows a clear message and a retry instead of sitting still. The code length follows the Supabase setting. Paste a code straight into the boxes. Buttons stack neatly on phones. The welcome shows a glowing skeleton, then types your name before the home page opens.'], ['0.6.4', 'Codes are 8 digits, with a faster animation: the boxes fill, spin around the ring and merge. Wrong codes get a clear, firm message. Buttons and boxes respond to touch, and phones that support it give a short vibration.'], ['0.6.3', 'Fixed the screen that stayed on the email step after a code was sent. The code screen now opens straight away, and the code check and confirmation work.'], ['0.6.2', 'Sign-in with the 6-digit code goes straight into the app once the code is confirmed. The code screen has a clear animation, a Send again timer, and a clear message if the code does not match.'], ['0.6.0', 'Sign-in is now a 6-digit code only. Type it, or let your phone fill it from the email. A new code can be asked for after one minute. Treasurer two-step sign-in uses the same code boxes, and the app shows the setup key properly.'], ['0.5.6', 'Two-step sign-in works on one phone. Copy the setup key, paste it into your authenticator app, then type the code. You can set it up in Account actions as well as at sign-in.'], ['0.5.5', 'Treasurers now sign in with an authenticator app as well as the email link. The first time, the app shows a QR code to scan. After that, it asks for the 6-digit code each time.'], ['0.5.4', 'Sign-in works across browsers. The sign-in email now includes a 6-digit code: type it on the Check your email screen and you are in, whichever browser the link opened in. I have opened the link never shows an error.'], ['0.5.3', 'Sign-in never leaves you stuck. "Check your email" has Start again and I have opened the link. The app also checks for a finished sign-in when you come back to it, so it updates by itself. Every sign-in screen has a Start again button.'], ['0.5.2','The menu opens and closes with a soft slide and fade. Its items settle in one after another, and a thin green marker glides to the item under your finger or focus and rests on the page you are on. The bottom tab bar moves twice as fast.'], ['0.5.1', 'The app name shows in full on the sign-in screen and at the top of every page, and the opening animation writes MCA by hand before the name appears. Adding a person as treasurer shows them in the access list straight away, and sign-in links keep the chama you opened.'], ['0.5.0', 'Renamed to My Chama App with the new logo and a short opening animation. Sign-in is connected to the new cloud project. The menu button is green and the menu opens with the logo above a green line.'], ['0.4.1', 'Menu locks the page behind it so the page no longer scrolls while the menu is open. The bell stays in the top-right corner on phones. The menu scrolls on small screens so Settings is always reachable. Version history lists every release.'], ['0.4.0', 'Menu entries are raised cards, with Settings last. Back buttons return to the screen you came from. Member photos show next to names in payments, fines and loans. Sign-in, member profiles and the access list are built but switched off. The treasurer PIN is removed.'], ['0.3.0', 'Redesigned notifications: smart search, filters for Financial, Group and System, and a detail page for each item. An item is read only when you open it. The bell has depth and rings when something new arrives. The tab bar hides on pages that are not main tabs.'], ['0.2.0', 'Bell on the main tabs with unread counts. What is new moved into Notifications. Help centre with searchable guides, troubleshoot checks, report copy and regulator contact. The tab bar hides while the menu is open.'], ['0.1.0', 'Menu with Settings in sections, a Profile tab, profile photos, dark mode, accessibility options, coloured messages, and a steadier signature pad.']],

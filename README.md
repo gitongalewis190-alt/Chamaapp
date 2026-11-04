@@ -2,7 +2,7 @@
 
 A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Current version:** 0.12.0-dev.5 (development build). **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v38`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
+**Current version:** 0.12.1-dev.2 (development build; payment guard, needs migration 016 on the database first). **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v38`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
 **Last updated:** 2026-11-03
 **Owner:** Lewis Gitonga
 **Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)
@@ -94,7 +94,7 @@ Read this file, then `MIGRATION_AND_SETUP_GUIDE.md`, then section 15 (rules) bef
 
 ```
 index.html                       the whole frontend (single file, about 350 KB)
-sw.js                            service worker. Cache name must change every release (now mca-app-v38)
+sw.js                            service worker. Cache name must change every release (now mca-app-v40)
 manifest.json                    PWA manifest
 icons/                           app icons (192 and 512 px)
 tips/                            onboarding images
@@ -484,6 +484,8 @@ These apply to people and to AI assistants. They are not optional.
 
 Short list. Full notes are in the app (Settings, About) and in the release notes files.
 
+- **0.12.1-dev.2 (service worker `mca-app-v40`):** consent recorded on the server (migration 017), corrected privacy policy (version 2026-11-04-v2).
+- **0.12.1-dev.1 (service worker `mca-app-v39`):** payments recorded on the server with a request key (migration 016). Needs 016 applied to the database before this build goes live.
 - **0.12.0-dev.5 (service worker `mca-app-v38`):** scan fix round. Forces browsers to load the new build (v36 may have been served from cache, which explains the missing iOS-style pop-up). Adds centred pop-ups for all toasts, a new-Chama dialog with Continue, a scanning step on the chooser, and the join-by-key crash fix. Join errors now show the real server message unless the functions are missing. Known open items: the join-by-key message “Chama keys are not available on this server yet” means the live join-error text was previously mapped too broadly (checked: preview_invite_code and redeem_invite_code exist), so the real server message is now shown; member photos for people who joined by code are not visible to other members; migration 013 (approved by the owner) is not yet run in the database.
 - **UI build, earlier (`mca-app-v35`):** Choose a Chama screen, Create a Chama screen, Join a Chama modal, redesigned navigation drawer with grouped menu and version footer, bottom-bar profile photo or initials, Chama name in the header, welcome and switched toasts. Built, unverified on phone. Open action: choose the version number (for example 0.12.0-dev.5), bump `index.html`, and write the release note.
 - **0.12.0-dev.4:** sign-in messages and no password fallback; Remove access rule; switch entry; creator listed or officer only; invite codes; Chama tags; 7-day invitations; account sign-out fixes; larger toasts. Pending deploy.
