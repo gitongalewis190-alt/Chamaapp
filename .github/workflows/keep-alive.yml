@@ -1,0 +1,30 @@
+# Daily keep-alive: sends one read-only request to the Supabase project so it is not paused for inactivity.
+# Setup (once): GitHub repo → Settings → Secrets and variables → Actions → New repository secret
+#   Name: SUPABASE_ANON_KEY   Value: the project's anon (public) key. Never commit the key to this file.
+name: keep-alive
+on:
+  schedule:
+    - cron: "17 6 * * *"        # 06:17 UTC daily (09:17 Nairobi)
+  workflow_dispatch: {}          # also allows a manual "Run workflow" click
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (read-only RPC)
+        env:
+          SUPABASE_URL: https://sgfvjsxmchohawhqraii.supabase.co
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_ANON_KEY:-}" ]; then echo "SUPABASE_ANON_KEY secret is missing"; exit 1; fi
+          code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/get_app_config" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "HTTP $code"
+          cat /tmp/resp.json; echo
+          [ "$code" = "200" ] || { echo "Keep-alive failed"; exit 1; }
