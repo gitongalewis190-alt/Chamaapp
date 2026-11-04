@@ -2,7 +2,7 @@
 
 A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Current version:** 0.12.1-dev.2 (development build; payment guard, needs migration 016 on the database first). **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v38`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
+**Current version:** 0.12.3-dev.1 (development build; one profile for every Chama, needs migration 019 on the database first). Migration 016 (payment guard) must also be applied. **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v38`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
 **Last updated:** 2026-11-03
 **Owner:** Lewis Gitonga
 **Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)
@@ -94,7 +94,7 @@ Read this file, then `MIGRATION_AND_SETUP_GUIDE.md`, then section 15 (rules) bef
 
 ```
 index.html                       the whole frontend (single file, about 350 KB)
-sw.js                            service worker. Cache name must change every release (now mca-app-v40)
+sw.js                            service worker. Cache name must change every release (now mca-app-v42)
 manifest.json                    PWA manifest
 icons/                           app icons (192 and 512 px)
 tips/                            onboarding images
@@ -301,6 +301,7 @@ Each migration must have: an ordered id, purpose, affected objects, prerequisite
 | 007_retire_legacy | Removes old code paths | Applied |
 | 008_member_privacy_and_versions | Limited member view, version column | Applied |
 | 009_ownership_leaving_deletion | Hand-over, leaving, 30-day deletion | Applied |
+| 019_global_profile | One profile for every Chama: photo, name, username, phone, contact email on the account; member photos for members of the same Chama | **Draft, not applied.** Test on staging first (tested on local PostgreSQL 16 with stubs) |
 | 010 | Username rule and sample-data cleanup (per older notes) | **Unknown. Not in repo** |
 | 011_chama_name_and_creator_link | Name sync trigger; creator member link | **Ready. Run after approval** |
 | 012_invite_codes_and_display_tag | Display tags; invite codes; redemption; rate limit | **Ready. Run after approval** |
@@ -484,6 +485,8 @@ These apply to people and to AI assistants. They are not optional.
 
 Short list. Full notes are in the app (Settings, About) and in the release notes files.
 
+- **0.12.3-dev.1 (service worker `mca-app-v42`):** design tokens and named card and button variants (first pass). Drawer header solid; Chama rows use the selection card. Other screens unchanged so far.
+- **0.12.2-dev.1 (service worker `mca-app-v41`):** one profile for every Chama. Photo, name, username, phone and contact email are saved once on the account (migration 019) and used in every Chama. My profile has a Password card: one global password, checked before it changes. Members see each other’s photos through `get_chama_member_profiles`. The treasurer’s member list shows each person’s account name when the treasurer opens the Chama. Photos added on another phone before this build must be added again.
 - **0.12.1-dev.2 (service worker `mca-app-v40`):** consent recorded on the server (migration 017), corrected privacy policy (version 2026-11-04-v2).
 - **0.12.1-dev.1 (service worker `mca-app-v39`):** payments recorded on the server with a request key (migration 016). Needs 016 applied to the database before this build goes live.
 - **0.12.0-dev.5 (service worker `mca-app-v38`):** scan fix round. Forces browsers to load the new build (v36 may have been served from cache, which explains the missing iOS-style pop-up). Adds centred pop-ups for all toasts, a new-Chama dialog with Continue, a scanning step on the chooser, and the join-by-key crash fix. Join errors now show the real server message unless the functions are missing. Known open items: the join-by-key message “Chama keys are not available on this server yet” means the live join-error text was previously mapped too broadly (checked: preview_invite_code and redeem_invite_code exist), so the real server message is now shown; member photos for people who joined by code are not visible to other members; migration 013 (approved by the owner) is not yet run in the database.

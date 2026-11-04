@@ -744,6 +744,45 @@ svg.hchev{width:20px;height:20px;flex-basis:20px;color:var(--mute)}
 @media (prefers-reduced-motion:reduce){.jm-veil,.jm{animation:none!important}.chrow,.actrow,.fprimary,.hub-back{transition:none!important}}
 </style>
 
+<style id="design-system-v2">
+/* ===== 0.12.3-dev.1: design tokens and named variants (spec phase 2 and 3, first pass) =====
+   Tokens are additive. Variants are opt-in classes; existing screens keep their look unless they use them. */
+:root{
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px;
+  --radius-sm:10px; --radius-md:14px; --radius-lg:20px; --radius-pill:999px;
+  --emerald:#17a67a; --mint:#7fe0bd; --sage:#5d716b; --green-tint:#e6f4ee; --green-line:#bfdccf;
+  --elev-1:0 1px 2px rgba(18,35,31,.06); --elev-2:0 6px 18px rgba(18,35,31,.10);
+  --motion-fast:.16s cubic-bezier(.2,.8,.2,1); --motion-base:.28s cubic-bezier(.2,.8,.2,1);
+  --type-label:12.5px; --type-body:15px; --type-title:18px; --type-display:26px;
+}
+html[data-mode=dark]{ --green-tint:#17332a; --green-line:#2c5a4a; --sage:#9fb5ad; }
+
+/* drawer header: solid brand colour, no gradient (spec 3, Colour) */
+.drawer .dhead{background:var(--brand)}
+
+/* buttons: explicit variants */
+.btn.sec{background:var(--card);color:var(--brand-d);border-color:var(--green-line)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--brand-d)}
+.btn.danger{background:var(--bad-t);border-color:transparent;color:var(--bad)}
+.btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+/* card variants (spec 4). Pick one per surface; do not nest. */
+.vc-nav,.vc-select,.vc-info,.vc-action,.vc-danger,.vc-status{border-radius:var(--radius-md);background:var(--card);color:var(--ink);transition:background var(--motion-fast),border-color var(--motion-fast),transform var(--motion-fast)}
+.vc-nav,.vc-select{cursor:pointer;border:1px solid var(--line)}
+.vc-nav:hover,.vc-select:hover{background:var(--green-tint)}
+.vc-nav:active,.vc-select:active{transform:scale(.985)}
+.vc-info{border:1px solid var(--line);padding:var(--space-4)}
+.vc-action{border:1px solid var(--green-line);background:var(--green-tint);padding:var(--space-4)}
+.vc-danger{border:1px solid var(--bad-t);background:var(--bad-t);color:var(--bad);cursor:pointer}
+.vc-status{border:1px solid var(--line);padding:var(--space-3) var(--space-4)}
+.vc-select[aria-current=true],.vc-select.cur{border-color:var(--brand);background:var(--green-tint);box-shadow:inset 3px 0 0 var(--brand)}
+
+/* Chama selection rows use the select variant */
+.chrow{border-radius:var(--radius-md)}
+.chrow.cur{border-color:var(--brand)}
+
+@media (prefers-reduced-motion:reduce){.vc-nav,.vc-select,.vc-action,.vc-danger{transition:none}.vc-nav:active,.vc-select:active{transform:none}}
+</style>
 </head>
 <body><label id="hapticSw" style="position:fixed;left:-9999px;top:0;opacity:0"><input type="checkbox" switch></label>
 <div class="splash" id="splash">
@@ -1343,7 +1382,7 @@ const Store = (() => {
   }
   /* removes every chama record on this phone (sign-out on a shared phone) */
   function wipeLocal() {
-    Object.keys(localStorage).filter(k => k.startsWith('chama:')).forEach(k => localStorage.removeItem(k));
+    Object.keys(localStorage).filter(k => k.startsWith('chama:') || k === 'mca-profile').forEach(k => localStorage.removeItem(k));
     state = null; undoStack.length = 0;
   }
 
@@ -1515,7 +1554,7 @@ const Invite = {
 Invite.init();
 
 const Session = {
-  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null,
+  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null, memberPics: {},
   ready() { return this.status === 'ready' || this.status === 'demo'; },
   canWrite() { return Perm.can(this.role, 'finance.record'); },
   /* Runs when the person comes back to the page: picks up a sign-in finished in another browser or app */
@@ -1563,7 +1602,7 @@ const Session = {
   displayName() {
     if (this.account && this.account.full_name) return String(this.account.full_name).trim().split(/\s+/)[0];
     if (this.email) return this.nameFrom(this.email);
-    try { const me = JSON.parse(localStorage.getItem('chama:me:' + Store.chamaId) || '{}'); if (me.name) return String(me.name).trim().split(/\s+/)[0]; } catch (e) {}
+    try { const me = JSON.parse(localStorage.getItem('mca-profile') || '{}'); if (me.name) return String(me.name).trim().split(/\s+/)[0]; } catch (e) {}
     return '';
   },
   async boot() {
@@ -1607,7 +1646,8 @@ const Session = {
       const keep = 'chama:' + Store.chamaId;
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith('mca-set-aside:')) localStorage.removeItem(k);
-        else if (k.startsWith('chama:') && !k.startsWith(keep)) localStorage.removeItem(k);
+        else if (k === 'mca-profile') { try { if ((JSON.parse(localStorage.getItem(k) || 'null') || {}).uid !== uid) localStorage.removeItem(k); } catch (e) { localStorage.removeItem(k); } }
+        else if (k.startsWith('chama:') && !k.startsWith(keep) && !k.startsWith('chama:me:')) localStorage.removeItem(k);
       });
     } catch (e) { /* storage blocked */ }
   },
@@ -1645,7 +1685,7 @@ const Session = {
     /* the home page shows its skeleton for the set time, then the real content */
     setTimeout(() => { this.hydrating = false; render(); }, 1850);
     if (Perm.can(m.role, 'members.invite')) { this.loadAccess().catch(() => {}); this.loadInvites().catch(() => {}); }
-    Store.startSync().catch(() => {});
+    Store.startSync().catch(() => {}).then(() => this.loadMemberPics().catch(() => {}));
   },
   switchTo(id) { location.href = location.pathname + '?c=' + encodeURIComponent(id); },
   async openChooser() {
@@ -1703,17 +1743,77 @@ const Session = {
     const code = Invite.info && Invite.info.code; const msg = Invite.MSG[code] || (Invite.info ? Invite.MSG.invalid : 'Could not check the invitation. Check your internet and try again.');
     Invite.clear(); return { error: msg };
   },
+  /* ---- one profile for every Chama: name, username, phone, contact email and photo live on the account (profiles) ---- */
+  readProfile() { try { return JSON.parse(localStorage.getItem('mca-profile') || 'null') || {}; } catch (e) { return {}; } },
+  writeProfile(v) { try { localStorage.setItem('mca-profile', JSON.stringify(v)); } catch (e) { toast('Storage full'); } },
+  legacyProfile() { try { const k = Object.keys(localStorage).find(x => x.startsWith('chama:me:')); return k ? JSON.parse(localStorage.getItem(k)) || {} : {}; } catch (e) { return {}; } },
+  /* the photo to show for a member: the account photo when the member is linked, else the copy in the Chama record */
+  photoFor(m) { const p = m && this.memberPics ? this.memberPics[m.id] : null; return p ? p.photo : ((m && m.photo) || null); },
   async loadProfile(user) {
-    const { data } = await Backend.sb.from('member_profiles').select('name,phone,email,photo').eq('chama_id', Store.chamaId).eq('user_id', user.id).maybeSingle();
-    if (!data) return;
-    const key = 'chama:me:' + Store.chamaId, cur = JSON.parse(localStorage.getItem(key) || '{}');
-    localStorage.setItem(key, JSON.stringify({ ...cur, name: data.name || cur.name || '', phone: data.phone || cur.phone || '', email: data.email || cur.email || '', photo: data.photo || cur.photo }));
+    if (!Backend.sb) return;
+    const { data, error } = await Backend.sb.rpc('get_my_profile');
+    if (error) return;   /* database steps not run yet: keep what this phone already has */
+    const cur = this.readProfile(), legacy = this.legacyProfile();
+    const base = { ...legacy, ...(cur.uid && cur.uid !== user.id ? {} : cur) };
+    const p = { ...(data || {}) };
+    let moved = !!base.moved;
+    if (!moved) {   /* one-time: copy what this phone held before the profile moved to the account */
+      let ok = true;
+      if (base.photo && !p.photo) { const r = await Backend.sb.rpc('set_my_photo', { p_photo: base.photo }); if (r.error) ok = false; else p.photo = base.photo; }
+      const nm = p.full_name || base.name || '';
+      if (nm && ((base.phone && !p.phone) || (base.email && !p.contact_email))) {
+        const ph = p.phone || base.phone || '', em = p.contact_email || base.email || '';
+        const r = await Backend.sb.rpc('save_my_details', { p_full_name: nm, p_phone: ph, p_contact_email: em, p_username: null });
+        if (r.error) ok = false; else { p.full_name = nm; p.phone = ph || null; p.contact_email = em || null; }
+      }
+      moved = ok;
+    }
+    this.writeProfile({ uid: user.id, moved, name: p.full_name || base.name || '', phone: p.phone || '', email: p.contact_email || '', username: p.username || '', photo: p.photo || null, signInEmail: p.sign_in_email || '' });
+    if (moved) Object.keys(localStorage).filter(k => k.startsWith('chama:me:')).forEach(k => localStorage.removeItem(k));
   },
-  async pushProfile() {
-    if (!Backend.sb || !this.user || this.status !== 'ready') return;
-    const me = JSON.parse(localStorage.getItem('chama:me:' + Store.chamaId) || '{}');
-    const { error } = await Backend.sb.from('member_profiles').upsert({ chama_id: Store.chamaId, user_id: this.user.id, name: me.name || null, phone: me.phone || null, email: me.email || null, photo: me.photo || null, updated_at: new Date().toISOString() });
-    if (error) toast('Your details could not be saved online: ' + error.message);
+  /* the Chama's member photos and names for this person's account. Members see each other's photos here. */
+  async loadMemberPics() {
+    if (!Backend.sb || !this.user) return;
+    const { data, error } = await Backend.sb.rpc('get_chama_member_profiles', { p_cid: Store.chamaId });
+    if (error) return;   /* database steps not run yet: members keep the copy in the Chama record */
+    const rows = data || [], pics = {};
+    rows.forEach(r => { pics[r.member_id] = { name: r.name || '', photo: r.photo || null }; });
+    this.memberPics = pics;
+    /* Only the treasurer can write the Chama record, so only the treasurer makes the member list show each person's account name */
+    const s = Store.get();
+    if (this.role === 'treasurer' && s) {
+      const fix = rows.filter(r => r.name && (s.members || []).some(m => m.id === r.member_id && m.name !== r.name));
+      if (fix.length) Store.commit(st => { fix.forEach(r => { const m = st.members.find(x => x.id === r.member_id); if (m) m.name = r.name; }); }, true);
+    }
+    render();
+  },
+  /* name, username, phone and contact email for every Chama at once */
+  async saveDetails(d) {
+    if (!Backend.sb) throw new Error('Sign in to save your details');
+    const { data, error } = await Backend.sb.rpc('save_my_details', { p_full_name: d.name, p_phone: d.phone || '', p_contact_email: d.email || '', p_username: d.username || null });
+    if (error) throw new Error(error.message);
+    const cur = this.readProfile(), username = (data && data.username) || cur.username || '';
+    this.writeProfile({ ...cur, name: d.name, phone: d.phone || '', email: d.email || '', username });
+    this.account = { ...(this.account || {}), username, full_name: d.name };
+    const s = Store.get();
+    if (this.role === 'treasurer' && this.memberId && s) Store.commit(st => { const m = st.members.find(x => x.id === this.memberId); if (m) m.name = d.name; }, true);
+  },
+  /* one photo for every Chama. null removes it. */
+  async savePhoto(url) {
+    if (!Backend.sb) throw new Error('Sign in to save your photo');
+    const { error } = await Backend.sb.rpc('set_my_photo', { p_photo: url || '' });
+    if (error) throw new Error(error.message);
+    this.writeProfile({ ...this.readProfile(), photo: url || null });
+    if (this.memberId) this.memberPics = { ...this.memberPics, [this.memberId]: { ...((this.memberPics || {})[this.memberId] || {}), photo: url || null } };
+  },
+  /* the one global password. Checked through the same throttled sign-in as the sign-in screen, then changed. */
+  async changePassword(current, next) {
+    if (!Backend.sb) throw new Error('Sign in to change your password');
+    if (!this.email) throw new Error('Sign in again to change your password');
+    const r = await this.passwordSignIn(this.email, current);
+    if (r.error) throw new Error(/password is not right/.test(r.error) ? 'Your current password is not right' : r.error);
+    const { error } = await Backend.sb.auth.updateUser({ password: next });
+    if (error) throw new Error(/same|different|previous/i.test(error.message) ? 'Choose a password you have not used before' : error.message);
   },
   async loadAccess() {
     if (this.role !== 'treasurer' || !Backend.sb) return;
@@ -1754,7 +1854,6 @@ const Session = {
     b.members = listed ? [{ id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), name: who, shares: 1, joined: (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); })() }] : [];
     const { data, error } = await Backend.sb.rpc('create_chama_global', { cname: name, cdata: b });
     if (error) throw new Error(error.message);
-    try { localStorage.setItem('chama:me:' + data.chama_id, JSON.stringify({ name: (this.account && this.account.full_name) || '' })); } catch (e) { /* the name is saved from the profile screen later */ }
     flashNext('dialog:' + HL().welcomeNew(((this.account && this.account.full_name) || '').trim()));
     this.switchTo(data.chama_id);
   },
@@ -1863,9 +1962,9 @@ const { Store } = __M_src_core_store_js;
 const { toast } = __M_src_ui_toast_js;
 
 const Me = {
-  key: () => 'chama:me:' + Store.chamaId,
+  key: () => 'mca-profile',
   get() { let o = {}; try { o = JSON.parse(localStorage.getItem(this.key()) || 'null') || {}; } catch {} return { ...o, memberId: Session.memberId || null }; },
-  save(v) { try { localStorage.setItem(this.key(), JSON.stringify(v)); } catch { toast('Storage full'); } Session.pushProfile(); }
+  save(v) { const { memberId, ...rest } = v || {}; try { localStorage.setItem(this.key(), JSON.stringify(rest)); } catch { toast('Storage full'); } }
 };
 
 return { get Me() { return Me; }, };
@@ -2388,7 +2487,7 @@ const Gate = {
     const meta = [w.display_tag, G.roleWord(w.role)].filter(Boolean).map(x => esc(x)).join(' · ');
     const count = typeof w.member_count === 'number' ? `<span class="chrow-count">${HUB_ICON.users}<span>${esc(H.members(w.member_count))}</span></span>` : '';
     const mark = on ? `<span class="chrow-sel">${HUB_ICON.check}<span>${esc(H.selected)}</span></span>` : '<span class="chrow-ring" aria-hidden="true"></span>';
-    return `<button type="button" class="chrow${on ? ' cur' : ''}" data-act="wsOpen" data-id="${esc(w.chama_id)}"${on ? ' aria-current="true"' : ''}><span class="chrow-main"><span class="chrow-top"><span class="chrow-name">${esc(w.chama_name || 'Chama')}</span>${mark}</span><span class="chrow-meta">${meta}</span>${count}</span></button>`;
+    return `<button type="button" class="chrow vc-select${on ? ' cur' : ''}" data-act="wsOpen" data-id="${esc(w.chama_id)}"${on ? ' aria-current="true"' : ''}><span class="chrow-main"><span class="chrow-top"><span class="chrow-name">${esc(w.chama_name || 'Chama')}</span>${mark}</span><span class="chrow-meta">${meta}</span>${count}</span></button>`;
   },
   createPage() {
     const H = HL(), d = this.draft, busy = this.signing;
@@ -2574,11 +2673,13 @@ return { get num() { return num; }, get validEmail() { return validEmail; }, };
 /* ---- src/ui/avatar.js ---- */
 const __M_src_ui_avatar_js = (function () {
 const { esc } = __M_src_core_utils_js;
+const { Session } = __M_src_core_session_js;
 
 const av = (m, n = 32) => {
   const nm = (m && m.name) || '', ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
-  return m && typeof m.photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(m.photo)
-    ? `<img class="av" style="--n:${n}px" src="${m.photo}" alt="">` : `<span class="av" style="--n:${n}px" aria-hidden="true">${esc(ini)}</span>`;
+  const photo = Session.photoFor(m);
+  return typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(photo)
+    ? `<img class="av" style="--n:${n}px" src="${photo}" alt="">` : `<span class="av" style="--n:${n}px" aria-hidden="true">${esc(ini)}</span>`;
 };
 
 const memberChip = (s, id, n = 28) => { const m = (s.members || []).find(x => x.id === id); return `<span class="who">${av(m || { name: 'Removed member' }, n)}<span>${esc(m ? m.name : 'Removed member')}</span></span>`; };
@@ -3273,6 +3374,7 @@ return { get views() { return views; }, get actions() { return actions; }, };
 /* ---- src/features/profile/index.js ---- */
 const __M_src_features_profile_index_js = (function () {
 const { Domain } = __M_src_core_domain_js;
+const { Gate } = __M_src_features_auth_gate_js;
 const { Me } = __M_src_core_me_js;
 const { render } = __M_src_core_rerender_js;
 const { Session } = __M_src_core_session_js;
@@ -3320,42 +3422,61 @@ const views = {
       ${m ? `<p class="actions"><button class="btn" data-act="statement" data-id="${esc(m.id)}">View my statement</button></p>` : ''}</section>`;
     return `
     <section class="card pcard">
-      <div style="margin-bottom:10px">${av({ name, photo: (m && m.photo) || me.photo }, 88)}</div>
-      <input id="mePhoto" class="vh" type="file" accept="image/*"><label class="btn sm" for="mePhoto">${(m && m.photo) || me.photo ? 'Change photo' : 'Add a photo'}</label>
-      ${(m && m.photo) || me.photo ? '<button class="btn sm bad" data-act="removePhoto">Remove photo</button>' : ''}
+      <div style="margin-bottom:10px">${av({ name, photo: me.photo }, 88)}</div>
+      <input id="mePhoto" class="vh" type="file" accept="image/*"><label class="btn sm" for="mePhoto">${me.photo ? 'Change photo' : 'Add a photo'}</label>
+      ${me.photo ? '<button class="btn sm bad" data-act="removePhoto">Remove photo</button>' : ''}
       <div class="pname">${name ? esc(name) : 'Add your name below'}</div>
       <div class="mute">${esc(Session.role === 'treasurer' ? 'Treasurer' : Session.role === 'secretary' ? 'Secretary' : 'Member')} in ${esc(Session.groupName || 'your Chama')}</div>
       ${msg ? `<p style="margin-top:12px"><span class="tag ${cls}">${msg}</span></p>` : ''}
     </section>
     ${money}
     <section class="card" style="margin-top:12px"><h2>My details</h2>
+      <p class="mute">These are the same in every Chama you belong to.</p>
       <label>Full name<input id="meName" value="${esc(name)}" autocomplete="name"></label>
+      <label>Username<input id="meUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || ''))}" placeholder="e.g. john.kamau"><small class="mute">3 to 20 letters, numbers, dot, dash or underscore. You can sign in with it.</small></label>
       <label>Phone number<input id="mePhone" type="tel" inputmode="tel" value="${esc(me.phone || (m && m.phone) || '')}" placeholder="0712345678"></label>
-      <label>Email address<input id="meEmail" type="email" inputmode="email" value="${esc(me.email || '')}" placeholder="you@example.com"></label>
-      <p class="mute" style="margin-top:10px">These details are only kept on this phone for now.</p>
+      <label>Contact email<input id="meEmail" type="email" inputmode="email" value="${esc(me.email || '')}" placeholder="you@example.com"></label>
       <p class="actions"><button class="btn pri" data-act="saveMe">Save my details</button></p>
+    </section>
+    <section class="card" style="margin-top:12px"><h2>Password</h2>
+      <p class="mute">One password for every Chama. Changing it here changes it everywhere.</p>
+      <label>Current password<input id="pwCur" type="password" autocomplete="current-password"></label>
+      <label>New password<input id="pwNew" type="password" autocomplete="new-password"></label>
+      <label>Confirm new password<input id="pwAgain" type="password" autocomplete="new-password"></label>
+      <p class="actions"><button class="btn pri" data-act="changePassword">Change password</button></p>
     </section>
     ${more}
     <section class="card" style="margin-top:12px"><h2>My data</h2>
-      <p class="plain mute">Your photo is shown next to your name everywhere in this chama. You can download a copy of your own records at any time.</p>
+      <p class="plain mute">Your photo is the same in every Chama you belong to. You can download a copy of your own records at any time.</p>
       <p class="actions"><button class="btn" data-act="exportMe">Download my data</button></p>
     </section>`;
   },
 };
 
 const actions = {
-  saveMe() {
-    const name = $('#meName').value.trim(), phone = $('#mePhone').value.replace(/\s/g, ''), email = $('#meEmail').value.trim();
-    if (!name) throw new Error('Please type your name');
-    if (phone && !/^(\+?254|0)[17]\d{8}$/.test(phone)) throw new Error('Phone number should look like 0712345678');
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email address does not look right');
-    Me.save({ ...Me.get(), name, phone, email });
-    toast('Your details are saved'); render();
+  async saveMe() {
+    try {
+      const name = $('#meName').value.trim(), phone = $('#mePhone').value.replace(/\s/g, ''), email = $('#meEmail').value.trim(), username = $('#meUser').value.trim().toLowerCase();
+      if (!name) throw new Error('Please type your name');
+      if (username && !/^[a-z0-9._-]{3,20}$/.test(username)) throw new Error('Username must be 3 to 20 letters, numbers, dot, dash or underscore');
+      if (phone && !/^(\+?254|0)[17]\d{8}$/.test(phone)) throw new Error('Phone number should look like 0712345678');
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email address does not look right');
+      await Session.saveDetails({ name, phone, email, username: username || null });
+      toast('Your details are saved'); render();
+    } catch (e) { toast(e.message); }
   },
-  removePhoto() {
-    const me = Me.get(); delete me.photo; Me.save(me);
-    if (me.memberId) Store.commit(st => { const m = st.members.find(x => x.id === me.memberId); if (m) delete m.photo; }, true);
-    toast('Photo removed'); render();
+  async removePhoto() {
+    try { await Session.savePhoto(null); toast('Photo removed'); render(); } catch (e) { toast(e.message); }
+  },
+  async changePassword() {
+    try {
+      const cur = $('#pwCur').value, next = $('#pwNew').value, again = $('#pwAgain').value;
+      if (!cur) throw new Error('Type your current password');
+      const bad = Gate.pwProblem(next); if (bad) throw new Error(bad);
+      if (next !== again) throw new Error('The new passwords do not match');
+      await Session.changePassword(cur, next);
+      toast('Password changed'); render();
+    } catch (e) { toast(e.message); }
   },
   exportMe() {
     const s = S(), me = Me.get(), m = s.members.find(x => x.id === me.memberId); if (!m) throw new Error('Choose your name first');
@@ -3373,11 +3494,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.12.1-dev.2', released: '2026-11-04',
+  name: 'My Chama App', version: '0.12.3-dev.1', released: '2026-11-04',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
+  notes: [['0.12.3-dev.1', 'Design system, first pass: shared spacing, radius, elevation and motion tokens; named card variants (navigation, selection, information, action, danger, status) and button variants (secondary, ghost, danger). Drawer header is a solid brand colour. Chama rows use the selection card. Screens beyond the drawer and Chama selection keep their current look until they are moved to these variants. '], ['0.12.2-dev.1', 'One profile for every Chama. Your photo, name, username, phone and contact email are kept once, on your account, and used in every Chama you belong to. Your password is the same everywhere; change it under My profile, Password. Members see each other\'s photos in the Chama. Needs migration 019 on the database. Photos added on another phone before this build must be added again. '], ['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
   ['0.12.1-dev.1', 'Payments are now saved on the server first, with a request key, so a double tap or a retry cannot record the same payment twice. The M-Pesa code is checked by the database too. Payments show as recorded only after the server confirms them.'],
   ['0.12.0-dev.5', 'Scan fix round: centred pop-ups, a scanning step when you have more than one Chama, the join-by-key crash fix and a forced refresh of the app.'],
     ['0.12.0-dev.4', 'Sign-in shows the real reason and no longer falls back to a direct password check. Remove access is hidden on your own row and on treasurer rows. You can switch or add a Chama at any time, and the list shows each Chama tag. When you create a Chama or invite someone, you choose whether you are listed as a member or are an officer only. Invitations last 7 days. Invite codes: the treasurer can create a code with a role, a validity of 1, 7 or 30 days and a number of uses; a person types the code, checks the Chama on the confirmation screen, then joins. Codes can be cancelled. Members who cannot see the member list are told why. Not yet tested on a phone.'], ['0.12.0-dev.3', 'Fixes from live testing: no hidden default Chama and no sample data; the username is chosen by the person; profile shows the real group and role; leave, hand-over and delete account give a clear next step; invitations show the real error; expired codes are named; passwords need a number; the notification badge shows the exact count (up to 99+). Requires migration 010.'],
@@ -3388,7 +3509,7 @@ const APP = {
 const PRIVACY = [
   ['What we keep', 'Your name and phone number. Your email address and photo, if you add them. Your contributions, loans, repayments, fines, expenses and payouts. The signature you give on a loan form.'],
   ['Why we keep it', 'To run your chama\'s savings and loans, and to show each member their own records.'],
-  ['Where it is kept', 'On the phone that records it. When cloud backup is on, it is also kept in the chama\'s online database. Your photo is stored inside the group record so every member can see it next to your name.'],
+  ['Where it is kept', 'On the phone that records it. When cloud backup is on, it is also kept in the chama\'s online database. Your name, username, phone number and photo are kept once, on your account, and used in every Chama you belong to. Your password is kept only by the sign-in service.'],
   ['Who can see it', 'Right now, anyone who has your chama\'s link can open it and see the group records. Sign-in, so that each member sees only what they should, is still being added.'],
   ['Your rights', 'Under the Kenya Data Protection Act, 2019, you can ask to be told how your information is used, to see it, to correct it, to object to its use, and to have it deleted where the law allows. Some financial records may have to be kept so the group\'s accounts stay correct.'],
   ['How to ask', 'This app cannot take requests yet. Please ask your treasurer. You can download your own records from My profile. If you are not happy with the answer, you can complain to the Office of the Data Protection Commissioner (ODPC).']
@@ -4441,7 +4562,7 @@ function paintNavAvatar() {
   const box = document.querySelector('#nav a[data-k="profile"] .nav-av'); if (!box) return;
   const s = Store.get(), meA = Me.get() || {};
   const mmA = s && meA.memberId ? (s.members || []).find(x => x.id === meA.memberId) : null;
-  const nm = meA.name || (mmA && mmA.name) || '', photo = (mmA && mmA.photo) || meA.photo;
+  const nm = meA.name || (mmA && mmA.name) || '', photo = Session.photoFor(mmA) || meA.photo;
   const ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
   const ok = typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(photo);
   box.innerHTML = ok ? `<img src="${photo}" alt="">` : `<span>${esc(ini)}</span>`;
@@ -4468,7 +4589,7 @@ function renderPage() {
   Nav.sync(r);
   paintNavAvatar();
   const meD = Me.get(), mmD = meD.memberId ? s.members.find(x => x.id === meD.memberId) : null, nmD = meD.name || (mmD && mmD.name) || '';
-  $('#dwho').innerHTML = av({ name: nmD, photo: (mmD && mmD.photo) || meD.photo }, 52) + '<span class="dwt"><small>Welcome</small>' + (nmD ? '<b>' + esc(nmD) + '</b>' : '') + '</span>';
+  $('#dwho').innerHTML = av({ name: nmD, photo: Session.photoFor(mmD) || meD.photo }, 52) + '<span class="dwt"><small>Welcome</small>' + (nmD ? '<b>' + esc(nmD) + '</b>' : '') + '</span>';
   $('#roleTag').textContent = Perm.label(Session.role) + (admin ? '' : ' · view only');
   $('#setBtn').hidden = !admin;
   { const sw = $('#switchBtn'); if (sw) sw.hidden = !((Session.workspaces || []).length >= 1); const lv = $('#leaveBtn'); if (lv) lv.hidden = !Session.role; }
@@ -4568,8 +4689,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => A11y
 document.addEventListener('change', async e => {
   if (e.target.id !== 'mePhoto' || !e.target.files[0]) return;
   try {
-    const url = await photoFrom(e.target.files[0]), me = Me.get(); Me.save({ ...me, photo: url });
-    if (me.memberId) Store.commit(st => { const m = st.members.find(x => x.id === me.memberId); if (m) m.photo = url; }, true);
+    const url = await photoFrom(e.target.files[0]);
+    await Session.savePhoto(url);
     toast('Photo saved'); render();
   } catch (err) { toast(err.message); }
 });
