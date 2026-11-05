@@ -2,7 +2,7 @@
 
 A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Current version:** 0.12.3-dev.1 (development build; one profile for every Chama, needs migration 019 on the database first). Migration 016 (payment guard) must also be applied. **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v38`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
+**Current version:** 0.12.4-dev.1 (development build; one profile for every Chama, needs migration 019 on the database first). Migration 016 (payment guard) must also be applied. **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v38`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
 **Last updated:** 2026-11-03
 **Owner:** Lewis Gitonga
 **Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)
@@ -94,7 +94,7 @@ Read this file, then `MIGRATION_AND_SETUP_GUIDE.md`, then section 15 (rules) bef
 
 ```
 index.html                       the whole frontend (single file, about 350 KB)
-sw.js                            service worker. Cache name must change every release (now mca-app-v42)
+sw.js                            service worker. Cache name must change every release (now mca-app-v43)
 manifest.json                    PWA manifest
 icons/                           app icons (192 and 512 px)
 tips/                            onboarding images
@@ -485,6 +485,8 @@ These apply to people and to AI assistants. They are not optional.
 
 Short list. Full notes are in the app (Settings, About) and in the release notes files.
 
+- **0.12.4-dev.1 (service worker `mca-app-v43`):** interaction pass. Centred popups (`Pop.alert`, `Pop.confirm`, element `#popRoot`) for warnings and confirmations; every error toast now opens an alert with Understood. Neutral toasts stay 7 s with an OK button (optional action button). Sign out asks first on every screen; deleting an account has two steps. New start page (Continue with Google, Sign in, Create account). OTP: one full revolution, bigger tick, green splash, no Paste code button, synthesised button sounds and approval chime (mute: `localStorage[‘mca-sfx’]=‘off’`). Flat buttons always in a row. Skeletons replace loading buttons. Cards of one page are grouped (`style#ux-group` can be deleted to undo).
+  **Google sign-in is not wired.** The button calls `Session.googleSignIn` if it exists, otherwise shows an alert. To wire it, enable the Google provider in Supabase Auth, then set `Session.googleSignIn = async () => { const { error } = await Backend.sb.auth.signInWithOAuth({ provider: ‘google’, options: { redirectTo: location.origin + location.pathname } }); if (error) toast(error.message); };`. A Google account has no app password yet, so test that the account setup step appears after the first Google sign-in.
 - **0.12.3-dev.1 (service worker `mca-app-v42`):** design tokens and named card and button variants (first pass). Drawer header solid; Chama rows use the selection card. Other screens unchanged so far.
 - **0.12.2-dev.1 (service worker `mca-app-v41`):** one profile for every Chama. Photo, name, username, phone and contact email are saved once on the account (migration 019) and used in every Chama. My profile has a Password card: one global password, checked before it changes. Members see each other’s photos through `get_chama_member_profiles`. The treasurer’s member list shows each person’s account name when the treasurer opens the Chama. Photos added on another phone before this build must be added again.
 - **0.12.1-dev.2 (service worker `mca-app-v40`):** consent recorded on the server (migration 017), corrected privacy policy (version 2026-11-04-v2).

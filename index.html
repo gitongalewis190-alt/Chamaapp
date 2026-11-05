@@ -783,6 +783,115 @@ html[data-mode=dark]{ --green-tint:#17332a; --green-line:#2c5a4a; --sage:#9fb5ad
 
 @media (prefers-reduced-motion:reduce){.vc-nav,.vc-select,.vc-action,.vc-danger{transition:none}.vc-nav:active,.vc-select:active{transform:none}}
 </style>
+<style id="ux-v3">
+/* ===== 0.12.4-dev.1 ===== */
+/* flat buttons, always in a row */
+.btn{background-image:none!important;box-shadow:none!important;border-radius:12px;min-height:46px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:700;border:1.5px solid var(--line);background-color:var(--card);color:var(--ink);transition:transform .16s cubic-bezier(.34,1.56,.64,1),background-color .18s ease,border-color .18s ease,color .18s ease;-webkit-tap-highlight-color:transparent}
+.btn::before,.btn::after{display:none!important}
+.btn:hover{background-color:var(--green-tint)}
+.btn:active{transform:scale(.95)}
+.btn.pri{background-color:var(--brand);border-color:var(--brand);color:#fff}
+.btn.pri:hover{background-color:var(--brand-d);border-color:var(--brand-d)}
+.btn.bad{background-color:transparent;color:var(--bad);border-color:var(--bad)}
+.btn.sm{min-height:36px;padding:0 12px;font-size:13.5px}
+.btn:disabled,.btn[disabled]{opacity:.45;transform:none;cursor:default}
+.actions,.gate .actions,.gcard .actions{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;gap:10px;justify-content:stretch!important}
+.actions>.btn,.gate .actions .btn,.gcard .actions .btn{flex:1 1 0;min-width:0;width:auto!important;white-space:normal;text-align:center;line-height:1.15}
+
+/* neutral toast */
+#toast{top:auto;bottom:calc(92px + env(safe-area-inset-bottom));left:50%;transform:translate(-50%,16px);width:max-content;max-width:min(92vw,420px);display:flex;align-items:center;gap:12px;padding:10px 10px 10px 18px;border-radius:18px;background:var(--card);color:var(--ink);border:1px solid var(--line);box-shadow:0 10px 30px rgba(18,35,31,.14);font-size:15px;font-weight:600;text-align:left;z-index:70;opacity:0;pointer-events:none;transition:opacity .26s ease,transform .3s cubic-bezier(.2,.8,.2,1)}
+#toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#toast.ok,#toast.bad,#toast.info{background:var(--card);color:var(--ink)}
+#toast .tmsg{flex:1;min-width:0;line-height:1.35}
+#toast .tbtn{flex:none;border:0;border-radius:10px;min-height:36px;padding:0 14px;background:rgba(120,140,133,.16);color:var(--ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:transform .15s ease}
+#toast .tbtn:active{transform:scale(.94)}
+
+/* centred popups */
+#popRoot .pop-veil{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(18,35,31,.4);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);animation:popVeil .22s ease both}
+#popRoot .pop-veil.out{animation:popVeilOut .17s ease both}
+.pop{width:min(100%,340px);max-height:86vh;overflow:auto;background:var(--card);color:var(--ink);border-radius:28px;padding:28px 20px 18px;text-align:center;box-shadow:0 28px 70px rgba(0,0,0,.3);animation:popIn .36s cubic-bezier(.34,1.35,.5,1) both}
+.pop-veil.out .pop{animation:popOut .17s ease both}
+.pop-ic{width:56px;height:56px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(120,140,133,.14);color:var(--ink)}
+.pop-ic svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pop-t{margin:0 0 8px;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.pop-b{font-size:15.5px;line-height:1.45;color:var(--mute)}
+.pop-b p{margin:0 0 8px}
+.pop-b .auth-note{text-align:left}
+.pop-act{display:flex;flex-direction:row;gap:10px;margin-top:20px}
+.pop-btn{flex:1 1 0;min-width:0;min-height:50px;border:0;border-radius:14px;background:rgba(120,140,133,.16);color:var(--ink);font:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:transform .16s cubic-bezier(.34,1.56,.64,1),background-color .18s}
+.pop-btn.pri{background:var(--brand);color:#fff}
+.pop-btn.bad{background:var(--bad);color:#fff}
+.pop-btn:active{transform:scale(.95)}
+.pop-btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+@keyframes popVeil{from{opacity:0}to{opacity:1}}
+@keyframes popVeilOut{to{opacity:0}}
+@keyframes popIn{from{opacity:0;transform:scale(.86) translateY(8px)}to{opacity:1;transform:none}}
+@keyframes popOut{to{opacity:0;transform:scale(.94)}}
+
+/* sign-in start screen */
+.start{text-align:center;width:100%;max-width:440px;margin-left:auto;margin-right:auto}
+.start .actions .btn{font-size:14.5px;padding:0 10px}
+.start-logo{display:block;margin:0 auto 14px;border-radius:16px}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:52px;margin-top:18px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:transform .16s cubic-bezier(.34,1.56,.64,1),background-color .18s}
+.gbtn:hover{background:var(--green-tint)}
+.gbtn:active{transform:scale(.97)}
+.gbtn .gicon{width:22px;height:22px;flex:none}
+.auth-or{display:flex;align-items:center;gap:12px;margin:16px 0 0;color:var(--mute);font-size:13px}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* skeletons instead of loading buttons */
+.skel-list{width:100%;max-width:360px;margin:6px auto 14px}
+.skel-card,.skel-line{position:relative;overflow:hidden;background:var(--green-tint);border-radius:14px}
+.skel-card{height:64px;margin:10px 0}
+.skel-line{height:14px;margin:10px 0;border-radius:8px}
+.skel-card::after,.skel-line::after,.gcard.busy input::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:skelSweep 1.25s ease-in-out infinite}
+html[data-mode=dark] .skel-card::after,html[data-mode=dark] .skel-line::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent)}
+@keyframes skelSweep{to{transform:translateX(100%)}}
+.gcard.busy label{pointer-events:none}
+.gcard.busy input{color:transparent!important;-webkit-text-fill-color:transparent;background:var(--green-tint)!important;border-color:transparent!important;animation:skelPulse 1.1s ease-in-out infinite}
+.gcard.busy .field-ic svg{opacity:.25}
+.gcard.busy .btn{pointer-events:none;opacity:.55}
+@keyframes skelPulse{50%{opacity:.55}}
+
+/* OTP: one full revolution, bigger tick, green splash */
+.otp.ring .otp-orbit{animation:otpSpin 1.1s cubic-bezier(.55,.05,.25,1) 1 both}
+.otp.grey .otp-orbit{animation:none}
+.otp-core{width:112px;height:112px;margin:-56px}
+.otp-tick{width:68px;height:68px;stroke-width:3.2;stroke-dasharray:24;stroke-dashoffset:24}
+.otp.ok .otp-tick{transition:stroke-dashoffset .55s cubic-bezier(.6,0,.2,1) .18s,opacity .1s}
+.otp.ok .otp-core{animation:okPop .75s cubic-bezier(.34,1.56,.64,1) both;box-shadow:0 14px 34px rgba(15,123,95,.4)}
+@keyframes okPop{0%{transform:scale(.55)}55%{transform:scale(1.16)}100%{transform:scale(1)}}
+.otp-splash{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
+.otp-splash::before,.otp-splash::after{content:"";position:absolute;left:-56px;top:-56px;width:112px;height:112px;border-radius:50%;border:3px solid #1fa37f;opacity:0}
+.otp.ok .otp-splash::before{animation:okRing .95s ease-out .04s both}
+.otp.ok .otp-splash::after{animation:okBloom 1.1s ease-out .02s both;border:0;background:radial-gradient(circle,rgba(31,163,127,.5),rgba(127,224,189,.18) 55%,transparent 70%)}
+@keyframes okBloom{0%{transform:scale(.7);opacity:.95}100%{transform:scale(3.6);opacity:0}}
+@keyframes okRing{0%{transform:scale(.8);opacity:.75}100%{transform:scale(3.2);opacity:0}}
+.otp-splash i{position:absolute;left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;background:#1fa37f;opacity:0}
+.otp-splash i:nth-child(even){background:#7fe0bd;width:11px;height:11px;left:-5.5px;top:-5.5px}
+.otp.ok .otp-splash i{animation:okDot 1.3s cubic-bezier(.3,.65,.35,1) .1s both}
+@keyframes okDot{0%{opacity:1;transform:rotate(calc(var(--k) * 36deg)) translateY(-60px) scale(1)}60%{opacity:1}100%{opacity:0;transform:rotate(calc(var(--k) * 36deg)) translateY(-148px) scale(.3)}}
+.otp-foot{margin-top:6px}
+
+/* minimal headings */
+section.card:not(.gcard)>h2:first-child,.card:not(.gcard)>h3:first-child{font-size:13px;font-weight:700;letter-spacing:.02em;text-transform:none;color:var(--mute);margin:0 0 10px}
+.drawer .dgl{font-size:11px;font-weight:700;letter-spacing:.04em;opacity:.7}
+.drawer .dgl:not(:first-child){border-top:1px solid var(--line);margin-top:8px;padding-top:14px}
+.hub-sec-h h3{font-size:12.5px;font-weight:700;letter-spacing:.02em;text-transform:none;color:var(--mute)}
+
+/* Chama list is one grouped surface */
+.chlist{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;background:var(--card)}
+.chlist .chrow.vc-select{border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none;margin:0}
+.chlist .chrow.vc-select:first-child{border-top:0}
+.chlist .chrow.vc-select.cur{box-shadow:inset 3px 0 0 var(--brand)}
+
+@media (prefers-reduced-motion:reduce){.pop,.pop-veil,#toast,.otp.ok .otp-core,.otp.ok .otp-splash i,.otp.ok .otp-splash::before,.otp.ok .otp-splash::after,.skel-card::after,.skel-line::after,.gcard.busy input{animation:none!important;transition:none!important}.otp.ring .otp-orbit{animation:none}}
+</style>
+<style id="ux-group">
+/* cards of one page read as one grouped surface */
+main .card:not(.gcard)+.card:not(.gcard){margin-top:0!important;border-top-left-radius:0;border-top-right-radius:0;border-top-color:transparent}
+main .card:not(.gcard):has(+.card:not(.gcard)){margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
+</style>
 </head>
 <body><label id="hapticSw" style="position:fixed;left:-9999px;top:0;opacity:0"><input type="checkbox" switch></label>
 <div class="splash" id="splash">
@@ -1033,9 +1142,111 @@ const setToastLong = v => { toastLong = !!v; };
 const TOAST_KIND = msg => /fail|error|not |please|cannot|can.t|already|enough|full|look right|should look|choose|blocked|invalid|wrong|missing|only/i.test(msg) ? 'bad'
   : /saved|done|added|removed|recorded|signed|undid|normal|restored|copied|exported|created|updated|sent/i.test(msg) ? 'ok' : 'info';
 
-const toast = (msg, kind) => { const t = $('#toast'); const k = kind || TOAST_KIND(msg); t.textContent = msg; t.className = 'on ' + k; clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), (toastLong ? 9000 : k === 'bad' ? 6000 : k === 'ok' ? 3500 : 2400)); };
+const esc_ = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-return { get toastLong() { return toastLong; }, get setToastLong() { return setToastLong; }, get TOAST_KIND() { return TOAST_KIND; }, get toast() { return toast; }, };
+/* Sounds are synthesised in the browser (no audio files). Mute with localStorage 'mca-sfx' = 'off'. */
+const Sfx = (() => {
+  let ctx = null;
+  const on = () => { try { return localStorage.getItem('mca-sfx') !== 'off'; } catch (e) { return true; } };
+  const ac = () => {
+    if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; try { ctx = new C(); } catch (e) { return null; } }
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    return ctx;
+  };
+  const tone = (f, t0, dur, vol, type) => {
+    const c = ac(); if (!c) return;
+    try {
+      const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
+      o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.03);
+    } catch (e) {}
+  };
+  const bell = (f, t0, dur, vol) => { tone(f, t0, dur, vol); tone(f * 2.76, t0, dur * 0.5, vol * 0.22); tone(f * 5.4, t0, dur * 0.25, vol * 0.08); };
+  return {
+    get enabled() { return on(); },
+    unlock() { if (on()) ac(); },
+    tap() { if (on()) { tone(1650, 0, 0.04, 0.05, 'triangle'); tone(820, 0.012, 0.05, 0.03, 'sine'); } },
+    pop() { if (on()) { tone(740, 0, 0.09, 0.05); tone(1110, 0.05, 0.12, 0.04); } },
+    /* approval: two rising bell strikes, short and bright */
+    ok() { if (on()) { bell(1318.5, 0, 0.5, 0.15); bell(1975.5, 0.12, 0.95, 0.13); } },
+    no() { if (on()) { tone(196, 0, 0.14, 0.11); tone(155.6, 0.14, 0.24, 0.11); } }
+  };
+})();
+
+/* Centred popups on their own element (#popRoot). Alerts stay until the person taps Understood. */
+const POP_WARN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6 2.9 19.4h18.2L12 3.6Z"/><path d="M12 10v4.1M12 17.1v.1"/></svg>';
+const POP_ASK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1.9-1.1 1.7M12 16.9v.1"/></svg>';
+const Pop = {
+  q: [], cur: null, prev: null,
+  alert(text, o = {}) {
+    const t = String(text);
+    if ((this.cur && this.cur.kind === 'alert' && this.cur.text === t) || this.q.some(x => x.kind === 'alert' && x.text === t)) return;
+    this.push({ kind: 'alert', title: o.title || '', text: t, html: o.html || '', buttons: [{ label: o.label || 'Understood', primary: true, yes: true }], onYes: o.onYes });
+  },
+  confirm(o) {
+    const yes = { label: o.confirmLabel || 'Continue', primary: true, yes: true, danger: !!o.danger };
+    this.push({ kind: 'confirm', title: o.title || 'Are you sure?', text: o.text || '', html: o.html || '', danger: !!o.danger,
+      buttons: o.hideCancel ? [yes] : [{ label: o.cancelLabel || 'Cancel', no: true }, yes], onYes: o.onYes, onNo: o.onNo });
+  },
+  push(spec) { this.q.push(spec); if (!this.cur) this.next(); },
+  next() {
+    const s = this.q.shift(); if (!s) { this.cur = null; return; }
+    this.cur = s; this.prev = document.activeElement;
+    let root = document.getElementById('popRoot');
+    if (!root) { root = document.createElement('div'); root.id = 'popRoot'; document.body.appendChild(root); }
+    const body = s.html ? s.html : (s.text ? '<p>' + esc_(s.text) + '</p>' : '');
+    root.innerHTML = '<div class="pop-veil"><div class="pop ' + s.kind + (s.danger ? ' danger' : '') + '" role="alertdialog" aria-modal="true"' + (s.title ? ' aria-labelledby="popT"' : '') + ' aria-describedby="popB">'
+      + '<div class="pop-ic">' + (s.kind === 'confirm' && !s.danger ? POP_ASK : POP_WARN) + '</div>'
+      + (s.title ? '<h3 class="pop-t" id="popT">' + esc_(s.title) + '</h3>' : '')
+      + '<div class="pop-b" id="popB">' + body + '</div>'
+      + '<div class="pop-act">' + s.buttons.map((b, i) => '<button type="button" class="pop-btn' + (b.primary ? ' pri' : '') + (b.danger ? ' bad' : '') + '" data-i="' + i + '">' + esc_(b.label) + '</button>').join('') + '</div></div></div>';
+    root.onclick = e => { const b = e.target.closest && e.target.closest('.pop-btn'); if (b) this.done(s, s.buttons[+b.dataset.i]); };
+    this._key = e => {
+      if (e.key === 'Escape') { e.preventDefault(); this.done(s, s.buttons[0]); }
+      else if (e.key === 'Tab') { const bs = [...root.querySelectorAll('.pop-btn')]; if (!bs.length) return; const i = bs.indexOf(document.activeElement); e.preventDefault(); bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length].focus(); }
+    };
+    document.addEventListener('keydown', this._key, true);
+    Sfx.pop();
+    const first = s.danger && s.buttons.length > 1 ? root.querySelector('.pop-btn') : (root.querySelector('.pop-btn.pri') || root.querySelector('.pop-btn'));
+    if (first) first.focus();
+  },
+  done(s, b) {
+    if (this.cur !== s) return;
+    document.removeEventListener('keydown', this._key, true);
+    const root = document.getElementById('popRoot'), veil = root && root.firstElementChild;
+    if (veil) veil.classList.add('out');
+    this.cur = null;
+    setTimeout(() => {
+      if (root && !this.cur) root.innerHTML = '';
+      try { if (this.prev && this.prev.focus && document.contains(this.prev)) this.prev.focus(); } catch (e) {}
+      try {
+        if (b && b.yes && s.onYes) { const r = s.onYes(); if (r && r.catch) r.catch(err => toast(err.message)); }
+        else if (b && b.no && s.onNo) s.onNo();
+      } catch (err) { toast(err.message); }
+      if (!this.cur) this.next();
+    }, 170);
+  }
+};
+
+/* Toasts are neutral (no colour) and stay until dismissed or 7 s. Warnings and errors open a centred alert instead. */
+let toastTimer = 0, toastAct = null;
+const hideToast = () => { clearTimeout(toastTimer); const t = $('#toast'); if (t) t.classList.remove('on'); };
+const toast = (msg, kind, opt) => {
+  const k = kind || TOAST_KIND(msg);
+  if (k === 'bad') return Pop.alert(msg);
+  const t = $('#toast'); if (!t) return;
+  const o = opt || {}; toastAct = o.run || null;
+  t.className = 'on';
+  t.innerHTML = '<span class="tmsg">' + esc_(msg) + '</span>' + (o.label ? '<button type="button" class="tbtn" data-t="act">' + esc_(o.label) + '</button>' : '') + '<button type="button" class="tbtn" data-t="x">OK</button>';
+  clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, toastLong ? 14000 : 7000);
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#toast .tbtn'); if (!b) return;
+  const run = b.dataset.t === 'act' ? toastAct : null; hideToast(); if (run) run();
+});
+
+return { get toastLong() { return toastLong; }, get setToastLong() { return setToastLong; }, get TOAST_KIND() { return TOAST_KIND; }, get toast() { return toast; }, get Pop() { return Pop; }, get Sfx() { return Sfx; }, get hideToast() { return hideToast; }, };
 })();
 
 /* ---- src/core/a11y.js ---- */
@@ -1470,8 +1681,7 @@ function showFlash() {
 }
 /* A centred notice with one Continue button; used where the person must acknowledge the outcome */
 function dialogNotice(title, text) {
-  const safe = String(text).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  __M_src_ui_modal_js.Modal.open({ title, body: `<p class="plain">${safe}</p>`, submitLabel: 'Continue', onSubmit: () => {}, hideCancel: true });
+  __M_src_ui_toast_js.Pop.alert(String(text), { title, label: 'Continue' });
 }
 /* Turns a database error into a sentence the person can act on */
 function rpcMessage(err) {
@@ -2034,9 +2244,9 @@ const { $ } = __M_src_lib_dom_js;
 const Haptic = {
   pulse(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} },
   sw() { const l = document.getElementById('hapticSw'); if (l) l.click(); },
-  tap() { this.pulse(10); this.sw(); },
-  ok() { this.pulse([18, 60, 26]); this.sw(); },
-  no() { this.pulse([70, 50, 70, 50, 120]); }
+  tap() { this.pulse(10); this.sw(); __M_src_ui_toast_js.Sfx.tap(); },
+  ok() { this.pulse([18, 60, 26]); this.sw(); __M_src_ui_toast_js.Sfx.ok(); },
+  no() { this.pulse([70, 50, 70, 50, 120]); __M_src_ui_toast_js.Sfx.no(); }
 };
 const MAIL_ART = `<div class="otp-mail" id="otpMail" aria-hidden="true"><svg viewBox="0 0 120 92">
 <rect class="lt" x="30" y="28" width="60" height="42" rx="3" fill="#fff" stroke="#c9d8d2" stroke-width="1"/>
@@ -2067,12 +2277,11 @@ const Otp = {
       <div class="otp-stage" id="otpStage" data-need="${NEED}" style="--sh:${SH}px;--R:${R}px;--bw:${BW}px;--bh:${BH}px;--fs:${FS}px">
         <span class="otp-ring"></span>
         <span class="otp-orbit">${boxes}</span>
-        <span class="otp-core"><svg class="otp-tick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+        <span class="otp-core"><svg class="otp-tick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="otp-splash" aria-hidden="true"><i style="--k:0"></i><i style="--k:1"></i><i style="--k:2"></i><i style="--k:3"></i><i style="--k:4"></i><i style="--k:5"></i><i style="--k:6"></i><i style="--k:7"></i><i style="--k:8"></i><i style="--k:9"></i></span>
         <input id="otpIn" class="otp-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="${n}" aria-label="${n}-digit code">
       </div>
       <p class="otp-msg" id="otpMsg" role="status" aria-live="polite"></p>
-      <div class="otp-foot">${resend}${change}
-      <p class="otp-paste"><button class="btn sm" data-act="otpPaste" type="button">Paste code</button></p></div>
+      <div class="otp-foot">${resend}${change}</div>
     </div></div>`;
   },
   paint(v) {
@@ -2141,14 +2350,14 @@ const Otp = {
       Haptic.tap();
       await this.sleep(260);
     }
-    wrap.classList.add('ring'); await this.sleep(950);
+    wrap.classList.add('ring'); await this.sleep(1120);
     wrap.classList.add('grey'); await this.sleep(600);
     wrap.classList.add('merge'); await this.sleep(450);
     const res = await job;
     if (res.ok) {
-      wrap.classList.add('ok'); try { sessionStorage.removeItem('mca-otp'); sessionStorage.removeItem('mca-gate'); } catch (e) {} this.msg("Verified. You're in.");
+      wrap.classList.add('ok'); try { sessionStorage.removeItem('mca-otp'); sessionStorage.removeItem('mca-gate'); } catch (e) {} this.msg("You're in.");
       Haptic.ok();
-      await this.sleep(1100);
+      await this.sleep(1900);
       return this.done();
     }
     wrap.classList.remove('merge', 'ring', 'grey');     /* the boxes slide back into the row */
@@ -2331,7 +2540,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest ? e.target.closest('[data-ob],[data-gm]') : null;
   if (!t) return;
   if (t.dataset.gm) {
-    if (t.dataset.signout) { Gate.mode = 'in'; return Session.signOut(); }
+    if (t.dataset.signout) { return __M_src_ui_toast_js.Pop.confirm({ title: 'Sign out?', text: 'You will need to sign in again.', confirmLabel: 'Sign out', danger: true, onYes: () => { Gate.mode = 'start'; return Session.signOut(); } }); }
     const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value.trim();
     Gate.mode = t.dataset.gm; Gate.notice = ''; Gate.sent = false; return Gate.paint();
   }
@@ -2412,7 +2621,7 @@ const HUB_ICON = {
 const JOIN_ART = `<svg class="jm-art" viewBox="0 0 160 110" aria-hidden="true"><ellipse cx="80" cy="100" rx="64" ry="7" fill="#e3f2ec"/><circle cx="54" cy="46" r="13" fill="#138364"/><path d="M32 96c2-17 10-26 22-26s20 9 22 26z" fill="#138364"/><circle cx="106" cy="46" r="13" fill="#0a5a46"/><path d="M84 96c2-17 10-26 22-26s20 9 22 26z" fill="#0a5a46"/><circle cx="80" cy="34" r="15" fill="#0f7b5f"/><path d="M57 98c3-22 12-32 23-32s20 10 23 32z" fill="#0f7b5f"/><circle cx="80" cy="66" r="14" fill="#fff" stroke="#0f7b5f" stroke-width="3"/><path d="M74.5 69.5l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l2.6-2.6M85.5 62.5l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-2.6 2.6M76.5 68.5l7-7" fill="none" stroke="#0f7b5f" stroke-width="2.2" stroke-linecap="round"/></svg>`;
 
 const Gate = {
-  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' ? m : 'in'; })(),
+  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' || m === 'in' ? m : 'start'; })(),
   navRow(x) { return `<div class="navrow">${x}</div>`; },
   pwProblem(p) { return p.length < 6 ? 'Use at least 6 characters' : !/[A-Z]/.test(p) ? 'Add a capital letter' : !/[0-9]/.test(p) ? 'Add a number' : !/[^A-Za-z0-9]/.test(p) ? 'Add a symbol, such as ! or #' : ''; },
   refreshRules() {
@@ -2429,15 +2638,24 @@ const Gate = {
   eyeBtn() { const G = GL(); return `<button type="button" class="eye" data-act="togglePw" aria-label="${G.show} / ${G.hide}">${G.show}</button>`; },
   authCard() {
     const L = OB.L(), G = GL(), lang = OB.lang(), mode = this.mode;
+    const ST = lang === 'sw' ? { title: 'Karibu My Chama', sub: 'Ingia au fungua akaunti ili uendelee.', google: 'Endelea na Google', or: 'au', in: 'Ingia', up: 'Fungua akaunti', back: 'Rudi' }
+      : { title: 'Welcome to My Chama', sub: 'Sign in or create an account to continue.', google: 'Continue with Google', or: 'or', in: 'Sign in', up: 'Create account', back: 'Back' };
     const note = this.notice ? `<p class="auth-note" role="alert">${esc(this.notice)}</p>` : '';
     const lang_ = `<p class="btn-hint"><button type="button" class="linkish" data-ob="change-lang">${L.lang}: ${OB_T[lang].name} &rarr; ${L.change}</button></p>`;
-    if (mode === 'in') return `<section class="gate"><div class="card gcard auth">
+    if (mode === 'start') return `<section class="gate"><div class="card gcard auth start">
+<img class="start-logo" src="icons/logo-512.png" alt="" width="64" height="64">
+<h2 class="auth-h">${ST.title}</h2><p class="plain mute">${ST.sub}</p>${note}
+<button type="button" class="gbtn" data-act="gateGoogle"><svg class="gicon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>${ST.google}</span></button>
+<p class="auth-or"><span>${ST.or}</span></p>
+<p class="actions"><button type="button" class="btn pri" data-gm="in">${ST.in}</button><button type="button" class="btn" data-gm="up">${ST.up}</button></p>${lang_}</div></section>`;
+    if (mode === 'in') return `<section class="gate"><div class="card gcard auth${this.signing ? ' busy' : ''}">
 <h2 class="auth-h">${G.inTitle}</h2><p class="plain mute">${G.inSub}</p>${note}
 <label>${G.idLabel}<span class="field-ic">${OB_ICON_MAIL}<input id="gateId" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${G.idPh}" value="${esc(this.id)}"></span></label>
 <label>${L.pwLabel}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw" type="password" autocomplete="current-password" placeholder="${L.pwPh}">${this.eyeBtn()}</span></label>
-<p class="actions"><button class="btn pri auth-cta" data-act="gateSignIn"${this.signing ? ' disabled' : ''}>${this.signing ? G.signing : G.cta}</button></p>
+<p class="actions"><button class="btn pri auth-cta" data-act="gateSignIn"${this.signing ? ' disabled' : ''}>${G.cta}</button></p>
 <p class="btn-hint"><button type="button" class="linkish" data-gm="forgot">${G.forgot}</button></p>
 <p class="btn-hint"><button type="button" class="linkish" data-gm="up">${G.newHere}</button></p>
+<p class="btn-hint"><button type="button" class="linkish" data-gm="start">&larr; ${ST.back}</button></p>
 <p class="btn-hint mute">${G.firstTime}</p>${lang_}</div></section>`;
     const up = mode === 'up';
     return `<section class="gate"><div class="card gcard auth">
@@ -2462,7 +2680,7 @@ const Gate = {
     const H = HL(), G = GL(), list = Session.workspaces || [];
     if (!isWelcome && list.length > 1 && !this.scanned) {
       if (!this.scanT) this.scanT = setTimeout(() => { this.scanT = null; this.scanned = true; this.paint(); }, 1400);
-      return `<section class="hub scan" role="status" aria-live="polite"><div class="scan-ring" aria-hidden="true"><span></span><span></span><span></span></div><h2 id="hubTitle">${esc(H.scanTitle)}</h2><p class="hub-sub">${esc(H.scanSub)}</p></section>`;
+      return `<section class="hub scan" role="status" aria-live="polite"><div class="skel-list" aria-hidden="true"><div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div></div><h2 id="hubTitle">${esc(H.scanTitle)}</h2><p class="hub-sub">${esc(H.scanSub)}</p></section>`;
     }
     const multi = !isWelcome && list.length > 1;
     const back = !isWelcome && Session.role ? `<button type="button" class="hub-back" data-act="wsBack" aria-label="${esc(H.back)}">${HUB_ICON.back}</button>` : '';
@@ -2723,6 +2941,10 @@ async function savePayments(list) {
 }
 const Modal = {
   open({ title, fields = [], body = '', submitLabel = 'Save', onSubmit, danger, hideCancel }) {
+    /* confirmations and notices without form fields are centred popups, not sheets */
+    if (!fields.length && onSubmit && (danger || hideCancel) && typeof body === 'string' && body.length < 1200) {
+      return __M_src_ui_toast_js.Pop.confirm({ title, html: body, confirmLabel: submitLabel, danger: !!danger, hideCancel: !!hideCancel, onYes: () => onSubmit({}) });
+    }
     const f = fields.map(x => {
       const v = esc(x.value ?? '');
       let input;
@@ -2747,7 +2969,7 @@ const Modal = {
 };
 
 function confirmBox(text, onYes) {
-  Modal.open({ title: 'Please confirm', body: `<p>${esc(text)}</p>`, submitLabel: 'Yes, continue', danger: true, onSubmit: onYes });
+  __M_src_ui_toast_js.Pop.confirm({ title: 'Are you sure?', text, confirmLabel: 'Continue', danger: true, onYes });
 }
 
 return { get Modal() { return Modal; }, get confirmBox() { return confirmBox; }, };
@@ -3494,11 +3716,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.12.3-dev.1', released: '2026-11-04',
+  name: 'My Chama App', version: '0.12.4-dev.1', released: '2026-11-04',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.12.3-dev.1', 'Design system, first pass: shared spacing, radius, elevation and motion tokens; named card variants (navigation, selection, information, action, danger, status) and button variants (secondary, ghost, danger). Drawer header is a solid brand colour. Chama rows use the selection card. Screens beyond the drawer and Chama selection keep their current look until they are moved to these variants. '], ['0.12.2-dev.1', 'One profile for every Chama. Your photo, name, username, phone and contact email are kept once, on your account, and used in every Chama you belong to. Your password is the same everywhere; change it under My profile, Password. Members see each other\'s photos in the Chama. Needs migration 019 on the database. Photos added on another phone before this build must be added again. '], ['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
+  notes: [['0.12.4-dev.1', 'Interaction pass. Centred popups for warnings and confirmations (Understood or Continue), neutral toasts that stay 7 seconds with an OK button, confirmation steps for sign out and a second step for deleting your account. New start page: Continue with Google (not connected yet), Sign in, Create account. One full turn before the tick on the code page, a bigger tick with a green splash, no Paste code button, button sounds and an approval chime. Flat buttons in a row. Skeletons instead of loading buttons. Cards of one page are grouped and headings are smaller. '], ['0.12.3-dev.1', 'Design system, first pass: shared spacing, radius, elevation and motion tokens; named card variants (navigation, selection, information, action, danger, status) and button variants (secondary, ghost, danger). Drawer header is a solid brand colour. Chama rows use the selection card. Screens beyond the drawer and Chama selection keep their current look until they are moved to these variants. '], ['0.12.2-dev.1', 'One profile for every Chama. Your photo, name, username, phone and contact email are kept once, on your account, and used in every Chama you belong to. Your password is the same everywhere; change it under My profile, Password. Members see each other\'s photos in the Chama. Needs migration 019 on the database. Photos added on another phone before this build must be added again. '], ['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
   ['0.12.1-dev.1', 'Payments are now saved on the server first, with a request key, so a double tap or a retry cannot record the same payment twice. The M-Pesa code is checked by the database too. Payments show as recorded only after the server confirms them.'],
   ['0.12.0-dev.5', 'Scan fix round: centred pop-ups, a scanning step when you have more than one Chama, the join-by-key crash fix and a forced refresh of the app.'],
     ['0.12.0-dev.4', 'Sign-in shows the real reason and no longer falls back to a direct password check. Remove access is hidden on your own row and on treasurer rows. You can switch or add a Chama at any time, and the list shows each Chama tag. When you create a Chama or invite someone, you choose whether you are listed as a member or are an officer only. Invitations last 7 days. Invite codes: the treasurer can create a code with a role, a validity of 1, 7 or 30 days and a number of uses; a person types the code, checks the Chama on the confirmation screen, then joins. Codes can be cancelled. Members who cannot see the member list are told why. Not yet tested on a phone.'], ['0.12.0-dev.3', 'Fixes from live testing: no hidden default Chama and no sample data; the username is chosen by the person; profile shows the real group and role; leave, hand-over and delete account give a clear next step; invitations show the real error; expired codes are named; passwords need a number; the notification badge shows the exact count (up to 99+). Requires migration 010.'],
@@ -3674,11 +3896,11 @@ const Account = {
   },
   openDelete(err = '') {
     Modal.open({
-      title: 'Delete my account', submitLabel: 'Delete my account', danger: true,
+      title: 'Delete my account', submitLabel: 'Continue', danger: false,
       body: `<p class="plain"><b>Your account is not permanently deleted.</b> It is kept for ${DAYS} days. Come back within those days to restore it. After that it is deleted.</p>
         ${err ? `<p class="auth-note" role="alert">${esc(err)}</p>` : ''}`,
       fields: [{ name: 'reason', label: 'Reason (optional)', value: '', placeholder: 'Optional' }],
-      onSubmit: v => { setTimeout(() => Account.submitDelete(v), 0); },
+      onSubmit: v => { __M_src_ui_toast_js.Pop.confirm({ title: 'Delete your account?', text: 'You will be signed out now. Your account is kept for ' + DAYS + ' days, then deleted for good. Sign in again within that time to restore it.', confirmLabel: 'Delete account', danger: true, onYes: () => Account.submitDelete(v) }); },
     });
   },
   async submitDelete(v) {
@@ -4265,15 +4487,6 @@ const actions = {
     if (error && !(Gate.mode === 'forgot' && /signups? not allowed|not found/i.test(error.message))) { if (b) b.disabled = false; return Otp.msg(/seconds|wait|rate/i.test(error.message) ? 'Please wait a minute before asking for another code.' : error.message); }
     Otp.reset(); Otp.start(); Otp.msg('A new code is on its way.');
   },
-  otpPaste: async () => {
-    const inp = document.getElementById('otpIn'); if (!inp || inp.disabled) return;
-    let text = '';
-    try { text = await navigator.clipboard.readText(); } catch (e) { return toast('Press and hold the boxes, then choose Paste'); }
-    const digits = String(text || '').replace(/\D/g, '');
-    if (!digits) return toast('No code on the clipboard yet');
-    inp.value = digits.slice(0, inp.maxLength > 0 ? inp.maxLength : 6);
-    inp.dispatchEvent(new Event('input', { bubbles: true }));
-  },
   gateRecheck: async () => { const ok = await Session.recheck(); if (!ok) toast('Not signed in yet. Open the link on this phone, or type the code instead'); },
   gateCode: async () => {
     const token = ($('#gateCode').value || '').replace(/\D/g, '');
@@ -4288,13 +4501,18 @@ const actions = {
       setTimeout(() => Session.recheck(), 400);
     } catch (e) { toast('Could not check the code. Try again'); }
   },
-  gateSignOut: () => Session.signOut(),
+  gateSignOut: () => actions.signOutAsk(),
+  /* Google sign-in is wired by the owner: set Session.googleSignIn = async () => { ... } (see README). */
+  gateGoogle: () => {
+    if (typeof Session.googleSignIn === 'function') return Session.googleSignIn();
+    __M_src_ui_toast_js.Pop.alert('Google sign-in is not connected yet. Use Sign in or Create account for now.', { title: 'Google sign-in', label: 'Understood' });
+  },
   signOutAsk: () => {
-    Modal.open({
+    __M_src_ui_toast_js.Pop.confirm({
       title: 'Sign out?',
-      body: '<p class="plain">This closes the app on this phone. You will need your password to sign in again.</p>' + (Store.hasUnsent() ? '<p class="auth-note" role="alert">Some changes on this phone have not reached the cloud yet. Signing out now will lose them. Wait until the app says it is online.</p>' : ''),
-      submitLabel: 'Sign out',
-      onSubmit: () => { setTimeout(() => actions.signOutApp(), 0); },
+      html: (() => { try { return '<p class="plain">This closes the app on this phone. You will need your password to sign in again.</p>' + (Store.hasUnsent() ? '<p class="auth-note" role="alert">Some changes on this phone have not reached the cloud yet. Signing out now will lose them. Wait until the app says it is online.</p>' : ''); } catch (e) { return ''; } })(),
+      confirmLabel: 'Sign out', danger: true,
+      onYes: () => { setTimeout(() => actions.signOutApp(), 0); },
     });
   },
   signOutApp: async () => {
@@ -4595,6 +4813,7 @@ function renderPage() {
   { const sw = $('#switchBtn'); if (sw) sw.hidden = !((Session.workspaces || []).length >= 1); const lv = $('#leaveBtn'); if (lv) lv.hidden = !Session.role; }
   $('#undoBtn').hidden = !admin;
   { const av_ = document.getElementById('appVer'); if (av_) av_.textContent = __M_src_content_app_info_js.APP.version; }
+  { const S_ = __M_src_ui_toast_js.Sfx; document.addEventListener('pointerdown', e => { S_.unlock(); const b = e.target.closest && e.target.closest('button, .btn, [data-act], [data-gm]'); if (b && !b.disabled && !b.closest('.otp-stage, .pop')) S_.tap(); }, true); }
   document.querySelectorAll('#drawer .dgroup').forEach(g => { g.hidden = ![...g.querySelectorAll('.dl')].some(x => !x.hidden); });
   if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
   document.body.classList.toggle('no-tabs', !ROUTES.some(x => x[0] === r));
