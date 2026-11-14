@@ -5752,7 +5752,7 @@ function row(opts) {
   if (opts.onTap) {
     r.addEventListener('pointerdown', () => r.classList.add('pressed'));
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => r.addEventListener(ev, () => r.classList.remove('pressed')));
-    r.addEventListener('click', () => setTimeout(opts.onTap, 90));
+    r.addEventListener('click', () => setTimeout(opts.onTap, 110));
   }
   return r;
 }
@@ -5895,7 +5895,7 @@ const Menu = {
         profile.setAttribute('aria-label', 'Open your profile');
         profile.innerHTML = `<span class="mn-avatar" aria-hidden="true">${user.first}</span><span class="mn-who"><small>Welcome back</small><strong></strong></span><span class="mn-pill">Profile${svg('chev')}</span>`;
         profile.querySelector('strong').textContent = user.name;
-        profile.addEventListener('click', () => openProfile());
+        profile.addEventListener('click', () => setTimeout(() => window.openProfile(), 110));
         hero.appendChild(profile);
         scroll.appendChild(hero);
         scroll.appendChild(group([
@@ -5918,7 +5918,7 @@ const Menu = {
         scroll.appendChild(el('p', 'mn-ver', ver));
         let armedUntil = 0;
         btn.addEventListener('click', () => {
-          if (Date.now() < armedUntil) { signOut(); return; }
+          if (Date.now() < armedUntil) { window.signOut(); return; }
           armedUntil = Date.now() + 3000;
           btn.classList.add('armed');
           btn.querySelector('span').textContent = 'Tap again to sign out';
@@ -5955,20 +5955,20 @@ function recordsDef() {
   return { title: 'Records', build(scroll) {
     scroll.appendChild(group([
       row({ icon: 'clock', tone: '#3f9fb8', label: 'History', onTap: () => go('#/history') }),
-      row({ icon: 'doc', tone: '#3f9fb8', label: 'Reports & backup', onTap: () => openSection('reports') })
+      row({ icon: 'doc', tone: '#3f9fb8', label: 'Reports & backup', onTap: () => window.openSection('reports') })
     ], 'Records', 'History keeps every change. Backups are saved to the Chama.'));
   }};
 }
 function chamaDef() {
   return { title: 'Chama settings', build(scroll) {
-    const switchRow = row({ icon: 'users', tone: '#e2a332', label: 'Switch Chama', valueKey: 'chama', value: chamaNow().name, onTap: () => openChamaPicker() });
+    const switchRow = row({ icon: 'users', tone: '#e2a332', label: 'Switch Chama', valueKey: 'chama', value: chamaNow().name, onTap: () => { window.openChamaPicker(); /* open the real chooser with the expand-from-row motion, origin = switchRow */ } });
     scroll.appendChild(group([switchRow], 'Chama', 'Only the Chama you are in right now is affected by these settings.'));
     scroll.appendChild(group([
-      row({ icon: 'pencil', tone: '#e2a332', label: 'Edit Chama details', onTap: () => openSection('edit') }),
-      row({ icon: 'undo', tone: '#e2a332', label: 'Undo last change', chevron: false, onTap: () => undoLastChange() })
+      row({ icon: 'pencil', tone: '#e2a332', label: 'Edit Chama details', onTap: () => window.openSection('edit') }),
+      row({ icon: 'undo', tone: '#e2a332', label: 'Undo last change', chevron: false, onTap: () => window.undoLastChange() })
     ], 'Manage'));
     scroll.appendChild(group([
-      row({ icon: 'exit', tone: '#e5534b', label: 'Leave this Chama', danger: true, onTap: () => openSection('leave') })
+      row({ icon: 'exit', tone: '#e5534b', label: 'Leave this Chama', danger: true, onTap: () => window.openSection('leave') })
     ], '', 'Leaving ends your access. Your past records stay with the Chama.'));
     Menu.refresh();
   }};
@@ -5976,8 +5976,8 @@ function chamaDef() {
 function accountDef() {
   return { title: 'Your account', build(scroll) {
     scroll.appendChild(group([
-      row({ icon: 'user', tone: '#8c6bd6', label: 'My profile', valueKey: 'user', value: userNow().name, onTap: () => openProfile() }),
-      row({ icon: 'globe', tone: '#5a7fd6', label: 'Language', valueKey: 'lang', value: langNow().native, onTap: () => openLanguagePicker() }),
+      row({ icon: 'user', tone: '#8c6bd6', label: 'My profile', valueKey: 'user', value: userNow().name, onTap: () => window.openProfile() }),
+      row({ icon: 'globe', tone: '#5a7fd6', label: 'Language', valueKey: 'lang', value: langNow().native, onTap: () => window.openLanguagePicker() }),
       row({ icon: 'gear', tone: '#7d8a86', label: 'Settings', onTap: () => push(settingsDef()) })
     ], 'Your account', 'Your profile, language and how the app looks on this phone.'));
   }};
@@ -6015,6 +6015,12 @@ function settingsDef() {
   });
 })();
 
+window.openProfile = openProfile;
+window.openChamaPicker = openChamaPicker;
+window.openLanguagePicker = openLanguagePicker;
+window.openSection = openSection;
+window.undoLastChange = undoLastChange;
+window.signOut = signOut;
 try { Menu.build(); } catch (e) { console.error(e); }
 
 return { get Menu() { return Menu; } };
