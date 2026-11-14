@@ -836,6 +836,47 @@ html[data-mode=dark]{ --green-tint:#17332a; --green-line:#2c5a4a; --sage:#9fb5ad
 .gbtn:hover{background:var(--green-tint)}
 .gbtn:active{transform:scale(.97)}
 .gbtn:disabled{opacity:.55;cursor:default;transform:none}
+/* Landing only. Other screens do not use these classes. */
+body:has(.land) header{display:none}
+.land{position:fixed;inset:0;z-index:40;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 0 calc(24px + env(safe-area-inset-bottom));color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+background:radial-gradient(120% 60% at 85% 0%,rgba(140,214,184,.55) 0%,rgba(140,214,184,0) 60%),radial-gradient(90% 50% at 0% 25%,rgba(63,160,122,.45) 0%,rgba(63,160,122,0) 65%),linear-gradient(175deg,#0a5a45 0%,#0d6a51 35%,#0a5544 62%,#053a2d 100%)}
+.land-wave{position:fixed;left:-20%;right:-20%;pointer-events:none;border-radius:50%;filter:blur(2px);animation:landFlow 16s ease-in-out infinite alternate}
+.land-wave.w1{top:36%;height:360px;background:linear-gradient(90deg,rgba(160,226,196,0),rgba(160,226,196,.28),rgba(160,226,196,0));transform:rotate(-8deg)}
+.land-wave.w2{bottom:-160px;height:420px;background:linear-gradient(90deg,rgba(4,46,36,0),rgba(4,46,36,.55),rgba(4,46,36,0));transform:rotate(-4deg);animation-duration:20s}
+.land-wave.w3{top:58%;height:260px;background:linear-gradient(90deg,rgba(120,205,168,0),rgba(120,205,168,.22),rgba(120,205,168,0));transform:rotate(6deg);animation-duration:24s}
+@keyframes landFlow{from{transform:translateX(-3%) rotate(var(--r,-6deg))}to{transform:translateX(3%) rotate(var(--r,-6deg))}}
+.land-title{position:relative;z-index:1;margin:0 0 44px;font-size:26px;font-weight:700;letter-spacing:.2px;text-shadow:0 2px 12px rgba(0,0,0,.25);opacity:0;animation:landRise .9s ease forwards}
+.land-card{position:relative;z-index:1;width:min(380px,calc(100% - 36px));padding:26px 22px 20px;border-radius:36px;background:linear-gradient(180deg,rgba(236,249,243,.92) 0%,rgba(206,236,224,.82) 100%);-webkit-backdrop-filter:blur(18px) saturate(120%);backdrop-filter:blur(18px) saturate(120%);border:1px solid rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 40px 80px rgba(2,30,22,.45),0 8px 20px rgba(2,30,22,.2);display:flex;flex-direction:column;gap:14px;color:#0c2e25;opacity:0;animation:landRise 1s .15s ease forwards}
+.land .auth-note{margin:0;color:#8e2219;font-size:15px;font-weight:650}
+.lbtn{position:relative;overflow:hidden;display:flex;align-items:center;width:100%;min-height:60px;height:60px;padding:0 20px;border:0;border-radius:999px;font:inherit;font-size:17px;font-weight:600;cursor:pointer;outline:none;transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s ease;color:#0c2e25}
+.lbtn:focus-visible{box-shadow:0 0 0 3px #7fd6b2,0 10px 20px rgba(0,0,0,.2)}
+.lbtn:active{transform:scale(.97)}
+.lbtn:disabled{opacity:.6;cursor:default}
+.lbtn .licon{width:24px;height:24px;flex:0 0 24px;display:grid;place-items:center}
+.lbtn .lsep{width:1px;height:26px;margin:0 16px;background:rgba(12,46,37,.25);flex:0 0 1px}
+.lbtn .llabel{flex:1;text-align:left}
+.llight{background:linear-gradient(180deg,#fff 0%,#f0f7f4 100%);box-shadow:inset 0 -2px 0 rgba(12,46,37,.06),0 10px 18px rgba(2,30,22,.16)}
+.ldark{color:#fff;background:linear-gradient(180deg,#0d7d5b 0%,#066146 55%,#044a37 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -2px 0 rgba(0,0,0,.2),0 14px 26px rgba(2,30,22,.42)}
+.ldark .lsep{background:rgba(255,255,255,.4)}
+.ldiv{display:flex;align-items:center;gap:14px;color:#3f6157;font-size:13px;font-weight:700;letter-spacing:2.5px;margin:2px 6px;text-transform:uppercase}
+.ldiv::before,.ldiv::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(63,97,87,0),rgba(63,97,87,.45))}
+.ldiv::after{background:linear-gradient(90deg,rgba(63,97,87,.45),rgba(63,97,87,0))}
+.llang{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 0;font-size:15px;color:#1d4a3e}
+.llang .lglobe{width:20px;height:20px;flex:none}
+.llang .lchev{width:14px;height:14px;flex:none}
+.llang .lrule{width:1px;height:18px;background:rgba(29,74,62,.3);flex:none}
+.llink{background:none;border:0;padding:8px 4px;min-height:44px;color:#0b7a57;font:inherit;font-weight:600;cursor:pointer}
+.llink:focus-visible{outline:2px solid #0b7a57;outline-offset:2px;border-radius:8px}
+.lshine{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.4),transparent 55%);opacity:0;transition:opacity .3s ease}
+@media (hover:hover) and (pointer:fine){
+.lbtn:hover{transform:translateY(-2px) scale(1.015)}
+.llight:hover{box-shadow:inset 0 -2px 0 rgba(12,46,37,.06),0 16px 26px rgba(2,30,22,.22)}
+.ldark:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -2px 0 rgba(0,0,0,.2),0 20px 34px rgba(2,30,22,.5)}
+.lbtn:hover .lshine{opacity:1}
+}
+@keyframes landRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.land-wave,.land-title,.land-card{animation:none;opacity:1}.lbtn,.lshine{transition:none}}
+
 .gbtn .gicon{width:22px;height:22px;flex:none}
 .auth-or{display:flex;align-items:center;gap:12px;margin:16px 0 0;color:var(--mute);font-size:13px}
 .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -2475,6 +2516,14 @@ const Otp = {
 };
 document.addEventListener('input', e => { if (e.target && e.target.id === 'otpIn') Otp.onInput(e.target); });
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-act]')) Haptic.tap(); }, true);
+document.addEventListener('pointermove', e => {
+  const btn = e.target.closest && e.target.closest('.lbtn');
+  if (!btn) return;
+  const r = btn.getBoundingClientRect();
+  btn.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+  btn.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+}, { passive: true });
+
 
 /* What the person typed survives a reload or a trip to the mail app (this tab only) */
 const gateSaved = () => { try { return JSON.parse(sessionStorage.getItem('mca-gate')) || {}; } catch (e) { return {}; } };
@@ -2728,12 +2777,34 @@ const Gate = {
       : { title: 'Welcome to My Chama', sub: 'Sign in or create an account to continue.', google: 'Continue with Google', or: 'or', in: 'Sign in', up: 'Create account', back: 'Back' };
     const note = this.notice ? `<p class="auth-note" role="alert">${esc(this.notice)}</p>` : '';
     const lang_ = `<p class="btn-hint"><button type="button" class="linkish" data-ob="change-lang">${L.lang}: ${OB_T[lang].name} &rarr; ${L.change}</button></p>`;
-    if (mode === 'start') return `<section class="gate"><div class="card gcard auth start">
-<img class="start-logo" src="icons/logo-512.png" alt="" width="64" height="64">
-<h2 class="auth-h">${ST.title}</h2><p class="plain mute">${ST.sub}</p>${note}
-<button type="button" class="gbtn" data-act="gateGoogle"${this.signing ? ' disabled aria-busy="true"' : ''}><svg class="gicon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>${ST.google}</span></button>
-<p class="auth-or"><span>${ST.or}</span></p>
-<p class="actions"><button type="button" class="btn pri" data-gm="in">${ST.in}</button><button type="button" class="btn" data-gm="up">${ST.up}</button></p>${lang_}</div></section>`;
+    if (mode === 'start') return `<section class="land">
+<div class="land-wave w1" style="--r:-8deg"></div>
+<div class="land-wave w3" style="--r:6deg"></div>
+<div class="land-wave w2" style="--r:-4deg"></div>
+<h1 class="land-title" id="landTitle">My Chama App</h1>
+<main class="land-card" aria-labelledby="landTitle">
+${note}
+<button type="button" class="lbtn llight" data-act="gateGoogle"${this.signing ? ' disabled aria-busy="true"' : ''}>
+<span class="lshine"></span>
+<span class="licon"><svg viewBox="0 0 48 48" width="24" height="24" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.7-4.2-13.6-9.9l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg></span>
+<span class="lsep"></span><span class="llabel">${ST.google}</span></button>
+<div class="ldiv">${ST.or}</div>
+<button type="button" class="lbtn ldark" data-gm="in">
+<span class="lshine"></span>
+<span class="licon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M3 7l9 6 9-6"/></svg></span>
+<span class="lsep"></span><span class="llabel">${ST.in}</span></button>
+<button type="button" class="lbtn llight" data-gm="up">
+<span class="lshine"></span>
+<span class="licon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/><path d="M19 7v6M16 10h6"/></svg></span>
+<span class="lsep"></span><span class="llabel">${ST.up}</span></button>
+<div class="llang">
+<svg class="lglobe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/></svg>
+<span>${esc(L.lang)}: ${esc(OB_T[lang].name)}</span>
+<svg class="lchev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>
+<span class="lrule"></span>
+<button type="button" class="llink" data-ob="change-lang">${esc(L.change)}</button>
+</div>
+</main></section>`;
     if (mode === 'in') return `<section class="gate"><div class="card gcard auth${this.signing ? ' busy' : ''}">
 <h2 class="auth-h">${G.inTitle}</h2><p class="plain mute">${G.inSub}</p>${note}
 <label>${G.idLabel}<span class="field-ic">${OB_ICON_MAIL}<input id="gateId" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${G.idPh}" value="${esc(this.id)}"></span></label>
