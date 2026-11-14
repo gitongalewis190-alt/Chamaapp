@@ -15,7 +15,7 @@
   --r:12px; --nav:#12231f;
 }
 *{box-sizing:border-box;margin:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;min-height:100dvh;
   background-image:radial-gradient(900px 400px at 85% -10%,#cfe6dd 0,transparent 70%)}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -55,7 +55,7 @@ nav a,nav svg{-webkit-user-drag:none;user-drag:none}
 @keyframes flowB{from{transform:translateX(-40px)}to{transform:translateX(0)}}
 @keyframes slosh{0%{transform:scale(1,1)}20%{transform:scale(1.07,.91)}42%{transform:scale(.96,1.05)}64%{transform:scale(1.025,.985)}82%{transform:scale(.995,1.005)}100%{transform:scale(1,1)}}
 main{max-width:980px;margin:0 auto;padding:16px 16px 120px}
-@media(min-width:800px){
+@media(min-width:960px) and (min-height:640px){
   nav{top:0;bottom:auto;left:0;right:auto;width:190px;height:100vh;flex-direction:column;align-items:stretch;padding:76px 10px 10px;border-radius:0;background:var(--nav);box-shadow:none}
   nav a{flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:12px;padding:12px 16px;font-size:14px}
   nav a svg{width:20px;height:20px}
@@ -110,7 +110,7 @@ th:first-child{background:#f7faf9}
 .menu b{display:block;margin-bottom:2px}
 @media(max-width:520px){#roleTag{display:none}}
 .syncbar{background:var(--warn-t);color:var(--warn);text-align:center;font-size:13px;font-weight:700;padding:6px 12px}
-@media(min-width:800px){.syncbar{margin-left:190px}}
+@media(min-width:960px) and (min-height:640px){.syncbar{margin-left:190px}}
 
 </style>
 <style>
@@ -122,8 +122,14 @@ th:first-child{background:#f7faf9}
 .hact{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;justify-content:flex-end;min-width:max-content}
 /* Pin each header part to its own column. Without this, hiding the menu button (sign-in screen)
    pushes the app name into the 44px first column and it shows as a single letter. */
-header #hname,header #pageTitle{grid-column:2;min-width:0}
-header .hact{grid-column:3}
+header #menuBtn,header #backBtn{grid-column:1;grid-row:1;position:relative;z-index:2}
+header #hname,header #pageTitle{grid-column:2;grid-row:1;min-width:0}
+header .hact{grid-column:3;grid-row:1}
+header{z-index:40}
+@media(max-width:959px),(max-height:639px){
+  #nav{position:fixed!important;top:auto!important;bottom:calc(14px + env(safe-area-inset-bottom))!important;left:16px!important;right:16px!important;width:auto!important;height:70px!important;flex-direction:row!important;align-items:stretch!important;padding:6px!important;border-radius:26px!important;z-index:20}
+  header,#view,.syncbar{margin-left:0!important}
+}
 header .hbrand h1{font-size:clamp(16px,4.8vw,18px)}
 
 </style>
@@ -2066,17 +2072,26 @@ const Session = {
   },
   async boot() {
     if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
-    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, lock: async function (_n, _t, fn) { return await fn(); } } }); await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); await Invite.verify(); }
+    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, lock: async function (_n, _t, fn) { return await fn(); } } }); }
     catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
+    let settle = false;
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
-      if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); }
-      else if (ev === 'SIGNED_IN' && sess && !this.verifying && (!this.user || this.user.id !== sess.user.id)) this.after(sess.user);
-      if (sess) OB.syncConsent();
+      if (!settle && ev === 'SIGNED_OUT') return;
+      if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); return; }
+      if ((ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION') && sess && !this.verifying && (!this.user || this.user.id !== sess.user.id || this.status === 'signed-out')) this.after(sess.user);
+      if (sess) { try { __M_src_features_auth_gate_js.OB.syncConsent(); } catch (e) {} }
     });
+    try { await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); await Invite.verify(); } catch (e) { /* the account check still runs */ }
     const oauthMsg = this.takeOAuthError();
-    const { data } = await Backend.sb.auth.getSession();
+    let data = {};
+    try { data = (await Backend.sb.auth.getSession()).data || {}; } catch (e) { data = {}; }
+    if (!(data && data.session) && /[?&]code=/.test(location.search)) {
+      await new Promise(r => setTimeout(r, 1200));
+      try { data = (await Backend.sb.auth.getSession()).data || {}; } catch (e) { data = data || {}; }
+    }
+    settle = true;
     if (data && data.session) { if (!this.user) await this.after(data.session.user); }
-    else { if (oauthMsg) Gate.notice = oauthMsg; this.prepareGoogle(); this.set('signed-out'); }
+    else { if (oauthMsg) { try { __M_src_features_auth_gate_js.Gate.notice = oauthMsg; } catch (e) {} } this.prepareGoogle(); if (!this.user) this.set('signed-out'); }
   },
   /* After any sign-in: (1) is the account finished? (2) is there an invitation to accept? (3) which Chama opens? */
   async after(user) {
@@ -2150,7 +2165,14 @@ const Session = {
     if (Perm.can(m.role, 'members.invite')) { this.loadAccess().catch(() => {}); this.loadInvites().catch(() => {}); }
     Store.startSync().catch(() => {}).then(() => this.loadMemberPics().catch(() => {}));
   },
-  switchTo(id) { location.href = location.pathname + '?c=' + encodeURIComponent(id); },
+  switchTo(id) {
+    let left = false;
+    const go = () => { if (left) return; left = true; location.replace(location.pathname + '?c=' + encodeURIComponent(id)); };
+    const auth = Backend.sb && Backend.sb.auth;
+    if (!auth || !auth.getSession) { go(); return; }
+    auth.getSession().then(go).catch(go);
+    setTimeout(go, 700);
+  },
   async openChooser() {
     if (!Backend.sb || !this.user) return;
     this.chooserOpen = true;
@@ -5644,7 +5666,7 @@ function fineCount() {
 }
 
 function go(hash) {
-  Menu.close();
+  try { Menu.close(); } catch (e) {}
   if (location.hash !== hash) location.hash = hash;
 }
 function openProfile() { go('#/profile'); }
@@ -6152,34 +6174,48 @@ function paintNavAvatar() {
 
 function renderPage() {
   if (!Session.ready()) return Gate.paint();   /* setup, welcome, chooser and sign-in are all gate screens */
-  const s = Store.get(); if (!s) return;
+  const s = Store.get();
+  if (!s) {
+    const view = document.getElementById('view');
+    if (view && !view.querySelector('.opening-chama')) view.innerHTML = '<section class="card opening-chama"><h2>Opening your Chama</h2><p class="plain mute">Loading your records…</p></section>';
+    document.body.classList.remove('no-tabs');
+    const hd0 = document.querySelector('header'); if (hd0) hd0.hidden = false;
+    const menu0 = document.getElementById('menuBtn'); if (menu0) menu0.hidden = false;
+    const name0 = document.getElementById('hname'); if (name0) name0.hidden = false;
+    return;
+  }
   const r = route(), admin = Auth.isAdmin(), changed = r !== lastRoute, prev = lastRoute; lastRoute = r; if (changed) Hist.visit(r, prev);
   { const hd = document.querySelector('header'); if (hd) hd.hidden = false; }
-  Menu.close();
+  try { Menu.close(); } catch (e) {}
   document.title = 'My Chama App';
-  $('#title').textContent = s.chama.name || 'My Chama App';
+  const titleEl = document.getElementById('title'); if (titleEl) titleEl.textContent = (s.chama && s.chama.name) || 'My Chama App';
   { const cs = document.querySelector('#chamaSmall'); if (cs) cs.hidden = true; }
   document.body.classList.toggle('adm', admin);
-  const home = r === 'home', pt = $('#pageTitle');
-  $('#menuBtn').hidden = !home;
-  $('#hname').hidden = !home;
-  $('#backBtn').hidden = home;
-  $('#backBtn').setAttribute('href', '#/' + Hist.back());
-  pt.hidden = home;
-  pt.textContent = (PAGE_NAME[r] || SETTINGS_NAME[r] || (r.startsWith('notifications/') ? 'Notification' : 'Chama')) + ' page';
-  if (changed) { restart(pt, 'enter'); restart($('#view'), 'pg'); }
+  const home = r === 'home', pt = document.getElementById('pageTitle'), menuBtn = document.getElementById('menuBtn'), backBtn = document.getElementById('backBtn'), hname = document.getElementById('hname');
+  if (menuBtn) menuBtn.hidden = !home;
+  if (hname) hname.hidden = !home;
+  if (backBtn) { backBtn.hidden = home; backBtn.setAttribute('href', '#/' + Hist.back()); }
+  if (pt) { pt.hidden = home; pt.textContent = (PAGE_NAME[r] || SETTINGS_NAME[r] || (r.startsWith('notifications/') ? 'Notification' : 'Chama')) + ' page'; if (changed) restart(pt, 'enter'); }
+  const viewEl = document.getElementById('view'); if (changed && viewEl) restart(viewEl, 'pg');
   Nav.sync(r);
   paintNavAvatar();
-  const meD = Me.get(), mmD = meD.memberId ? s.members.find(x => x.id === meD.memberId) : null, nmD = meD.name || (mmD && mmD.name) || '';
-  if (Menu.refresh) Menu.refresh();
+  const meD = Me.get() || {}, mmD = meD.memberId && s.members ? s.members.find(x => x.id === meD.memberId) : null;
+  try { if (Menu.refresh) Menu.refresh(); } catch (e) {}
   { const S_ = __M_src_ui_toast_js.Sfx; document.addEventListener('pointerdown', e => { S_.unlock(); const b = e.target.closest && e.target.closest('button, .btn, [data-act], [data-gm]'); if (b && !b.disabled && !b.closest('.otp-stage, .pop')) S_.tap(); }, true); }
   document.querySelectorAll('#drawer .dgroup').forEach(g => { g.hidden = ![...g.querySelectorAll('.dl')].some(x => !x.hidden); });
   if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
   document.body.classList.toggle('no-tabs', !ROUTES.some(x => x[0] === r));
-  Account.load();
-  $('#view').innerHTML = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r)) + (admin && r === 'home' && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
-  if (Session.hydrating) $('#view').innerHTML = Skel.page(r);
-  Notify.paintBell(s, r);
+  let html = '';
+  try {
+    Account.load();
+    html = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r)) + (admin && r === 'home' && s.members && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
+    if (Session.hydrating) html = Skel.page(r);
+  } catch (e) {
+    console.error(e);
+    html = '<section class="card"><h2>Your records are saved</h2><p class="plain mute">This page could not be drawn. Close the app fully and open it again.</p></section>';
+  }
+  if (viewEl) viewEl.innerHTML = html;
+  try { Notify.paintBell(s, r); } catch (e) {}
 }
 
 return { get renderPage() { return renderPage; }, };
@@ -6294,7 +6330,8 @@ addEventListener('hashchange', () => { if (window.speechSynthesis) speechSynthes
 
 window.addEventListener('hashchange', render);
 
-$('#drawerX').addEventListener('click', () => Menu.close());
+const drawerX = document.getElementById('drawerX');
+if (drawerX) drawerX.addEventListener('click', () => Menu.close());
 
 Store.subscribe(render);
 
