@@ -1116,7 +1116,69 @@ section.card:not(.gcard)>h2:first-child,.card:not(.gcard)>h3:first-child{font-si
 main .card:not(.gcard)+.card:not(.gcard){margin-top:0!important;border-top-left-radius:0;border-top-right-radius:0;border-top-color:transparent}
 main .card:not(.gcard):has(+.card:not(.gcard)){margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
 </style>
-</head>
+<style id="menu-v3">
+#drawer.drawer{position:fixed;top:0;left:0;bottom:0;z-index:60;width:min(390px,92vw);display:block;overflow:hidden;padding:0;background:#0b634c;color:#fff;box-shadow:24px 0 60px rgba(2,30,22,.25);transform:translateX(-104%);transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+#drawer.drawer.open{transform:translateX(0)}
+#drawer .dmark{display:none}
+#drawer .mn-screen{position:absolute;inset:0;display:flex;flex-direction:column;background:#0b634c;color:#fff;transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .35s ease}
+#drawer .mn-screen.enter{transform:translateX(100%)}
+#drawer .mn-screen.from-origin,#drawer .mn-screen.to-origin{transform:scale(var(--sx,.3),var(--sy,.12));opacity:0}
+#drawer .mn-screen.behind{transform:translateX(-18%) scale(.96);opacity:.72;pointer-events:none}
+#drawer .mn-screen.leave{transform:translateX(100%)}
+#drawer .mn-nav{position:relative;flex:none;display:flex;align-items:center;min-height:56px;padding:calc(8px + env(safe-area-inset-top)) 8px 8px;background:#066146}
+#drawer .mn-back{display:inline-flex;align-items:center;gap:2px;min-height:44px;padding:8px;color:#fff;font:inherit;font-size:17px;background:transparent;border:0}
+#drawer .mn-back svg{width:22px;height:22px}
+#drawer .mn-navtitle{position:absolute;left:50%;top:calc(50% + env(safe-area-inset-top)/2);transform:translate(-50%,-50%);font-size:17px;font-weight:700;opacity:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#drawer .mn-nav.scrolled .mn-navtitle{opacity:1}
+#drawer .mn-scroll{flex:1;min-height:0;overflow:auto;padding:0 16px 28px}
+#drawer .mn-large{margin:8px 4px 16px;font-size:32px;line-height:1.1;font-weight:800;color:#fff}
+#drawer .mn-label{margin:0 8px 8px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.86)}
+#drawer .mn-foot{margin:8px 8px 18px;font-size:13px;line-height:1.4;color:rgba(255,255,255,.82)}
+#drawer .mn-group{margin:0 0 18px;border-radius:22px;overflow:hidden;background:#eef8f3;color:#0c2e25;box-shadow:0 12px 28px rgba(2,30,22,.18)}
+#drawer .mn-row{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;border:0;background:transparent;color:#0c2e25;font:inherit;text-align:left}
+#drawer .mn-row+.mn-row{box-shadow:inset 0 1px 0 rgba(7,64,47,.1)}
+#drawer .mn-row.pressed,#drawer .mn-row:active{background:rgba(7,64,47,.06)}
+#drawer .mn-row.danger .mn-lbl{color:#a1281e}
+#drawer .mn-ico{width:32px;height:32px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff}
+#drawer .mn-ico svg{width:18px;height:18px}
+#drawer .mn-lbl{flex:1;min-width:0;font-size:16px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#drawer .mn-val{max-width:46%;font-size:14px;color:#4a6c61;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#drawer .mn-chev{width:14px;height:14px;flex:none;color:#7e9a90}
+#drawer .mn-chev svg{width:14px;height:14px}
+#drawer .mn-badge{min-width:22px;height:22px;padding:0 6px;border-radius:999px;display:inline-grid;place-items:center;background:#d6453a;color:#fff;font-size:12px;font-weight:700}
+#drawer .mn-badge[hidden]{display:none}
+#drawer .mn-switch{position:relative;width:51px;height:31px;flex:none;border:0;border-radius:999px;background:rgba(7,64,47,.22);padding:0}
+#drawer .mn-switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.22);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+#drawer .mn-switch[aria-checked="true"]{background:#0d8a64}
+#drawer .mn-switch[aria-checked="true"]::after{transform:translateX(20px)}
+#drawer .mn-hero{position:relative;overflow:hidden;margin:0 -16px 18px;padding:calc(16px + env(safe-area-inset-top)) 16px 22px;border-radius:0 0 28px 28px;background:linear-gradient(160deg,#0f9a70,#066146 55%,#044a37)}
+#drawer .mn-sweep{position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);animation:mnSweep 7s ease-in-out infinite}
+@keyframes mnSweep{0%,100%{left:-60%}50%{left:120%}}
+#drawer .mn-hero-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between}
+#drawer .mn-brand{font-size:14px;font-weight:700}
+#drawer .mn-x{width:40px;height:40px;border:0;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.16);color:#fff}
+#drawer .mn-x svg{width:18px;height:18px}
+#drawer .mn-profile{position:relative;z-index:1;width:100%;display:flex;align-items:center;gap:12px;margin-top:14px;padding:8px;border:0;border-radius:20px;background:rgba(255,255,255,.14);color:#fff;font:inherit;text-align:left}
+#drawer .mn-avatar{width:56px;height:56px;flex:none;border-radius:50%;display:grid;place-items:center;background:#fff;color:#066146;font-size:22px;font-weight:800}
+#drawer .mn-who{flex:1;min-width:0}
+#drawer .mn-who small{display:block;font-size:13px;opacity:.85}
+#drawer .mn-who strong{display:block;font-size:20px;font-weight:800}
+#drawer .mn-pill{display:inline-flex;align-items:center;gap:2px;padding:7px 8px 7px 12px;border-radius:999px;background:rgba(255,255,255,.22);font-size:13px;font-weight:700}
+#drawer .mn-pill svg{width:14px;height:14px}
+#drawer .mn-spacer{height:28vh}
+#drawer .mn-reveal{display:grid;grid-template-rows:0fr;opacity:0}
+#drawer .mn-reveal.show{grid-template-rows:1fr;opacity:1}
+#drawer .mn-reveal>div{min-height:0;overflow:hidden}
+#drawer .mn-sign{width:100%;min-height:52px;margin:8px 0;border:0;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:8px;background:#f6d5d1;color:#a1281e;font:inherit;font-size:16px;font-weight:800}
+#drawer .mn-sign.armed{background:#c4372e;color:#fff}
+#drawer .mn-sign svg{width:18px;height:18px}
+#drawer .mn-ver{margin:8px 0 0;text-align:center;font-size:12px;letter-spacing:1px;color:rgba(255,255,255,.65);font-weight:700}
+#drawer.mn-large .mn-lbl,#drawer.mn-large .mn-val{font-size:19px}
+#drawer.mn-calm .mn-screen,#drawer.mn-calm .mn-sweep,#drawer.mn-calm .mn-switch::after{animation:none;transition:none}
+@media (hover:hover) and (pointer:fine){#drawer .mn-x:hover,#drawer .mn-profile:hover{background:rgba(255,255,255,.26)}}
+@media (prefers-reduced-motion:reduce){#drawer .mn-sweep{animation:none}#drawer .mn-screen,#drawer .mn-switch::after{transition:none}}
+#drawer button:focus-visible{outline:3px solid #7fd6b2;outline-offset:2px}
+</style></head>
 <body><label id="hapticSw" style="position:fixed;left:-9999px;top:0;opacity:0"><input type="checkbox" switch></label>
 <div class="splash" id="splash">
   <svg class="mca-draw" id="mcaDraw" viewBox="0 0 364 132" role="img" aria-label="MCA">
@@ -1149,44 +1211,7 @@ main .card:not(.gcard):has(+.card:not(.gcard)){margin-bottom:0;border-bottom-lef
     </a>
   </div>
 </header>
-<aside class="drawer" id="drawer" hidden aria-label="Menu">
-  <div class="dhead">
-    <div class="dh">
-      <div class="dbrand"><img src="icons/logo-512.png" alt="" aria-hidden="true"><b>My Chama App</b></div>
-      <button type="button" class="xbtn" id="drawerX" aria-label="Close menu">&times;</button>
-    </div>
-    <div class="dwho" id="dwho"></div>
-    <p class="dtag">Manage your account and Chama activities.</p>
-  </div>
-  <div class="dbody">
-    <div class="dgroup" id="grpChama">
-      <div class="dgl"><span>Chama</span><span class="tag" id="roleTag">View only</span></div>
-      <button type="button" class="dl" data-act="wsSwitch" id="switchBtn" hidden><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6M17 8v6M14 11h6"/></svg><span class="dlt">Switch or add a Chama<small>Open another Chama, create one, or join with an invitation</small></span></button>
-      <button type="button" class="dl" data-act="undo" id="undoBtn" hidden><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span class="dlt">Undo last change</span></button>
-      <button type="button" class="dl" data-act="settings" id="setBtn" hidden><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg><span class="dlt">Edit chama details</span></button>
-      <button type="button" class="dl" data-act="leaveChama" id="leaveBtn" hidden><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"/><path d="M10 8l-4 4 4 4M6 12h9"/></svg><span class="dlt">Leave this Chama<small>Your records stay with the Chama</small></span></button>
-    </div>
-    <div class="dgroup">
-      <div class="dgl"><span>Money</span></div>
-      <a class="dl" href="#/fines"><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 3 19.5h18z"/><path d="M12 10v4.2M12 16.9v.1"/></svg><span class="dlt">Fines<small>Late fees and penalties</small></span></a>
-      <a class="dl" href="#/expenses"><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M16 14.5h2"/></svg><span class="dlt">Expenses<small>Money out: meetings, welfare, investments</small></span></a>
-    </div>
-    <div class="dgroup">
-      <div class="dgl"><span>Records</span></div>
-      <a class="dl" href="#/history"><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span class="dlt">History<small>Every change, with before and after</small></span></a>
-      <a class="dl" href="#/reports"><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4.5 4.5v12.5H7z"/><path d="M14 3.5V8h4.5M9.5 12h5M9.5 15.5h5"/></svg><span class="dlt">Reports and backup<small>Summaries, statements, backup</small></span></a>
-    </div>
-    <div class="dgroup">
-      <div class="dgl"><span>Account</span></div>
-      <a class="dl" href="#/profile"><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg><span class="dlt">My profile<small>Your photo, details and money</small></span></a>
-      <a class="dl" href="#/settings"><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span class="dlt">Settings<small>Text size, colours, easy reading</small></span></a>
-    </div>
-  </div>
-  <div class="dfoot">
-    <button type="button" class="dl dsign" data-act="signOutAsk"><svg class="dic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H14"/><path d="M10 12h10M16.5 8.5 20 12l-3.5 3.5"/></svg><span class="dlt">Sign out<small>Closes the app and shows the opening screen</small></span></button>
-    <p class="dver">MY CHAMA v<span id="appVer"></span></p>
-  </div>
-</aside>
+<aside class="drawer" id="drawer" hidden aria-label="Menu"></aside>
 <div class="shade" id="shade" hidden></div>
 <div id="syncBar" class="syncbar" hidden></div>
 <nav id="nav"></nav>
@@ -5570,80 +5595,431 @@ return { get Views() { return Views; }, get Actions() { return Actions; }, };
 const __M_src_ui_menu_js = (function () {
 const { $ } = __M_src_lib_dom_js;
 
-/* Drawer: a thin marker that glides to the item under the pointer or focus, and rests on the current page */
-const Drawer = {
-  mark(item) {
-    const dr = $('#drawer'), mk = dr && dr.querySelector('.dmark'); if (!mk) return;
-    if (!item || dr.hidden) { mk.classList.remove('on'); return; }
-    /* measured against the drawer itself, so it stays correct inside the scrolling body */
-    const d = dr.getBoundingClientRect(), r = item.getBoundingClientRect();
-    mk.style.top = (r.top - d.top + r.height * .22) + 'px';
-    mk.style.height = (r.height * .56) + 'px';
-    mk.classList.add('on');
-  },
-  here() {
-    const h = location.hash.replace(/^#\/?/, ''), links = [...$('#drawer').querySelectorAll('a.dl[href]')];
-    let best = null;
-    links.forEach(a => {
-      a.removeAttribute('aria-current');
-      const r = a.getAttribute('href').replace(/^#\/?/, '');
-      if (r && (h === r || h.indexOf(r + '/') === 0) && (!best || r.length > best.r.length)) best = { a, r };
-    });
-    if (best) best.a.setAttribute('aria-current', 'page');
-    return best ? best.a : null;
-  },
-  init() {
-    const dr = $('#drawer'); if (!dr || dr.querySelector('.dmark')) return;
-    dr.querySelectorAll('.dl').forEach((el, i) => el.style.setProperty('--i', i));
-    const mk = document.createElement('i'); mk.className = 'dmark'; mk.setAttribute('aria-hidden', 'true'); dr.appendChild(mk);
-    dr.addEventListener('pointerover', e => { const t = e.target.closest && e.target.closest('.dl'); if (t && dr.contains(t)) this.mark(t); });
-    dr.addEventListener('pointerleave', () => this.mark(this.here()));
-    dr.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('dl')) this.mark(e.target); });
-    dr.addEventListener('focusout', () => this.mark(this.here()));
-    addEventListener('hashchange', () => { if (dr.classList.contains('open')) this.mark(this.here()); });
-  }
+const P = {
+  alert: '<path d="M12 4 3 20h18L12 4z"/><path d="M12 10v4M12 17h.01"/>',
+  wallet: '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 14.5h2"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  doc: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M17 8v6M14 11h6"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  exit: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+  gear: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  back: '<path d="M15 6l-6 6 6 6"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  out: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/>'
 };
-Drawer.init();
+const svg = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name]}</svg>`;
+const toast = (t) => { try { __M_src_ui_toast_js.toast(t); } catch (e) {} };
+const drawer = () => document.getElementById('drawer');
+
+function userNow() {
+  const Me = __M_src_core_me_js.Me, Store = __M_src_core_store_js.Store;
+  const me = Me.get() || {}, data = Store.get() || {}, member = me.memberId && data.members ? data.members.find(x => x.id === me.memberId) : null;
+  const name = me.name || (member && member.name) || 'Member';
+  return { first: (String(name).trim()[0] || 'M').toUpperCase(), name, welcome: 'Welcome back' };
+}
+function chamaNow() {
+  const Store = __M_src_core_store_js.Store, Session = __M_src_core_session_js.Session;
+  const data = Store.get() || {};
+  let role = '';
+  try { role = __M_src_features_auth_gate_js.GL().roleWord(Session.role) || ''; } catch (e) {}
+  return { id: Store.chamaId || '', name: (data.chama && data.chama.name) || 'Chama', role };
+}
+function langNow() {
+  let code = 'en';
+  try { code = localStorage.getItem('chama.lang') || __M_src_features_auth_gate_js.OB.lang(); } catch (e) {}
+  const list = window.CHAMA_LANGUAGES || [];
+  const hit = list.find(l => l.code === code);
+  return { code, native: hit ? hit.native : (code === 'sw' ? 'Kiswahili' : 'English') };
+}
+function fineCount() {
+  try {
+    const data = __M_src_core_store_js.Store.get() || {};
+    return (data.fines || []).filter(f => !f.paid).length;
+  } catch (e) { return 0; }
+}
+
+function go(hash) {
+  Menu.close();
+  if (location.hash !== hash) location.hash = hash;
+}
+function openProfile() { go('#/profile'); }
+function openChamaPicker() {
+  Menu.close();
+  try { __M_src_core_session_js.Session.openChooser(); } catch (e) { toast('Could not open your Chamas'); }
+}
+function openLanguagePicker() {
+  Menu.close();
+  const OB = __M_src_features_auth_gate_js.OB;
+  const Session = __M_src_core_session_js.Session;
+  OB.sheet = false; OB.langPick = null; OB.langQ = '';
+  const view = document.getElementById('view');
+  if (!view || !OB.langScreen) return;
+  const paintLang = () => { view.innerHTML = OB.langScreen(); };
+  paintLang();
+  const trap = (e) => {
+    const t = e.target.closest && e.target.closest('[data-ob]');
+    if (!t || !view.contains(t)) return;
+    if (Session.status !== 'ready' && Session.status !== 'demo') return;
+    const act = t.dataset.ob;
+    if (act !== 'lg-pick' && act !== 'lg-open' && act !== 'lg-close' && act !== 'lg-next') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (act === 'lg-pick') { OB.langPick = t.dataset.v; OB.sheet = false; paintLang(); }
+    else if (act === 'lg-open') { OB.sheet = true; paintLang(); }
+    else if (act === 'lg-close') { OB.sheet = false; OB.langQ = ''; paintLang(); }
+    else {
+      OB.applyChoice(OB.langPick || OB.chosen());
+      OB.revisit = false; OB.langPick = null; OB.sheet = false; OB.langQ = '';
+      document.removeEventListener('click', trap, true);
+      try { __M_src_core_rerender_js.render(); } catch (err) {}
+      Menu.refresh();
+    }
+  };
+  document.addEventListener('click', trap, true);
+}
+function openSection(id) {
+  if (id === 'edit') {
+    if (!__M_src_core_auth_js.Auth.isAdmin()) { toast('Only the treasurer can edit these'); return; }
+    go('#/settings/chama');
+    return;
+  }
+  if (id === 'reports') { go('#/reports'); return; }
+  if (id === 'leave') {
+    Menu.close();
+    const fn = __M_src_features_index_js.Actions.leaveChama;
+    if (typeof fn === 'function') fn();
+  }
+}
+function undoLastChange() {
+  if (!__M_src_core_auth_js.Auth.isAdmin()) { toast('Only the treasurer can undo'); return; }
+  toast(__M_src_core_store_js.Store.undo() ? 'Last change undone' : 'Nothing to undo');
+}
+function signOut() {
+  Menu.close();
+  const fn = __M_src_features_index_js.Actions.signOutApp;
+  if (typeof fn === 'function') fn();
+}
+
+function el(tag, cls, html) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (html != null) n.innerHTML = html;
+  return n;
+}
+function row(opts) {
+  const r = el(opts.toggle != null ? 'div' : 'button', 'mn-row' + (opts.danger ? ' danger' : ''));
+  if (r.tagName === 'BUTTON') r.type = 'button';
+  if (opts.icon) {
+    const ic = el('span', 'mn-ico', svg(opts.icon));
+    ic.style.background = opts.tone || '#0d8a64';
+    r.appendChild(ic);
+  }
+  const lbl = el('span', 'mn-lbl');
+  lbl.textContent = opts.label;
+  r.appendChild(lbl);
+  if (opts.badgeKey) {
+    const b = el('span', 'mn-badge');
+    b.dataset.key = opts.badgeKey;
+    b.hidden = true;
+    r.appendChild(b);
+  }
+  if (opts.valueKey || opts.value) {
+    const v = el('span', 'mn-val');
+    if (opts.valueKey) v.dataset.key = opts.valueKey;
+    v.textContent = opts.value || '';
+    r.appendChild(v);
+  }
+  if (opts.toggle != null) {
+    const sw = el('button', 'mn-switch');
+    sw.type = 'button';
+    sw.setAttribute('role', 'switch');
+    sw.setAttribute('aria-label', opts.label);
+    sw.setAttribute('aria-checked', opts.toggle ? 'true' : 'false');
+    sw.addEventListener('click', () => {
+      const on = sw.getAttribute('aria-checked') !== 'true';
+      sw.setAttribute('aria-checked', on ? 'true' : 'false');
+      if (opts.onToggle) opts.onToggle(on);
+    });
+    r.appendChild(sw);
+    return r;
+  }
+  if (opts.chevron !== false) r.appendChild(el('span', 'mn-chev', svg('chev')));
+  if (opts.onTap) {
+    r.addEventListener('pointerdown', () => r.classList.add('pressed'));
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => r.addEventListener(ev, () => r.classList.remove('pressed')));
+    r.addEventListener('click', () => setTimeout(opts.onTap, 90));
+  }
+  return r;
+}
+function group(rows, label, foot) {
+  const wrap = document.createDocumentFragment();
+  if (label) wrap.appendChild(el('div', 'mn-label', label));
+  const card = el('div', 'mn-group');
+  rows.forEach(r => card.appendChild(r));
+  wrap.appendChild(card);
+  if (foot) wrap.appendChild(el('p', 'mn-foot', foot));
+  return wrap;
+}
+
+const stack = [];
+function makeScreen(def, origin) {
+  const dr = drawer();
+  const s = el('section', 'mn-screen' + (def.root ? ' root' : ''));
+  s.setAttribute('aria-label', def.title || 'Menu');
+  let nav = null;
+  if (!def.root) {
+    nav = el('div', 'mn-nav');
+    const back = el('button', 'mn-back', svg('back') + '<span></span>');
+    back.type = 'button';
+    back.querySelector('span').textContent = stack.length ? stack[stack.length - 1].def.title : 'Menu';
+    back.addEventListener('click', () => Menu.back());
+    const title = el('span', 'mn-navtitle');
+    title.textContent = def.title;
+    nav.append(back, title);
+    s.appendChild(nav);
+  }
+  const scroll = el('div', 'mn-scroll');
+  s.appendChild(scroll);
+  if (!def.root) {
+    const h = el('h1', 'mn-large');
+    h.textContent = def.title;
+    scroll.appendChild(h);
+  }
+  def.build(scroll, s);
+  scroll.addEventListener('scroll', () => {
+    if (nav) nav.classList.toggle('scrolled', scroll.scrollTop > 16);
+  });
+  if (origin && origin.isConnected && dr) {
+    const d = dr.getBoundingClientRect(), r = origin.getBoundingClientRect();
+    s.style.setProperty('--sx', String(Math.max(0.2, r.width / d.width)));
+    s.style.setProperty('--sy', String(Math.max(0.08, r.height / d.height)));
+    s.style.transformOrigin = (r.left - d.left + r.width / 2) + 'px ' + (r.top - d.top + r.height / 2) + 'px';
+    s.origin = true;
+  }
+  s.def = def;
+  return s;
+}
+function push(def, origin) {
+  const dr = drawer(); if (!dr) return;
+  const prev = stack[stack.length - 1];
+  const s = makeScreen(def, origin);
+  dr.appendChild(s);
+  s.classList.add(s.origin ? 'from-origin' : 'enter');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    s.classList.remove('from-origin', 'enter');
+    if (prev) prev.classList.add('behind');
+  }));
+  stack.push(s);
+  setTimeout(() => { const b = s.querySelector('button'); if (b) b.focus({ preventScroll: true }); }, 480);
+}
+function pop() {
+  if (stack.length <= 1) { Menu.close(); return; }
+  const top = stack.pop();
+  const prev = stack[stack.length - 1];
+  top.classList.add(top.origin ? 'to-origin' : 'leave');
+  if (prev) prev.classList.remove('behind');
+  setTimeout(() => top.remove(), 520);
+}
 
 const Menu = {
   y: 0, timer: null,
   open() {
-    const dr = $('#drawer');
-    if (dr.classList.contains('open')) return;
+    const dr = drawer(); if (!dr || dr.classList.contains('open')) return;
     clearTimeout(this.timer);
     this.y = window.scrollY || 0;
     Object.assign(document.body.style, { position: 'fixed', top: -this.y + 'px', left: '0', right: '0', width: '100%', overflow: 'hidden' });
-    document.body.classList.add('menu-open'); dr.hidden = false; $('#shade').hidden = false; $('#menuBtn').setAttribute('aria-expanded', 'true');
-    void dr.offsetWidth; /* let the browser lay the drawer out before it animates in */
-    requestAnimationFrame(() => { dr.classList.add('open'); $('#shade').classList.add('open'); Drawer.mark(Drawer.here()); });
-    setTimeout(() => { const f = $('#drawer a'); if (f) f.focus(); Drawer.mark(Drawer.here()); }, 0);
+    document.body.classList.add('menu-open');
+    dr.hidden = false;
+    const shade = $('#shade'); if (shade) { shade.hidden = false; shade.classList.add('open'); }
+    $('#menuBtn').setAttribute('aria-expanded', 'true');
+    this.refresh();
+    void dr.offsetWidth;
+    requestAnimationFrame(() => dr.classList.add('open'));
+    setTimeout(() => { const b = dr.querySelector('.mn-x'); if (b) b.focus({ preventScroll: true }); }, 400);
   },
   close() {
-    const dr = $('#drawer'), was = dr.classList.contains('open');
+    const dr = drawer(); if (!dr) return;
+    const was = dr.classList.contains('open');
+    while (stack.length > 1) { const top = stack.pop(); top.remove(); }
+    if (stack[0]) stack[0].classList.remove('behind');
     document.body.classList.remove('menu-open');
-    dr.classList.remove('open'); $('#shade').classList.remove('open'); $('#menuBtn').setAttribute('aria-expanded', 'false');
+    dr.classList.remove('open');
+    const shade = $('#shade'); if (shade) shade.classList.remove('open');
+    $('#menuBtn').setAttribute('aria-expanded', 'false');
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => { dr.hidden = true; $('#shade').hidden = true; }, 330); /* hide after the fade */
-    if (was) { Object.assign(document.body.style, { position: '', top: '', left: '', right: '', width: '', overflow: '' }); window.scrollTo(0, this.y || 0); $('#menuBtn').focus(); }
+    this.timer = setTimeout(() => { dr.hidden = true; if (shade) shade.hidden = true; }, 420);
+    if (was) {
+      Object.assign(document.body.style, { position: '', top: '', left: '', right: '', width: '', overflow: '' });
+      window.scrollTo(0, this.y || 0);
+      const btn = $('#menuBtn'); if (btn) btn.focus();
+    }
+  },
+  back() {
+    const dr = drawer();
+    if (!dr || !dr.classList.contains('open')) return;
+    pop();
+  },
+  refresh() {
+    const user = userNow(), chama = chamaNow(), lang = langNow(), fines = fineCount();
+    document.querySelectorAll('#drawer [data-key="chama"]').forEach(n => { n.textContent = chama.name; });
+    document.querySelectorAll('#drawer [data-key="lang"]').forEach(n => { n.textContent = lang.native; });
+    document.querySelectorAll('#drawer [data-key="user"]').forEach(n => { n.textContent = user.name; });
+    document.querySelectorAll('#drawer [data-key="fines"]').forEach(n => { n.hidden = fines < 1; n.textContent = String(fines); });
+    document.querySelectorAll('#drawer [data-key="money"]').forEach(n => { n.textContent = fines ? (fines + (fines === 1 ? ' fine due' : ' fines due')) : 'Fines and expenses'; });
+    const av = document.querySelector('#drawer .mn-avatar'); if (av) av.textContent = user.first;
+    const strong = document.querySelector('#drawer .mn-who strong'); if (strong) strong.textContent = user.name;
+    const A = __M_src_core_a11y_js.A11y.d || {};
+    const dr = drawer();
+    if (dr) {
+      dr.classList.toggle('mn-large', A.size === 'l' || A.size === 'x');
+      dr.classList.toggle('mn-calm', !!A.rm);
+    }
+  },
+  build() {
+    const dr = drawer(); if (!dr) return;
+    dr.innerHTML = '';
+    const user = userNow(), chama = chamaNow(), lang = langNow();
+    const root = makeScreen({
+      root: true, title: 'Menu',
+      build(scroll) {
+        const hero = el('header', 'mn-hero');
+        hero.innerHTML = `<span class="mn-sweep"></span><div class="mn-hero-top"><span class="mn-brand">My Chama App</span><button class="mn-x" type="button" aria-label="Close menu">${svg('close')}</button></div>`;
+        hero.querySelector('.mn-x').addEventListener('click', () => Menu.close());
+        const profile = el('button', 'mn-profile');
+        profile.type = 'button';
+        profile.setAttribute('aria-label', 'Open your profile');
+        profile.innerHTML = `<span class="mn-avatar" aria-hidden="true">${user.first}</span><span class="mn-who"><small>Welcome back</small><strong></strong></span><span class="mn-pill">Profile${svg('chev')}</span>`;
+        profile.querySelector('strong').textContent = user.name;
+        profile.addEventListener('click', () => openProfile());
+        hero.appendChild(profile);
+        scroll.appendChild(hero);
+        scroll.appendChild(group([
+          row({ icon: 'wallet', tone: '#2fb47c', label: 'Money', valueKey: 'money', value: 'Fines and expenses', badgeKey: 'fines', onTap: () => push(moneyDef()) }),
+          row({ icon: 'clock', tone: '#3f9fb8', label: 'Records', value: 'History and backup', onTap: () => push(recordsDef()) }),
+          row({ icon: 'users', tone: '#e2a332', label: 'Chama settings', valueKey: 'chama', value: chama.name, onTap: () => push(chamaDef()) }),
+          row({ icon: 'user', tone: '#8c6bd6', label: 'Your account', valueKey: 'user', value: user.name, onTap: () => push(accountDef()) })
+        ], 'Activities'));
+        const spacer = el('div', 'mn-spacer');
+        scroll.appendChild(spacer);
+        const reveal = el('div', 'mn-reveal');
+        const inner = el('div');
+        const btn = el('button', 'mn-sign', svg('out') + '<span>Sign out</span>');
+        btn.type = 'button';
+        inner.appendChild(btn);
+        reveal.appendChild(inner);
+        scroll.appendChild(reveal);
+        let ver = 'MY CHAMA';
+        try { ver = 'MY CHAMA · v' + __M_src_content_app_info_js.APP.version; } catch (e) {}
+        scroll.appendChild(el('p', 'mn-ver', ver));
+        let armedUntil = 0;
+        btn.addEventListener('click', () => {
+          if (Date.now() < armedUntil) { signOut(); return; }
+          armedUntil = Date.now() + 3000;
+          btn.classList.add('armed');
+          btn.querySelector('span').textContent = 'Tap again to sign out';
+          setTimeout(() => {
+            if (Date.now() >= armedUntil) { btn.classList.remove('armed'); btn.querySelector('span').textContent = 'Sign out'; }
+          }, 3100);
+        });
+        const check = () => {
+          const atBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 12;
+          reveal.classList.toggle('show', atBottom);
+        };
+        scroll.addEventListener('scroll', check);
+        setTimeout(check, 60);
+      }
+    });
+    dr.appendChild(root);
+    stack.push(root);
+    this.refresh();
   }
 };
 
-/* Dismissal gestures: swipe the drawer to the left, or press Escape */
+function moneyDef() {
+  return { title: 'Money', build(scroll) {
+    const fines = fineCount();
+    scroll.appendChild(group([
+      row({ icon: 'alert', tone: '#e8a33d', label: 'Fines', badgeKey: 'fines', onTap: () => go('#/fines') }),
+      row({ icon: 'wallet', tone: '#2fb47c', label: 'Expenses', onTap: () => go('#/expenses') })
+    ], 'Money out and in', 'Fines are added by the Treasurer. Expenses need a receipt.'));
+    Menu.refresh();
+    if (!fines) { /* badge stays hidden */ }
+  }};
+}
+function recordsDef() {
+  return { title: 'Records', build(scroll) {
+    scroll.appendChild(group([
+      row({ icon: 'clock', tone: '#3f9fb8', label: 'History', onTap: () => go('#/history') }),
+      row({ icon: 'doc', tone: '#3f9fb8', label: 'Reports & backup', onTap: () => openSection('reports') })
+    ], 'Records', 'History keeps every change. Backups are saved to the Chama.'));
+  }};
+}
+function chamaDef() {
+  return { title: 'Chama settings', build(scroll) {
+    const switchRow = row({ icon: 'users', tone: '#e2a332', label: 'Switch Chama', valueKey: 'chama', value: chamaNow().name, onTap: () => openChamaPicker() });
+    scroll.appendChild(group([switchRow], 'Chama', 'Only the Chama you are in right now is affected by these settings.'));
+    scroll.appendChild(group([
+      row({ icon: 'pencil', tone: '#e2a332', label: 'Edit Chama details', onTap: () => openSection('edit') }),
+      row({ icon: 'undo', tone: '#e2a332', label: 'Undo last change', chevron: false, onTap: () => undoLastChange() })
+    ], 'Manage'));
+    scroll.appendChild(group([
+      row({ icon: 'exit', tone: '#e5534b', label: 'Leave this Chama', danger: true, onTap: () => openSection('leave') })
+    ], '', 'Leaving ends your access. Your past records stay with the Chama.'));
+    Menu.refresh();
+  }};
+}
+function accountDef() {
+  return { title: 'Your account', build(scroll) {
+    scroll.appendChild(group([
+      row({ icon: 'user', tone: '#8c6bd6', label: 'My profile', valueKey: 'user', value: userNow().name, onTap: () => openProfile() }),
+      row({ icon: 'globe', tone: '#5a7fd6', label: 'Language', valueKey: 'lang', value: langNow().native, onTap: () => openLanguagePicker() }),
+      row({ icon: 'gear', tone: '#7d8a86', label: 'Settings', onTap: () => push(settingsDef()) })
+    ], 'Your account', 'Your profile, language and how the app looks on this phone.'));
+  }};
+}
+function settingsDef() {
+  const A = __M_src_core_a11y_js.A11y;
+  return { title: 'Settings', build(scroll) {
+    scroll.appendChild(group([
+      row({ label: 'Larger text', chevron: false, toggle: A.d.size === 'l' || A.d.size === 'x', onToggle: (on) => { A.d.size = on ? 'l' : 'n'; A.save(); Menu.refresh(); } }),
+      row({ label: 'Calmer motion', chevron: false, toggle: !!A.d.rm, onToggle: (on) => { A.d.rm = on ? 1 : 0; A.save(); Menu.refresh(); } })
+    ], 'Display', 'Larger text makes the menu easier to read. Calmer motion turns off most movement.'));
+  }};
+}
+
 (function () {
-  const dr = $('#drawer'); if (!dr) return;
+  const dr = drawer(); if (!dr) return;
   let sx = null, sy = null;
   dr.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
   dr.addEventListener('touchend', e => {
-    if (sx === null) return;
+    if (sx == null) return;
     const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
     sx = null;
-    if (dx < -56 && Math.abs(dy) < 80) Menu.close();
+    if (dx < -56 && Math.abs(dy) < 80) Menu.back();
   }, { passive: true });
-  addEventListener('keydown', e => { if (e.key === 'Escape' && dr.classList.contains('open')) Menu.close(); });
+  addEventListener('keydown', e => {
+    if (!dr.classList.contains('open')) return;
+    if (e.key === 'Tab') {
+      const top = stack[stack.length - 1]; if (!top) return;
+      const f = [...top.querySelectorAll('button')].filter(b => !b.disabled && b.offsetParent);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
 })();
 
-return { get Menu() { return Menu; }, };
+try { Menu.build(); } catch (e) { console.error(e); }
+
+return { get Menu() { return Menu; } };
 })();
+
 
 /* ---- src/ui/nav.js ---- */
 const __M_src_ui_nav_js = (function () {
@@ -5789,12 +6165,7 @@ function renderPage() {
   Nav.sync(r);
   paintNavAvatar();
   const meD = Me.get(), mmD = meD.memberId ? s.members.find(x => x.id === meD.memberId) : null, nmD = meD.name || (mmD && mmD.name) || '';
-  $('#dwho').innerHTML = av({ name: nmD, photo: Session.photoFor(mmD) || meD.photo }, 52) + '<span class="dwt"><small>Welcome</small>' + (nmD ? '<b>' + esc(nmD) + '</b>' : '') + '</span>';
-  $('#roleTag').textContent = Perm.label(Session.role) + (admin ? '' : ' · view only');
-  $('#setBtn').hidden = !admin;
-  { const sw = $('#switchBtn'); if (sw) sw.hidden = !((Session.workspaces || []).length >= 1); const lv = $('#leaveBtn'); if (lv) lv.hidden = !Session.role; }
-  $('#undoBtn').hidden = !admin;
-  { const av_ = document.getElementById('appVer'); if (av_) av_.textContent = __M_src_content_app_info_js.APP.version; }
+  if (Menu.refresh) Menu.refresh();
   { const S_ = __M_src_ui_toast_js.Sfx; document.addEventListener('pointerdown', e => { S_.unlock(); const b = e.target.closest && e.target.closest('button, .btn, [data-act], [data-gm]'); if (b && !b.disabled && !b.closest('.otp-stage, .pop')) S_.tap(); }, true); }
   document.querySelectorAll('#drawer .dgroup').forEach(g => { g.hidden = ![...g.querySelectorAll('.dl')].some(x => !x.hidden); });
   if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
@@ -5892,13 +6263,13 @@ document.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close(); });
 
-$('#drawer').addEventListener('click', e => { if (e.target.closest('a,button')) Menu.close(); });
+/* Menu buttons stay inside the drawer until a real screen is opened. */
 
 $('#menuBtn').addEventListener('click', () => ($('#drawer').hidden ? Menu.open() : Menu.close()));
 
 $('#shade').addEventListener('click', () => Menu.close());
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') Menu.close(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#drawer').classList.contains('open') && Menu.back) Menu.back(); });
 
 A11y.load();
 
