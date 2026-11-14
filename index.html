@@ -876,6 +876,47 @@ background:radial-gradient(120% 60% at 85% 0%,rgba(140,214,184,.55) 0%,rgba(140,
 }
 @keyframes landRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.land-wave,.land-title,.land-card{animation:none;opacity:1}.lbtn,.lshine{transition:none}}
+body:has(.sin) header{display:none}
+.sin{position:fixed;inset:0;z-index:40;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:calc(56px + env(safe-area-inset-top)) 18px calc(32px + env(safe-area-inset-bottom));color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+background:radial-gradient(120% 60% at 85% 0%,rgba(140,214,184,.5) 0%,rgba(140,214,184,0) 60%),radial-gradient(90% 50% at 0% 25%,rgba(63,160,122,.45) 0%,rgba(63,160,122,0) 65%),linear-gradient(175deg,#0a5a45 0%,#0d6a51 35%,#0a5544 62%,#053a2d 100%)}
+.sin-wave{position:fixed;left:-20%;right:-20%;pointer-events:none;border-radius:50%;filter:blur(2px);animation:sinFlow 16s ease-in-out infinite alternate}
+.sin-wave.w1{top:36%;height:360px;background:linear-gradient(90deg,rgba(160,226,196,0),rgba(160,226,196,.26),rgba(160,226,196,0));transform:rotate(-8deg)}
+.sin-wave.w2{bottom:-160px;height:420px;background:linear-gradient(90deg,rgba(4,46,36,0),rgba(4,46,36,.55),rgba(4,46,36,0));transform:rotate(-4deg);animation-duration:20s}
+@keyframes sinFlow{from{transform:translateX(-3%) rotate(var(--r,-6deg))}to{transform:translateX(3%) rotate(var(--r,-6deg))}}
+.sbrand{position:relative;z-index:1;display:flex;align-items:center;gap:14px;margin-bottom:40px}
+.slogo{width:52px;height:52px;border-radius:14px;object-fit:cover;box-shadow:0 8px 22px rgba(0,0,0,.25)}
+.sbrand-rule{width:1px;height:30px;background:rgba(255,255,255,.45)}
+.sbrand-name{font-size:22px;font-weight:700;text-shadow:0 2px 12px rgba(0,0,0,.25)}
+.scard{position:relative;z-index:1;width:min(380px,100%);padding:28px 20px 18px;border-radius:32px;background:linear-gradient(180deg,rgba(236,249,243,.9) 0%,rgba(206,236,224,.8) 100%);-webkit-backdrop-filter:blur(18px) saturate(120%);backdrop-filter:blur(18px) saturate(120%);border:1px solid rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 40px 80px rgba(2,30,22,.45);color:#0c2e25;opacity:0;animation:sinRise .9s ease forwards}
+.stitle{margin:0 0 18px 6px;font-size:30px;font-weight:800;color:#0a4d3c}
+.sform{display:flex;flex-direction:column;gap:8px}
+.slbl{font-size:15px;font-weight:700;color:#0a4d3c;margin:8px 0 0 6px}
+.sfield{display:flex;align-items:center;gap:10px;min-height:56px;padding:0 8px 0 16px;border-radius:999px;background:#fff;border:1px solid rgba(7,64,47,.1);box-shadow:0 6px 14px rgba(2,30,22,.1)}
+.sfield:focus-within{border-color:#0c7a57;box-shadow:0 0 0 3px rgba(127,214,178,.6)}
+.sfield svg{width:22px;height:22px;flex:0 0 22px;color:#0a4d3c}
+.sfield input{flex:1;min-width:0;height:54px;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:#0c2e25}
+.sfield input::placeholder{color:#8a9a95}
+.stoggle{height:40px;padding:0 16px;border-radius:999px;border:1px solid rgba(7,64,47,.15);background:#f7fbf9;color:#0a4d3c;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.stoggle:focus-visible{outline:2px solid #0c7a57;outline-offset:2px}
+.serror{min-height:20px;margin:4px 0 0 6px;font-size:14px;font-weight:600;color:#a1281e}
+.sforgot{margin:0 6px;text-align:right}
+.sbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:58px;border:0;border-radius:999px;font:inherit;font-size:17px;font-weight:700;cursor:pointer;outline:none;transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s ease}
+.sbtn:focus-visible{box-shadow:0 0 0 3px #7fd6b2}
+.sbtn:active{transform:scale(.97)}
+.sbtn:disabled{opacity:.7;cursor:default}
+.sprimary{margin-top:10px;color:#fff;background:linear-gradient(180deg,#0d7d5b 0%,#066146 55%,#044a37 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 14px 26px rgba(2,30,22,.42)}
+.srow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+.slight{height:52px;font-size:15px;color:#0c2e25;background:linear-gradient(180deg,#fff 0%,#f0f7f4 100%);box-shadow:0 10px 18px rgba(2,30,22,.16)}
+.slight svg{width:22px;height:22px;flex:none}
+.slang{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(7,64,47,.12);font-size:15px;color:#1d4a3e}
+.slang svg{width:20px;height:20px;flex:none}
+.slang .srule{width:1px;height:18px;background:rgba(29,74,62,.3)}
+.slink{background:none;border:0;padding:8px 2px;min-height:44px;color:#0b7a57;font:inherit;font-weight:700;cursor:pointer}
+.slink:focus-visible{outline:2px solid #0b7a57;outline-offset:2px;border-radius:8px}
+@media (hover:hover) and (pointer:fine){.sbtn:hover{transform:translateY(-2px) scale(1.012)}.stoggle:hover{background:#fff}}
+@keyframes sinRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.sin-wave,.scard{animation:none;opacity:1}.sbtn{transition:none}}
+
 
 .gbtn .gicon{width:22px;height:22px;flex:none}
 .auth-or{display:flex;align-items:center;gap:12px;margin:16px 0 0;color:var(--mute);font-size:13px}
@@ -2677,6 +2718,8 @@ document.addEventListener('click', e => {
   if (t.dataset.gm) {
     if (t.dataset.signout) { return __M_src_ui_toast_js.Pop.confirm({ title: 'Sign out?', text: 'You will need to sign in again.', confirmLabel: 'Sign out', danger: true, onYes: () => { Gate.mode = 'start'; return Session.signOut(); } }); }
     const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value.trim();
+    const idEl = document.getElementById('gateId'); if (idEl) Gate.id = idEl.value;
+    const pwEl = document.getElementById('gatePw'); if (pwEl && Gate.mode === 'in') Gate.signPw = pwEl.value;
     Gate.mode = t.dataset.gm; Gate.notice = ''; Gate.sent = false; return Gate.paint();
   }
   switch (t.dataset.ob) {
@@ -2756,7 +2799,7 @@ const HUB_ICON = {
 const JOIN_ART = `<svg class="jm-art" viewBox="0 0 160 110" aria-hidden="true"><ellipse cx="80" cy="100" rx="64" ry="7" fill="#e3f2ec"/><circle cx="54" cy="46" r="13" fill="#138364"/><path d="M32 96c2-17 10-26 22-26s20 9 22 26z" fill="#138364"/><circle cx="106" cy="46" r="13" fill="#0a5a46"/><path d="M84 96c2-17 10-26 22-26s20 9 22 26z" fill="#0a5a46"/><circle cx="80" cy="34" r="15" fill="#0f7b5f"/><path d="M57 98c3-22 12-32 23-32s20 10 23 32z" fill="#0f7b5f"/><circle cx="80" cy="66" r="14" fill="#fff" stroke="#0f7b5f" stroke-width="3"/><path d="M74.5 69.5l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l2.6-2.6M85.5 62.5l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-2.6 2.6M76.5 68.5l7-7" fill="none" stroke="#0f7b5f" stroke-width="2.2" stroke-linecap="round"/></svg>`;
 
 const Gate = {
-  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' || m === 'in' ? m : 'start'; })(),
+  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', signPw: '', sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' || m === 'in' ? m : 'start'; })(),
   navRow(x) { return `<div class="navrow">${x}</div>`; },
   pwProblem(p) { return p.length < 6 ? 'Use at least 6 characters' : !/[A-Z]/.test(p) ? 'Add a capital letter' : !/[0-9]/.test(p) ? 'Add a number' : !/[^A-Za-z0-9]/.test(p) ? 'Add a symbol, such as ! or #' : ''; },
   refreshRules() {
@@ -2805,15 +2848,32 @@ ${note}
 <button type="button" class="llink" data-ob="change-lang">${esc(L.change)}</button>
 </div>
 </main></section>`;
-    if (mode === 'in') return `<section class="gate"><div class="card gcard auth${this.signing ? ' busy' : ''}">
-<h2 class="auth-h">${G.inTitle}</h2><p class="plain mute">${G.inSub}</p>${note}
-<label>${G.idLabel}<span class="field-ic">${OB_ICON_MAIL}<input id="gateId" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${G.idPh}" value="${esc(this.id)}"></span></label>
-<label>${L.pwLabel}<span class="field-ic">${OB_ICON_LOCK}<input id="gatePw" type="password" autocomplete="current-password" placeholder="${L.pwPh}">${this.eyeBtn()}</span></label>
-<p class="actions"><button class="btn pri auth-cta" data-act="gateSignIn"${this.signing ? ' disabled' : ''}>${G.cta}</button></p>
-<p class="btn-hint"><button type="button" class="linkish" data-gm="forgot">${G.forgot}</button></p>
-<p class="btn-hint"><button type="button" class="linkish" data-gm="up">${G.newHere}</button></p>
-<p class="btn-hint"><button type="button" class="linkish" data-gm="start">&larr; ${ST.back}</button></p>
-<p class="btn-hint mute">${G.firstTime}</p>${lang_}</div></section>`;
+    if (mode === 'in') return `<section class="sin">
+<div class="sin-wave w1" style="--r:-8deg"></div>
+<div class="sin-wave w2" style="--r:-4deg"></div>
+<div class="sbrand"><img class="slogo" src="icons/logo-512.png" alt="" width="52" height="52"><span class="sbrand-rule"></span><span class="sbrand-name">My Chama App</span></div>
+<main class="scard">
+<h1 class="stitle">${esc(G.inTitle)}</h1>
+<div class="sform">
+<label class="slbl" for="gateId">${esc(G.idLabel)}</label>
+<div class="sfield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M3 7l9 6 9-6"/></svg><input id="gateId" name="identifier" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${esc(G.idPh)}" value="${esc(this.id)}"></div>
+<label class="slbl" for="gatePw">${esc(L.pwLabel)}</label>
+<div class="sfield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><input id="gatePw" name="password" type="password" autocomplete="current-password" placeholder="${esc(L.pwPh)}"><button type="button" class="stoggle" data-act="togglePw" aria-pressed="false">${esc(G.show)}</button></div>
+<p class="sforgot"><button type="button" class="slink" data-gm="forgot">${esc(G.forgot)}</button></p>
+<p class="serror" id="signErr" role="alert" aria-live="polite">${esc(this.notice || '')}</p>
+<button type="button" class="sbtn sprimary" data-act="gateSignIn"${this.signing ? ' disabled aria-busy="true"' : ''}><span class="sbtn-label">${esc(this.signing ? G.signing : G.cta)}</span></button>
+<div class="srow">
+<button type="button" class="sbtn slight" data-gm="up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/><path d="M19 7v6M16 10h6"/></svg>${esc(ST.up)}</button>
+<button type="button" class="sbtn slight" data-gm="start"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5M11 6l-6 6 6 6"/></svg>${esc(ST.back)}</button>
+</div>
+</div>
+<div class="slang">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/></svg>
+<span>${esc(L.lang)}: ${esc(OB_T[lang].name)}</span>
+<span class="srule"></span>
+<button type="button" class="slink" data-ob="change-lang">${esc(L.change)}</button>
+</div>
+</main></section>`;
     const up = mode === 'up';
     return `<section class="gate"><div class="card gcard auth">
 <h2 class="auth-h">${up ? G.upTitle : G.fgTitle}</h2><p class="plain mute">${up ? G.upSub : G.fgSub}</p>${note}
@@ -2990,6 +3050,7 @@ ${I.inviter_name ? `<div class="prow"><span>Invited by</span><b>${esc(I.inviter_
     else if (st === 'choose') html = this.chooseCard();
     else html = this.card('Something went wrong', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button>${Session.user ? ' <button class="btn" data-act="gateSignOut">Use a different email</button>' : ''}</p>`);
     $('#view').innerHTML = html;
+    if (st === 'signed-out' && this.mode === 'in') { const pw = document.getElementById('gatePw'); if (pw) pw.value = this.signPw || ''; }
     const hub = st === 'welcome' || st === 'choose', hd = document.querySelector('header'), jr = document.getElementById('jmRoot');
     if (hd) hd.hidden = hub;
     if (hub && this.sub === 'join' && jr) jr.innerHTML = this.joinModal();
@@ -4563,17 +4624,36 @@ const lowerNoSpace = v => String(v || '').trim().toLowerCase();
 const actions = {
   conflictTheirs: () => { const c = Store._conflict; Modal.close(); if (c) c.useTheirs(); },
   conflictMine: () => { const c = Store._conflict; Modal.close(); if (c) c.keepMine(); },
-  togglePw: () => { const i = document.getElementById('gatePw'); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector('[data-act="togglePw"]'); if (b) b.textContent = show ? GL().hide : GL().show; },
+  togglePw: () => { const i = document.getElementById('gatePw'); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector('[data-act="togglePw"]'); if (b) { b.textContent = show ? GL().hide : GL().show; b.setAttribute('aria-pressed', show ? 'true' : 'false'); } },
   gateSignIn: async () => {
-    const id = (($('#gateId') && $('#gateId').value) || '').trim(), pw = (($('#gatePw') && $('#gatePw').value) || '');
-    if (!id) return toast('Type your email or username');
-    if (!pw) return toast('Type your password');
-    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
-    Gate.id = id; Gate.notice = ''; Gate.signing = true; Gate.paint();
-    const r = await Session.passwordSignIn(id, pw);
-    Gate.signing = false;
-    if (r.error) { Gate.notice = r.error; Gate.paint(); const i = document.getElementById('gatePw'); if (i) i.focus(); }
-    /* on success the sign-in listener takes over */
+    if (Gate.signing) return;
+    const idEl = document.getElementById('gateId'), pwEl = document.getElementById('gatePw');
+    const rawId = (idEl && idEl.value) || '', pw = (pwEl && pwEl.value) || '';
+    const id = rawId.trim();
+    if (idEl) Gate.id = rawId;
+    if (pwEl && Gate.mode === 'in') Gate.signPw = pw;
+    const err = document.getElementById('signErr');
+    const btn = document.querySelector('[data-act="gateSignIn"]');
+    const label = btn && btn.querySelector('.sbtn-label');
+    const sw = OB.lang() === 'sw';
+    const showErr = (m, field) => { if (err) err.textContent = m || ''; Gate.notice = m || ''; if (field && field.focus) field.focus(); };
+    if (!id) return showErr(sw ? 'Weka barua pepe au jina la mtumiaji.' : 'Enter your email or username.', idEl);
+    if (!pw) return showErr(sw ? 'Weka nenosiri lako.' : 'Enter your password.', pwEl);
+    if (!Backend.sb) return showErr('Sign-in is not set up in this app yet');
+    if (err) err.textContent = '';
+    Gate.notice = '';
+    Gate.signing = true;
+    if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); }
+    if (label) label.textContent = GL().signing;
+    try {
+      const r = await Session.passwordSignIn(id, pw);
+      if (r && r.error) showErr(r.error, pwEl);
+    } catch (e) {
+      showErr((e && e.message) || (sw ? 'Imeshindikana kuingia. Jaribu tena.' : 'Sign-in failed. Please try again.'), pwEl);
+    } finally {
+      Gate.signing = false;
+      if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute('aria-busy'); if (label) label.textContent = GL().cta; }
+    }
   },
   gateSend: async () => {
     const btn = document.querySelector('[data-act="gateSend"]');
@@ -5026,11 +5106,17 @@ Nav.init();
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target) return;
   if (e.target.id === 'gateEmail') Actions.gateSend();
+  else if (e.target.id === 'gateId' || (e.target.id === 'gatePw' && Gate.mode === 'in')) Actions.gateSignIn();
   else if (e.target.id === 'invEmail') Actions.invite();
 });
 
 
 document.addEventListener('input', e => { if (e.target && e.target.id === 'helpQ') Help.filter(e.target.value); });
+document.addEventListener('input', e => {
+  if (!e.target) return;
+  if (e.target.id === 'gateId') Gate.id = e.target.value;
+  if (e.target.id === 'gatePw' && Gate.mode === 'in') Gate.signPw = e.target.value;
+});
 
 document.addEventListener('toggle', e => { const el = e.target; if (el && el.classList && el.classList.contains('hart')) Help.open[el.dataset.id] = el.open; }, true);
 
