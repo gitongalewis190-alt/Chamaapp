@@ -916,6 +916,40 @@ background:radial-gradient(120% 60% at 85% 0%,rgba(140,214,184,.5) 0%,rgba(140,2
 @media (hover:hover) and (pointer:fine){.sbtn:hover{transform:translateY(-2px) scale(1.012)}.stoggle:hover{background:#fff}}
 @keyframes sinRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.sin-wave,.scard{animation:none;opacity:1}.sbtn{transition:none}}
+body:has(.usin) header{display:none}
+.usin{position:fixed;inset:0;z-index:40;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:calc(56px + env(safe-area-inset-top)) 18px calc(32px + env(safe-area-inset-bottom));color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+background:radial-gradient(120% 60% at 85% 0%,rgba(140,214,184,.5) 0%,rgba(140,214,184,0) 60%),radial-gradient(90% 50% at 0% 25%,rgba(63,160,122,.45) 0%,rgba(63,160,122,0) 65%),linear-gradient(175deg,#0a5a45 0%,#0d6a51 35%,#0a5544 62%,#053a2d 100%)}
+.usin-wave{position:fixed;left:-20%;right:-20%;pointer-events:none;border-radius:50%;filter:blur(2px);animation:usinFlow 16s ease-in-out infinite alternate}
+.usin-wave.w1{top:36%;height:360px;background:linear-gradient(90deg,rgba(160,226,196,0),rgba(160,226,196,.26),rgba(160,226,196,0));transform:rotate(-8deg)}
+.usin-wave.w2{bottom:-160px;height:420px;background:linear-gradient(90deg,rgba(4,46,36,0),rgba(4,46,36,.55),rgba(4,46,36,0));transform:rotate(-4deg);animation-duration:20s}
+@keyframes usinFlow{from{transform:translateX(-3%) rotate(var(--r,-6deg))}to{transform:translateX(3%) rotate(var(--r,-6deg))}}
+.ubrand{position:relative;z-index:1;margin:0 0 36px;font-size:22px;font-weight:700;text-shadow:0 2px 12px rgba(0,0,0,.25)}
+.ucard{position:relative;z-index:1;width:min(380px,100%);padding:28px 22px 22px;border-radius:32px;background:linear-gradient(180deg,rgba(236,249,243,.9) 0%,rgba(206,236,224,.8) 100%);-webkit-backdrop-filter:blur(18px) saturate(120%);backdrop-filter:blur(18px) saturate(120%);border:1px solid rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 40px 80px rgba(2,30,22,.45);color:#0c2e25;display:flex;flex-direction:column;gap:10px;opacity:0;animation:usinRise .9s ease forwards}
+.utitle{margin:0 0 2px 4px;font-size:28px;font-weight:800;color:#0a4d3c;letter-spacing:-.2px}
+.uintro{margin:0 0 12px 4px;font-size:15px;line-height:1.5;color:#2e5a4d}
+.ulbl{font-size:15px;font-weight:700;color:#0a4d3c;margin:0 0 0 4px}
+.ufield{display:flex;align-items:center;gap:10px;min-height:58px;padding:0 16px;border-radius:999px;background:#fff;border:1px solid rgba(7,64,47,.1);box-shadow:0 6px 14px rgba(2,30,22,.1)}
+.ufield:focus-within{border-color:#0c7a57;box-shadow:0 0 0 3px rgba(127,214,178,.6)}
+.ufield svg{width:22px;height:22px;flex:none;color:#0a4d3c}
+.ufield input{flex:1;min-width:0;height:56px;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:#0c2e25}
+.ufield input::placeholder{color:#8a9a95}
+.uerror{min-height:20px;margin:2px 0 0 4px;font-size:14px;font-weight:600;color:#a1281e}
+.ubtn{display:flex;align-items:center;justify-content:center;width:100%;min-height:58px;margin-top:8px;border:0;border-radius:999px;font:inherit;font-size:17px;font-weight:700;color:#fff;cursor:pointer;background:linear-gradient(180deg,#0d7d5b 0%,#066146 55%,#044a37 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 14px 26px rgba(2,30,22,.42);transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s ease}
+.ubtn:focus-visible{box-shadow:0 0 0 3px #7fd6b2}
+.ubtn:active{transform:scale(.97)}
+.ubtn:disabled{opacity:.65;cursor:default}
+.upill{display:inline-flex;align-items:center;gap:10px;align-self:flex-start;margin-top:10px;padding:12px 20px;min-height:48px;border:0;border-radius:999px;font:inherit;font-size:15px;font-weight:700;color:#0a5a45;cursor:pointer;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 6px 14px rgba(2,30,22,.1)}
+.upill svg{width:20px;height:20px;flex:none}
+.upill:focus-visible{box-shadow:0 0 0 3px #7fd6b2;outline:none}
+.ulang{display:flex;align-items:center;justify-content:center;gap:10px;margin:18px auto 0;padding:12px 20px;border-radius:999px;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 6px 14px rgba(2,30,22,.1);font-size:15px;color:#1d4a3e}
+.ulang svg{width:20px;height:20px;flex:none}
+.ulang .urule{width:1px;height:18px;background:rgba(29,74,62,.3)}
+.ulink{background:none;border:0;padding:8px 2px;min-height:44px;color:#0b7a57;font:inherit;font-weight:700;cursor:pointer}
+.ulink:focus-visible{outline:2px solid #0b7a57;outline-offset:2px;border-radius:8px}
+@media (hover:hover) and (pointer:fine){.ubtn:hover{transform:translateY(-2px) scale(1.012)}.upill:hover{transform:translateY(-1px);background:rgba(255,255,255,.75)}}
+@keyframes usinRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.usin-wave,.ucard{animation:none;opacity:1}.ubtn,.upill{transition:none}}
+
 
 
 .gbtn .gicon{width:22px;height:22px;flex:none}
@@ -2717,7 +2751,7 @@ document.addEventListener('click', e => {
   if (!t) return;
   if (t.dataset.gm) {
     if (t.dataset.signout) { return __M_src_ui_toast_js.Pop.confirm({ title: 'Sign out?', text: 'You will need to sign in again.', confirmLabel: 'Sign out', danger: true, onYes: () => { Gate.mode = 'start'; return Session.signOut(); } }); }
-    const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value.trim();
+    const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value;
     const idEl = document.getElementById('gateId'); if (idEl) Gate.id = idEl.value;
     const pwEl = document.getElementById('gatePw'); if (pwEl && Gate.mode === 'in') Gate.signPw = pwEl.value;
     Gate.mode = t.dataset.gm; Gate.notice = ''; Gate.sent = false; return Gate.paint();
@@ -2799,7 +2833,7 @@ const HUB_ICON = {
 const JOIN_ART = `<svg class="jm-art" viewBox="0 0 160 110" aria-hidden="true"><ellipse cx="80" cy="100" rx="64" ry="7" fill="#e3f2ec"/><circle cx="54" cy="46" r="13" fill="#138364"/><path d="M32 96c2-17 10-26 22-26s20 9 22 26z" fill="#138364"/><circle cx="106" cy="46" r="13" fill="#0a5a46"/><path d="M84 96c2-17 10-26 22-26s20 9 22 26z" fill="#0a5a46"/><circle cx="80" cy="34" r="15" fill="#0f7b5f"/><path d="M57 98c3-22 12-32 23-32s20 10 23 32z" fill="#0f7b5f"/><circle cx="80" cy="66" r="14" fill="#fff" stroke="#0f7b5f" stroke-width="3"/><path d="M74.5 69.5l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l2.6-2.6M85.5 62.5l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-2.6 2.6M76.5 68.5l7-7" fill="none" stroke="#0f7b5f" stroke-width="2.2" stroke-linecap="round"/></svg>`;
 
 const Gate = {
-  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', signPw: '', sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' || m === 'in' ? m : 'start'; })(),
+  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', signPw: '', coolUntil: 0, coolTimer: null, sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' || m === 'in' ? m : 'start'; })(),
   navRow(x) { return `<div class="navrow">${x}</div>`; },
   pwProblem(p) { return p.length < 6 ? 'Use at least 6 characters' : !/[A-Z]/.test(p) ? 'Add a capital letter' : !/[0-9]/.test(p) ? 'Add a number' : !/[^A-Za-z0-9]/.test(p) ? 'Add a symbol, such as ! or #' : ''; },
   refreshRules() {
@@ -2874,9 +2908,33 @@ ${note}
 <button type="button" class="slink" data-ob="change-lang">${esc(L.change)}</button>
 </div>
 </main></section>`;
-    const up = mode === 'up';
+    if (mode === 'up') {
+      const sw = lang === 'sw';
+      const left = Math.max(0, Math.ceil(((this.coolUntil || 0) - Date.now()) / 1000));
+      const sendLabel = this.sending ? (sw ? 'Inatuma…' : 'Sending…') : left > 0 ? (sw ? `Tuma tena baada ya ${left}s` : `Resend in ${left}s`) : G.sendCode;
+      const sendOff = this.sending || left > 0;
+      return `<section class="usin">
+<div class="usin-wave w1" style="--r:-8deg"></div>
+<div class="usin-wave w2" style="--r:-4deg"></div>
+<p class="ubrand">My Chama App</p>
+<main class="ucard">
+<h1 class="utitle">${esc(G.upTitle)}</h1>
+<p class="uintro">${esc(G.upSub)}</p>
+<label class="ulbl" for="gateEmail">${esc(L.email)}</label>
+<div class="ufield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M3 7l9 6 9-6"/></svg><input id="gateEmail" name="email" type="text" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="you@example.com" value="${esc(this.email)}"></div>
+<p class="uerror" id="upErr" role="alert" aria-live="polite">${esc(this.notice || '')}</p>
+<button type="button" class="ubtn" data-act="gateSend"${sendOff ? ' disabled aria-busy="true"' : ''}><span class="ubtn-label">${esc(sendLabel)}</span></button>
+<button type="button" class="upill" data-gm="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5M11 6l-6 6 6 6"/></svg>${esc(G.haveAcct)}</button>
+<div class="ulang">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/></svg>
+<span>${esc(L.lang)}: ${esc(OB_T[lang].name)}</span>
+<span class="urule"></span>
+<button type="button" class="ulink" data-ob="change-lang">${esc(L.change)}</button>
+</div>
+</main></section>`;
+    }
     return `<section class="gate"><div class="card gcard auth">
-<h2 class="auth-h">${up ? G.upTitle : G.fgTitle}</h2><p class="plain mute">${up ? G.upSub : G.fgSub}</p>${note}
+<h2 class="auth-h">${G.fgTitle}</h2><p class="plain mute">${G.fgSub}</p>${note}
 <label>${L.email}<span class="field-ic">${OB_ICON_MAIL}<input id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(this.email)}"></span></label>
 <p class="actions"><button class="btn pri auth-cta" data-act="gateSend">${G.sendCode}</button></p>
 <p class="btn-hint"><button type="button" class="linkish" data-gm="in">&larr; ${G.haveAcct}</button></p>${lang_}</div></section>`;
@@ -3039,7 +3097,7 @@ ${I.inviter_name ? `<div class="prow"><span>Invited by</span><b>${esc(I.inviter_
     if (st === 'loading') html = this.card('Signing in', '<p class="plain mute">Checking your sign-in…</p>' + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'));
     else if (st === 'signed-out') {
       Otp.kind = 'email'; Otp.len = Session.otpLength;
-      html = this.sending
+      html = this.sending && this.mode !== 'up'
         ? this.card('Sending your code', `<div class="sendload" aria-live="polite"><span class="spin" aria-hidden="true"></span><p class="plain mute">Sending a code to <b>${esc(this.email)}</b></p></div>` + this.navRow('<button class="btn" data-act="gateCancel">Cancel</button>'))
         : this.sent
         ? this.card('Enter your code', Otp.html({ hint: `Sent to <b>${esc(this.email)}</b>`, change: true, mail: true }))
@@ -3051,6 +3109,7 @@ ${I.inviter_name ? `<div class="prow"><span>Invited by</span><b>${esc(I.inviter_
     else html = this.card('Something went wrong', `<p class="plain">${esc(Session.error || 'The cloud could not be reached.')}</p><p class="actions"><button class="btn pri" data-act="gateRetry">Try again</button>${Session.user ? ' <button class="btn" data-act="gateSignOut">Use a different email</button>' : ''}</p>`);
     $('#view').innerHTML = html;
     if (st === 'signed-out' && this.mode === 'in') { const pw = document.getElementById('gatePw'); if (pw) pw.value = this.signPw || ''; }
+    if (st === 'signed-out' && this.mode === 'up' && !this.sent && !this.sending) armUpCool();
     const hub = st === 'welcome' || st === 'choose', hd = document.querySelector('header'), jr = document.getElementById('jmRoot');
     if (hd) hd.hidden = hub;
     if (hub && this.sub === 'join' && jr) jr.innerHTML = this.joinModal();
@@ -4599,17 +4658,46 @@ const { validEmail } = __M_src_lib_validate_js;
 const { toast } = __M_src_ui_toast_js;
 
 /* the email code confirms an email address: for a new account, and for a forgotten password. It never creates an account while resetting. */
+const plainOtpError = (m) => {
+  const t = String(m || '');
+  const sw = OB.lang() === 'sw';
+  if (/already registered|already exists|already been registered|user already/i.test(t)) return sw ? 'Barua pepe hii tayari ina akaunti. Ingia badala yake.' : 'This email already has an account. Sign in instead.';
+  if (/rate|too many|once every|security purposes/i.test(t)) return sw ? 'Subiri kidogo, kisha ujaribu tena.' : 'Please wait a moment, then try again.';
+  if (/^[_a-z0-9]+$/.test(t) || /error_code|validation_failed|status/i.test(t)) return sw ? 'Imeshindikana kutuma msimbo. Jaribu tena.' : 'Could not send the code. Try again.';
+  return t || (sw ? 'Imeshindikana kutuma msimbo. Jaribu tena.' : 'Could not send the code. Try again.');
+};
 const gateSendCode = async (email, btn) => {
+  const typed = Gate.mode === 'up' ? (Gate.email || email) : email;
   try { sessionStorage.setItem('mca-intent', Gate.mode); } catch (e) {}
-  Gate.email = email; Gate.sending = true; if (btn) btn.disabled = true; Gate.paint();
+  Gate.email = typed; Gate.notice = ''; Gate.sending = true; if (btn) btn.disabled = true; Gate.paint();
   const t0 = Date.now();
   const { error } = await Backend.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: Gate.mode === 'up' } });
   await new Promise(r => setTimeout(r, Math.max(0, 900 - (Date.now() - t0))));
   Gate.sending = false;
   /* while resetting, an unknown email must look the same as a known one: no error, the code simply never arrives */
-  if (error && !(Gate.mode === 'forgot' && /signups? not allowed|not found/i.test(error.message))) { Gate.paint(); return toast(error.message); }
-  Gate.sent = true; render();
+  if (error && !(Gate.mode === 'forgot' && /signups? not allowed|not found/i.test(error.message))) {
+    Gate.email = typed;
+    const msg = plainOtpError(error.message);
+    if (Gate.mode === 'up') { Gate.notice = msg; Gate.paint(); return; }
+    Gate.paint(); return toast(msg);
+  }
+  Gate.email = email; Gate.coolUntil = Date.now() + 60000; Gate.sent = true; render();
   try { Otp.start(); } catch (e) { /* the code screen still works without the resend timer */ }
+};
+const armUpCool = () => {
+  clearInterval(Gate.coolTimer);
+  if ((Gate.coolUntil || 0) <= Date.now()) return;
+  const tick = () => {
+    const b = document.querySelector('.usin [data-act="gateSend"]');
+    if (!b) { clearInterval(Gate.coolTimer); return; }
+    const left = Math.max(0, Math.ceil((Gate.coolUntil - Date.now()) / 1000));
+    const label = b.querySelector('.ubtn-label');
+    const sw = OB.lang() === 'sw';
+    if (left > 0) { b.disabled = true; if (label) label.textContent = sw ? `Tuma tena baada ya ${left}s` : `Resend in ${left}s`; }
+    else { b.disabled = false; b.removeAttribute('aria-busy'); if (label) label.textContent = GL().sendCode; clearInterval(Gate.coolTimer); }
+  };
+  tick();
+  Gate.coolTimer = setInterval(tick, 500);
 };
 Store.setConflictHandler(info => {
   Store.setSync('offline');
@@ -4656,10 +4744,17 @@ const actions = {
     }
   },
   gateSend: async () => {
+    if (Gate.sending) return;
     const btn = document.querySelector('[data-act="gateSend"]');
-    const email = lowerNoSpace($('#gateEmail') && $('#gateEmail').value);
-    if (!validEmail(email)) return toast('Email address does not look right');
-    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    const raw = ($('#gateEmail') && $('#gateEmail').value) || '';
+    const email = raw.trim().toLowerCase();
+    const up = Gate.mode === 'up';
+    if (up) Gate.email = raw;
+    const showUp = (m) => { const el = document.getElementById('upErr'); if (el) el.textContent = m; Gate.notice = m; const f = document.getElementById('gateEmail'); if (f) f.focus(); };
+    if (up && (Gate.coolUntil || 0) > Date.now()) return;
+    if (!email) return up ? showUp(OB.lang() === 'sw' ? 'Weka barua pepe yako.' : 'Enter your email address.') : toast('Email address does not look right');
+    if (!validEmail(email)) return up ? showUp(OB.lang() === 'sw' ? 'Barua pepe hiyo haionekani sawa. Iangalie kisha ujaribu tena.' : 'That email does not look right. Check it and try again.') : toast('Email address does not look right');
+    if (!Backend.sb) return up ? showUp('Sign-in is not set up in this app yet') : toast('Sign-in is not set up in this app yet');
     try { const { data: cur } = await Backend.sb.auth.getSession(); const curEmail = String((cur && cur.session && cur.session.user && cur.session.user.email) || '').toLowerCase(); if (curEmail && curEmail !== email) await Backend.sb.auth.signOut(); } catch (e) { /* the code step checks the session again */ }
     return gateSendCode(email, btn);
   },
@@ -5116,6 +5211,7 @@ document.addEventListener('input', e => {
   if (!e.target) return;
   if (e.target.id === 'gateId') Gate.id = e.target.value;
   if (e.target.id === 'gatePw' && Gate.mode === 'in') Gate.signPw = e.target.value;
+  if (e.target.id === 'gateEmail') Gate.email = e.target.value;
 });
 
 document.addEventListener('toggle', e => { const el = e.target; if (el && el.classList && el.classList.contains('hart')) Help.open[el.dataset.id] = el.open; }, true);
