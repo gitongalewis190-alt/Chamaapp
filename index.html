@@ -1828,7 +1828,7 @@ const Session = {
     const oauthMsg = this.takeOAuthError();
     const { data } = await Backend.sb.auth.getSession();
     if (data && data.session) { if (!this.user) await this.after(data.session.user); }
-    else { if (oauthMsg) Gate.notice = oauthMsg; this.set('signed-out'); }
+    else { if (oauthMsg) Gate.notice = oauthMsg; this.prepareGoogle(); this.set('signed-out'); }
   },
   /* After any sign-in: (1) is the account finished? (2) is there an invitation to accept? (3) which Chama opens? */
   async after(user) {
@@ -1937,32 +1937,58 @@ const Session = {
     if (/provider is not enabled|Unsupported provider|validation_failed/i.test(t + code)) return 'Google sign-in is not switched on in the cloud yet.';
     return 'Google sign-in did not finish. Try again, or use Sign in.';
   },
-  async googleSignIn() {
-    if (!Backend.sb) { Gate.notice = 'Sign-in is not set up in this app yet'; Gate.paint(); return; }
-    Gate.notice = ''; Gate.signing = true; Gate.paint();
+  googleLeft: false,
+  googleUrl: '',
+  googleVerifier() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const buf = new Uint8Array(56);
+    crypto.getRandomValues(buf);
+    let out = '';
+    for (let i = 0; i < buf.length; i++) out += chars[buf[i] % chars.length];
+    return out;
+  },
+  /* Written the way the sign-in library reads it back after Google returns. */
+  storeVerifier(verifier) {
+    localStorage.setItem('sb-sgfvjsxmchohawhqraii-auth-token-code-verifier', JSON.stringify(verifier));
+  },
+  googleAuthorize(verifier, method, challenge) {
+    const base = CONFIG.supabase && CONFIG.supabase.url;
+    if (!base) return '';
     const back = location.origin + location.pathname + location.search;
-    const slow = setTimeout(() => {
-      if (!Gate.signing) return;
-      Gate.signing = false;
-      Gate.notice = 'Google did not open. Check your internet and try again.';
-      Gate.paint();
-    }, 12000);
+    const q = new URLSearchParams({
+      provider: 'google',
+      redirect_to: back,
+      code_challenge: challenge || verifier,
+      code_challenge_method: method,
+      prompt: 'select_account',
+    });
+    return base.replace(/\/$/, '') + '/auth/v1/authorize?' + q.toString();
+  },
+  googleUrlPlain() {
+    const verifier = this.googleVerifier();
+    this.storeVerifier(verifier);
+    return this.googleAuthorize(verifier, 'plain');
+  },
+  async prepareGoogle() {
+    if (this.googleLeft || this.googleUrl) return;
     try {
-      const { data, error } = await Backend.sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: back, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
-      });
-      if (error) throw error;
-      if (!data || !data.url) throw new Error('Google sign-in did not start. Try again.');
-      clearTimeout(slow);
-      window.location.assign(data.url);
-    } catch (e) {
-      clearTimeout(slow);
-      Gate.signing = false;
-      const m = (e && e.message) || '';
-      Gate.notice = /provider is not enabled|Unsupported provider/i.test(m) ? 'Google sign-in is not switched on in the cloud yet.' : (m || 'Google sign-in did not start. Try again.');
-      Gate.paint();
-    }
+      const verifier = this.googleVerifier();
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+      if (this.googleLeft) return;
+      const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      this.storeVerifier(verifier);
+      this.googleUrl = this.googleAuthorize(verifier, 's256', challenge);
+    } catch (e) { /* the tap can still build a plain link */ }
+  },
+  /* Open Google in this tap. Do not wait on the sign-in library: that wait is what left the button pressed. */
+  googleSignIn() {
+    if (!(CONFIG.supabase && CONFIG.supabase.url)) { Gate.notice = 'Sign-in is not set up in this app yet'; Gate.paint(); return; }
+    this.googleLeft = true;
+    let url = '';
+    try { url = this.googleUrl || this.googleUrlPlain(); }
+    catch (e) { url = ''; }
+    if (!url) { this.googleLeft = false; Gate.notice = 'Google sign-in did not start. Try again.'; Gate.paint(); return; }
+    window.location.assign(url);
   },
   /* email OR username + the one global password. The server function finds the email; the browser never sees it. */
   async passwordSignIn(identifier, password) {
