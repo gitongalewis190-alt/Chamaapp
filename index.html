@@ -1818,7 +1818,7 @@ const Session = {
   },
   async boot() {
     if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
-    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true } }); await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); await Invite.verify(); }
+    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, lock: async function (_n, _t, fn) { return await fn(); } } }); await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); await Invite.verify(); }
     catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
       if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); }
@@ -1941,13 +1941,23 @@ const Session = {
     if (!Backend.sb) { Gate.notice = 'Sign-in is not set up in this app yet'; Gate.paint(); return; }
     Gate.notice = ''; Gate.signing = true; Gate.paint();
     const back = location.origin + location.pathname + location.search;
+    const slow = setTimeout(() => {
+      if (!Gate.signing) return;
+      Gate.signing = false;
+      Gate.notice = 'Google did not open. Check your internet and try again.';
+      Gate.paint();
+    }, 12000);
     try {
-      const { error } = await Backend.sb.auth.signInWithOAuth({
+      const { data, error } = await Backend.sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: back, queryParams: { prompt: 'select_account' } },
+        options: { redirectTo: back, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
       });
       if (error) throw error;
+      if (!data || !data.url) throw new Error('Google sign-in did not start. Try again.');
+      clearTimeout(slow);
+      window.location.assign(data.url);
     } catch (e) {
+      clearTimeout(slow);
       Gate.signing = false;
       const m = (e && e.message) || '';
       Gate.notice = /provider is not enabled|Unsupported provider/i.test(m) ? 'Google sign-in is not switched on in the cloud yet.' : (m || 'Google sign-in did not start. Try again.');
