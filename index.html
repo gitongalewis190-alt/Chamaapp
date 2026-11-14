@@ -835,6 +835,7 @@ html[data-mode=dark]{ --green-tint:#17332a; --green-line:#2c5a4a; --sage:#9fb5ad
 .gbtn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:52px;margin-top:18px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:transform .16s cubic-bezier(.34,1.56,.64,1),background-color .18s}
 .gbtn:hover{background:var(--green-tint)}
 .gbtn:active{transform:scale(.97)}
+.gbtn:disabled{opacity:.55;cursor:default;transform:none}
 .gbtn .gicon{width:22px;height:22px;flex:none}
 .auth-or{display:flex;align-items:center;gap:12px;margin:16px 0 0;color:var(--mute);font-size:13px}
 .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -1817,16 +1818,17 @@ const Session = {
   },
   async boot() {
     if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
-    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey); await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); await Invite.verify(); }
+    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true } }); await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); await Invite.verify(); }
     catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
       if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); }
       else if (ev === 'SIGNED_IN' && sess && !this.verifying && (!this.user || this.user.id !== sess.user.id)) this.after(sess.user);
       if (sess) OB.syncConsent();
     });
+    const oauthMsg = this.takeOAuthError();
     const { data } = await Backend.sb.auth.getSession();
     if (data && data.session) { if (!this.user) await this.after(data.session.user); }
-    else this.set('signed-out');
+    else { if (oauthMsg) Gate.notice = oauthMsg; this.set('signed-out'); }
   },
   /* After any sign-in: (1) is the account finished? (2) is there an invitation to accept? (3) which Chama opens? */
   async after(user) {
@@ -1842,7 +1844,10 @@ const Session = {
       try { const { data, error } = await Backend.sb.rpc('my_account_status'); if (error) throw error; acct = data || {}; }
       catch (e) { throw new Error('Your account could not be checked. Make sure the database steps are finished, then try again.'); }
       this.account = acct;
-      if (!acct.has_profile || !acct.has_password || acct.needs_username || intentIs('forgot')) { this.setupMode = acct.has_profile && acct.has_password && !acct.needs_username ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
+      const google = this.usesGoogle(user);
+      if (google && intentIs('forgot')) clearIntent();
+      const canEnter = !!(acct.has_password || google);
+      if (!acct.has_profile || !canEnter || acct.needs_username || (!google && intentIs('forgot'))) { this.setupMode = acct.has_profile && canEnter && !acct.needs_username ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
       if (Invite.token && Invite.info && Invite.info.ok) { this.role = null; this.memberId = null; this.busy = false; this.set('invite'); return; }
       await this.openWorkspace(user);
     } catch (e) {
@@ -1905,6 +1910,50 @@ const Session = {
     this.set('choose');
   },
   closeChooser() { this.chooserOpen = false; this.set(this.role ? 'ready' : 'welcome'); },
+  usesGoogle(user) {
+    const u = user || this.user;
+    if (!u) return false;
+    const ids = u.identities || [];
+    if (ids.some(i => i.provider === 'google')) return true;
+    const meta = u.app_metadata || {};
+    return meta.provider === 'google' || (meta.providers || []).indexOf('google') !== -1;
+  },
+  googleName(user) {
+    const m = ((user || this.user) && (user || this.user).user_metadata) || {};
+    return String(m.full_name || m.name || '').trim();
+  },
+  takeOAuthError() {
+    let q;
+    try { q = new URLSearchParams(location.search); } catch (e) { return ''; }
+    const raw = q.get('error_description') || '';
+    const code = q.get('error') || '';
+    if (!raw && !code) return '';
+    q.delete('error'); q.delete('error_description'); q.delete('error_code');
+    const search = q.toString();
+    try { history.replaceState(null, '', location.pathname + (search ? '?' + search : '') + location.hash); } catch (e) {}
+    let t = raw;
+    try { t = decodeURIComponent(raw.replace(/\+/g, ' ')); } catch (e) {}
+    if (/already registered|already been registered|already exists|identity is already/i.test(t)) return 'This email already has an account. Sign in with your password. Google can be used for that same email once linking is on.';
+    if (/provider is not enabled|Unsupported provider|validation_failed/i.test(t + code)) return 'Google sign-in is not switched on in the cloud yet.';
+    return 'Google sign-in did not finish. Try again, or use Sign in.';
+  },
+  async googleSignIn() {
+    if (!Backend.sb) { Gate.notice = 'Sign-in is not set up in this app yet'; Gate.paint(); return; }
+    Gate.notice = ''; Gate.signing = true; Gate.paint();
+    const back = location.origin + location.pathname + location.search;
+    try {
+      const { error } = await Backend.sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: back, queryParams: { prompt: 'select_account' } },
+      });
+      if (error) throw error;
+    } catch (e) {
+      Gate.signing = false;
+      const m = (e && e.message) || '';
+      Gate.notice = /provider is not enabled|Unsupported provider/i.test(m) ? 'Google sign-in is not switched on in the cloud yet.' : (m || 'Google sign-in did not start. Try again.');
+      Gate.paint();
+    }
+  },
   /* email OR username + the one global password. The server function finds the email; the browser never sees it. */
   async passwordSignIn(identifier, password) {
     const WRONG = 'Email, username or password is not right';
@@ -1931,13 +1980,14 @@ const Session = {
       const { error } = await Backend.sb.rpc('set_my_profile', { p_full_name: fullName, p_username: username });
       if (error) throw new Error(error.message);
     }
-    const { error: e2 } = await Backend.sb.auth.updateUser({ password });
-    if (e2 && /AAL2|MFA/i.test(e2.message)) {
-      /* A5: a stale or multi-factor session. Close it and restart with a fresh email code. */
-      try { await Backend.sb.auth.signOut(); } catch (e) {}
-      throw new Error('Your sign-in session was closed for safety. Press Start again and enter a new email code.');
+    if (password) {
+      const { error: e2 } = await Backend.sb.auth.updateUser({ password });
+      if (e2 && /AAL2|MFA/i.test(e2.message)) {
+        try { await Backend.sb.auth.signOut(); } catch (e) {}
+        throw new Error('Your sign-in session was closed for safety. Press Start again and enter a new email code.');
+      }
+      if (e2) throw new Error(/same|different/i.test(e2.message) ? 'Choose a password you have not used before' : e2.message);
     }
-    if (e2) throw new Error(/same|different/i.test(e2.message) ? 'Choose a password you have not used before' : e2.message);
     clearIntent(); this.account = null; this.busy = false;
     await this.after(this.user);
   },
@@ -2584,7 +2634,7 @@ const GT = {
     forgot: 'Forgot your password?', newHere: 'New here? Create an account', firstTime: 'Signed in before with an email code only? Tap "Forgot your password?" once to choose your password.',
     upTitle: 'Create your account', upSub: 'Enter your email. We send a code to confirm it is yours. Then you choose a username and a password.', sendCode: 'Send me a code', haveAcct: 'I already have an account',
     fgTitle: 'Reset your password', fgSub: 'Enter your email. We send a code, then you choose a new password.',
-    setupTitle: 'Finish your account', setupSub: 'Choose your name, a username and one password. You will use them for every Chama you join.', resetTitle: 'Choose a new password', resetSub: 'You will use this password to sign in.',
+    setupTitle: 'Finish your account', setupSub: 'Choose your name, a username and one password. You will use them for every Chama you join.', setupSubGoogle: 'Choose your name and a username. You can keep signing in with Google.', resetTitle: 'Choose a new password', resetSub: 'You will use this password to sign in.',
     fullName: 'Your full name', username: 'Username', usernameHint: '3 to 20 letters, numbers, dot, dash or underscore', saveCont: 'Save and continue', show: 'Show', hide: 'Hide',
     welcome: n => 'Welcome' + (n ? ', ' + n : ''), welcomeSub: 'You are not in a Chama yet. What would you like to do?', createChama: 'Create a new Chama', joinChama: 'Join with an invitation',
     chamaName: 'Name of your Chama', chamaPh: 'e.g. Umoja Savings Group', create: 'Create Chama', creating: 'Creating…', joinSub: 'Paste the whole link from your invitation email. Or open that link on this phone.', joinPh: 'Paste the invitation link', joinBtn: 'Check invitation',
@@ -2593,7 +2643,7 @@ const GT = {
     forgot: 'Umesahau nenosiri?', newHere: 'Mgeni? Fungua akaunti', firstTime: 'Uliingia awali kwa msimbo tu? Gusa "Umesahau nenosiri?" mara moja ili uweke nenosiri.',
     upTitle: 'Fungua akaunti yako', upSub: 'Weka barua pepe yako. Tunatuma msimbo kuthibitisha. Kisha unachagua jina la mtumiaji na nenosiri.', sendCode: 'Nitumie msimbo', haveAcct: 'Tayari nina akaunti',
     fgTitle: 'Weka nenosiri jipya', fgSub: 'Weka barua pepe yako. Tunatuma msimbo, kisha unachagua nenosiri jipya.',
-    setupTitle: 'Kamilisha akaunti yako', setupSub: 'Chagua jina lako, jina la mtumiaji na nenosiri moja. Utavitumia kwa kila Chama.', resetTitle: 'Chagua nenosiri jipya', resetSub: 'Utatumia nenosiri hili kuingia.',
+    setupTitle: 'Kamilisha akaunti yako', setupSub: 'Chagua jina lako, jina la mtumiaji na nenosiri moja. Utavitumia kwa kila Chama.', setupSubGoogle: 'Chagua jina lako na jina la mtumiaji. Unaweza kuendelea kuingia na Google.', resetTitle: 'Chagua nenosiri jipya', resetSub: 'Utatumia nenosiri hili kuingia.',
     fullName: 'Jina lako kamili', username: 'Jina la mtumiaji', usernameHint: 'Herufi, nambari, nukta, kistari au mstari wa chini; 3 hadi 20', saveCont: 'Hifadhi na endelea', show: 'Onyesha', hide: 'Ficha',
     welcome: n => 'Karibu' + (n ? ', ' + n : ''), welcomeSub: 'Bado hujajiunga na Chama. Ungependa kufanya nini?', createChama: 'Anzisha Chama kipya', joinChama: 'Jiunge kwa mwaliko',
     chamaName: 'Jina la Chama chako', chamaPh: 'mf. Umoja Savings Group', create: 'Anzisha Chama', creating: 'Inaanzisha…', joinSub: 'Bandika kiungo chote kutoka barua pepe ya mwaliko. Au fungua kiungo hicho kwenye simu hii.', joinPh: 'Bandika kiungo cha mwaliko', joinBtn: 'Angalia mwaliko',
@@ -2645,7 +2695,7 @@ const Gate = {
     if (mode === 'start') return `<section class="gate"><div class="card gcard auth start">
 <img class="start-logo" src="icons/logo-512.png" alt="" width="64" height="64">
 <h2 class="auth-h">${ST.title}</h2><p class="plain mute">${ST.sub}</p>${note}
-<button type="button" class="gbtn" data-act="gateGoogle"><svg class="gicon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>${ST.google}</span></button>
+<button type="button" class="gbtn" data-act="gateGoogle"${this.signing ? ' disabled aria-busy="true"' : ''}><svg class="gicon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>${ST.google}</span></button>
 <p class="auth-or"><span>${ST.or}</span></p>
 <p class="actions"><button type="button" class="btn pri" data-gm="in">${ST.in}</button><button type="button" class="btn" data-gm="up">${ST.up}</button></p>${lang_}</div></section>`;
     if (mode === 'in') return `<section class="gate"><div class="card gcard auth${this.signing ? ' busy' : ''}">
@@ -2667,11 +2717,13 @@ const Gate = {
   setupCard() {
     const G = GL(), L = OB.L(), isNew = Session.setupMode === 'new', acct = Session.account || {};
     const note = this.notice ? `<p class="auth-note" role="alert">${esc(this.notice)}</p>` : '';
-    const fields = isNew ? `<label>${G.fullName}<input id="setName" autocomplete="name" maxlength="120" value="${esc(acct.full_name || '')}"></label>
+    const googleNew = isNew && Session.usesGoogle();
+    const nameNow = acct.full_name || (googleNew ? Session.googleName() : '');
+    const fields = isNew ? `<label>${G.fullName}<input id="setName" autocomplete="name" maxlength="120" value="${esc(nameNow)}"></label>
 <label>${G.username}<input id="setUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(acct.username || '') ? '' : (acct.username || ''))}"><small class="mute">${G.usernameHint}</small></label>` : '';
     return `<section class="gate"><div class="card gcard auth">
-<h2 class="auth-h">${isNew ? G.setupTitle : G.resetTitle}</h2><p class="plain mute">${isNew ? G.setupSub : G.resetSub}</p>${note}
-<p class="plain mute">${esc(Session.email)}</p>${fields}${this.pwFields(true)}
+<h2 class="auth-h">${isNew ? G.setupTitle : G.resetTitle}</h2><p class="plain mute">${isNew ? (googleNew ? G.setupSubGoogle : G.setupSub) : G.resetSub}</p>${note}
+<p class="plain mute">${esc(Session.email)}</p>${fields}${googleNew ? '' : this.pwFields(true)}
 <p class="actions"><button class="btn pri" data-act="gateSetup"${this.signing ? ' disabled' : ''}>${G.saveCont}</button> <button class="btn" data-act="gateSignOut">${G.signOut}</button></p></div></section>`;
   },
   /* Choose a Chama, welcome (no Chama yet), Create a Chama and Join a Chama: one hub frame, per the approved briefs */
@@ -3637,7 +3689,7 @@ const views = {
       <div class="prow"><span>Member ID</span><b class="num">${Session.memberId ? esc(String(Session.memberId).slice(-6).toUpperCase()) : 'Not linked yet'}</b></div>
       <div class="prow"><span>Phone</span><b>${ph ? esc(ph) : 'Not added'}</b></div>
       <div class="prow"><span>Email</span><b>${esc(Session.email || 'Not added')}</b></div>
-      <div class="prow"><span>Sign-in</span><b>${Session.account && Session.account.has_password ? 'Email or username + password' : 'Not set up yet'}</b></div>
+      <div class="prow"><span>Sign-in</span><b>${Session.usesGoogle() && !(Session.account && Session.account.has_password) ? 'Google' : (Session.account && Session.account.has_password ? 'Email or username + password' : 'Not set up yet')}</b></div>
       <p class="actions"><a class="btn" href="#/settings">Open settings</a></p></section>
     <section class="card" style="margin-top:12px"><h2>My recent payments</h2>
       ${recent.length ? recent.map(p => `<div class="prow"><span>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''}<br><small>${esc(p.date || '')}</small></span><b class="num">${kes(p.amount)}</b></div>`).join('') : '<p class="plain mute">No payments recorded for you yet.</p>'}
@@ -3716,11 +3768,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.12.4-dev.1', released: '2026-11-04',
+  name: 'My Chama App', version: '0.12.5-dev.1', released: '2026-11-14',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.12.4-dev.1', 'Interaction pass. Centred popups for warnings and confirmations (Understood or Continue), neutral toasts that stay 7 seconds with an OK button, confirmation steps for sign out and a second step for deleting your account. New start page: Continue with Google (not connected yet), Sign in, Create account. One full turn before the tick on the code page, a bigger tick with a green splash, no Paste code button, button sounds and an approval chime. Flat buttons in a row. Skeletons instead of loading buttons. Cards of one page are grouped and headings are smaller. '], ['0.12.3-dev.1', 'Design system, first pass: shared spacing, radius, elevation and motion tokens; named card variants (navigation, selection, information, action, danger, status) and button variants (secondary, ghost, danger). Drawer header is a solid brand colour. Chama rows use the selection card. Screens beyond the drawer and Chama selection keep their current look until they are moved to these variants. '], ['0.12.2-dev.1', 'One profile for every Chama. Your photo, name, username, phone and contact email are kept once, on your account, and used in every Chama you belong to. Your password is the same everywhere; change it under My profile, Password. Members see each other\'s photos in the Chama. Needs migration 019 on the database. Photos added on another phone before this build must be added again. '], ['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
+  notes: [['0.12.5-dev.1', 'Continue with Google signs you in, or creates your account if you are new. A new Google account asks for your name and a username, then opens the app. Email and password sign-in is unchanged. '], ['0.12.4-dev.1', 'Interaction pass. Centred popups for warnings and confirmations (Understood or Continue), neutral toasts that stay 7 seconds with an OK button, confirmation steps for sign out and a second step for deleting your account. New start page: Continue with Google (not connected yet), Sign in, Create account. One full turn before the tick on the code page, a bigger tick with a green splash, no Paste code button, button sounds and an approval chime. Flat buttons in a row. Skeletons instead of loading buttons. Cards of one page are grouped and headings are smaller. '], ['0.12.3-dev.1', 'Design system, first pass: shared spacing, radius, elevation and motion tokens; named card variants (navigation, selection, information, action, danger, status) and button variants (secondary, ghost, danger). Drawer header is a solid brand colour. Chama rows use the selection card. Screens beyond the drawer and Chama selection keep their current look until they are moved to these variants. '], ['0.12.2-dev.1', 'One profile for every Chama. Your photo, name, username, phone and contact email are kept once, on your account, and used in every Chama you belong to. Your password is the same everywhere; change it under My profile, Password. Members see each other\'s photos in the Chama. Needs migration 019 on the database. Photos added on another phone before this build must be added again. '], ['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
   ['0.12.1-dev.1', 'Payments are now saved on the server first, with a request key, so a double tap or a retry cannot record the same payment twice. The M-Pesa code is checked by the database too. Payments show as recorded only after the server confirms them.'],
   ['0.12.0-dev.5', 'Scan fix round: centred pop-ups, a scanning step when you have more than one Chama, the join-by-key crash fix and a forced refresh of the app.'],
     ['0.12.0-dev.4', 'Sign-in shows the real reason and no longer falls back to a direct password check. Remove access is hidden on your own row and on treasurer rows. You can switch or add a Chama at any time, and the list shows each Chama tag. When you create a Chama or invite someone, you choose whether you are listed as a member or are an officer only. Invitations last 7 days. Invite codes: the treasurer can create a code with a role, a validity of 1, 7 or 30 days and a number of uses; a person types the code, checks the Chama on the confirmation screen, then joins. Codes can be cancelled. Members who cannot see the member list are told why. Not yet tested on a phone.'], ['0.12.0-dev.3', 'Fixes from live testing: no hidden default Chama and no sample data; the username is chosen by the person; profile shows the real group and role; leave, hand-over and delete account give a clear next step; invitations show the real error; expired codes are named; passwords need a number; the notification badge shows the exact count (up to 99+). Requires migration 010.'],
@@ -4433,10 +4485,13 @@ const actions = {
       if (name.length < 2) return fail('Type your full name');
       if (!/^[a-z0-9._-]{3,20}$/.test(user)) return fail(G.usernameHint);
     }
-    const why = Gate.pwProblem(pw); if (why) return fail(why);
-    if (pw !== pw2) return fail('The two passwords do not match');
+    const googleNew = isNew && Session.usesGoogle();
+    if (!googleNew) {
+      const why = Gate.pwProblem(pw); if (why) return fail(why);
+      if (pw !== pw2) return fail('The two passwords do not match');
+    }
     Gate.notice = ''; Gate.signing = true; Gate.paint();
-    try { await Session.finishSetup(name, user, pw); Gate.signing = false; }
+    try { await Session.finishSetup(name, user, googleNew ? '' : pw); Gate.signing = false; }
     catch (e) { fail(e.message); const n = document.getElementById('setName'); if (n) n.value = name; const u = document.getElementById('setUser'); if (u) u.value = user; }
   },
   wsSub: d => {
@@ -4502,11 +4557,7 @@ const actions = {
     } catch (e) { toast('Could not check the code. Try again'); }
   },
   gateSignOut: () => actions.signOutAsk(),
-  /* Google sign-in is wired by the owner: set Session.googleSignIn = async () => { ... } (see README). */
-  gateGoogle: () => {
-    if (typeof Session.googleSignIn === 'function') return Session.googleSignIn();
-    __M_src_ui_toast_js.Pop.alert('Google sign-in is not connected yet. Use Sign in or Create account for now.', { title: 'Google sign-in', label: 'Understood' });
-  },
+  gateGoogle: () => Session.googleSignIn(),
   signOutAsk: () => {
     __M_src_ui_toast_js.Pop.confirm({
       title: 'Sign out?',
