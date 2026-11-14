@@ -723,6 +723,63 @@ background:radial-gradient(120% 55% at 90% 0%,rgba(140,214,184,.5) 0%,rgba(140,2
 }
 @keyframes pkRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.pk-wave,.pk-card,.pk-pulse{animation:none;opacity:1}.pk-choice,.pk-open,.pk-action,.pk-out{transition:none}}
+body:has(.lg) header{display:none}
+.lg{position:fixed;inset:0;z-index:40;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:calc(28px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",sans-serif;
+background:radial-gradient(120% 55% at 90% 0%,rgba(140,214,184,.5) 0%,rgba(140,214,184,0) 60%),radial-gradient(90% 50% at 0% 30%,rgba(63,160,122,.42) 0%,rgba(63,160,122,0) 65%),linear-gradient(175deg,#0a5a45 0%,#0d6a51 35%,#0a5544 62%,#053a2d 100%)}
+.lg-wave{position:fixed;left:-20%;right:-20%;pointer-events:none;border-radius:50%;filter:blur(2px);animation:lgFlow 18s ease-in-out infinite alternate}
+.lg-wave.w1{top:34%;height:360px;background:linear-gradient(90deg,rgba(160,226,196,0),rgba(160,226,196,.22),rgba(160,226,196,0))}
+.lg-wave.w2{bottom:-170px;height:420px;background:linear-gradient(90deg,rgba(4,46,36,0),rgba(4,46,36,.55),rgba(4,46,36,0));animation-duration:22s}
+@keyframes lgFlow{from{transform:translateX(-3%) rotate(var(--r,-6deg))}to{transform:translateX(3%) rotate(var(--r,-6deg))}}
+.lg-brand{position:relative;z-index:1;display:flex;align-items:center;gap:10px;margin:8px 0 22px;font-size:16px;font-weight:650}
+.lg-pulse{width:8px;height:8px;border-radius:50%;background:#5fe3b0;animation:lgPulse 2.4s infinite}
+@keyframes lgPulse{0%{box-shadow:0 0 0 0 rgba(95,227,176,.6)}70%{box-shadow:0 0 0 10px rgba(95,227,176,0)}100%{box-shadow:0 0 0 0 rgba(95,227,176,0)}}
+.lg-card{position:relative;z-index:1;width:min(400px,100%);padding:28px 18px 20px;border-radius:32px;background:linear-gradient(180deg,rgba(236,249,243,.94),rgba(210,238,227,.86));-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 40px 80px rgba(2,30,22,.45);color:#0c2e25}
+.lg-sheen{position:absolute;inset:0 0 auto 0;height:46%;border-radius:32px 32px 0 0;background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0));pointer-events:none}
+.lg-hero{position:relative;display:grid;place-items:center;height:108px}
+.lg-orbit{position:absolute;width:230px;height:108px;animation:lgSpin 14s linear infinite}
+.lg-orbit svg{width:100%;height:100%}
+@keyframes lgSpin{to{transform:rotate(360deg)}}
+.lg-globe{position:relative;width:80px;height:80px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#fff,#d9f1e6 70%);box-shadow:inset 0 1px 0 #fff,0 12px 26px rgba(2,30,22,.25);color:#066146}
+.lg-globe svg{width:44px;height:44px}
+.lg-title{margin:0;text-align:center;font-size:24px;line-height:1.2;font-weight:650;color:#0a4d3c}
+.lg-sub{margin:8px 12px 0;text-align:center;font-size:13px;line-height:1.45;color:#2e5a4d}
+.lg-current{display:flex;justify-content:center;margin:14px 0 0}
+.lg-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 8px;border-radius:999px;background:rgba(11,122,87,.12);font-size:13px;font-weight:650;color:#0a5a45}
+.lg-chipflag{font-size:16px;line-height:1}
+.lg-list,.lg-all{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.lg-opt{position:relative;overflow:hidden;width:100%;display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid rgba(7,64,47,.06);border-radius:22px;background:#fff;cursor:pointer;font:inherit;color:#0c2e25;text-align:start;box-shadow:0 6px 14px rgba(2,30,22,.08)}
+.lg-opt:focus-visible,.lg-more:focus-visible,.lg-next:focus-visible,.lg-done:focus-visible,.lg-search input:focus-visible{outline:3px solid #7fd6b2;outline-offset:2px}
+.lg-flag{width:52px;height:42px;flex:0 0 52px;border-radius:12px;display:grid;place-items:center;background:#f4faf7;font-size:26px;line-height:1;box-shadow:inset 0 0 0 1px rgba(7,64,47,.08)}
+.lg-labels{flex:1;min-width:0}
+.lg-name{display:block;font-size:16px;font-weight:650}
+.lg-sub{display:block;margin-top:2px;font-size:13px;color:#5a7a70}
+.lg-check{width:24px;height:24px;flex:0 0 24px;border-radius:50%;border:2px solid #b5ccc4;display:grid;place-items:center}
+.lg-check svg{width:14px;height:14px;opacity:0}
+.lg-opt[aria-checked="true"]{border-color:#0b7a57;background:linear-gradient(180deg,#f2fbf7,#e4f5ec)}
+.lg-opt[aria-checked="true"] .lg-check{background:linear-gradient(145deg,#0d8a64,#066146);border-color:transparent}
+.lg-opt[aria-checked="true"] .lg-check svg{opacity:1}
+.lg-more{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;margin-top:12px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:13px;font-weight:650;color:#0a5a45;background:rgba(255,255,255,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 6px 14px rgba(2,30,22,.1)}
+.lg-more svg,.lg-next svg{width:18px;height:18px}
+.lg-next{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;margin-top:18px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:16px;font-weight:650;color:#fff;background:linear-gradient(180deg,#14a078,#066146 55%,#044a37);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 14px 26px rgba(2,30,22,.45)}
+.lg-back{position:fixed;inset:0;z-index:45;background:rgba(3,30,24,.5);opacity:0;pointer-events:none}
+.lg-back.open{opacity:1;pointer-events:auto}
+.lg-sheet{position:fixed;left:50%;bottom:0;z-index:46;width:min(560px,100%);max-height:88vh;transform:translate(-50%,104%);display:flex;flex-direction:column;padding:10px 16px calc(18px + env(safe-area-inset-bottom));border-radius:32px 32px 0 0;background:linear-gradient(180deg,#eef9f3,#d6eee4);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 -24px 60px rgba(2,30,22,.5);color:#0c2e25}
+.lg-sheet.open{transform:translate(-50%,0)}
+.lg-grab{width:44px;height:5px;border-radius:999px;background:rgba(7,64,47,.2);margin:6px auto 10px}
+.lg-sheet-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lg-sheet-h h2{margin:0;font-size:20px;color:#0a4d3c}
+.lg-done{border:0;background:transparent;color:#0b7a57;font:inherit;font-weight:700;min-height:44px;padding:8px;cursor:pointer}
+.lg-search{display:flex;align-items:center;gap:8px;margin-top:10px;padding:0 14px;min-height:48px;border-radius:999px;background:#fff;border:1px solid rgba(7,64,47,.1)}
+.lg-search svg{width:18px;height:18px;flex:none;color:#0a4d3c}
+.lg-search input{flex:1;min-width:0;height:46px;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:#0c2e25}
+.lg-hint{margin:8px 4px;font-size:13px;color:#5a7a70}
+.lg-all{overflow:auto;margin-top:8px;padding-bottom:8px}
+.lg-empty{margin:12px 4px;font-weight:650;color:#a1281e}
+.lg-opt:active,.lg-more:active,.lg-next:active{transform:scale(.97)}
+.lg[dir="rtl"] .lg-next svg{transform:scaleX(-1)}
+@media (hover:hover) and (pointer:fine){.lg-opt:hover,.lg-more:hover,.lg-next:hover{transform:translateY(-2px)}}
+@media (prefers-reduced-motion:reduce){.lg-wave,.lg-pulse,.lg-orbit{animation:none}.lg-sheet,.lg-back,.lg-opt{transition:none}}
+
 
 
 .hub h2{margin:2px 0 6px;color:var(--ink);font-size:clamp(26px,7.4vw,30px);font-weight:800;line-height:1.15;letter-spacing:-.02em;overflow-wrap:anywhere}
@@ -2664,6 +2721,15 @@ document.addEventListener('error', e => {
 }, true);
 
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && OB.sheet) { e.preventDefault(); OB.sheet = false; OB.langQ = ''; Gate.paint(); return; }
+  const opt = e.target && e.target.closest && e.target.closest('.lg-opt');
+  if (opt && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    const all = Array.prototype.slice.call(opt.parentElement.parentElement.querySelectorAll('.lg-opt'));
+    const i = all.indexOf(opt);
+    if (i >= 0) { e.preventDefault(); const n = all[(i + (e.key === 'ArrowDown' ? 1 : -1) + all.length) % all.length]; if (n) n.focus(); }
+  }
+});
+document.addEventListener('keydown', e => {
   const btn = e.target && e.target.closest && e.target.closest('.pk-choice');
   if (!btn || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
   const all = Array.prototype.slice.call(document.querySelectorAll('.pk-choice'));
@@ -2761,8 +2827,423 @@ const OB_TIPS = {
   ]
 };
 
+// GENERATED by tools/build_i18n.py. Do not edit by hand.
+window.CHAMA_LANGUAGES = [
+  {
+    "code": "en",
+    "name": "English",
+    "native": "English",
+    "country": "GB",
+    "dir": "ltr",
+    "locale": "en-GB",
+    "primary": true
+  },
+  {
+    "code": "sw",
+    "name": "Swahili",
+    "native": "Kiswahili",
+    "country": "KE",
+    "dir": "ltr",
+    "locale": "sw-KE",
+    "primary": true
+  },
+  {
+    "code": "fr",
+    "name": "French",
+    "native": "Français",
+    "country": "FR",
+    "dir": "ltr",
+    "locale": "fr-FR"
+  },
+  {
+    "code": "es",
+    "name": "Spanish",
+    "native": "Español",
+    "country": "ES",
+    "dir": "ltr",
+    "locale": "es-ES"
+  },
+  {
+    "code": "pt",
+    "name": "Portuguese",
+    "native": "Português",
+    "country": "PT",
+    "dir": "ltr",
+    "locale": "pt-PT"
+  },
+  {
+    "code": "ar",
+    "name": "Arabic",
+    "native": "العربية",
+    "country": "SA",
+    "dir": "rtl",
+    "locale": "ar"
+  },
+  {
+    "code": "de",
+    "name": "German",
+    "native": "Deutsch",
+    "country": "DE",
+    "dir": "ltr",
+    "locale": "de-DE"
+  },
+  {
+    "code": "zh",
+    "name": "Chinese",
+    "native": "中文",
+    "country": "CN",
+    "dir": "ltr",
+    "locale": "zh-CN"
+  },
+  {
+    "code": "it",
+    "name": "Italian",
+    "native": "Italiano",
+    "country": "IT",
+    "dir": "ltr",
+    "locale": "it-IT"
+  },
+  {
+    "code": "nl",
+    "name": "Dutch",
+    "native": "Nederlands",
+    "country": "NL",
+    "dir": "ltr",
+    "locale": "nl-NL"
+  },
+  {
+    "code": "ru",
+    "name": "Russian",
+    "native": "Русский",
+    "country": "RU",
+    "dir": "ltr",
+    "locale": "ru-RU"
+  },
+  {
+    "code": "tr",
+    "name": "Turkish",
+    "native": "Türkçe",
+    "country": "TR",
+    "dir": "ltr",
+    "locale": "tr-TR"
+  },
+  {
+    "code": "id",
+    "name": "Indonesian",
+    "native": "Bahasa Indonesia",
+    "country": "ID",
+    "dir": "ltr",
+    "locale": "id-ID"
+  },
+  {
+    "code": "hi",
+    "name": "Hindi",
+    "native": "हिन्दी",
+    "country": "IN",
+    "dir": "ltr",
+    "locale": "hi-IN"
+  },
+  {
+    "code": "ja",
+    "name": "Japanese",
+    "native": "日本語",
+    "country": "JP",
+    "dir": "ltr",
+    "locale": "ja-JP"
+  },
+  {
+    "code": "ko",
+    "name": "Korean",
+    "native": "한국어",
+    "country": "KR",
+    "dir": "ltr",
+    "locale": "ko-KR"
+  },
+  {
+    "code": "vi",
+    "name": "Vietnamese",
+    "native": "Tiếng Việt",
+    "country": "VN",
+    "dir": "ltr",
+    "locale": "vi-VN"
+  },
+  {
+    "code": "pl",
+    "name": "Polish",
+    "native": "Polski",
+    "country": "PL",
+    "dir": "ltr",
+    "locale": "pl-PL"
+  }
+];
+window.CHAMA_STRINGS = {
+  "en": {
+    "app_name": "My Chama App",
+    "title": "Choose your language",
+    "subtitle": "You can change this later from the sign-in screen.",
+    "choose_other": "Choose another language",
+    "search": "Search languages",
+    "hint": "Search by name, code, country code, or a flag emoji",
+    "none": "No languages match your search",
+    "next": "Next",
+    "continue_in": "Continue in {name}",
+    "sheet_title": "All languages",
+    "done": "Done"
+  },
+  "sw": {
+    "app_name": "Programu ya Chama Changu",
+    "title": "Chagua lugha yako",
+    "subtitle": "Unaweza kubadilisha hii baadaye kutoka skrini ya kuingia.",
+    "choose_other": "Chagua lugha nyingine",
+    "search": "Tafuta lugha",
+    "hint": "Tafuta kwa jina, msimbo, msimbo wa nchi, au bendera",
+    "none": "Hakuna lugha inayolingana na utafutaji wako",
+    "next": "Endelea",
+    "continue_in": "Endelea kwa {name}",
+    "sheet_title": "Lugha zote",
+    "done": "Imekamilika"
+  },
+  "fr": {
+    "app_name": "Mon application Chama",
+    "title": "Choisissez votre langue",
+    "subtitle": "Vous pourrez la modifier plus tard depuis l'écran de connexion.",
+    "choose_other": "Choisir une autre langue",
+    "search": "Rechercher une langue",
+    "hint": "Recherchez par nom, code, code pays ou drapeau",
+    "none": "Aucune langue ne correspond à votre recherche",
+    "next": "Suivant",
+    "continue_in": "Continuer en {name}",
+    "sheet_title": "Toutes les langues",
+    "done": "Terminé"
+  },
+  "es": {
+    "app_name": "Mi app Chama",
+    "title": "Elige tu idioma",
+    "subtitle": "Puedes cambiarlo más tarde desde la pantalla de inicio de sesión.",
+    "choose_other": "Elegir otro idioma",
+    "search": "Buscar idioma",
+    "hint": "Busca por nombre, código, código de país o bandera",
+    "none": "Ningún idioma coincide con tu búsqueda",
+    "next": "Siguiente",
+    "continue_in": "Continuar en {name}",
+    "sheet_title": "Todos los idiomas",
+    "done": "Listo"
+  },
+  "pt": {
+    "app_name": "Meu app Chama",
+    "title": "Escolha seu idioma",
+    "subtitle": "Você pode alterar isso depois na tela de login.",
+    "choose_other": "Escolher outro idioma",
+    "search": "Pesquisar idioma",
+    "hint": "Pesquise por nome, código, código do país ou bandeira",
+    "none": "Nenhum idioma corresponde à sua pesquisa",
+    "next": "Avançar",
+    "continue_in": "Continuar em {name}",
+    "sheet_title": "Todos os idiomas",
+    "done": "Concluir"
+  },
+  "ar": {
+    "app_name": "تطبيق تشاما",
+    "title": "اختر لغتك",
+    "subtitle": "يمكنك تغيير هذا لاحقًا من شاشة تسجيل الدخول.",
+    "choose_other": "اختر لغة أخرى",
+    "search": "ابحث عن لغة",
+    "hint": "ابحث بالاسم أو الرمز أو رمز الدولة أو العلم",
+    "none": "لا توجد لغات تطابق بحثك",
+    "next": "التالي",
+    "continue_in": "المتابعة بـ{name}",
+    "sheet_title": "كل اللغات",
+    "done": "تم"
+  },
+  "de": {
+    "app_name": "Meine Chama-App",
+    "title": "Wähle deine Sprache",
+    "subtitle": "Du kannst das später auf dem Anmeldebildschirm ändern.",
+    "choose_other": "Andere Sprache wählen",
+    "search": "Sprache suchen",
+    "hint": "Suche nach Name, Code, Ländercode oder Flagge",
+    "none": "Keine Sprache passt zu deiner Suche",
+    "next": "Weiter",
+    "continue_in": "Weiter auf {name}",
+    "sheet_title": "Alle Sprachen",
+    "done": "Fertig"
+  },
+  "zh": {
+    "app_name": "Chama 应用",
+    "title": "选择语言",
+    "subtitle": "稍后可以在登录页面更改。",
+    "choose_other": "选择其他语言",
+    "search": "搜索语言",
+    "hint": "按名称、代码、国家代码或国旗搜索",
+    "none": "没有符合搜索的语言",
+    "next": "下一步",
+    "continue_in": "使用{name}继续",
+    "sheet_title": "所有语言",
+    "done": "完成"
+  },
+  "it": {
+    "app_name": "La mia app Chama",
+    "title": "Scegli la lingua",
+    "subtitle": "Puoi cambiarla più tardi dalla schermata di accesso.",
+    "choose_other": "Scegli un'altra lingua",
+    "search": "Cerca lingua",
+    "hint": "Cerca per nome, codice, codice paese o bandiera",
+    "none": "Nessuna lingua corrisponde alla ricerca",
+    "next": "Avanti",
+    "continue_in": "Continua in {name}",
+    "sheet_title": "Tutte le lingue",
+    "done": "Fatto"
+  },
+  "nl": {
+    "app_name": "Mijn Chama-app",
+    "title": "Kies je taal",
+    "subtitle": "Je kunt dit later wijzigen op het inlogscherm.",
+    "choose_other": "Kies een andere taal",
+    "search": "Zoek taal",
+    "hint": "Zoek op naam, code, landcode of vlag",
+    "none": "Geen talen gevonden",
+    "next": "Volgende",
+    "continue_in": "Doorgaan in {name}",
+    "sheet_title": "Alle talen",
+    "done": "Klaar"
+  },
+  "ru": {
+    "app_name": "Приложение Chama",
+    "title": "Выберите язык",
+    "subtitle": "Позже это можно изменить на экране входа.",
+    "choose_other": "Выбрать другой язык",
+    "search": "Поиск языка",
+    "hint": "Поиск по названию, коду, коду страны или флагу",
+    "none": "Языки не найдены",
+    "next": "Далее",
+    "continue_in": "Продолжить на {name}",
+    "sheet_title": "Все языки",
+    "done": "Готово"
+  },
+  "tr": {
+    "app_name": "Chama Uygulamam",
+    "title": "Dilinizi seçin",
+    "subtitle": "Bunu daha sonra giriş ekranından değiştirebilirsiniz.",
+    "choose_other": "Başka bir dil seçin",
+    "search": "Dil ara",
+    "hint": "Ada, koda, ülke koduna veya bayrağa göre ara",
+    "none": "Aramanızla eşleşen dil yok",
+    "next": "İleri",
+    "continue_in": "{name} ile devam et",
+    "sheet_title": "Tüm diller",
+    "done": "Tamam"
+  },
+  "id": {
+    "app_name": "Aplikasi Chama Saya",
+    "title": "Pilih bahasa Anda",
+    "subtitle": "Anda dapat mengubahnya nanti dari layar masuk.",
+    "choose_other": "Pilih bahasa lain",
+    "search": "Cari bahasa",
+    "hint": "Cari berdasarkan nama, kode, kode negara, atau bendera",
+    "none": "Tidak ada bahasa yang cocok",
+    "next": "Lanjut",
+    "continue_in": "Lanjutkan dalam {name}",
+    "sheet_title": "Semua bahasa",
+    "done": "Selesai"
+  },
+  "hi": {
+    "app_name": "मेरा Chama ऐप",
+    "title": "अपनी भाषा चुनें",
+    "subtitle": "आप इसे बाद में साइन-इन स्क्रीन से बदल सकते हैं।",
+    "choose_other": "कोई दूसरी भाषा चुनें",
+    "search": "भाषा खोजें",
+    "hint": "नाम, कोड, देश कोड या झंडे से खोजें",
+    "none": "आपकी खोज से कोई भाषा मेल नहीं खाती",
+    "next": "आगे",
+    "continue_in": "{name} में जारी रखें",
+    "sheet_title": "सभी भाषाएँ",
+    "done": "हो गया"
+  },
+  "ja": {
+    "app_name": "Chamaアプリ",
+    "title": "言語を選択",
+    "subtitle": "この設定はサインイン画面からいつでも変更できます。",
+    "choose_other": "他の言語を選択",
+    "search": "言語を検索",
+    "hint": "名前、コード、国コード、または国旗で検索",
+    "none": "一致する言語がありません",
+    "next": "次へ",
+    "continue_in": "{name}で続行",
+    "sheet_title": "すべての言語",
+    "done": "完了"
+  },
+  "ko": {
+    "app_name": "Chama 앱",
+    "title": "언어 선택",
+    "subtitle": "나중에 로그인 화면에서 변경할 수 있습니다.",
+    "choose_other": "다른 언어 선택",
+    "search": "언어 검색",
+    "hint": "이름, 코드, 국가 코드 또는 국기로 검색",
+    "none": "검색과 일치하는 언어가 없습니다",
+    "next": "다음",
+    "continue_in": "{name}(으)로 계속",
+    "sheet_title": "모든 언어",
+    "done": "완료"
+  },
+  "vi": {
+    "app_name": "Ứng dụng Chama",
+    "title": "Chọn ngôn ngữ",
+    "subtitle": "Bạn có thể thay đổi sau ở màn hình đăng nhập.",
+    "choose_other": "Chọn ngôn ngữ khác",
+    "search": "Tìm ngôn ngữ",
+    "hint": "Tìm theo tên, mã, mã quốc gia hoặc cờ",
+    "none": "Không có ngôn ngữ phù hợp",
+    "next": "Tiếp",
+    "continue_in": "Tiếp tục bằng {name}",
+    "sheet_title": "Tất cả ngôn ngữ",
+    "done": "Xong"
+  },
+  "pl": {
+    "app_name": "Moja aplikacja Chama",
+    "title": "Wybierz język",
+    "subtitle": "Możesz to zmienić później na ekranie logowania.",
+    "choose_other": "Wybierz inny język",
+    "search": "Szukaj języka",
+    "hint": "Szukaj po nazwie, kodzie, kodzie kraju lub fladze",
+    "none": "Brak pasujących języków",
+    "next": "Dalej",
+    "continue_in": "Kontynuuj w {name}",
+    "sheet_title": "Wszystkie języki",
+    "done": "Gotowe"
+  }
+};
+
+const LG_REQUIRED = ['app_name','title','subtitle','choose_other','search','hint','none','next','continue_in','sheet_title','done'];
+const LG_ALL = (window.CHAMA_LANGUAGES || []).filter(l => {
+  const row = (window.CHAMA_STRINGS || {})[l.code];
+  return row && LG_REQUIRED.every(k => row[k] && String(row[k]).trim());
+});
+function lgFlag(country) {
+  return String(country || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2).split('').map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
+}
+function lgT(code, key, vars) {
+  const all = window.CHAMA_STRINGS || {};
+  const table = all[code] || all.en || {};
+  let text = table[key];
+  if (text == null) text = (all.en || {})[key] || key;
+  text = String(text);
+  if (vars) Object.keys(vars).forEach(k => { text = text.replace('{' + k + '}', vars[k]); });
+  return text;
+}
+function lgMatches(lang, raw) {
+  const q = String(raw || '').trim();
+  if (!q) return true;
+  const chars = Array.from(q);
+  const cps = chars.map(c => c.codePointAt(0)).filter(cp => cp >= 0x1F1E6 && cp <= 0x1F1FF);
+  if (chars.length === 2 && cps.length === 2) {
+    return lang.country === String.fromCharCode(cps[0] - 0x1F1E6 + 65, cps[1] - 0x1F1E6 + 65);
+  }
+  const needle = q.toLowerCase();
+  return [lang.name, lang.native, lang.code, lang.country, lgFlag(lang.country)].some(v => String(v).toLowerCase().indexOf(needle) !== -1);
+}
+
 const OB = {
-  pick: null, slide: 0, ag1: false, ag2: false, revisit: false,
+  pick: null, slide: 0, ag1: false, ag2: false, revisit: false, sheet: false, langPick: null, langQ: '',
   read() { try { return JSON.parse(localStorage.getItem(OB_KEY)) || {}; } catch (e) { return {}; } },
   syncConsent() { const st = this.read(); if (st.policy !== OB_POLICY_VERSION || !st.agreedAt || st.serverSynced === OB_POLICY_VERSION || !Backend.sb) return;
     Backend.sb.rpc('record_consent', { p_policy_version: OB_POLICY_VERSION, p_app_version: APP.version }).then(r => { if (!r.error && r.data && r.data.ok) this.write({ serverSynced: OB_POLICY_VERSION }); }).catch(() => {}); },
@@ -2772,14 +3253,58 @@ const OB = {
   complete() { const s = this.read(); return !!(OB_T[s.lang] && s.policy === OB_POLICY_VERSION && s.agreedAt); },
   needed() { return !this.complete() || this.revisit; },
   stepNow() { const s = this.read(); if (this.revisit || !OB_T[s.lang]) return 'lang'; if (!s.tipsDone) return 'tips'; return 'privacy'; },
+
+  chosen() {
+    const ok = c => LG_ALL.some(l => l.code === c);
+    try { const c = localStorage.getItem('chama.lang'); if (ok(c)) return c; } catch (e) {}
+    const saved = this.read().chosen;
+    if (ok(saved)) return saved;
+    return this.lang();
+  },
+  applyChoice(code) {
+    if (!LG_ALL.some(l => l.code === code)) return;
+    try { localStorage.setItem('chama.lang', code); } catch (e) {}
+    this.write({ lang: code === 'sw' ? 'sw' : 'en', chosen: code });
+  },
+  langOption(lang, mode, code) {
+    const on = lang.code === code;
+    const sub = mode === 'sheet' ? lang.name : lgT(code, 'continue_in', { name: lang.native });
+    return `<li><button type="button" class="lg-opt" role="radio" data-ob="lg-pick" data-v="${esc(lang.code)}" aria-checked="${on ? 'true' : 'false'}" aria-label="${esc(lang.native + ' (' + lang.name + ')')}" tabindex="${on ? '0' : '-1'}"><span class="lg-flag" aria-hidden="true">${lgFlag(lang.country)}</span><span class="lg-labels"><span class="lg-name">${esc(lang.native)}</span><span class="lg-sub">${esc(sub)}</span></span><span class="lg-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></button></li>`;
+  },
+  langScreen() {
+    const code = this.langPick || this.chosen();
+    const meta = LG_ALL.find(l => l.code === code) || LG_ALL[0];
+    const dir = meta && meta.dir === 'rtl' ? 'rtl' : 'ltr';
+    const primary = LG_ALL.filter(l => l.primary);
+    if (meta && !meta.primary) primary.unshift(meta);
+    const shown = LG_ALL.filter(l => lgMatches(l, this.langQ)).slice().sort((a, b) => a.name.localeCompare(b.name));
+    const open = !!this.sheet;
+    return `<section class="lg" dir="${dir}">
+<div class="lg-wave w1" style="--r:-8deg"></div><div class="lg-wave w2" style="--r:-4deg"></div>
+<p class="lg-brand"><span class="lg-pulse" aria-hidden="true"></span>${esc(lgT(code, 'app_name'))}</p>
+<main class="lg-card">
+<div class="lg-sheen" aria-hidden="true"></div>
+<div class="lg-hero" aria-hidden="true"><div class="lg-orbit"><svg viewBox="0 0 230 108" fill="none"><ellipse cx="115" cy="54" rx="110" ry="34" stroke="rgba(11,122,87,0.35)" stroke-width="1.5"/><circle cx="8" cy="54" r="4" fill="#0b7a57"/><circle cx="222" cy="36" r="3" fill="#0b7a57"/><circle cx="115" cy="88" r="3" fill="#0b7a57" opacity="0.6"/></svg></div><div class="lg-globe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/></svg></div></div>
+<h1 class="lg-title">${esc(lgT(code, 'title'))}</h1>
+<p class="lg-sub">${esc(lgT(code, 'subtitle'))}</p>
+<div class="lg-current"><span class="lg-chip"><span class="lg-chipflag" aria-hidden="true">${lgFlag(meta.country)}</span>${esc(meta.native)}</span></div>
+<ul class="lg-list" role="radiogroup" aria-label="${esc(lgT(code, 'title'))}">${primary.map(l => this.langOption(l, 'main', code)).join('')}</ul>
+<button type="button" class="lg-more" data-ob="lg-open" aria-haspopup="dialog"><span>${esc(lgT(code, 'choose_other'))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+<button type="button" class="lg-next" data-ob="lg-next"><span>${esc(lgT(code, 'next'))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+</main>
+<div class="lg-back${open ? ' open' : ''}" data-ob="lg-close"></div>
+<section class="lg-sheet${open ? ' open' : ''}" role="dialog" aria-modal="true" aria-hidden="${open ? 'false' : 'true'}" aria-label="${esc(lgT(code, 'sheet_title'))}">
+<div class="lg-grab" aria-hidden="true"></div>
+<div class="lg-sheet-h"><h2>${esc(lgT(code, 'sheet_title'))}</h2><button type="button" class="lg-done" data-ob="lg-close">${esc(lgT(code, 'done'))}</button></div>
+<div class="lg-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="lgSearch" type="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="${esc(lgT(code, 'search'))}" aria-label="${esc(lgT(code, 'search'))}" value="${esc(this.langQ || '')}"></div>
+<p class="lg-hint">${esc(lgT(code, 'hint'))}</p>
+<ul class="lg-all" id="lgAll" role="radiogroup" aria-label="${esc(lgT(code, 'sheet_title'))}">${shown.map(l => this.langOption(l, 'sheet', code)).join('')}</ul>
+<p class="lg-empty" id="lgEmpty"${shown.length ? ' hidden' : ''}>${esc(lgT(code, 'none'))}</p>
+</section></section>`;
+  },
   html() {
     const step = this.stepNow(), L = this.L(), lang = this.lang();
-    if (step === 'lang') {
-      const cur = this.pick || lang;
-      return `<section class="ob"><h2 class="auth-h">${L.chooseLang}</h2><p class="plain mute">${L.langNote}</p>
-<div class="ob-lang" role="group" aria-label="${L.chooseLang}">${Object.keys(OB_T).map(k => `<button type="button" data-ob="pick" data-v="${k}" aria-pressed="${cur === k}">${OB_T[k].name}<small>${OB_T[k].sub}</small></button>`).join('')}</div>
-<div class="ob-foot"><span></span><button class="btn pri" data-ob="lang-next">${L.next}</button></div></section>`;
-    }
+    if (step === 'lang') return this.langScreen();
     if (step === 'tips') {
       const tips = OB_TIPS[lang], i = this.slide, last = i === tips.length - 1;
       const slides = tips.map((t, k) => `<div class="ob-slide" aria-hidden="${k !== i}"><div class="ob-art"><div class="ob-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${t.ic}"/></svg></div><img src="tips/${String(k + 1).padStart(2, '0')}-${t.img}.png" alt="" loading="lazy"></div><h2>${t.t}</h2><p>${t.b}</p></div>`).join('');
@@ -2846,7 +3371,11 @@ document.addEventListener('click', e => {
   switch (t.dataset.ob) {
     case 'pick': OB.pick = t.dataset.v; return Gate.paint();
     case 'lang-next': OB.write({ lang: OB.pick || OB.lang() }); OB.revisit = false; OB.pick = null; return Gate.paint();
-    case 'change-lang': OB.revisit = true; OB.pick = null; return Gate.paint();
+    case 'change-lang': OB.revisit = true; OB.pick = null; OB.sheet = false; OB.langPick = null; OB.langQ = ''; return Gate.paint();
+    case 'lg-open': OB.sheet = true; return Gate.paint();
+    case 'lg-close': OB.sheet = false; OB.langQ = ''; return Gate.paint();
+    case 'lg-pick': OB.langPick = t.dataset.v; OB.sheet = false; return Gate.paint();
+    case 'lg-next': OB.applyChoice(OB.langPick || OB.chosen()); OB.revisit = false; OB.langPick = null; OB.sheet = false; OB.langQ = ''; return Gate.paint();
     case 'slide': return OB.go(Number(t.dataset.i));
     case 'prev': return OB.go(OB.slide - 1);
     case 'next': return OB.slide >= OB_TIPS[OB.lang()].length - 1 ? OB.finishTips() : OB.go(OB.slide + 1);
@@ -3246,6 +3775,7 @@ ${I.inviter_name ? `<div class="prow"><span>Invited by</span><b>${esc(I.inviter_
     $('#view').innerHTML = html;
     if (st === 'signed-out' && this.mode === 'in') { const pw = document.getElementById('gatePw'); if (pw) pw.value = this.signPw || ''; }
     if (st === 'signed-out' && this.mode === 'up' && !this.sent && !this.sending) armUpCool();
+    if (OB.sheet) { const q = document.getElementById('lgSearch'); if (q) setTimeout(() => q.focus(), 280); }
     const hub = st === 'welcome' || st === 'choose', hd = document.querySelector('header'), jr = document.getElementById('jmRoot');
     if (hd) hd.hidden = hub;
     if (hub && this.sub === 'join' && jr) jr.innerHTML = this.joinModal();
@@ -5350,6 +5880,16 @@ document.addEventListener('keydown', e => {
 
 
 document.addEventListener('input', e => { if (e.target && e.target.id === 'helpQ') Help.filter(e.target.value); });
+document.addEventListener('input', e => {
+  if (!e.target || e.target.id !== 'lgSearch') return;
+  OB.langQ = e.target.value;
+  const code = OB.langPick || OB.chosen();
+  const shown = LG_ALL.filter(l => lgMatches(l, OB.langQ)).sort((a, b) => a.name.localeCompare(b.name));
+  const ul = document.getElementById('lgAll');
+  const empty = document.getElementById('lgEmpty');
+  if (ul) ul.innerHTML = shown.map(l => OB.langOption(l, 'sheet', code)).join('');
+  if (empty) empty.hidden = shown.length > 0;
+});
 document.addEventListener('input', e => {
   if (!e.target) return;
   if (e.target.id === 'gateId') Gate.id = e.target.value;
