@@ -660,6 +660,14 @@ svg.hi{width:22px;height:22px;flex:0 0 auto;display:block;fill:none;stroke:curre
 .hub-top:empty{display:none}
 .hub-back{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;padding:0;margin-left:-2px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);cursor:pointer}
 .hub-back:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.hub.has-escape{padding-top:8px}
+.hub-escape{position:fixed;z-index:30;top:calc(12px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:999px;background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--ink);cursor:pointer;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 8px 22px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.35);transition:transform .2s ease,box-shadow .2s ease}
+.hub-escape svg{width:22px;height:22px}
+.hub-escape:active{transform:scale(.96)}
+.hub-escape:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+@media (hover:hover) and (pointer:fine){.hub-escape:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.4)}}
+@media (prefers-reduced-motion:reduce){.hub-escape{transition:none}}
+
 .hub h2{margin:2px 0 6px;color:var(--ink);font-size:clamp(26px,7.4vw,30px);font-weight:800;line-height:1.15;letter-spacing:-.02em;overflow-wrap:anywhere}
 .hub-sub{margin:0 0 22px;font-size:16px;line-height:1.5;color:var(--mute)}
 .hub-sec{margin:0}
@@ -2957,12 +2965,13 @@ ${note}
     const H = HL(), G = GL(), list = Session.workspaces || [];
     if (!isWelcome && list.length > 1 && !this.scanned) {
       if (!this.scanT) this.scanT = setTimeout(() => { this.scanT = null; this.scanned = true; this.paint(); }, 1400);
-      return `<section class="hub scan" role="status" aria-live="polite"><div class="skel-list" aria-hidden="true"><div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div></div><h2 id="hubTitle">${esc(H.scanTitle)}</h2><p class="hub-sub">${esc(H.scanSub)}</p></section>`;
+      const scanBack = (Session.role || (typeof Store !== 'undefined' && Store.chamaId)) ? `<button type="button" class="hub-escape" data-act="wsBack" aria-label="${esc(H.back)}">${HUB_ICON.back}</button>` : '';
+      return `<section class="hub scan${scanBack ? ' has-escape' : ''}" role="status" aria-live="polite">${scanBack}<div class="skel-list" aria-hidden="true"><div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div></div><h2 id="hubTitle">${esc(H.scanTitle)}</h2><p class="hub-sub">${esc(H.scanSub)}</p></section>`;
     }
     const multi = !isWelcome && list.length > 1;
-    const back = !isWelcome && Session.role ? `<button type="button" class="hub-back" data-act="wsBack" aria-label="${esc(H.back)}">${HUB_ICON.back}</button>` : '';
+    const back = !isWelcome && (Session.role || (typeof Store !== 'undefined' && Store.chamaId)) ? `<button type="button" class="hub-escape" data-act="wsBack" aria-label="${esc(H.back)}">${HUB_ICON.back}</button>` : '';
     const body = list.length ? `<div class="chlist">${list.map(w => this.chamaRow(w)).join('')}</div>` : `<p class="hub-empty">${esc(H.noChamas)}</p>`;
-    return `<section class="hub" aria-labelledby="hubTitle">
+    return `<section class="hub${back ? ' has-escape' : ''}" aria-labelledby="hubTitle">
 <div class="hub-top">${back}</div>
 <h2 id="hubTitle">${esc(multi ? H.pickTitle : H.yourChamas)}</h2>
 <p class="hub-sub">${esc(multi ? H.pickSub : H.selectHint)}</p>
@@ -4784,7 +4793,12 @@ const actions = {
   wsJoin: () => Gate.submitJoin(),
   wsOpen: d => Gate.openChama(d.id),
   wsSwitch: () => { Gate.sub = null; Gate.notice = ''; Session.openChooser(); },
-  wsBack: () => Session.closeChooser(),
+  wsBack: () => {
+    if (Session.role) return Session.closeChooser();
+    const id = (typeof Store !== 'undefined' && Store.chamaId) || '';
+    if (id) return Session.switchTo(id);
+    return Session.closeChooser();
+  },
   leaveChama: () => {
     if (Session.role === 'treasurer') { toast('You are the treasurer. Hand the Chama to someone else first, or stay as co-treasurer.'); location.hash = '#/settings/actions'; return; }
     Modal.open({ title: 'Leave this Chama?', submitLabel: 'Leave Chama', danger: true,
