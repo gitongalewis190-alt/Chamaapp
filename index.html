@@ -1157,21 +1157,30 @@ main .card:not(.gcard):has(+.card:not(.gcard)){margin-bottom:0;border-bottom-lef
 #drawer .mn-switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.22);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
 #drawer .mn-switch[aria-checked="true"]{background:#0d8a64}
 #drawer .mn-switch[aria-checked="true"]::after{transform:translateX(20px)}
-#drawer .mn-hero{position:relative;overflow:hidden;margin:0 -16px 18px;padding:calc(16px + env(safe-area-inset-top)) 16px 22px;border-radius:0 0 28px 28px;background:linear-gradient(160deg,#0f9a70,#066146 55%,#044a37)}
-#drawer .mn-sweep{position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);animation:mnSweep 7s ease-in-out infinite}
+#drawer .mn-hero{display:flex;flex-direction:column;align-items:stretch;gap:0;position:relative;top:auto;z-index:1;overflow:hidden;margin:0 -16px 16px;padding:calc(12px + env(safe-area-inset-top)) 16px 18px;border:0;border-radius:0 0 28px 28px;background:linear-gradient(165deg,#14966e 0%,#087a56 42%,#044a37 100%);box-shadow:inset 0 -1px 0 rgba(255,255,255,.08)}
+#drawer .mn-sweep{position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);animation:mnSweep 7s ease-in-out infinite;pointer-events:none}
 @keyframes mnSweep{0%,100%{left:-60%}50%{left:120%}}
-#drawer .mn-hero-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between}
-#drawer .mn-brand{font-size:14px;font-weight:700}
-#drawer .mn-x{width:40px;height:40px;border:0;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.16);color:#fff}
+#drawer .mn-hero-top{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px}
+#drawer .mn-brand{flex:1;min-width:0;font-size:15px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#drawer .mn-x{width:44px;height:44px;flex:none;border:0;border-radius:14px;display:grid;place-items:center;background:rgba(255,255,255,.16);color:#fff}
 #drawer .mn-x svg{width:18px;height:18px}
-#drawer .mn-profile{position:relative;z-index:1;width:100%;display:flex;align-items:center;gap:12px;margin-top:14px;padding:8px;border:0;border-radius:20px;background:rgba(255,255,255,.14);color:#fff;font:inherit;text-align:left}
-#drawer .mn-avatar{width:56px;height:56px;flex:none;border-radius:50%;display:grid;place-items:center;background:#fff;color:#066146;font-size:22px;font-weight:800}
+#drawer .mn-profile{position:relative;z-index:2;width:100%;display:flex;align-items:center;gap:14px;margin-top:14px;padding:10px 12px;border:1px solid rgba(255,255,255,.16);border-radius:22px;background:rgba(255,255,255,.12);color:#fff;font:inherit;text-align:left;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+#drawer .mn-avatar{width:58px;height:58px;flex:none;border-radius:50%;display:grid;place-items:center;background:#fff;color:#066146;font-size:22px;font-weight:800;box-shadow:0 6px 16px rgba(2,30,22,.18)}
 #drawer .mn-who{flex:1;min-width:0}
-#drawer .mn-who small{display:block;font-size:13px;opacity:.85}
-#drawer .mn-who strong{display:block;font-size:20px;font-weight:800}
-#drawer .mn-pill{display:inline-flex;align-items:center;gap:2px;padding:7px 8px 7px 12px;border-radius:999px;background:rgba(255,255,255,.22);font-size:13px;font-weight:700}
+#drawer .mn-who small{display:block;font-size:13px;font-weight:650;opacity:.88}
+#drawer .mn-who strong{display:block;margin-top:1px;font-size:22px;font-weight:800;letter-spacing:-.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#drawer .mn-pill{display:inline-flex;align-items:center;gap:2px;flex:none;padding:8px 10px 8px 14px;border-radius:999px;background:rgba(255,255,255,.2);font-size:13px;font-weight:800}
 #drawer .mn-pill svg{width:14px;height:14px}
-#drawer .mn-spacer{height:28vh}
+#drawer .mn-screen.root .mn-scroll{display:flex;flex-direction:column;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+#drawer .mn-screen.root .mn-label{margin-top:2px}
+#drawer .mn-screen.root .mn-group{flex:1 1 auto;display:flex;flex-direction:column;margin:0 0 14px;border-radius:28px;background:linear-gradient(180deg,#f7fcf9,#e7f5ee);box-shadow:0 18px 40px rgba(2,30,22,.22)}
+#drawer .mn-screen.root .mn-row{flex:1 1 0;min-height:78px;padding:16px 16px;gap:14px}
+#drawer .mn-screen.root .mn-ico{width:46px;height:46px;border-radius:16px;box-shadow:0 8px 16px rgba(12,46,37,.14)}
+#drawer .mn-screen.root .mn-ico svg{width:22px;height:22px}
+#drawer .mn-screen.root .mn-lbl{font-size:17px;font-weight:800;letter-spacing:-.02em}
+#drawer .mn-screen.root .mn-val{font-size:14px;font-weight:650}
+#drawer .mn-screen.root .mn-chev{width:16px;height:16px}
+#drawer .mn-spacer{display:none;height:0}
 #drawer .mn-reveal{display:grid;grid-template-rows:0fr;opacity:0}
 #drawer .mn-reveal.show{grid-template-rows:1fr;opacity:1}
 #drawer .mn-reveal>div{min-height:0;overflow:hidden}
@@ -5909,7 +5918,7 @@ const Menu = {
     const root = makeScreen({
       root: true, title: 'Menu',
       build(scroll) {
-        const hero = el('header', 'mn-hero');
+        const hero = el('div', 'mn-hero');
         hero.innerHTML = `<span class="mn-sweep"></span><div class="mn-hero-top"><span class="mn-brand">My Chama App</span><button class="mn-x" type="button" aria-label="Close menu">${svg('close')}</button></div>`;
         hero.querySelector('.mn-x').addEventListener('click', () => Menu.close());
         const profile = el('button', 'mn-profile');
@@ -5926,9 +5935,7 @@ const Menu = {
           row({ icon: 'users', tone: '#e2a332', label: 'Chama settings', valueKey: 'chama', value: chama.name, onTap: () => push(chamaDef()) }),
           row({ icon: 'user', tone: '#8c6bd6', label: 'Your account', valueKey: 'user', value: user.name, onTap: () => push(accountDef()) })
         ], 'Activities'));
-        const spacer = el('div', 'mn-spacer');
-        scroll.appendChild(spacer);
-        const reveal = el('div', 'mn-reveal');
+        const reveal = el('div', 'mn-reveal show');
         const inner = el('div');
         const btn = el('button', 'mn-sign', svg('out') + '<span>Sign out</span>');
         btn.type = 'button';
@@ -5948,12 +5955,6 @@ const Menu = {
             if (Date.now() >= armedUntil) { btn.classList.remove('armed'); btn.querySelector('span').textContent = 'Sign out'; }
           }, 3100);
         });
-        const check = () => {
-          const atBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 12;
-          reveal.classList.toggle('show', atBottom);
-        };
-        scroll.addEventListener('scroll', check);
-        setTimeout(check, 60);
       }
     });
     dr.appendChild(root);
