@@ -661,12 +661,69 @@ svg.hi{width:22px;height:22px;flex:0 0 auto;display:block;fill:none;stroke:curre
 .hub-back{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;padding:0;margin-left:-2px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);cursor:pointer}
 .hub-back:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .hub.has-escape{padding-top:8px}
-.hub-escape{position:fixed;z-index:30;top:calc(12px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:999px;background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--ink);cursor:pointer;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 8px 22px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.35);transition:transform .2s ease,box-shadow .2s ease}
+.hub-escape{position:fixed;z-index:42;top:calc(12px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:999px;background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--ink);cursor:pointer;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 8px 22px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.35);transition:transform .2s ease,box-shadow .2s ease}
 .hub-escape svg{width:22px;height:22px}
 .hub-escape:active{transform:scale(.96)}
 .hub-escape:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
 @media (hover:hover) and (pointer:fine){.hub-escape:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.4)}}
 @media (prefers-reduced-motion:reduce){.hub-escape{transition:none}}
+body:has(.pk) header{display:none}
+.pk{position:fixed;inset:0;z-index:40;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:calc(28px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom));color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+background:radial-gradient(120% 55% at 90% 0%,rgba(140,214,184,.5) 0%,rgba(140,214,184,0) 60%),radial-gradient(90% 50% at 0% 30%,rgba(63,160,122,.42) 0%,rgba(63,160,122,0) 65%),linear-gradient(175deg,#0a5a45 0%,#0d6a51 35%,#0a5544 62%,#053a2d 100%)}
+.pk-wave{position:fixed;left:-20%;right:-20%;pointer-events:none;border-radius:50%;filter:blur(2px);animation:pkFlow 18s ease-in-out infinite alternate}
+.pk-wave.w1{top:34%;height:360px;background:linear-gradient(90deg,rgba(160,226,196,0),rgba(160,226,196,.22),rgba(160,226,196,0));transform:rotate(-8deg)}
+.pk-wave.w2{bottom:-170px;height:420px;background:linear-gradient(90deg,rgba(4,46,36,0),rgba(4,46,36,.55),rgba(4,46,36,0));transform:rotate(-4deg);animation-duration:22s}
+@keyframes pkFlow{from{transform:translateX(-3%) rotate(var(--r,-6deg))}to{transform:translateX(3%) rotate(var(--r,-6deg))}}
+.pk-brand{position:relative;z-index:1;display:flex;align-items:center;gap:10px;margin:36px 0 22px;font-size:16px;font-weight:650;letter-spacing:.2px;opacity:.92}
+.pk-pulse{width:8px;height:8px;border-radius:50%;background:#5fe3b0;animation:pkPulse 2.4s infinite}
+@keyframes pkPulse{0%{box-shadow:0 0 0 0 rgba(95,227,176,.6)}70%{box-shadow:0 0 0 10px rgba(95,227,176,0)}100%{box-shadow:0 0 0 0 rgba(95,227,176,0)}}
+.pk-card{position:relative;z-index:1;width:min(400px,100%);padding:24px 16px 18px;border-radius:32px;background:linear-gradient(180deg,rgba(236,249,243,.94) 0%,rgba(210,238,227,.86) 100%);-webkit-backdrop-filter:blur(18px) saturate(120%);backdrop-filter:blur(18px) saturate(120%);border:1px solid rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 40px 80px rgba(2,30,22,.45);color:#0c2e25;opacity:0;animation:pkRise .8s cubic-bezier(.2,.8,.2,1) forwards}
+.pk-sheen{position:absolute;inset:0 0 auto 0;height:46%;pointer-events:none;border-radius:32px 32px 0 0;background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0))}
+.pk-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 8px}
+.pk-title,.pk-head h1{margin:0;font-size:22px;line-height:1.25;font-weight:650;color:#0a4d3c}
+.pk-count{font-size:15px;font-weight:650;color:#0a5a45;background:rgba(11,122,87,.14);padding:6px 14px;border-radius:999px;white-space:nowrap}
+.pk-lead{position:relative;display:inline-flex;margin:8px 8px 16px;padding:7px 14px;border-radius:999px;background:rgba(11,122,87,.1);font-size:13px;color:#2e5a4d}
+.pk-list{position:relative;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pk-empty{padding:8px;color:#2e5a4d}
+.pk-choice{position:relative;overflow:hidden;width:100%;display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid rgba(7,64,47,.06);border-radius:20px;background:#fff;cursor:pointer;font:inherit;color:#0c2e25;text-align:left;box-shadow:0 6px 14px rgba(2,30,22,.08)}
+.pk-choice:focus-visible{outline:3px solid #7fd6b2;outline-offset:2px}
+.pk-choice::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(127,214,178,.35),transparent 55%)}
+.pk-av{width:44px;height:44px;flex:0 0 44px;border-radius:14px;overflow:hidden;display:grid;place-items:center;font-size:13px;font-weight:650;color:#fff;background:linear-gradient(145deg,#0d8a64,#044a37);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 6px 12px rgba(4,74,55,.25)}
+.pk-av img{width:100%;height:100%;object-fit:cover;display:block}
+.pk-av.alt-1{background:linear-gradient(145deg,#7a4bc4,#3a1a6b)}
+.pk-av.alt-2{background:linear-gradient(145deg,#e7b24a,#b87a16)}
+.pk-av.alt-3{background:linear-gradient(145deg,#3a9bb0,#1c5a6e)}
+.pk-info{position:relative;flex:1;min-width:0}
+.pk-name{display:block;font-size:16px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:2px;font-size:13px;color:#5a7a70}
+.pk-tag{padding:1px 8px;border-radius:999px;font-size:12px;font-weight:650;color:#0a5a45;background:#d7efe5}
+.pk-check{width:24px;height:24px;flex:0 0 24px;border-radius:50%;border:2px solid #b5ccc4;display:grid;place-items:center;color:#fff}
+.pk-check svg{width:14px;height:14px;opacity:0}
+.pk-choice[aria-checked="true"]{border-color:#0b7a57;background:linear-gradient(180deg,#f2fbf7,#e4f5ec);box-shadow:0 12px 24px rgba(2,30,22,.16)}
+.pk-choice[aria-checked="true"] .pk-check{background:linear-gradient(145deg,#0d8a64,#066146);border-color:transparent}
+.pk-choice[aria-checked="true"] .pk-check svg{opacity:1}
+.pk-open{position:relative;width:100%;height:56px;margin-top:16px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:16px;font-weight:650;color:#fff;background:linear-gradient(180deg,#14a078 0%,#066146 55%,#044a37 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 14px 26px rgba(2,30,22,.45)}
+.pk-open:disabled{opacity:.45;cursor:default;box-shadow:none}
+.pk-open:focus-visible{outline:3px solid #7fd6b2;outline-offset:3px}
+.pk-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.pk-action{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:14px;border:0;border-radius:22px;cursor:pointer;font:inherit;font-size:13px;font-weight:650;text-align:left;color:#fff;background:linear-gradient(160deg,#0d8a64 0%,#066146 60%,#044a37 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 12px 22px rgba(2,30,22,.28)}
+.pk-action.gold{color:#3a2400;background:linear-gradient(160deg,#f6cd6a 0%,#e7b24a 55%,#b87a16 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 12px 22px rgba(138,90,10,.3)}
+.pk-action:focus-visible,.pk-out:focus-visible{outline:3px solid #7fd6b2;outline-offset:3px}
+.pk-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.18)}
+.pk-action.gold .pk-ico{background:rgba(255,255,255,.45)}
+.pk-ico svg{width:20px;height:20px}
+.pk-out{display:block;width:100%;margin-top:12px;height:48px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:13px;font-weight:650;color:#a1281e;background:linear-gradient(180deg,#fbe3e0,#f3c7c1);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 6px 14px rgba(120,30,20,.12)}
+.pk-choice:active,.pk-open:active,.pk-action:active,.pk-out:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){
+.pk-choice:hover{transform:translateY(-2px);box-shadow:0 16px 28px rgba(2,30,22,.18)}
+.pk-choice:hover::before{opacity:1}
+.pk-open:not(:disabled):hover{transform:translateY(-2px)}
+.pk-action:hover{transform:translateY(-3px)}
+.pk-out:hover{transform:translateY(-2px)}
+}
+@keyframes pkRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.pk-wave,.pk-card,.pk-pulse{animation:none;opacity:1}.pk-choice,.pk-open,.pk-action,.pk-out{transition:none}}
+
 
 .hub h2{margin:2px 0 6px;color:var(--ink);font-size:clamp(26px,7.4vw,30px);font-weight:800;line-height:1.15;letter-spacing:-.02em;overflow-wrap:anywhere}
 .hub-sub{margin:0 0 22px;font-size:16px;line-height:1.5;color:var(--mute)}
@@ -2599,7 +2656,29 @@ const Otp = {
 };
 document.addEventListener('input', e => { if (e.target && e.target.id === 'otpIn') Otp.onInput(e.target); });
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-act]')) Haptic.tap(); }, true);
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (!img || !img.closest || !img.closest('.pk-av')) return;
+  const av = img.closest('.pk-av');
+  av.textContent = Gate.pkInitials(img.getAttribute('data-name') || '');
+}, true);
+
+document.addEventListener('keydown', e => {
+  const btn = e.target && e.target.closest && e.target.closest('.pk-choice');
+  if (!btn || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+  const all = Array.prototype.slice.call(document.querySelectorAll('.pk-choice'));
+  const i = all.indexOf(btn); if (i < 0) return;
+  e.preventDefault();
+  const n = all[(i + (e.key === 'ArrowDown' ? 1 : -1) + all.length) % all.length];
+  if (n) n.focus();
+});
 document.addEventListener('pointermove', e => {
+  const shine = e.target.closest && e.target.closest('.pk-choice');
+  if (shine) {
+    const r = shine.getBoundingClientRect();
+    shine.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+    shine.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+  }
   const btn = e.target.closest && e.target.closest('.lbtn');
   if (!btn) return;
   const r = btn.getBoundingClientRect();
@@ -2963,18 +3042,11 @@ ${note}
   hubPage(isWelcome) {
     if (this.sub === 'create') return this.createPage();
     const H = HL(), G = GL(), list = Session.workspaces || [];
-    if (!isWelcome && list.length > 1 && !this.scanned) {
-      if (!this.scanT) this.scanT = setTimeout(() => { this.scanT = null; this.scanned = true; this.paint(); }, 1400);
-      const scanBack = (Session.role || (typeof Store !== 'undefined' && Store.chamaId)) ? `<button type="button" class="hub-escape" data-act="wsBack" aria-label="${esc(H.back)}">${HUB_ICON.back}</button>` : '';
-      return `<section class="hub scan${scanBack ? ' has-escape' : ''}" role="status" aria-live="polite">${scanBack}<div class="skel-list" aria-hidden="true"><div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div></div><h2 id="hubTitle">${esc(H.scanTitle)}</h2><p class="hub-sub">${esc(H.scanSub)}</p></section>`;
-    }
-    const multi = !isWelcome && list.length > 1;
-    const back = !isWelcome && (Session.role || (typeof Store !== 'undefined' && Store.chamaId)) ? `<button type="button" class="hub-escape" data-act="wsBack" aria-label="${esc(H.back)}">${HUB_ICON.back}</button>` : '';
+    if (!isWelcome) return this.pickerPage(H, G, list);
     const body = list.length ? `<div class="chlist">${list.map(w => this.chamaRow(w)).join('')}</div>` : `<p class="hub-empty">${esc(H.noChamas)}</p>`;
-    return `<section class="hub${back ? ' has-escape' : ''}" aria-labelledby="hubTitle">
-<div class="hub-top">${back}</div>
-<h2 id="hubTitle">${esc(multi ? H.pickTitle : H.yourChamas)}</h2>
-<p class="hub-sub">${esc(multi ? H.pickSub : H.selectHint)}</p>
+    return `<section class="hub" aria-labelledby="hubTitle">
+<h2 id="hubTitle">${esc(H.yourChamas)}</h2>
+<p class="hub-sub">${esc(H.selectHint)}</p>
 <div class="hub-sec">${body}</div>
 <div class="hub-div" role="separator"></div>
 <div class="hub-sec">
@@ -2984,6 +3056,61 @@ ${note}
 </div>
 <button type="button" class="hub-out" data-act="gateSignOut">${HUB_ICON.out}<span>${esc(G.signOut)}</span></button>
 </section>`;
+  },
+
+  pickerPage(H, G, list) {
+    const sw = OB.lang() === 'sw';
+    const canLeave = !!(Session.role || (typeof Store !== 'undefined' && Store.chamaId));
+    const back = canLeave ? `<button type="button" class="hub-escape" data-act="wsBack" aria-label="${esc(H.back)}">${HUB_ICON.back}</button>` : '';
+    if (list.length > 1 && !this.scanned) {
+      if (!this.scanT) this.scanT = setTimeout(() => { this.scanT = null; this.scanned = true; this.paint(); }, 1400);
+      return `<section class="pk" role="status" aria-live="polite">${back}
+<div class="pk-wave w1" style="--r:-8deg"></div><div class="pk-wave w2" style="--r:-4deg"></div>
+<p class="pk-brand"><span class="pk-pulse" aria-hidden="true"></span>My Chama App</p>
+<main class="pk-card"><h1 class="pk-title">${esc(H.scanTitle)}</h1><p class="pk-lead">${esc(H.scanSub)}</p></main></section>`;
+    }
+    const lastId = (typeof Store !== 'undefined' && list.some(w => w.chama_id === Store.chamaId)) ? Store.chamaId : '';
+    if (!this.picked || !list.some(w => w.chama_id === this.picked)) this.picked = lastId;
+    const picked = list.find(w => w.chama_id === this.picked);
+    const n = list.length;
+    const count = sw ? (n + ' Chama') : (n + (n === 1 ? ' Chama' : ' Chamas'));
+    const openLabel = picked ? (sw ? 'Fungua ' + picked.chama_name : 'Open ' + picked.chama_name) : (sw ? 'Fungua Chama' : 'Open Chama');
+    const rows = list.map((w, i) => {
+      const on = w.chama_id === this.picked;
+      const photo = String(w.photo || w.chama_photo || w.logo_url || w.image_url || '');
+      const alt = ['', ' alt-1', ' alt-2', ' alt-3'][i % 4];
+      const av = photo
+        ? `<span class="pk-av${alt}"><img alt="" data-name="${esc(w.chama_name || '')}" src="${esc(photo)}"></span>`
+        : `<span class="pk-av${alt}">${esc(this.pkInitials(w.chama_name))}</span>`;
+      const last = w.chama_id === lastId ? `<span class="pk-tag">${sw ? 'Iliyofunguliwa mwisho' : 'Last opened'}</span>` : '';
+      return `<li><button type="button" class="pk-choice" role="radio" data-act="pkPick" data-id="${esc(w.chama_id)}" aria-checked="${on ? 'true' : 'false'}" tabindex="${on || (!this.picked && i === 0) ? '0' : '-1'}">
+${av}<span class="pk-info"><span class="pk-name">${esc(w.chama_name || 'Chama')}</span><span class="pk-meta">${esc(G.roleWord(w.role))}${last}</span></span>
+<span class="pk-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+</button></li>`;
+    }).join('');
+    const lead = n > 1
+      ? (sw ? 'Uko kwenye zaidi ya kimoja. Chagua kimoja ufungue.' : 'You are in more than one. Pick one to open.')
+      : (sw ? 'Chagua Chama ufungue.' : 'Pick one to open.');
+    return `<section class="pk">${back}
+<div class="pk-wave w1" style="--r:-8deg"></div><div class="pk-wave w2" style="--r:-4deg"></div>
+<p class="pk-brand"><span class="pk-pulse" aria-hidden="true"></span>My Chama App</p>
+<main class="pk-card" aria-labelledby="pkTitle">
+<div class="pk-sheen" aria-hidden="true"></div>
+<div class="pk-head"><h1 id="pkTitle">${sw ? 'Chagua Chama' : 'Choose a Chama'}</h1>${n ? `<span class="pk-count">${esc(count)}</span>` : ''}</div>
+<p class="pk-lead">${esc(lead)}</p>
+<ul class="pk-list" role="radiogroup" aria-label="${sw ? 'Chama zako' : 'Your Chamas'}">${rows || `<li class="pk-empty">${esc(H.noChamas)}</li>`}</ul>
+<button type="button" class="pk-open" data-act="pkOpen"${picked ? '' : ' disabled'}>${esc(openLabel)}</button>
+<div class="pk-actions">
+<button type="button" class="pk-action" data-act="wsSub" data-s="create"><span class="pk-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span>${esc(H.createRow)}</span></button>
+<button type="button" class="pk-action gold" data-act="wsSub" data-s="join"><span class="pk-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/></svg></span><span>${esc(H.joinRow)}</span></button>
+</div>
+<button type="button" class="pk-out" data-act="gateSignOut">${esc(G.signOut)}</button>
+</main></section>`;
+  },
+  pkInitials(name) {
+    const parts = String(name || '').replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const letters = parts.slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    return letters || '?';
   },
   /* One Chama row. Only values the data layer returns are shown; a member count is omitted until the database supplies one */
   chamaRow(w) {
@@ -4799,6 +4926,8 @@ const actions = {
     if (id) return Session.switchTo(id);
     return Session.closeChooser();
   },
+  pkPick: (d) => { if (!d || !d.id) return; Gate.picked = d.id; Gate.paint(); },
+  pkOpen: () => { if (Gate.picked) Gate.openChama(Gate.picked); },
   leaveChama: () => {
     if (Session.role === 'treasurer') { toast('You are the treasurer. Hand the Chama to someone else first, or stay as co-treasurer.'); location.hash = '#/settings/actions'; return; }
     Modal.open({ title: 'Leave this Chama?', submitLabel: 'Leave Chama', danger: true,
