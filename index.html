@@ -667,12 +667,13 @@ svg.hi{width:22px;height:22px;flex:0 0 auto;display:block;fill:none;stroke:curre
 .hub-escape:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
 @media (hover:hover) and (pointer:fine){.hub-escape:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.4)}}
 @media (prefers-reduced-motion:reduce){.hub-escape{transition:none}}
-body:has(.pk) header{display:none}
-body:has(.pk) header,body:has(.pk) nav{display:none!important}
-.pk{position:fixed;top:0;right:0;bottom:0;left:0;z-index:80;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#0b634c;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:calc(18px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
+html:has(.pk),body:has(.pk){background:#0b634c!important;background-image:none!important;overflow:visible!important}
+body:has(.pk) .splash,body:has(.pk) header,body:has(.pk) nav,body:has(.pk) .ra{display:none!important}
+body:has(.pk) #view{max-width:none!important;width:auto!important;margin:0!important;padding:0!important;background:#0b634c!important;overflow:visible!important;min-height:100dvh}
+.pk{position:relative;display:block;overflow:visible;min-height:100dvh;background:#0b634c;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));transform:none;filter:none;opacity:1}
 .pk-brand{display:flex;align-items:center;justify-content:center;gap:10px;margin:28px 0 18px;font-size:17px;font-weight:700;letter-spacing:.2px}
 .pk-dot{width:8px;height:8px;border-radius:50%;background:#5fe3b0}
-.pk-card{width:min(400px,100%);margin:0 auto;padding:22px 16px 16px;border-radius:28px;background:#f4faf7;color:#0c2e25;box-shadow:0 18px 40px rgba(0,0,0,.18)}
+.pk-card{display:block;overflow:visible;width:min(400px,100%);margin:0 auto;padding:22px 16px 16px;border-radius:28px;background:#f4faf7;color:#0c2e25;box-shadow:0 18px 40px rgba(0,0,0,.18)}
 .pk-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 4px 8px}
 .pk-head h1{margin:0;font-size:22px;line-height:1.25;font-weight:800;color:#0a4d3c}
 .pk-count{flex:none;font-size:14px;font-weight:700;color:#0a5a45;background:#d7efe5;padding:6px 12px;border-radius:999px}
