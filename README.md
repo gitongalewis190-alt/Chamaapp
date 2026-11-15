@@ -2,8 +2,8 @@
 
 A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Current version:** 0.12.4-dev.1 (development build; one profile for every Chama, needs migration 019 on the database first). Migration 016 (payment guard) must also be applied. **Build in progress:** UI update (Choose a Chama, Create a Chama, Join a Chama, drawer, bottom-bar profile photo, toasts). Service worker cache `mca-app-v38`. The version string in `index.html` still reads 0.12.0-dev.4; bump it before release (section 15, rule 11).
-**Last updated:** 2026-11-03
+**Current version:** 0.12.7-dev.1 (development build). Home, Contributions, Members and Profile use the approved page markup: raised cards, money tiles, and a sliding month pill. Reset all data is no longer on Home. A missing photo function shows a readable message. Service worker cache `mca-app-v63`. **Built, unverified** on a phone. Migration 019 (photo and profile functions) is still not in the repo and was not applied.
+**Last updated:** 2026-11-15
 **Owner:** Lewis Gitonga
 **Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)
 **Supabase project ref:** `sgfvjsxmchohawhqraii`
@@ -41,6 +41,7 @@ A savings-group app for chamas (groups that save together and lend to each other
 
 | Feature | Built | Deployed | Verified on phone |
 |—|—|—|—|
+| Home, Contributions, Members and Profile markup (0.12.7-dev.1) | Yes | Pushed to `main` (Vercel) | **Built, unverified** |
 | Email code sign-in | Yes | Yes | Yes (owner) |
 | Username and password sign-in | Yes | Yes | Owner reports it works. 0.12.0-dev.4 throttle messages: **pending** |
 | Email invitations (Brevo) | Yes | Yes | Sent and resent: yes. Accept flow: **not yet tested** |
@@ -94,7 +95,7 @@ Read this file, then `MIGRATION_AND_SETUP_GUIDE.md`, then section 15 (rules) bef
 
 ```
 index.html                       the whole frontend (single file, about 350 KB)
-sw.js                            service worker. Cache name must change every release (now mca-app-v43)
+sw.js                            service worker. Cache name must change every release (now mca-app-v63)
 manifest.json                    PWA manifest
 icons/                           app icons (192 and 512 px)
 tips/                            onboarding images
@@ -485,6 +486,8 @@ These apply to people and to AI assistants. They are not optional.
 
 Short list. Full notes are in the app (Settings, About) and in the release notes files.
 
+- **0.12.7-dev.1 (service worker `mca-app-v63`):** approved page markup for Home, Contributions, Members and Profile. Raised cards, money tiles, sliding month pills. Reset all data is removed from Home. A photo save that fails because `set_my_photo` is missing says so in plain words. Phone numbers stay in full (`CG_MASK_PHONES` is false). Moving a member up still happens at once (`moveMember`); the confirm step (`moveAsk`) was not applied. Render coalescing was not applied. Built, unverified on a phone.
+- **0.12.6-dev.1 (service worker `mca-app-v62`):** first visual pass on the same four pages. Superseded by 0.12.7-dev.1, which uses the approved markup.
 - **0.12.4-dev.1 (service worker `mca-app-v43`):** interaction pass. Centred popups (`Pop.alert`, `Pop.confirm`, element `#popRoot`) for warnings and confirmations; every error toast now opens an alert with Understood. Neutral toasts stay 7 s with an OK button (optional action button). Sign out asks first on every screen; deleting an account has two steps. New start page (Continue with Google, Sign in, Create account). OTP: one full revolution, bigger tick, green splash, no Paste code button, synthesised button sounds and approval chime (mute: `localStorage[‘mca-sfx’]=‘off’`). Flat buttons always in a row. Skeletons replace loading buttons. Cards of one page are grouped (`style#ux-group` can be deleted to undo).
   **Google sign-in is not wired.** The button calls `Session.googleSignIn` if it exists, otherwise shows an alert. To wire it, enable the Google provider in Supabase Auth, then set `Session.googleSignIn = async () => { const { error } = await Backend.sb.auth.signInWithOAuth({ provider: ‘google’, options: { redirectTo: location.origin + location.pathname } }); if (error) toast(error.message); };`. A Google account has no app password yet, so test that the account setup step appears after the first Google sign-in.
 - **0.12.3-dev.1 (service worker `mca-app-v42`):** design tokens and named card and button variants (first pass). Drawer header solid; Chama rows use the selection card. Other screens unchanged so far.

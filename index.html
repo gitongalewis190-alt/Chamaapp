@@ -1204,48 +1204,61 @@ main .card:not(.gcard):has(+.card:not(.gcard)){margin-bottom:0;border-bottom-lef
 #drawer button:focus-visible{outline:3px solid #7fd6b2;outline-offset:2px}
 </style>
 <style id="cg-redesign-v1">
-/* 0.12.6-dev.1 visual pass. Presentation only. */
-.cg-home{display:flex;flex-direction:column;gap:12px}
-.cg-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.cg-tile{min-width:0;background:linear-gradient(180deg,#fff,#f3faf7);border:1px solid var(--line);border-radius:20px;padding:14px 12px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 10px 24px rgba(18,35,31,.08),0 1px 2px rgba(18,35,31,.04)}
-.cg-tile h2{margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mute)}
-.cg-tile .big{font-size:clamp(16px,4.8vw,24px);letter-spacing:-.03em;line-height:1.1;overflow-wrap:anywhere}
-.cg-tiles .cg-tile:first-child{background:linear-gradient(165deg,#14966e 0%,#0b634c 100%);border-color:transparent;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 14px 28px rgba(11,99,76,.28)}
-.cg-tiles .cg-tile:first-child h2{color:rgba(255,255,255,.82)}
-.cg-tiles .cg-tile:first-child .big{color:#fff}
-.cg-card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;margin-top:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 12px 28px rgba(18,35,31,.08),0 2px 6px rgba(18,35,31,.04)}
-.cg-home .cg-card,.cg-list>.cg-card,.cg-month{margin-top:0}
-.cg-panels{display:flex;flex-direction:column;gap:12px}
-.cg-pills{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.cg-pills::-webkit-scrollbar{display:none}
-.cg-pill{flex:0 0 auto;scroll-snap-align:center;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(18,35,31,.06)}
-.cg-pill.on{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 8px 18px rgba(15,123,95,.28)}
-.cg-payrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
-.cg-payrow:first-child{border-top:0}
-.cg-payrow .who{flex:1}
-.cg-status{flex:0 0 auto;width:auto!important;min-width:84px;min-height:36px;padding:0 12px!important;border-radius:999px!important;font-size:13px!important}
-.cg-total{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:4px;padding-top:12px;border-top:1px solid var(--line);font-weight:700}
-.cg-total b{font-size:18px}
-.cg-note{margin:8px 2px 0}
-.cg-list{display:flex;flex-direction:column;gap:10px}
-.cg-member{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:center}
-.cg-member .grow{min-width:0}
-.cg-member b{display:block;overflow-wrap:anywhere}
-.cg-member .mute{display:block}
-.cg-member-acts{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px}
-.cg-member-acts .btn{flex:0 0 auto}
-[data-avatar]{display:flex;justify-content:center}
-[data-avatar] .av{box-shadow:0 0 0 4px #fff,0 14px 28px rgba(15,123,95,.28)}
-.cg-money .cg-tiles{margin-top:4px}
-#drawer .mn-group{box-shadow:inset 0 1px 0 rgba(255,255,255,.72),0 16px 32px rgba(2,30,22,.22),0 2px 6px rgba(2,30,22,.12)}
-#drawer .mn-screen.root .mn-group{box-shadow:inset 0 1px 0 rgba(255,255,255,.78),0 22px 44px rgba(2,30,22,.3)}
-#drawer .mn-row{box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
-#drawer .mn-screen.root .mn-ico{box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 10px 18px rgba(12,46,37,.18)}
-html[data-mode=dark] .cg-tile{background:var(--card)}
-html[data-mode=dark] .cg-tiles .cg-tile:first-child{background:linear-gradient(165deg,#14966e,#0b634c);color:#fff}
-html[data-mode=dark] .cg-card{box-shadow:0 12px 28px rgba(0,0,0,.28)}
-html[data-mode=dark] [data-avatar] .av{box-shadow:0 0 0 4px var(--card),0 14px 28px rgba(0,0,0,.35)}
-@media (prefers-reduced-motion:reduce){.cg-pill,.cg-tile,.cg-card,#drawer .mn-row{transition:none}}
+/* cg-redesign-v1: depth for the drawer and money tiles, plus the new page classes.
+   Paste into a new <style id="cg-redesign-v1"> block just before </head> in index.html.
+   Uses the app's own tokens: --card, --ink, --mute, --line, --brand, --brand-d, --brand-t. */
+
+/* ---- drawer: raised rows and groups instead of flat rows ---- */
+#drawer .mn-group{margin:0 0 16px;padding:6px;border-radius:24px;background:linear-gradient(180deg,#fbfefc,#e9f6f0);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 4px rgba(2,30,22,.10),0 22px 44px -18px rgba(2,30,22,.45)}
+#drawer .mn-screen.root .mn-group{border-radius:28px;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 4px rgba(2,30,22,.10),0 28px 56px -20px rgba(2,30,22,.5)}
+#drawer .mn-row{margin:4px 0;border-radius:16px;background:linear-gradient(180deg,#ffffff,#f1faf6);box-shadow:0 1px 0 #fff inset,0 1px 2px rgba(2,30,22,.08),0 8px 16px -10px rgba(2,30,22,.35);transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s}
+#drawer .mn-row+.mn-row{box-shadow:0 1px 0 #fff inset,0 1px 2px rgba(2,30,22,.08),0 8px 16px -10px rgba(2,30,22,.35)}
+#drawer .mn-row:active,#drawer .mn-row.pressed{transform:scale(.985);box-shadow:0 1px 0 #fff inset,0 1px 1px rgba(2,30,22,.10)}
+#drawer .mn-ico{box-shadow:0 6px 12px -4px rgba(2,30,22,.35),0 1px 0 rgba(255,255,255,.5) inset}
+#drawer .mn-label{color:var(--mute)}
+
+/* ---- money and status tiles (Home, Profile) ---- */
+.cg-mtiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cg-mt{display:grid;gap:6px;padding:14px;border-radius:18px;background:linear-gradient(180deg,#fff,#eef8f3);box-shadow:0 1px 0 #fff inset,0 10px 20px -12px rgba(2,30,22,.45)}
+.cg-mt-l{font-size:14px;color:var(--mute)}
+.cg-mt b{font-size:20px;font-weight:800;letter-spacing:-.01em}
+
+/* ---- page cards ---- */
+.cg-card{position:relative;margin-top:12px;padding:18px;border-radius:22px;background:var(--card);box-shadow:0 1px 0 #fff inset,0 2px 6px rgba(2,30,22,.08),0 18px 36px -22px rgba(2,30,22,.45)}
+.cg-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.cg-h,.cg-head h2,.cg-head h3{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.cg-tag{display:inline-block;padding:6px 12px;border-radius:999px;font-size:14px;font-weight:700;background:var(--warn-t);color:var(--warn)}
+.cg-tag.ok{background:var(--brand-t);color:var(--brand-d)}
+.cg-wide{width:100%}
+.cg-foot{margin-top:10px}
+.cg-person{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
+.cg-person b{display:block;font-size:18px}
+.cg-row{display:flex;align-items:center;gap:12px;min-height:60px;margin-top:10px;padding:10px 12px;border-radius:16px;background:linear-gradient(180deg,#fff,#f1faf6);box-shadow:0 1px 0 #fff inset,0 6px 14px -10px rgba(2,30,22,.4)}
+.cg-who{flex:1;min-width:0;display:grid;gap:2px}
+.cg-who b{font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cg-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.cg-total{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.cg-total b{font-size:20px;font-weight:800}
+
+/* ---- Home collection hero ---- */
+.cg-collect{padding:20px}
+.cg-amount{font-size:32px;font-weight:800;letter-spacing:-.02em;margin:4px 0 12px}
+.cg-pct{font-size:14px;font-weight:700;color:var(--brand-d)}
+.cg-track{height:10px;border-radius:999px;background:var(--brand-t);overflow:hidden}
+.cg-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#1b9a77,var(--brand-d));transition:width .8s cubic-bezier(.2,.8,.2,1)}
+
+/* ---- Contributions: month pills with a sliding indicator ---- */
+.cg-months{position:relative;display:grid;grid-template-columns:repeat(var(--n,6),1fr);margin-top:14px;padding:4px;border-radius:999px;background:rgba(7,64,47,.08)}
+.cg-mo{position:relative;z-index:1;min-height:44px;padding:0 4px;border:0;background:transparent;color:var(--mute);font-size:14px;font-weight:700;border-radius:999px}
+.cg-mo[aria-selected="true"]{color:var(--brand-d)}
+.cg-pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px) / var(--n,6));border-radius:999px;background:#fff;box-shadow:0 6px 14px -8px rgba(2,30,22,.5);transform:translateX(calc(var(--i,0) * 100%));transition:transform .55s cubic-bezier(.34,1.3,.5,1)}
+.cg-status{min-width:72px;min-height:44px;padding:0 12px;border:0;border-radius:999px;font-size:14px;font-weight:700;background:var(--brand-t);color:var(--brand-d)}
+.cg-status.late{background:var(--bad-t);color:var(--bad)}
+.cg-status.due{background:var(--warn-t);color:var(--warn)}
+.cg-status.paid{background:var(--brand-t);color:var(--brand-d)}
+.cg-status:disabled{background:#eef3f1;color:var(--mute)}
+
+@media (prefers-reduced-motion:reduce){.cg-pill,.cg-track i,#drawer .mn-row{transition:none!important}}
 </style>
 </head>
 <body><label id="hapticSw" style="position:fixed;left:-9999px;top:0;opacity:0"><input type="checkbox" switch></label>
@@ -2444,13 +2457,9 @@ const Session = {
   async savePhoto(url) {
     if (!Backend.sb) throw new Error('Sign in to save your photo');
     const { error } = await Backend.sb.rpc('set_my_photo', { p_photo: url || '' });
-    if (error) {
-      const raw = [error.message, error.code, error.details, error.hint].filter(Boolean).join(' ');
-      if (/set_my_photo|PGRST202|schema cache|could not find the function/i.test(raw)) {
-        throw new Error('Photo could not be saved. The server does not have this step yet (set_my_photo). Ask the treasurer to apply the latest database update, then try again.');
-      }
-      throw new Error(error.message || 'Photo could not be saved.');
-    }
+    if (error) throw new Error(/does not exist|Could not find the function/i.test(error.message)
+      ? 'Photos are not available on this server yet. Try again after the database update.'
+      : error.message);
     this.writeProfile({ ...this.readProfile(), photo: url || null });
     if (this.memberId) this.memberPics = { ...this.memberPics, [this.memberId]: { ...((this.memberPics || {})[this.memberId] || {}), photo: url || null } };
   },
@@ -4064,36 +4073,56 @@ const { toast } = __M_src_ui_toast_js;
 
 const views = {
   home(s) {
-    if (!s.members.length && s.shared) return `<div class="cg-card empty"><p>The member list is not shared with your role yet. Ask the treasurer.</p></div>`;
-    if (!s.members.length) return `<div class="cg-card empty"><p>No members yet. Add your members from the Members tab.</p></div>`;
+    if (!s.members.length && s.shared) return `<div class="card empty"><p>The member list is not shared with your role yet. Ask the treasurer.</p></div>`;
+    if (!s.members.length) return `<div class="card empty"><p>No members yet. Add your members from the Members tab.</p></div>`;
     const cur = Domain.now(), exp = sum(s.members, m => Domain.dueFor(s, m.id));
     const got = s.shared ? (s.shared.monthCollected[cur] || 0) : sum(s.payments.filter(p => p.month === cur), p => p.amount);
     const pct = exp ? Math.min(100, Math.round(got / exp * 100)) : 0;
     const rec = Domain.recipient(s), late = Domain.lateMembers(s), po = s.payouts.find(p => p.month === cur), idx = rec ? s.members.indexOf(rec) : -1;
-    const loansOut = s.shared ? s.shared.loansBalance : sum(s.loans, l => Domain.loan(l).balance), finesDue = s.shared ? s.shared.finesDue : sum(s.fines.filter(f => !f.paid), f => f.amount);
+    const loansOut = s.shared ? s.shared.loansBalance : sum(s.loans, l => Domain.loan(l).balance);
+    const finesDue = s.shared ? s.shared.finesDue : sum(s.fines.filter(f => !f.paid), f => f.amount);
     const meId = s.shared ? s.shared.me : null;
-    return `<div class="cg-home">
-      <div class="cg-tiles">
-        <div class="cg-tile"><h2>Cash on hand</h2><div class="big num">${kes(Domain.cashOnHand(s))}</div></div>
-        <div class="cg-tile"><h2>Collected, ${monthLabel(cur)}</h2><div class="big num">${kes(got)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="mute">${pct}% of ${kes(exp)}</div></div>
-        <div class="cg-tile"><h2>Loans out</h2><div class="big num">${kes(loansOut)}</div></div>
-        <div class="cg-tile"><h2>Unpaid fines</h2><div class="big num">${kes(finesDue)}</div></div>
-      </div>
-      <div class="cg-panels">
-        ${s.chama.mode === 'savings' ? '' : `<div class="cg-card"><h2>This month's payout</h2>
-          <div class="big who">${av(rec, 36)}${esc(rec.name)}</div><div class="mute num">Receives ${kes(po ? po.amount : exp)} (turn ${Math.max(1, idx + 1)} of ${s.members.length})</div>
-          ${s.shared ? (po ? `<div style="margin-top:8px"><span class="tag">Sent ${kes(po.amount)} on ${esc(po.date)}</span></div>` : '') : po ? `<div style="margin-top:8px"><span class="tag">Sent ${kes(po.amount)} on ${esc(po.date)}</span>${sigImg(po.sig, 'Recipient signature')} ${adminBtn(`<button class="btn sm bad" data-act="undoPayout" data-id="${po.id}">Undo</button>`)}</div>` : adminBtn(`<div style="margin-top:8px"><button class="btn sm pri" data-act="markPayout" data-amt="${exp}">Mark payout as sent</button></div>`)}</div>`}
-        <div class="cg-card"><h2>${s.shared ? 'Your ' + monthLabel(cur) : 'Behind on ' + monthLabel(cur)}</h2>
-          ${s.shared ? (meId ? (() => { const st = Domain.status(s, meId, cur), bal = Domain.outstanding(s, meId, cur); return `<p class="plain">${st === 'paid' ? 'You are paid up for this month.' : st === 'partial' ? 'Part paid. ' + kes(bal) + ' still due.' : st === 'late' ? 'Late. ' + kes(bal) + ' is due.' : st === 'future' || st === 'na' ? 'Nothing due yet.' : kes(bal) + ' is due by day ' + s.chama.dueDay + '.'}</p><p class="mute">You see your own payments and the group totals. Other members’ money is private.</p>`; })() : '<p class="mute">Your account is not linked to a member record yet. Ask the treasurer to link it.</p>') : ''}
-          ${s.shared ? '' : late.length ? late.map(m => {
-            const bal = Domain.outstanding(s, m.id, cur);
-            const msg = `Hi ${m.name.split(' ')[0]}, friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} contribution balance is ${kes(bal)}.${s.chama.payTo ? ' Pay to: ' + s.chama.payTo + '.' : ''} Thank you!`;
-            return `<div class="row">${av(m, 30)}<div class="grow"><b>${esc(m.name)}</b><span class="mute num">${kes(bal)} due</span></div>
-              ${m.phone ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(m.phone, msg)}">Remind</a>` : '<span class="mute">no phone</span>'}</div>`;
-          }).join('') : (s.shared ? '' : `<p class="mute">${Domain.isOverdue(s, cur) ? 'Everyone is paid up.' : `Due by day ${s.chama.dueDay}. Nobody is late yet.`}</p>`)}
-        </div>
-      </div></div>`;
-  },
+
+    const collect = `<section class="cg-card cg-collect" aria-labelledby="cgCollectT">
+      <div class="cg-head"><h2 id="cgCollectT">Collected, ${monthLabel(cur)}</h2><span class="cg-pct num">${pct}%</span></div>
+      <div class="cg-amount num">${kes(got)}</div>
+      <div class="cg-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
+      <p class="mute num">of ${kes(exp)} due this month</p>
+    </section>`;
+
+    const tiles = `<div class="cg-mtiles">
+      <div class="cg-mt"><span class="cg-mt-l">Cash on hand</span><b class="num">${kes(Domain.cashOnHand(s))}</b></div>
+      <div class="cg-mt"><span class="cg-mt-l">Loans out</span><b class="num">${kes(loansOut)}</b></div>
+      <div class="cg-mt"><span class="cg-mt-l">Unpaid fines</span><b class="num">${kes(finesDue)}</b></div>
+    </div>`;
+
+    const payout = s.chama.mode === 'savings' ? '' : `<section class="cg-card" aria-labelledby="cgPayT">
+      <div class="cg-head"><h2 id="cgPayT">This month's payout</h2>${po ? '<span class="cg-tag ok">Sent</span>' : '<span class="cg-tag warn">Not sent</span>'}</div>
+      <div class="cg-person">${av(rec, 44)}<div><b>${esc(rec.name)}</b><span class="mute num">Receives ${kes(po ? po.amount : exp)} · turn ${Math.max(1, idx + 1)} of ${s.members.length}</span></div></div>
+      ${s.shared
+        ? (po ? `<p class="mute">Sent ${kes(po.amount)} on ${esc(po.date)}</p>` : '')
+        : po
+          ? `<p class="mute">Sent ${kes(po.amount)} on ${esc(po.date)}</p>${sigImg(po.sig, 'Recipient signature')}${adminBtn(`<button class="btn sm bad" data-act="undoPayout" data-id="${po.id}">Undo</button>`)}`
+          : adminBtn(`<button class="btn pri cg-wide" data-act="markPayout" data-amt="${exp}">Mark payout as sent</button>`)}
+    </section>`;
+
+    const behind = `<section class="cg-card" aria-labelledby="cgBehindT">
+      <div class="cg-head"><h2 id="cgBehindT">${s.shared ? 'Your ' + monthLabel(cur) : 'Behind on ' + monthLabel(cur)}</h2></div>
+      ${s.shared
+        ? (meId
+            ? (() => { const st = Domain.status(s, meId, cur), bal = Domain.outstanding(s, meId, cur); return `<p class="plain">${st === 'paid' ? 'You are paid up for this month.' : st === 'partial' ? 'Part paid. ' + kes(bal) + ' still due.' : st === 'late' ? 'Late. ' + kes(bal) + ' is due.' : st === 'future' || st === 'na' ? 'Nothing due yet.' : kes(bal) + ' is due by day ' + s.chama.dueDay + '.'}</p><p class="mute">You see your own payments and the group totals. Other members’ money is private.</p>`; })()
+            : '<p class="mute">Your account is not linked to a member record yet. Ask the treasurer to link it.</p>')
+        : late.length
+          ? late.map(m => {
+              const bal = Domain.outstanding(s, m.id, cur);
+              const msg = `Hi ${m.name.split(' ')[0]}, friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} contribution balance is ${kes(bal)}.${s.chama.payTo ? ' Pay to: ' + s.chama.payTo + '.' : ''} Thank you!`;
+              return `<div class="cg-row">${av(m, 36)}<div class="cg-who"><b>${esc(m.name)}</b><span class="mute num">${kes(bal)} due</span></div>${m.phone ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(m.phone, msg)}">Remind</a>` : '<span class="mute">no phone</span>'}</div>`;
+            }).join('')
+          : `<p class="mute">${Domain.isOverdue(s, cur) ? 'Everyone is paid up.' : `Due by day ${s.chama.dueDay}. Nobody is late yet.`}</p>`}
+    </section>`;
+
+    return `<div class="cg-home">${collect}${tiles}${payout}${behind}</div>`;
+  }
 };
 
 const actions = {
@@ -4104,7 +4133,6 @@ const actions = {
         setTimeout(() => Signature.open(`Signature of ${rec.name}`, sig => Store.commit(st => { const p = st.payouts.find(x => x.id === id); if (p) p.sig = sig; })), 60); } });
   } },
   undoPayout: { admin: true, run: d => confirmBox('Undo this payout?', () => Store.commit(s => { s.payouts = s.payouts.filter(p => p.id !== d.id); })) },
-  reset: { admin: true, run: () => confirmBox('Delete ALL chama data? This cannot be undone.', () => Store.commit(s => Object.assign(s, Store.blank()), true)) },
 };
 
 return { get views() { return views; }, get actions() { return actions; }, };
@@ -4259,34 +4287,44 @@ const { av, memberChip } = __M_src_ui_avatar_js;
 const { memberOptions } = __M_src_ui_forms_js;
 const { Modal, confirmBox } = __M_src_ui_modal_js;
 const { toast } = __M_src_ui_toast_js;
+const { render } = __M_src_core_rerender_js;
+let cgMonth = null;   // selected month, UI state only
 
-let cgMonth = ''; /* UI only. Which month the sliding pills show. Not saved with the Chama. */
 const views = {
   grid(s) {
     const cur = Domain.now(), months = Array.from({ length: 6 }, (_, i) => addMonths(cur, i - 5));
-    if (!s.members.length) return `<div class="cg-card empty">Add members first.</div>`;
-    const label = { paid: 'Paid', late: 'Late', due: 'Due', future: '-', na: '\u2013' };
-    const viewMonth = months.includes(cgMonth) ? cgMonth : cur;
+    if (!s.members.length) return `<div class="card empty">Add members first.</div>`;
+    if (!cgMonth || !months.includes(cgMonth)) cgMonth = cur;
+    const mo = cgMonth, idx = months.indexOf(mo);
     const people = s.shared ? s.members.filter(m => m.id === s.shared.me) : s.members;
+    const total = s.shared ? (s.shared.monthCollected[mo] || 0) : sum(s.payments.filter(p => p.month === mo), p => p.amount);
+    const label = { paid: 'Paid', late: 'Late', due: 'Due', future: '–', na: '–', partial: 'Part paid' };
+
     const rows = people.map(m => {
-      const st = Domain.status(s, m.id, viewMonth), paid = Domain.paidIn(s, m.id, viewMonth);
-      const text = st === 'partial' ? paid.toLocaleString('en-KE') : label[st];
-      const tap = Auth.isAdmin() && !['future', 'na'].includes(st);
-      return `<div class="cg-payrow"><span class="who">${av(m, 36)}${esc(m.name)}</span><button type="button" class="cell ${st} cg-status" ${tap ? `data-act="pay" data-m="${m.id}" data-mo="${viewMonth}"` : 'disabled'}>${text}</button></div>`;
+      const st = Domain.status(s, m.id, mo), paid = Domain.paidIn(s, m.id, mo), due = Domain.dueFor(s, m.id);
+      const can = Auth.isAdmin() && !['future', 'na'].includes(st);
+      const sub = ['future', 'na'].includes(st) ? 'Not due this month' : `${kes(paid)} of ${kes(due)}`;
+      return `<div class="cg-row">${av(m, 36)}<div class="cg-who"><b>${esc(m.name)}</b><span class="mute num">${sub}</span></div>
+        <button class="cg-status ${st}" ${can ? `data-act="pay" data-m="${m.id}" data-mo="${mo}"` : 'disabled'} aria-label="${esc(m.name)}: ${label[st]}">${st === 'partial' ? kes(paid) : label[st]}</button></div>`;
     }).join('');
-    const total = (s.shared ? (s.shared.monthCollected[viewMonth] || 0) : sum(s.payments.filter(p => p.month === viewMonth), p => p.amount)).toLocaleString('en-KE');
-    const pills = months.map(mk => `<button type="button" class="cg-pill${mk === viewMonth ? ' on' : ''}" data-act="cgMonth" data-mo="${mk}" aria-pressed="${mk === viewMonth ? 'true' : 'false'}">${monthLabel(mk)}</button>`).join('');
+
+    const pills = months.map(mk => `<button type="button" class="cg-mo" role="tab" aria-selected="${mk === mo}" data-act="cgMonth" data-mo="${mk}">${monthLabel(mk)}</button>`).join('');
     const recent = [...s.payments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
-    return `<div class="head"><h3>Contributions</h3><span class="mute">${kes(s.chama.monthly)} per member per month</span>${adminBtn('<button class="btn pri" data-act="importPay">Import from M-Pesa</button>')}</div>
-      <div class="cg-pills" role="group" aria-label="Month">${pills}</div>
-      <section class="cg-card cg-month">
-        <h2>${monthLabel(viewMonth)}</h2>
-        ${rows || '<p class="mute">Nothing to show for this month.</p>'}
-        <div class="cg-total"><span>${s.shared ? 'Group total' : 'Collected'}</span><b class="num">${total}</b></div>
+
+    return `<div class="cg-contrib">
+      <div class="cg-head"><h3>Contributions</h3>${adminBtn('<button class="btn pri" data-act="importPay">Import from M-Pesa</button>')}</div>
+      <p class="mute">${kes(s.chama.monthly)} per member per month</p>
+      <div class="cg-months" role="tablist" style="--n:6;--i:${idx}"><span class="cg-pill" aria-hidden="true"></span>${pills}</div>
+      <section class="cg-card">
+        <div class="cg-total"><span class="mute">${s.shared ? 'Group total' : 'Collected'}, ${monthLabel(mo)}</span><b class="num">${kes(total)}</b></div>
+        ${rows}
       </section>
-      ${Auth.isAdmin() ? '<p class="mute cg-note">Tap a status to record a payment.</p>' : (s.shared ? '<p class="mute cg-note">You see your own row and the group total. Other members\u2019 payments are private.</p>' : '')}
-      <section class="cg-card"><h2>Recent payments</h2>${recent.length ? recent.map(p => `<div class="row"><div class="grow"><b>${memberChip(s, p.memberId, 26)}</b><span class="mute">${monthLabel(p.month)}${p.code ? ' \u00b7 ' + esc(p.code) : ''} \u00b7 ${esc(p.date)}</span></div><span class="num"><b>${kes(p.amount)}</b></span>${adminBtn(`<button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm bad" data-act="delPay" data-id="${p.id}">Remove</button>`)}</div>`).join('') : '<p class="mute">No payments recorded.</p>'}</section>`;
-  },
+      ${Auth.isAdmin() ? '<p class="mute cg-foot">Tap a status to record a payment.</p>' : (s.shared ? '<p class="mute cg-foot">You see your own row and the group total. Other members’ payments are private.</p>' : '')}
+      <section class="cg-card"><h2 class="cg-h">Recent payments</h2>
+        ${recent.length ? recent.map(p => `<div class="cg-row"><div class="cg-who">${memberChip(s, p.memberId, 26)}<span class="mute">${monthLabel(p.month)}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</span></div><b class="num">${kes(p.amount)}</b>${adminBtn(`<button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm bad" data-act="delPay" data-id="${p.id}">Remove</button>`)}</div>`).join('') : '<p class="mute">No payments recorded.</p>'}
+      </section>
+    </div>`;
+  }
 };
 
 const actions = {
@@ -4314,12 +4352,7 @@ const actions = {
       body: '<p class="mute">Paste the confirmation messages or upload screenshots. Works for phone and till payments, even when digits are hidden or names are cut short.</p><label>Messages<textarea name="text" rows="5" placeholder="SJK4L2P9QX Confirmed. Ksh2,000.00 received from..."></textarea></label><label>Screenshots<input type="file" name="shots" accept="image/*" multiple></label>',
       onSubmit: v => { const files = [...$('#modalRoot input[type=file]').files]; if (!(v.text || '').trim() && !files.length) throw new Error('Paste a message or add a screenshot'); Import.run(v.text || '', files); } });
   } },
-  cgMonth: { run(d) {
-    const mo = String((d && d.mo) || '');
-    if (!/^\d{4}-\d{2}$/.test(mo) || mo === cgMonth) return;
-    cgMonth = mo;
-    __M_src_core_rerender_js.render();
-  } },
+  cgMonth: { run(d) { cgMonth = d.mo; render(); } },
 };
 
 return { get views() { return views; }, get actions() { return actions; }, };
@@ -4457,20 +4490,26 @@ const joinedCard = s => {
   if (!rows.length) return '';
   return `<div class="cg-card joined"><h4>Joined by invite code</h4><p class="mute">These people signed in with an invite code and are not on the member list yet. Confirm each one to add them. Nothing is added until you confirm.</p>${rows.map(a => `<div class="row"><div class="grow"><b>${esc(a.email)}</b><span class="mute">${esc(P.label(a.role))} · not yet a member</span></div><button class="btn sm pri" data-act="confirmJoined" data-email="${esc(a.email)}">Confirm member</button></div>`).join('')}</div>`;
 };
+/* Phone masking stays off until the owner approves it (05, B2). false keeps the current full phone numbers. */
+const CG_MASK_PHONES = false;
+const maskPhone = p => (p ? '•••• ' + String(p).replace(/\D/g, '').slice(-3) : '');
 const views = {
   members(s) {
-    const row = (m, i) => {
-      const loan = Domain.memberLoanBalance(s, m.id), fine = Domain.memberFinesDue(s, m.id), rcv = sum(s.payouts.filter(p => p.memberId === m.id), p => p.amount), rel = Domain.reliability(s, m.id);
-      if (s.shared && m.id !== s.shared.me) return `<article class="cg-card cg-member">${av(m, 44)}<div class="grow"><b>${i + 1}. ${esc(m.name)}${(m.shares || 1) > 1 ? ` x${m.shares}` : ''}</b>${rcv ? `<span class="mute num">Received ${kes(rcv)}</span>` : ''}</div></article>`;
-      return `<article class="cg-card cg-member">${av(m, 44)}<div class="grow"><b>${i + 1}. ${esc(m.name)}${(m.shares || 1) > 1 ? ` x${m.shares}` : ''} ${m.role ? `<span class="tag">${esc(m.role)}</span>` : ''}</b>
-          <span class="mute num">Saved ${kes(Domain.memberSaved(s, m.id))}${loan ? ` · Loan ${kes(loan)}` : ''}${fine ? ` · Fines ${kes(fine)}` : ''}${rcv ? ` · Received ${kes(rcv)}` : ''}${rel != null ? ` · Paid-up ${rel}%` : ''}</span>
-          ${m.phone ? `<a class="mute num" href="tel:${esc(String(m.phone).replace(/[^\d+]/g, ''))}">${esc(m.phone)}</a>` : '<span class="mute">No phone number</span>'}</div>
-          <div class="cg-member-acts"><button type="button" class="btn sm" data-act="statement" data-id="${m.id}">Statement</button>${adminBtn(`<button class="btn sm" data-act="moveMember" data-id="${m.id}" data-d="-1" aria-label="Move up">Up</button><button class="btn sm" data-act="editMember" data-id="${m.id}">Edit</button>`)}</div></article>`;
-    };
-    return `<div class="head"><h3>Members (${s.members.length})</h3>${adminBtn('<button class="btn pri" data-act="addMember">Add member</button>')}</div>
-      ${joinedCard(s)}<div class="cg-list">${s.members.length ? s.members.map(row).join('') : (s.shared ? '<p class="cg-card empty">The member list is not shared with your role yet, or the treasurer has not saved it. Ask the treasurer.</p>' : '<p class="cg-card empty">No members yet.</p>')}</div>
-      <p class="mute cg-note">The order here is the merry-go-round payout order.</p>`;
-  },
+    return `<div class="cg-head"><h3>Members (${s.members.length})</h3>${adminBtn('<button class="btn pri" data-act="addMember">Add member</button>')}</div>
+      ${joinedCard(s)}
+      <section class="cg-card">
+        ${s.members.length ? s.members.map((m, i) => {
+          const loan = Domain.memberLoanBalance(s, m.id), fine = Domain.memberFinesDue(s, m.id), rcv = sum(s.payouts.filter(p => p.memberId === m.id), p => p.amount), rel = Domain.reliability(s, m.id);
+          if (s.shared && m.id !== s.shared.me) return `<div class="cg-row">${av(m, 36)}<div class="cg-who"><b>${i + 1}. ${esc(m.name)}${(m.shares || 1) > 1 ? ` x${m.shares}` : ''}</b>${rcv ? `<span class="mute num">Received ${kes(rcv)}</span>` : ''}</div></div>`;
+          const phone = m.phone ? (CG_MASK_PHONES ? maskPhone(m.phone) : esc(m.phone)) : 'No phone number';
+          return `<div class="cg-row">${av(m, 36)}<div class="cg-who"><b>${i + 1}. ${esc(m.name)}${(m.shares || 1) > 1 ? ` x${m.shares}` : ''}${m.role ? ` <span class="cg-tag">${esc(m.role)}</span>` : ''}</b>
+            <span class="mute num">Saved ${kes(Domain.memberSaved(s, m.id))}${loan ? ` · Loan ${kes(loan)}` : ''}${fine ? ` · Fines ${kes(fine)}` : ''}${rcv ? ` · Received ${kes(rcv)}` : ''}${rel != null ? ` · Paid-up ${rel}%` : ''}</span>
+            <span class="mute">${phone}</span></div>
+            <div class="cg-acts"><button class="btn sm" data-act="statement" data-id="${m.id}">Statement</button>${adminBtn(`<button class="btn sm" data-act="moveMember" data-id="${m.id}" data-d="-1" aria-label="Move ${esc(m.name)} up">Up</button><button class="btn sm" data-act="editMember" data-id="${m.id}">Edit</button>`)}</div></div>`;
+        }).join('') : (s.shared ? '<p class="empty">The member list is not shared with your role yet, or the treasurer has not saved it. Ask the treasurer.</p>' : '<p class="empty">No members yet.</p>')}
+      </section>
+      <p class="mute cg-foot">The order here is the merry-go-round payout order.</p>`;
+  }
 };
 
 /* Confirming a joined person writes the Chama document, so the treasurer's copy must be refreshed afterwards (otherwise the next save is refused as a conflict). */
@@ -4684,16 +4723,16 @@ const views = {
     const cls = st === 'paid' ? '' : st === 'late' ? 'bad' : 'warn';
     const owed = m ? sum(s.loans.filter(l => l.memberId === m.id), l => Domain.loan(l).balance) : 0;
     const fines = m ? sum(s.fines.filter(f => f.memberId === m.id && !f.paid), f => f.amount) : 0;
-    const money = m ? `<section class="cg-card cg-money"><h2>My money in this group</h2>
-      <div class="cg-tiles">
-        <div class="cg-tile"><h2>Monthly amount</h2><div class="big num">${kes(Domain.dueFor(s, m.id))}</div></div>
-        <div class="cg-tile"><h2>Paid so far</h2><div class="big num">${kes(Domain.memberSaved(s, m.id))}</div></div>
-        <div class="cg-tile"><h2>Loan I still owe</h2><div class="big num">${kes(owed)}</div></div>
-        <div class="cg-tile"><h2>Fines not yet paid</h2><div class="big num">${kes(fines)}</div></div>
+    const money = m ? `<section class="cg-card cg-money"><div class="cg-head"><h2>My money in this group</h2></div>
+      <div class="cg-mtiles">
+        <div class="cg-mt"><span class="cg-mt-l">Monthly amount</span><b class="num">${kes(Domain.dueFor(s, m.id))}</b></div>
+        <div class="cg-mt"><span class="cg-mt-l">Paid so far</span><b class="num">${kes(Domain.memberSaved(s, m.id))}</b></div>
+        <div class="cg-mt"><span class="cg-mt-l">Loan I still owe</span><b class="num">${kes(owed)}</b></div>
+        <div class="cg-mt"><span class="cg-mt-l">Fines not yet paid</span><b class="num">${kes(fines)}</b></div>
       </div></section>`
-      : `<section class="cg-card"><h2>Which one am I?</h2>
-      <p class="plain mute">Your treasurer links your sign-in to your member record, so the app can show your money.</p>
-      ${Session.memberId ? '<p class="plain">Your treasurer linked your sign-in to your member record.</p>' : '<p class="plain mute">Your treasurer has not linked your sign-in to a member record yet.</p>'}</section>`;
+      : `<section class="cg-card"><h2 class="cg-h">Which one am I?</h2>
+          <p class="plain mute">Your treasurer links your sign-in to your member record, so the app can show your money.</p>
+          ${Session.memberId ? '<p class="plain">Your treasurer linked your sign-in to your member record.</p>' : '<p class="plain mute">Your treasurer has not linked your sign-in to a member record yet.</p>'}</section>`;
     const ph = me.phone || (m && m.phone) || '', em = me.email || '';
     const recent = m ? s.payments.filter(p => p.memberId === m.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5) : [];
     const more = `
@@ -4792,11 +4831,11 @@ const __M_src_content_app_info_js = (function () {
 
 /* ===== EDIT HERE: app information shown in Settings > About and Settings > Privacy ===== */
 const APP = {
-  name: 'My Chama App', version: '0.12.6-dev.1', released: '2026-11-15',
+  name: 'My Chama App', version: '0.12.7-dev.1', released: '2026-11-15',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests. Shows "Not set yet" while empty.
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }], // check contact details on the website before sharing
-  notes: [['0.12.6-dev.1', 'Raised cards on Home, Contributions, Members and Profile. Money is shown in tiles. Contributions picks the month with a sliding pill. Reset all data is no longer on Home. If a photo cannot be saved because the server is missing that step, the message says so. '], ['0.12.5-dev.1', 'Continue with Google signs you in, or creates your account if you are new. A new Google account asks for your name and a username, then opens the app. Email and password sign-in is unchanged. '], ['0.12.4-dev.1', 'Interaction pass. Centred popups for warnings and confirmations (Understood or Continue), neutral toasts that stay 7 seconds with an OK button, confirmation steps for sign out and a second step for deleting your account. New start page: Continue with Google (not connected yet), Sign in, Create account. One full turn before the tick on the code page, a bigger tick with a green splash, no Paste code button, button sounds and an approval chime. Flat buttons in a row. Skeletons instead of loading buttons. Cards of one page are grouped and headings are smaller. '], ['0.12.3-dev.1', 'Design system, first pass: shared spacing, radius, elevation and motion tokens; named card variants (navigation, selection, information, action, danger, status) and button variants (secondary, ghost, danger). Drawer header is a solid brand colour. Chama rows use the selection card. Screens beyond the drawer and Chama selection keep their current look until they are moved to these variants. '], ['0.12.2-dev.1', 'One profile for every Chama. Your photo, name, username, phone and contact email are kept once, on your account, and used in every Chama you belong to. Your password is the same everywhere; change it under My profile, Password. Members see each other\'s photos in the Chama. Needs migration 019 on the database. Photos added on another phone before this build must be added again. '], ['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
+  notes: [[['0.12.7-dev.1', 'Home, Contributions, Members and Profile use the approved layout: raised cards, money tiles, and a sliding month pill. Reset all data is no longer on Home. If saving a photo fails because that step is not on the server yet, the message says so. '], '0.12.6-dev.1', 'Raised cards on Home, Contributions, Members and Profile. Money is shown in tiles. Contributions picks the month with a sliding pill. Reset all data is no longer on Home. If a photo cannot be saved because the server is missing that step, the message says so. '], ['0.12.5-dev.1', 'Continue with Google signs you in, or creates your account if you are new. A new Google account asks for your name and a username, then opens the app. Email and password sign-in is unchanged. '], ['0.12.4-dev.1', 'Interaction pass. Centred popups for warnings and confirmations (Understood or Continue), neutral toasts that stay 7 seconds with an OK button, confirmation steps for sign out and a second step for deleting your account. New start page: Continue with Google (not connected yet), Sign in, Create account. One full turn before the tick on the code page, a bigger tick with a green splash, no Paste code button, button sounds and an approval chime. Flat buttons in a row. Skeletons instead of loading buttons. Cards of one page are grouped and headings are smaller. '], ['0.12.3-dev.1', 'Design system, first pass: shared spacing, radius, elevation and motion tokens; named card variants (navigation, selection, information, action, danger, status) and button variants (secondary, ghost, danger). Drawer header is a solid brand colour. Chama rows use the selection card. Screens beyond the drawer and Chama selection keep their current look until they are moved to these variants. '], ['0.12.2-dev.1', 'One profile for every Chama. Your photo, name, username, phone and contact email are kept once, on your account, and used in every Chama you belong to. Your password is the same everywhere; change it under My profile, Password. Members see each other\'s photos in the Chama. Needs migration 019 on the database. Photos added on another phone before this build must be added again. '], ['0.12.1-dev.2', 'Privacy: acceptance of the privacy policy is now recorded on the server with the policy version and time. The policy wording is corrected (sign-in, service providers, retention). Everyone is asked to accept the corrected policy once. Invitations now last 7 days. The app no longer loads fonts from Google; it uses the phone\'s own fonts.'],
   ['0.12.1-dev.1', 'Payments are now saved on the server first, with a request key, so a double tap or a retry cannot record the same payment twice. The M-Pesa code is checked by the database too. Payments show as recorded only after the server confirms them.'],
   ['0.12.0-dev.5', 'Scan fix round: centred pop-ups, a scanning step when you have more than one Chama, the join-by-key crash fix and a forced refresh of the app.'],
     ['0.12.0-dev.4', 'Sign-in shows the real reason and no longer falls back to a direct password check. Remove access is hidden on your own row and on treasurer rows. You can switch or add a Chama at any time, and the list shows each Chama tag. When you create a Chama or invite someone, you choose whether you are listed as a member or are an officer only. Invitations last 7 days. Invite codes: the treasurer can create a code with a role, a validity of 1, 7 or 30 days and a number of uses; a person types the code, checks the Chama on the confirmation screen, then joins. Codes can be cancelled. Members who cannot see the member list are told why. Not yet tested on a phone.'], ['0.12.0-dev.3', 'Fixes from live testing: no hidden default Chama and no sample data; the username is chosen by the person; profile shows the real group and role; leave, hand-over and delete account give a clear next step; invitations show the real error; expired codes are named; passwords need a number; the notification badge shows the exact count (up to 99+). Requires migration 010.'],
