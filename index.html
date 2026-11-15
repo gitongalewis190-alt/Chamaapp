@@ -66,7 +66,7 @@ main{max-width:980px;margin:0 auto;padding:16px 16px 120px}
 </style>
 <style>
 /* primitives */
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 1px 2px rgba(18,35,31,.04)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 8px 22px rgba(18,35,31,.06)}
 .grid{display:grid;gap:12px}
 .g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
@@ -335,8 +335,17 @@ label.btn{display:inline-block;margin-top:0;color:var(--ink);cursor:pointer}
 .dsec .tag{justify-self:start;margin:0 18px 6px}
 .skip{position:absolute;left:8px;top:-70px;z-index:100;background:var(--card);padding:10px 14px;border-radius:8px;border:2px solid var(--brand);font-weight:800}.skip:focus{top:8px}
 .ra{position:fixed;right:14px;bottom:calc(124px + env(safe-area-inset-bottom));z-index:25;box-shadow:0 4px 14px rgba(0,0,0,.25)}
-.pcard{text-align:center;padding:22px 16px}
-.pname{font-size:21px;font-weight:800;overflow-wrap:anywhere}
+.pcard{text-align:center;padding:22px 16px;background:linear-gradient(180deg,#fff,#f3faf6)}
+.pname{font-size:22px;font-weight:800;letter-spacing:-.02em;overflow-wrap:anywhere}
+.pphoto{display:flex;justify-content:center;margin:0 0 12px}
+.pphoto .av{box-shadow:0 0 0 4px #fff,0 10px 24px rgba(15,123,95,.22)}
+.pcard .actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:0}
+.stat{border:0;background:linear-gradient(180deg,#fff,#f2faf6);box-shadow:0 12px 28px rgba(18,35,31,.07)}
+.stat h2{font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.stat .big{font-size:26px;letter-spacing:-.03em}
+.panel{border-radius:22px}
+.file-ghost{position:fixed;left:-80px;top:0;width:32px;height:32px;opacity:0}
+html[data-mode=dark] .stat,html[data-mode=dark] .pcard{background:var(--card)}
 .prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);font-size:15px}
 h2+.prow{border-top:0}
 .prow span{color:var(--mute)}
@@ -1235,6 +1244,7 @@ main .card:not(.gcard):has(+.card:not(.gcard)){margin-bottom:0;border-bottom-lef
 <button id="ra" class="btn pri ra" hidden data-act="readAloud">Read this page aloud</button>
 <div id="jmRoot"></div>
 <div id="modalRoot"></div>
+<input id="mePhoto" class="file-ghost" type="file" accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp" tabindex="-1" aria-label="Choose a profile photo">
 <script>
 (function(){
   var sp=document.getElementById('splash');
@@ -1836,7 +1846,12 @@ const Store = (() => {
       const refresh = async () => {
         try {
           const v = await getView(); setSync('online');
-          if (v && v.version !== lastViewVersion) { lastViewVersion = v.version; state = normalise(v.data); state.shared = { ...(state.shared || {}), me: v.member_id || null }; saveLocal(); emit(); }
+          if (v && v.version !== lastViewVersion) {
+            const next = normalise(v.data); next.shared = { ...(next.shared || {}), me: v.member_id || null };
+            lastViewVersion = v.version;
+            if (state && JSON.stringify(cleanCopy(state)) === JSON.stringify(cleanCopy(next))) return;
+            state = next; saveLocal(); emit();
+          }
         } catch (e) { setSync('offline'); }
       };
       setInterval(() => { if (!document.hidden) refresh(); }, 45000);
@@ -1845,7 +1860,10 @@ const Store = (() => {
     } else {
       Backend.sb.channel('c-' + chamaId).on('postgres_changes', { event: '*', schema: 'public', table: 'chamas', filter: 'id=eq.' + chamaId }, p => {
         if (localStorage.getItem(dirtyKey) || pushing || conflictOpen || !p.new) return;
-        state = normalise(p.new.data); if (p.new.version != null) noteVersion(p.new.version); saveLocal(); emit();
+        const next = normalise(p.new.data);
+        if (p.new.version != null) noteVersion(p.new.version);
+        if (state && JSON.stringify(cleanCopy(state)) === JSON.stringify(cleanCopy(next))) return;
+        state = next; saveLocal(); emit();
       }).subscribe();
       addEventListener('online', () => { if (Backend.sb) pushSb(); });
       setInterval(() => { if (localStorage.getItem(dirtyKey)) pushSb(); }, 15000);
@@ -2323,7 +2341,11 @@ const Session = {
   writeProfile(v) { try { localStorage.setItem('mca-profile', JSON.stringify(v)); } catch (e) { toast('Storage full'); } },
   legacyProfile() { try { const k = Object.keys(localStorage).find(x => x.startsWith('chama:me:')); return k ? JSON.parse(localStorage.getItem(k)) || {} : {}; } catch (e) { return {}; } },
   /* the photo to show for a member: the account photo when the member is linked, else the copy in the Chama record */
-  photoFor(m) { const p = m && this.memberPics ? this.memberPics[m.id] : null; return p ? p.photo : ((m && m.photo) || null); },
+  photoFor(m) {
+    const pic = m && m.id && this.memberPics ? this.memberPics[m.id] : null;
+    if (pic && pic.photo) return pic.photo;
+    return (m && m.photo) || null;
+  },
   async loadProfile(user) {
     if (!Backend.sb) return;
     const { data, error } = await Backend.sb.rpc('get_my_profile');
@@ -3873,7 +3895,7 @@ const { Session } = __M_src_core_session_js;
 const av = (m, n = 32) => {
   const nm = (m && m.name) || '', ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
   const photo = Session.photoFor(m);
-  return typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(photo)
+  return typeof photo === 'string' && photo.indexOf('data:image/jpeg;base64,') === 0
     ? `<img class="av" style="--n:${n}px" src="${photo}" alt="">` : `<span class="av" style="--n:${n}px" aria-hidden="true">${esc(ini)}</span>`;
 };
 
@@ -4001,16 +4023,16 @@ const views = {
     const meId = s.shared ? s.shared.me : null;
     return `<div class="stack">
       <div class="grid g4">
-        <div class="card"><h2>Cash on hand</h2><div class="big num">${kes(Domain.cashOnHand(s))}</div></div>
-        <div class="card"><h2>Collected, ${monthLabel(cur)}</h2><div class="big num">${kes(got)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="mute">${pct}% of ${kes(exp)}</div></div>
-        <div class="card"><h2>Loans out</h2><div class="big num">${kes(loansOut)}</div></div>
-        <div class="card"><h2>Unpaid fines</h2><div class="big num">${kes(finesDue)}</div></div>
+        <div class="card stat"><h2>Cash on hand</h2><div class="big num">${kes(Domain.cashOnHand(s))}</div></div>
+        <div class="card stat"><h2>Collected, ${monthLabel(cur)}</h2><div class="big num">${kes(got)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="mute">${pct}% of ${kes(exp)}</div></div>
+        <div class="card stat"><h2>Loans out</h2><div class="big num">${kes(loansOut)}</div></div>
+        <div class="card stat"><h2>Unpaid fines</h2><div class="big num">${kes(finesDue)}</div></div>
       </div>
       <div class="grid g2">
-        ${s.chama.mode === 'savings' ? '' : `<div class="card"><h2>This month's payout</h2>
+        ${s.chama.mode === 'savings' ? '' : `<div class="card panel"><h2>This month's payout</h2>
           <div class="big who">${av(rec, 36)}${esc(rec.name)}</div><div class="mute num">Receives ${kes(po ? po.amount : exp)} (turn ${Math.max(1, idx + 1)} of ${s.members.length})</div>
           ${s.shared ? (po ? `<div style="margin-top:8px"><span class="tag">Sent ${kes(po.amount)} on ${esc(po.date)}</span></div>` : '') : po ? `<div style="margin-top:8px"><span class="tag">Sent ${kes(po.amount)} on ${esc(po.date)}</span>${sigImg(po.sig, 'Recipient signature')} ${adminBtn(`<button class="btn sm bad" data-act="undoPayout" data-id="${po.id}">Undo</button>`)}</div>` : adminBtn(`<div style="margin-top:8px"><button class="btn sm pri" data-act="markPayout" data-amt="${exp}">Mark payout as sent</button></div>`)}</div>`}
-        <div class="card"><h2>${s.shared ? 'Your ' + monthLabel(cur) : 'Behind on ' + monthLabel(cur)}</h2>
+        <div class="card panel"><h2>${s.shared ? 'Your ' + monthLabel(cur) : 'Behind on ' + monthLabel(cur)}</h2>
           ${s.shared ? (meId ? (() => { const st = Domain.status(s, meId, cur), bal = Domain.outstanding(s, meId, cur); return `<p class="plain">${st === 'paid' ? 'You are paid up for this month.' : st === 'partial' ? 'Part paid. ' + kes(bal) + ' still due.' : st === 'late' ? 'Late. ' + kes(bal) + ' is due.' : st === 'future' || st === 'na' ? 'Nothing due yet.' : kes(bal) + ' is due by day ' + s.chama.dueDay + '.'}</p><p class="mute">You see your own payments and the group totals. Other members’ money is private.</p>`; })() : '<p class="mute">Your account is not linked to a member record yet. Ask the treasurer to link it.</p>') : ''}
           ${s.shared ? '' : late.length ? late.map(m => {
             const bal = Domain.outstanding(s, m.id, cur);
@@ -4609,7 +4631,7 @@ const views = {
       <div class="prow"><span>Group</span><b>${esc(Session.groupName || 'Your Chama')}</b></div>
       <div class="prow"><span>My role</span><b>${esc(Session.role === 'treasurer' ? 'Treasurer' : Session.role === 'secretary' ? 'Secretary' : 'Member')}</b></div>
       ${m && m.joined ? `<div class="prow"><span>Joined</span><b>${esc(monthLabel(m.joined))}</b></div>` : ''}
-      <p class="plain mute" style="margin-top:10px">Other groups you belong to will show here after sign-in is added.</p></section>
+    </section>
     <section class="card" style="margin-top:12px"><h2>My account</h2>
       <div class="prow"><span>Member ID</span><b class="num">${Session.memberId ? esc(String(Session.memberId).slice(-6).toUpperCase()) : 'Not linked yet'}</b></div>
       <div class="prow"><span>Phone</span><b>${ph ? esc(ph) : 'Not added'}</b></div>
@@ -4619,11 +4641,12 @@ const views = {
     <section class="card" style="margin-top:12px"><h2>My recent payments</h2>
       ${recent.length ? recent.map(p => `<div class="prow"><span>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''}<br><small>${esc(p.date || '')}</small></span><b class="num">${kes(p.amount)}</b></div>`).join('') : '<p class="plain mute">No payments recorded for you yet.</p>'}
       ${m ? `<p class="actions"><button class="btn" data-act="statement" data-id="${esc(m.id)}">View my statement</button></p>` : ''}</section>`;
+    const shot = me.photo || (m && Session.photoFor(m)) || '';
     return `
     <section class="card pcard">
-      <div style="margin-bottom:10px">${av({ name, photo: me.photo }, 88)}</div>
-      <input id="mePhoto" class="vh" type="file" accept="image/*"><label class="btn sm" for="mePhoto">${me.photo ? 'Change photo' : 'Add a photo'}</label>
-      ${me.photo ? '<button class="btn sm bad" data-act="removePhoto">Remove photo</button>' : ''}
+      <div class="pphoto">${av({ name, photo: shot }, 96)}</div>
+      <p class="actions"><button type="button" class="btn sm pri" data-act="pickPhoto">${shot ? 'Change photo' : 'Add a photo'}</button>
+      ${shot ? '<button type="button" class="btn sm bad" data-act="removePhoto">Remove photo</button>' : ''}</p>
       <div class="pname">${name ? esc(name) : 'Add your name below'}</div>
       <div class="mute">${esc(Session.role === 'treasurer' ? 'Treasurer' : Session.role === 'secretary' ? 'Secretary' : 'Member')} in ${esc(Session.groupName || 'your Chama')}</div>
       ${msg ? `<p style="margin-top:12px"><span class="tag ${cls}">${msg}</span></p>` : ''}
@@ -4653,6 +4676,12 @@ const views = {
 };
 
 const actions = {
+  pickPhoto() {
+    const input = document.getElementById('mePhoto');
+    if (!input) return;
+    input.value = '';
+    input.click();
+  },
   async saveMe() {
     try {
       const name = $('#meName').value.trim(), phone = $('#mePhone').value.replace(/\s/g, ''), email = $('#meEmail').value.trim(), username = $('#meUser').value.trim().toLowerCase();
@@ -6160,7 +6189,7 @@ const { Menu } = __M_src_ui_menu_js;
 const { Nav } = __M_src_ui_nav_js;
 const { Account } = __M_src_features_account_deletion_js;
 
-let lastRoute = null;
+let lastRoute = null, painted = '';
 
 /* Bottom-bar profile tab: the member's photo in a circle, or initials when there is no photo (never the person icon) */
 function paintNavAvatar() {
@@ -6169,12 +6198,12 @@ function paintNavAvatar() {
   const mmA = s && meA.memberId ? (s.members || []).find(x => x.id === meA.memberId) : null;
   const nm = meA.name || (mmA && mmA.name) || '', photo = Session.photoFor(mmA) || meA.photo;
   const ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
-  const ok = typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(photo);
+  const ok = typeof photo === 'string' && photo.indexOf('data:image/jpeg;base64,') === 0;
   box.innerHTML = ok ? `<img src="${photo}" alt="">` : `<span>${esc(ini)}</span>`;
 }
 
 function renderPage() {
-  if (!Session.ready()) return Gate.paint();   /* setup, welcome, chooser and sign-in are all gate screens */
+  if (!Session.ready()) { painted = ''; return Gate.paint(); }   /* setup, welcome, chooser and sign-in are all gate screens */
   const s = Store.get();
   if (!s) {
     const view = document.getElementById('view');
@@ -6183,11 +6212,12 @@ function renderPage() {
     const hd0 = document.querySelector('header'); if (hd0) hd0.hidden = false;
     const menu0 = document.getElementById('menuBtn'); if (menu0) menu0.hidden = false;
     const name0 = document.getElementById('hname'); if (name0) name0.hidden = false;
+    painted = '';
     return;
   }
   const r = route(), admin = Auth.isAdmin(), changed = r !== lastRoute, prev = lastRoute; lastRoute = r; if (changed) Hist.visit(r, prev);
   { const hd = document.querySelector('header'); if (hd) hd.hidden = false; }
-  try { Menu.close(); } catch (e) {}
+  try { const dr = document.getElementById('drawer'); if (dr && dr.classList.contains('open')) Menu.close(); } catch (e) {}
   document.title = 'My Chama App';
   const titleEl = document.getElementById('title'); if (titleEl) titleEl.textContent = (s.chama && s.chama.name) || 'My Chama App';
   { const cs = document.querySelector('#chamaSmall'); if (cs) cs.hidden = true; }
@@ -6202,7 +6232,6 @@ function renderPage() {
   paintNavAvatar();
   const meD = Me.get() || {}, mmD = meD.memberId && s.members ? s.members.find(x => x.id === meD.memberId) : null;
   try { if (Menu.refresh) Menu.refresh(); } catch (e) {}
-  { const S_ = __M_src_ui_toast_js.Sfx; document.addEventListener('pointerdown', e => { S_.unlock(); const b = e.target.closest && e.target.closest('button, .btn, [data-act], [data-gm]'); if (b && !b.disabled && !b.closest('.otp-stage, .pop')) S_.tap(); }, true); }
   document.querySelectorAll('#drawer .dgroup').forEach(g => { g.hidden = ![...g.querySelectorAll('.dl')].some(x => !x.hidden); });
   if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
   document.body.classList.toggle('no-tabs', !ROUTES.some(x => x[0] === r));
@@ -6210,12 +6239,26 @@ function renderPage() {
   try {
     Account.load();
     html = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r)) + (admin && r === 'home' && s.members && s.members.length ? '<p style="margin-top:16px"><button class="btn sm bad" data-act="reset">Reset all data</button></p>' : '');
-    if (Session.hydrating) html = Skel.page(r);
   } catch (e) {
     console.error(e);
     html = '<section class="card"><h2>Your records are saved</h2><p class="plain mute">This page could not be drawn. Close the app fully and open it again.</p></section>';
   }
-  if (viewEl) viewEl.innerHTML = html;
+  if (viewEl && html !== painted) {
+    const y = window.scrollY;
+    const ae = document.activeElement;
+    const keep = ae && ae.id && viewEl.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.type !== 'file';
+    const keepId = keep ? ae.id : '', keepVal = keep ? ae.value : '';
+    viewEl.innerHTML = html;
+    painted = html;
+    if (y) window.scrollTo(0, y);
+    if (keepId) {
+      const again = document.getElementById(keepId);
+      if (again && again.type !== 'file') {
+        again.value = keepVal;
+        try { again.focus({ preventScroll: true }); } catch (e) {}
+      }
+    }
+  } else painted = html;
   try { Notify.paintBell(s, r); } catch (e) {}
 }
 
@@ -6226,10 +6269,32 @@ return { get renderPage() { return renderPage; }, };
 const __M_src_lib_image_js = (function () {
 
 const photoFrom = file => new Promise((ok, no) => {
+  const finish = bmp => {
+    try {
+      const w = bmp.width, h = bmp.height;
+      if (!w || !h) throw new Error('That picture is empty');
+      const side = 360, n = Math.min(w, h);
+      const c = document.createElement('canvas'); c.width = c.height = side;
+      c.getContext('2d').drawImage(bmp, (w - n) / 2, (h - n) / 2, n, n, 0, 0, side, side);
+      if (bmp.close) bmp.close();
+      let q = 0.82, url = c.toDataURL('image/jpeg', q);
+      while (url.length > 90000 && q > 0.45) { q -= 0.08; url = c.toDataURL('image/jpeg', q); }
+      ok(url);
+    } catch (e) { no(e instanceof Error ? e : new Error('Could not use that picture')); }
+  };
+  if (typeof createImageBitmap === 'function') {
+    createImageBitmap(file).then(finish).catch(() => {
+      const img = new Image(), u = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(u); finish(img); };
+      img.onerror = () => { URL.revokeObjectURL(u); no(new Error('That file is not a picture. Try a JPG or PNG.')); };
+      img.src = u;
+    });
+    return;
+  }
   const img = new Image(), u = URL.createObjectURL(file);
-  img.onload = () => { const n = Math.min(img.width, img.height), c = document.createElement('canvas'); c.width = c.height = 160;
-    c.getContext('2d').drawImage(img, (img.width - n) / 2, (img.height - n) / 2, n, n, 0, 0, 160, 160); URL.revokeObjectURL(u); ok(c.toDataURL('image/jpeg', .72)); };
-  img.onerror = () => no(new Error('That file is not a picture')); img.src = u;
+  img.onload = () => { URL.revokeObjectURL(u); finish(img); };
+  img.onerror = () => { URL.revokeObjectURL(u); no(new Error('That file is not a picture. Try a JPG or PNG.')); };
+  img.src = u;
 });
 
 return { get photoFrom() { return photoFrom; }, };
@@ -6260,6 +6325,11 @@ const { toast } = __M_src_ui_toast_js;
 bindRender(renderPage);
 bindChangeHandler((a, b) => Notify.fromChange(a, b));
 Nav.init();
+document.addEventListener('pointerdown', e => {
+  const S_ = __M_src_ui_toast_js.Sfx; S_.unlock();
+  const b = e.target.closest && e.target.closest('button, .btn, [data-act], [data-gm]');
+  if (b && !b.disabled && !b.closest('.otp-stage, .pop')) S_.tap();
+}, true);
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target) return;
@@ -6297,6 +6367,11 @@ document.addEventListener('input', e => {
 
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el) return;
+  if (el.dataset.act === 'pickPhoto') {
+    const input = document.getElementById('mePhoto');
+    if (input) { input.value = ''; input.click(); }
+    return;
+  }
   const a = Actions[el.dataset.act]; if (!a) return;
   e.preventDefault();
   const fn = typeof a === 'function' ? a : a.run, needsAdmin = typeof a === 'object' && a.admin;
