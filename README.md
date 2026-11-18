@@ -325,7 +325,9 @@ Each migration must have: an ordered id, purpose, affected objects, prerequisite
 | 007_retire_legacy | Removes old code paths | Applied |
 | 008_member_privacy_and_versions | Limited member view, version column | Applied |
 | 009_ownership_leaving_deletion | Hand-over, leaving, 30-day deletion | Applied |
-| 019_global_profile | One profile for every Chama: photo, name, username, phone, contact email on the account; member photos for members of the same Chama | **Draft, not applied.** Test on staging first (tested on local PostgreSQL 16 with stubs) |
+| 019_global_profile | One profile for every Chama: photo, name, username, phone, contact email on the account; member photos for members of the same Chama | **Applied to production 2026-11-18.** Adds `save_my_details`, `set_my_photo`, `get_chama_member_profiles`; backfilled photos and contact emails from `member_profiles` |
+| 020_grant_hygiene | Removes unused table privileges (anon/authenticated write and TRUNCATE on `app_config`, `chama_slots`; TRUNCATE on the rest) | **Applied to production 2026-11-18** |
+| 021_rls_initplan_and_fk_indexes | Performance: `(select auth.uid())` in RLS policies, `profiles` policies scoped to `authenticated`, three FK indexes | **Not applied yet** (awaiting owner confirmation in Supabase) |
 | 010 | Username rule and sample-data cleanup (per older notes) | **Unknown. Not in repo** |
 | 011_chama_name_and_creator_link | Name sync trigger; creator member link | **Ready. Run after approval** |
 | 012_invite_codes_and_display_tag | Display tags; invite codes; redemption; rate limit | **Ready. Run after approval** |
