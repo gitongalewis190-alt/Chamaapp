@@ -1,0 +1,23 @@
+# Browser tests: every push and pull request. Runs the app against an in-memory Supabase stand-in (tests/mock-supabase.js),
+# with the same Content-Security-Policy as production, for treasurer, member, sign-in, sign-up, chooser, offline and accessibility flows.
+name: tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Run tests
+        run: node tests/run.js

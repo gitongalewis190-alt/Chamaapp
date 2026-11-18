@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /legal/
+Disallow: /tests/
+Disallow: /supabase/

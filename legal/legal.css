@@ -1,0 +1,25 @@
+:root { --bg: #f3f4f1; --surface: #fff; --ink: #0f1713; --ink-2: #47524c; --ink-3: #78837d; --line: rgba(15, 23, 19, .1); --brand: #0b6b4d; --warn: #a8670f; --warn-soft: #fbf0dc; color-scheme: light dark; }
+@media (prefers-color-scheme: dark) { :root { --bg: #090c0b; --surface: #141917; --ink: #eef3f0; --ink-2: #aab5af; --ink-3: #7d8984; --line: rgba(255, 255, 255, .1); --brand: #3cbd8a; --warn: #e3a74a; --warn-soft: rgba(227, 167, 74, .14); } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-text-size-adjust: 100%; }
+a { color: var(--brand); }
+.top { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+.top .brand { font-weight: 700; color: var(--ink); text-decoration: none; }
+.top nav a { font-weight: 600; text-decoration: none; font-size: .9em; }
+main { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
+.legal { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 26px 22px; color: var(--ink-2); }
+.legal h1 { color: var(--ink); font-size: 1.9em; line-height: 1.15; letter-spacing: -.02em; margin: 0 0 6px; }
+.legal h2 { color: var(--ink); font-size: 1.12em; margin: 30px 0 8px; }
+.legal p, .legal ul, .legal ol { margin: 0 0 12px; }
+.legal ul, .legal ol { padding-left: 22px; }
+.legal li { margin: 4px 0; }
+.legal b { color: var(--ink); }
+.legal .meta { color: var(--ink-3); font-size: .9em; }
+.legal .todo { background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: 0 5px; }
+.legal .box { background: color-mix(in srgb, var(--brand) 9%, transparent); border-radius: 14px; padding: 14px 16px; margin: 14px 0 6px; color: var(--ink); }
+.legal .box p { margin: 0; }
+.legal table { width: 100%; border-collapse: collapse; font-size: .9em; margin: 8px 0 16px; display: block; overflow-x: auto; }
+.legal th, .legal td { text-align: left; padding: 9px 8px; border-top: 1px solid var(--line); vertical-align: top; min-width: 120px; }
+.legal th { color: var(--ink); font-weight: 600; }
+.foot { text-align: center; color: var(--ink-3); font-size: .9em; padding: 0 20px 40px; }
+@media print { .top, .foot { display: none; } .legal { border: 0; padding: 0; } body { background: #fff; color: #000; } }

@@ -33,3 +33,11 @@ This is a technical and documentary checklist. It is not legal advice. A Kenyan 
 - A written breach response procedure: notify the ODPC within 72 hours where required, and the people affected.
 - Leaked-password protection turned on in Supabase (manual).
 - Staging test of the full flow with two real email addresses.
+
+## Update for 0.13.0 (18 Nov 2026)
+- New Privacy Policy and Terms of Use (version 2026-11-18-v3), public at `/legal/privacy.html` and `/legal/terms.html` and shown in the app. Everyone re-accepts once.
+- Fixed: acceptance was never sent to `record_consent` in 0.12.x (a code error). From 0.13.0 it is. Verify rows in `consent_records`.
+- Item 5 above (Google Fonts) is done: the app uses the phone's own fonts and loads no third-party fonts.
+- Hosting regions are now stated in the policy (Supabase EU/Ireland, Vercel, Brevo EU). Item 3 above is covered, subject to lawyer review.
+- Terms state the app is record-keeping only, not a bank, SACCO, lender or payment service, and that chamas are responsible for their own registration and licensing. The licensing question (LAWYER section) is still open.
+- Still to fill in (highlighted on the pages): controller's registered name, ODPC number, privacy and support contacts, retention years for consent and audit records, security contact.

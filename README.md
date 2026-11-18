@@ -2,8 +2,8 @@
 
 A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Current version:** 0.12.7-dev.1 (development build). Home, Contributions, Members and Profile use the approved page markup: raised cards, money tiles, and a sliding month pill. Reset all data is no longer on Home. A missing photo function shows a readable message. Service worker cache `mca-app-v63`. **Built, unverified** on a phone. Migration 019 (photo and profile functions) is still not in the repo and was not applied.
-**Last updated:** 2026-11-15
+**Current version:** 0.13.0 (full redesign and production hardening). New design system, every screen rebuilt on the same logic, slimmer Home, new code screen and opening mark, monoline illustrations, Terms of Use and Privacy Policy pages (policy version `2026-11-18-v3`), strict security headers, automated browser tests (83 checks). Fixes four live bugs: recording a payment, consent sync, language search, Enter to sign in. Service worker cache `mca-app-v70`. **Built and tested against a stub backend; not yet verified on a phone against the live database.**
+**Last updated:** 2026-11-18
 **Owner:** Lewis Gitonga
 **Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)
 **Supabase project ref:** `sgfvjsxmchohawhqraii`
@@ -41,7 +41,10 @@ A savings-group app for chamas (groups that save together and lend to each other
 
 | Feature | Built | Deployed | Verified on phone |
 |—|—|—|—|
-| Home, Contributions, Members and Profile markup (0.12.7-dev.1) | Yes | Pushed to `main` (Vercel) | **Built, unverified** |
+| 0.13.0 redesign: all screens, menu, tab bar, sheets, code screen, onboarding (3 slides), legal pages | Yes | Pushed to `main` (Vercel) | **Built, unverified on phone.** Browser tests: 83 of 83 pass (stub backend) |
+| Recording a payment (was broken in 0.12.7: `savePayments` not in scope) | Fixed in 0.13.0 | Pushed | **Pending phone test** |
+| Consent recorded on the server (was never sent in 0.12.x: `APP` not in scope) | Fixed in 0.13.0 | Pushed | **Pending:** check `consent_records` rows after a sign-in |
+| Home, Contributions, Members and Profile markup (0.12.7-dev.1) | Superseded by 0.13.0 | | |
 | Email code sign-in | Yes | Yes | Yes (owner) |
 | Username and password sign-in | Yes | Yes | Owner reports it works. 0.12.0-dev.4 throttle messages: **pending** |
 | Email invitations (Brevo) | Yes | Yes | Sent and resent: yes. Accept flow: **not yet tested** |
@@ -94,22 +97,22 @@ Read this file, then `MIGRATION_AND_SETUP_GUIDE.md`, then section 15 (rules) bef
 ## 3. Repository layout
 
 ```
-index.html                       the whole frontend (single file, about 350 KB)
-sw.js                            service worker. Cache name must change every release (now mca-app-v63)
-manifest.json                    PWA manifest
-icons/                           app icons (192 and 512 px)
-tips/                            onboarding images
-supabase/
-  migrations/                    ordered SQL, 001 to 012 (see section 11)
-  functions/
-    auth-login/                  sign-in by email or username (core.ts + index.ts)
-    send-invitation/             invitation email and link (core.ts + index.ts)
-  verification/
-    stage0_verify_readonly.sql   read-only checks, run before consequential changes
-README.md                        this file
-CHANGES.md                       change note for the current UI build (merge into the release notes when the build is released)
-MIGRATION_AND_SETUP_GUIDE.md     first-time setup
-RELEASE_NOTES_*.md               release notes per development build
+index.html                       page shell: header, tab bar, roots for sheets and pop-ups, splash mark
+assets/app.css                   the design system (tokens, components, screens, accessibility). One stylesheet
+assets/app.js                    all app logic, as ordered modules (see 4.1)
+assets/languages.js              language list and picker strings (generated, do not edit by hand)
+assets/boot.js                   runs before first paint: theme, text size, accessibility classes, #privacy redirect
+assets/splash.js                 the opening mark, once per browser session
+vendor/supabase-2.45.4.js        supabase-js UMD build, served from this site (no CDN at runtime)
+legal/privacy.html, terms.html   public legal pages; the app shows the same files in-app (Settings)
+icons/                           app icons (icon.svg is the source; PNGs are rendered from it). icons/legacy/ holds the previous purple icon
+manifest.json, sw.js             PWA manifest and service worker. Cache name must change every release (now mca-app-v70)
+vercel.json                      security headers (CSP, HSTS, frame-ancestors) and caching rules
+.vercelignore                    keeps tests/, supabase/ and internal docs off the public site
+tests/                           browser tests: run.js, mock-supabase.js (in-memory backend), fixtures.js
+supabase/                        migrations, edge functions, read-only verification SQL
+SECURITY.md, .well-known/security.txt   how to report a security problem
+tips/                            onboarding images used up to 0.12.x (no longer shown; kept for reference)
 ```
 
 **Single source of truth for functions:** the repo copy is the source. The Supabase dashboard holds a copy too. After any change, paste the same code into the dashboard and deploy, and record that you did so in the release notes. For dashboard deploys, use the single-file version (`core.ts` and `index.ts` joined into one file).
@@ -120,7 +123,8 @@ RELEASE_NOTES_*.md               release notes per development build
 
 ### 4.1 Frontend
 
-- One HTML file with inline CSS and JavaScript. No build step, no framework.
+- Plain HTML, CSS and JavaScript. No build step, no framework. Edit `assets/app.js` and `assets/app.css` directly. Every file name carries `?v=<version>`: change it in `index.html` and `sw.js` on every release.
+- `assets/app.js` is ordered modules (`__M_src_*`), each an IIFE that exports getters. A module may only use names it imports from an earlier module, or the shared globals at the top of the file (`ICONS`, `icon()`, `ARTS`, `art()`, `emptyState()`, `MARK`, `markTile()`, `HL()`, `flashNext()`, `rpcMessage()`, `dialogNotice()`). Run ESLint `no-undef` before every release: four 0.12.x bugs were names used outside their module.
 - Main objects inside the script: `Backend` (Supabase client), `Session` (sign-in, workspace, roles, invitations, codes, switching, creating), `Store` (the Chama document, local cache, sync), `Policy` (what this role may write), `Gate` (sign-in and Chama-hub screens: Welcome, Choose, Create, Join modal), `Invite` (invitation links), `Menu` and `Drawer` (navigation drawer), `Modal`, `toast`.
 - Local cache: `localStorage` keys prefixed `chama:`. Keys containing `dirty` hold unsent changes and must not be deleted silently.
 - Screen routing uses the URL hash (for example `#/settings/actions`). Opening a Chama uses `?c=<chama-id>`. Switching Chamas loads `?c=<chama-id>` as a full page load.
@@ -153,6 +157,17 @@ RELEASE_NOTES_*.md               release notes per development build
 Whole-document saves go straight to `chamas` with a version check. Only treasurers may update it (policy `chamas_update_treasurer`, which uses `is_treasurer(id)`).
 
 The Choose a Chama screen reads the signed-in person’s Chamas through `my_workspaces`. The UI reads `display_tag` and `member_count` from that result when present. Confirm the function returns them (section 9.3).
+
+—
+
+### 4.4 Design system (0.13.0)
+
+- **Tokens** live at the top of `assets/app.css`: colour roles (`--bg`, `--surface`, `--ink`, `--brand`, `--ok`, `--warn`, `--bad`…), radii, shadows, motion. Dark mode redefines the same tokens under `html[data-mode="dark"]`. Components never hard-code a colour.
+- **Brand:** evergreen `#0b6b4d` with a gold accent `#b0843a`. The mark is a monoline shield with three rising bars and a growth line (`icons/icon.svg`, `MARK` in `app.js`).
+- **Icons and illustrations:** one monoline family (24 px grid, 1.7 px stroke) in `ICONS`; empty-state and onboarding drawings in `ARTS` (160 × 120, 1.4 px stroke, gold accent line).
+- **Components:** `.hero`, `.stats`, `.list` / `.li` (inset grouped rows), `.card`, `.btn` (`pri`, `tint`, `bad`, `ghost`, `sm`, `block`), `.seg`, `.sw` (switch), `.chip`, `.tag`, `.st` (contribution status), `.sheet` (bottom sheet), `.pop` (centred alert), `#toast`.
+- **Pattern:** lists show; a tap opens a sheet with details and actions (payments, loans, fines, members). Rows no longer carry several buttons each.
+- **Accessibility:** text size Default / Large / Largest (17, 19, 22 px base), stronger contrast, symbols with colours, easy-read lettering, extra spacing, underlined links, bigger buttons, less movement, longer messages, read-aloud. Dark mode follows the phone unless set. No sideways scrolling at 320 px or at the largest text size (tested).
 
 —
 
@@ -260,14 +275,22 @@ Codes are never written to logs, the audit trail, or the email.
 - Local data is shown with its state: local only, pending sync, synced, failed, conflict, or stale. Never say a transaction is recorded remotely when it is only on the device.
 - The app does not show raw database error text to members where it would reveal internal detail.
 
+### 9.2a Web security (0.13.0)
+
+- `vercel.json` sends: `Content-Security-Policy` (scripts only from this site, plus cdn.jsdelivr.net for the optional on-device OCR; connections only to this Supabase project; `frame-ancestors 'none'`; `object-src 'none'`), HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, a restrictive `Permissions-Policy`.
+- No inline scripts or inline event handlers anywhere (the CSP would block them). The browser tests run under the same CSP and fail on any violation.
+- supabase-js is vendored and pinned (`vendor/supabase-2.45.4.js`, sha256 `8596965f…db01e7`).
+- Fixed in 0.13.0: avatar photos are accepted only as plain base64 JPEG (a crafted photo could previously break out of `src`); notification links must be in-app (`#/…`); CSV export neutralises cells that start with `= + - @`.
+- **If the Supabase project or domain changes, update `connect-src` in `vercel.json`, or sign-in will stop working.**
+
 ### 9.3 Known risks (open)
 
 | Risk | Impact | Status |
 |—|—|—|
 | Treasurer can set `display_tag` directly through the table, skipping the format check | Uniqueness holds; format may be wrong | Open. Fix with a column guard in a later migration |
-| Sign-out on a phone clears local Chama cache, including unsent changes | Possible loss of unsent entries | Open. Owner decision: warn before sign-out, or keep a recovery copy |
+| Sign-out on a phone clears local Chama cache, including unsent changes | Possible loss of unsent entries | Mitigated: sign-out asks first and warns when changes are unsent. A recovery copy is still an owner decision |
 | Choose a Chama reads `display_tag` and `member_count` from `my_workspaces`, which may not return them | Tags and member counts missing on the chooser; the screen still works | Open. Confirm the function output |
-| “Existing member” checkbox on Create a Chama is misleading: checking it creates member 1 | Owner may expect a different result | Open. Owner to confirm wording or behaviour |
+| “Existing member” checkbox on Create a Chama was misleading | | Resolved in 0.13.0: now “List me as a member”, with an explanation |
 | Realtime is polling (about 45 seconds), not push | Changes appear with a delay | Accepted for now |
 | Whole-document writes can overwrite concurrent edits | Protected by version check; conflicts shown to treasurer | Working design. Test with two devices |
 | Email sign-in depends on `auth-login` | If the function is down, password sign-in fails | Accepted. No fallback by design |
@@ -357,6 +380,23 @@ Do these in order. Stop at any unexpected result and report it.
 There is no automated test suite in the repo. Testing is manual, on a phone, with at least two accounts and one Chama.
 
 For the UI build in section 14.2, a browser test harness was run outside the repo (Python Playwright, Chromium, 390 × 844 viewport, Supabase library stubbed). It is evidence for layout and flow only. It is not a substitute for the phone checks.
+
+### 14.0 Automated browser tests (0.13.0)
+
+`node tests/run.js` (needs Node 18+ and Playwright; CI runs it on every push: `.github/workflows/test.yml`). Add `--shots <dir>` for screenshots, `--only <name>` for one flow.
+The tests serve the repo locally, replace supabase-js with `tests/mock-supabase.js` (an in-memory backend that records every call), and send the production security headers. 83 checks cover: first run (language search, 3-slide tour, consent stored with version), password sign-in through `auth-login` (Enter key, wrong password), sign-up with the email code (wrong code clears, right code continues, password rules), treasurer flows (record payment through `record_payment` with a request key, duplicate M-Pesa code refused, loan repayment, payout order, invitations, invite codes, every page renders, in-app legal pages), member privacy (no other members' money, no write actions, treasurer-only actions refused), the Chama chooser and join-by-code, create a Chama, empty Chama, invitation links, dark mode with the largest text, 320 px phones, and offline saves.
+**What they do not prove:** the live database, real email, Google sign-in, or a real phone. Those stay on the phone test plan below.
+
+### 14.0a Phone test plan for 0.13.0 (owner)
+
+1. Settings, About shows 0.13.0. If not, reload once (the new service worker takes over).
+2. Everyone is asked to accept the new Terms and Privacy Policy once. Then, in Supabase: `select policy_version, accepted_at from consent_records order by accepted_at desc limit 5;` shows `2026-11-18-v3`.
+3. Google sign-in, email or username sign-in, sign-up with the email code, forgot password: each still works.
+4. Treasurer: record a payment with an M-Pesa code; it appears, and the same code is refused the second time. Check `chama_payments` has one row.
+5. Member account: Home shows your own month; Members shows names only; no record buttons.
+6. Invite by email and by code; accept on a second phone.
+7. Settings, Display: try Dark, Largest text, Less movement.
+8. Open Settings, Terms of Use and Privacy Policy, and the public pages `/legal/privacy.html` and `/legal/terms.html`.
 
 ### 14.1 Test plan for 0.12.0-dev.4
 
@@ -486,6 +526,7 @@ These apply to people and to AI assistants. They are not optional.
 
 Short list. Full notes are in the app (Settings, About) and in the release notes files.
 
+- **0.13.0 (service worker `mca-app-v70`):** full redesign and production hardening. See `RELEASE_NOTES_0.13.0.md`. Built and tested with a stub backend; pending phone verification.
 - **0.12.7-dev.1 (service worker `mca-app-v63`):** approved page markup for Home, Contributions, Members and Profile. Raised cards, money tiles, sliding month pills. Reset all data is removed from Home. A photo save that fails because `set_my_photo` is missing says so in plain words. Phone numbers stay in full (`CG_MASK_PHONES` is false). Moving a member up still happens at once (`moveMember`); the confirm step (`moveAsk`) was not applied. Render coalescing was not applied. Built, unverified on a phone.
 - **0.12.6-dev.1 (service worker `mca-app-v62`):** first visual pass on the same four pages. Superseded by 0.12.7-dev.1, which uses the approved markup.
 - **0.12.4-dev.1 (service worker `mca-app-v43`):** interaction pass. Centred popups (`Pop.alert`, `Pop.confirm`, element `#popRoot`) for warnings and confirmations; every error toast now opens an alert with Understood. Neutral toasts stay 7 s with an OK button (optional action button). Sign out asks first on every screen; deleting an account has two steps. New start page (Continue with Google, Sign in, Create account). OTP: one full revolution, bigger tick, green splash, no Paste code button, synthesised button sounds and approval chime (mute: `localStorage[‘mca-sfx’]=‘off’`). Flat buttons always in a row. Skeletons replace loading buttons. Cards of one page are grouped (`style#ux-group` can be deleted to undo).

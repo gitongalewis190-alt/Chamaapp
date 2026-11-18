@@ -1,0 +1,4888 @@
+/* =====================================================================
+   My Chama App 0.13.0
+   Shared visual vocabulary: one monoline icon family (24px grid, 1.7px stroke),
+   monoline illustrations for empty states and onboarding, and the app mark.
+   ===================================================================== */
+const ICONS = {
+  home: '<path d="M3.5 10.6 12 4l8.5 6.6V19a1.5 1.5 0 0 1-1.5 1.5h-4.2v-5.6H9.2v5.6H5A1.5 1.5 0 0 1 3.5 19z"/>',
+  grid: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 9.8h17M8.5 3v4M15.5 3v4"/><path d="M8 14.3l2 2 4.2-4.2"/>',
+  loans: '<rect x="2.8" y="6.5" width="18.4" height="11" rx="2.6"/><circle cx="12" cy="12" r="2.6"/><path d="M6.3 9.6v4.8M17.7 9.6v4.8"/>',
+  members: '<circle cx="9" cy="8.6" r="3.3"/><path d="M3 19.5c.6-3.3 3-5.1 6-5.1s5.4 1.8 6 5.1"/><path d="M15.6 5.6a3.2 3.2 0 0 1 0 6.1M17.6 14.6c1.7.6 2.9 2.2 3.4 4.6"/>',
+  profile: '<circle cx="12" cy="8.2" r="3.8"/><path d="M4.5 20.2c.9-3.8 3.8-5.9 7.5-5.9s6.6 2.1 7.5 5.9"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  userPlus: '<circle cx="10" cy="8.2" r="3.6"/><path d="M3.5 19.8c.8-3.6 3.4-5.6 6.5-5.6 1.5 0 2.9.4 4 1.3"/><path d="M18.5 13.5v6M15.5 16.5h6"/>',
+  wallet: '<path d="M4 7.5h14.5A2 2 0 0 1 20.5 9.5v8.5a2 2 0 0 1-2 2H5.5A2 2 0 0 1 3.5 18V6.8A2.3 2.3 0 0 1 5.8 4.5H16"/><path d="M16 14.2h1.5"/>',
+  receipt: '<path d="M6 3.5h12v17l-2.4-1.5-2.4 1.5-2.4-1.5-2.4 1.5L6 19z"/><path d="M9 8.5h6M9 12h6M9 15.5h3.5"/>',
+  alert: '<path d="M12 4.2 2.9 19.5h18.2z"/><path d="M12 10v4.2M12 17v.1"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  doc: '<path d="M7 3.5h7l4.5 4.5v12.5H7z"/><path d="M14 3.5V8h4.5M9.8 12.5h5.5M9.8 16h5.5"/>',
+  shield: '<path d="M12 3.5 19 6.3v5.6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6.3z"/><path d="M9 12.2l2 2 4-4"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/>',
+  mail: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3.8 7.2 12 13l8.2-5.8"/>',
+  phone: '<path d="M7.8 3.5h2.4l1.5 4-2 1.3a10.5 10.5 0 0 0 5.5 5.5l1.3-2 4 1.5v2.4a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 5.8 5.7a2 2 0 0 1 2-2.2z"/>',
+  chev: '<path d="M9.5 6l6 6-6 6"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  pencil: '<path d="M4 20h4L19.2 8.8a2.3 2.3 0 0 0-3.3-3.3L4.8 16.7z"/><path d="M14.3 7.2l3.3 3.3"/>',
+  trash: '<path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2a1.5 1.5 0 0 0 1.5 1.3h6.2a1.5 1.5 0 0 0 1.5-1.3L17.5 7"/>',
+  undo: '<path d="M9 14 4.5 9.5 9 5"/><path d="M4.8 9.5H14a5.5 5.5 0 0 1 0 11h-3"/>',
+  out: '<path d="M14 4.5h3.5a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14"/><path d="M10 8l-4 4 4 4M6 12h10"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M21.2 12h-2.4M5.2 12H2.8M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7M18.5 18.5l-1.7-1.7M7.2 7.2 5.5 5.5"/>',
+  globe: '<circle cx="12" cy="12" r="8.6"/><path d="M3.6 12h16.8M12 3.4c2.4 2.5 3.6 5.4 3.6 8.6s-1.2 6.1-3.6 8.6c-2.4-2.5-3.6-5.4-3.6-8.6S9.6 5.9 12 3.4z"/>',
+  bell: '<path d="M6 9.5a6 6 0 0 1 12 0c0 5.6 2.2 7.3 2.2 7.3H3.8S6 15.1 6 9.5Z"/><path d="M10.2 20.2a2 2 0 0 0 3.6 0"/>',
+  search: '<circle cx="11" cy="11" r="6.8"/><path d="M20 20l-4.2-4.2"/>',
+  sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  download: '<path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2"/>',
+  share: '<path d="M12 14.5V3.5M8 7.2l4-3.7 4 3.7"/><path d="M8 10.5H6.5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H16"/>',
+  chat: '<path d="M20 11.6a7.6 7.6 0 0 1-11.3 6.6L4 19.5l1.4-4.4A7.6 7.6 0 1 1 20 11.6z"/>',
+  camera: '<path d="M4 8.5A2 2 0 0 1 6 6.5h1.8L9.5 4h5l1.7 2.5H18a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.8" r="3.4"/>',
+  key: '<circle cx="8" cy="15" r="4.2"/><path d="M11 12l8.5-8.5M16.5 6.5l2.5 2.5M14.5 8.5l2 2"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  help: '<circle cx="12" cy="12" r="8.6"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1.9-1.1 1.7M12 16.5v.1"/>',
+  info: '<circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2M12 7.8v.1"/>',
+  sun: '<circle cx="12" cy="12" r="3.8"/><path d="M12 2.8v2M12 19.2v2M21.2 12h-2M4.8 12h-2M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4M18.5 18.5l-1.4-1.4M6.9 6.9 5.5 5.5"/>',
+  text: '<path d="M4 18.5 8.5 6h1l4.5 12.5M5.6 14h6.8"/><path d="M15.5 12.3a2.6 2.6 0 0 1 4.8 1.2v5M20.3 15.6c-2.6-.4-4.8.2-4.8 1.6 0 1 .8 1.5 1.8 1.5 1.6 0 3-1.1 3-2.6"/>',
+  eye: '<path d="M2.8 12S6.2 5.8 12 5.8 21.2 12 21.2 12 17.8 18.2 12 18.2 2.8 12 2.8 12z"/><circle cx="12" cy="12" r="3"/>',
+  hand: '<path d="M8 13V5.8a1.6 1.6 0 0 1 3.2 0V12M11.2 11V4.6a1.6 1.6 0 0 1 3.2 0V11M14.4 11V6a1.6 1.6 0 0 1 3.2 0v8.3c0 3.6-2.6 6.2-6 6.2-2.3 0-3.7-.9-5-2.6L4 14.6a1.6 1.6 0 0 1 2.4-2z"/>',
+  chart: '<path d="M4 20V4M4 20h16"/><path d="M7.5 15.5l3.5-4 3 2.5 5-6.5"/>',
+  coins: '<ellipse cx="9" cy="7" rx="5.5" ry="2.5"/><path d="M3.5 7v4c0 1.4 2.5 2.5 5.5 2.5S14.5 12.4 14.5 11V7"/><path d="M3.5 11v4c0 1.4 2.5 2.5 5.5 2.5 1 0 1.9-.1 2.7-.3"/><ellipse cx="16" cy="14.5" rx="4.5" ry="2"/><path d="M11.5 14.5v3.2c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-3.2"/>',
+  import: '<path d="M12 3.5v10M8 9.5l4 4 4-4"/><rect x="3.5" y="15" width="17" height="5.5" rx="2"/>',
+  scale: '<path d="M12 4v16M7 20h10M5 7h14"/><path d="M5 7l-2.5 6a2.5 2.5 0 0 0 5 0zM19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/>',
+  swap: '<path d="M7 4.5 3.5 8 7 11.5M3.8 8h13.7"/><path d="M17 12.5l3.5 3.5-3.5 3.5M20.2 16H6.5"/>',
+  copy: '<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/>',
+  sign: '<path d="M3.5 18c2.5 0 3.5-6 5.5-6s1 4 3 4 2-3 3.5-3 1.5 2 5 2"/><path d="M3.5 21h17"/>',
+  tag: '<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.5 1.5 0 0 1 0 2.1l-6.3 6.3a1.5 1.5 0 0 1-2.1 0z"/><circle cx="8" cy="8" r="1.4"/>',
+  sparkle: '<path d="M12 3.5c.6 4.3 2.5 6.4 6.8 7.2-4.3.8-6.2 2.9-6.8 7.3-.6-4.4-2.5-6.5-6.8-7.3 4.3-.8 6.2-2.9 6.8-7.2z"/>',
+  up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  more: '<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>',
+  speaker: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/>',
+};
+const icon = (name, cls) => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+
+/* The mark: a shield holding three rising bars and a growth line. Monoline, drawn on the same 48px grid as the splash. */
+const MARK = '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4.5 39.5 10.2V23c0 9.4-6.4 16.6-15.5 20.5C14.9 39.6 8.5 32.4 8.5 23V10.2Z"/><path d="M17.5 33v-5.5M23 33v-8.5M28.5 33V21.5"/><polyline class="acc" points="14.5 23.5 20.5 18 24.5 21 32.5 13"/><polyline class="acc" points="27.8 13 32.5 13 32.5 17.7"/></svg>';
+const markTile = (cls) => `<span class="mark${cls ? ' ' + cls : ''}">${MARK}</span>`;
+
+/* Monoline illustrations, 160 x 120. One stroke weight, round joins, the accent line in gold. */
+const ARTS = {
+  mail: '<path d="M30 46h100v56a6 6 0 0 1-6 6H36a6 6 0 0 1-6-6z"/><path d="M30 48l50 34 50-34"/><path d="M44 46V22a4 4 0 0 1 4-4h64a4 4 0 0 1 4 4v24"/><path class="acc" d="M58 32h44M58 40h30"/><path class="soft" d="M14 64h8M10 76h12M138 64h8M138 76h12"/>',
+  coins: '<ellipse cx="62" cy="88" rx="30" ry="9"/><path d="M32 88v10c0 5 13.4 9 30 9s30-4 30-9V88"/><path d="M32 76c0-5 13.4-9 30-9s30 4 30 9-13.4 9-30 9-30-4-30-9z"/><path d="M32 76v12M92 76v12"/><ellipse cx="62" cy="62" rx="30" ry="9"/><path d="M32 62v14M92 62v14"/><path class="acc" d="M100 70l14-16 10 8 18-24"/><path class="acc" d="M132 38h10v10"/><path class="soft" d="M18 40h10M23 35v10"/>',
+  group: '<circle cx="80" cy="44" r="13"/><path d="M58 92c2-16 10-25 22-25s20 9 22 25"/><circle cx="40" cy="56" r="10"/><path d="M22 96c1.5-12 8-19 18-19 5 0 9 1.8 12 5"/><circle cx="120" cy="56" r="10"/><path d="M138 96c-1.5-12-8-19-18-19-5 0-9 1.8-12 5"/><path class="acc" d="M50 104c20 8 40 8 60 0"/><path class="soft" d="M76 18l4-6 4 6"/>',
+  ledger: '<path d="M80 30c-12-8-30-10-50-8v70c20-2 38 0 50 8 12-8 30-10 50-8V22c-20-2-38 0-50 8z"/><path d="M80 30v70"/><path d="M42 42h24M42 54h24M42 66h18"/><path class="acc" d="M94 50l7 7 14-15"/><path d="M94 74h24M94 84h16"/>',
+  shield: '<path d="M80 14l40 14v26c0 25-17 43-40 52-23-9-40-27-40-52V28z"/><path class="acc" d="M64 60l11 11 22-24"/><path class="soft" d="M22 50h10M128 50h10M26 34l6 4M134 34l-6 4"/>',
+  receipt: '<path d="M50 14h60v92l-10-6-10 6-10-6-10 6-10-6-10 6z"/><path d="M62 34h36M62 48h36M62 62h22"/><path class="acc" d="M62 80h16M90 80h8"/><path class="soft" d="M28 40h10M122 40h10M33 35v10"/>',
+  loan: '<path d="M22 86h18l14 6h22a6 6 0 0 0 0-12H62"/><path d="M40 82l18-8c6-2 10 0 14 2l26 12c5 2 9-2 7-6"/><path d="M22 78v18"/><circle class="acc" cx="104" cy="44" r="20"/><path class="acc" d="M104 34v20M98 39c0-3 3-5 6-5s6 2 6 5-3 4-6 5-6 2-6 5 3 5 6 5 6-2 6-5"/>',
+  done: '<circle cx="80" cy="60" r="34"/><path class="acc" d="M64 60l11 11 21-23"/><path class="soft" d="M30 30l6 6M130 30l-6 6M24 84h10M126 84h10M80 12v8"/>',
+  invite: '<path d="M26 44h84v54a5 5 0 0 1-5 5H31a5 5 0 0 1-5-5z"/><path d="M26 46l42 30 42-30"/><circle class="acc" cx="122" cy="40" r="12"/><path class="acc" d="M104 74c2-10 9-16 18-16s16 6 18 16"/><path class="soft" d="M14 30h8M18 26v8"/>',
+  key: '<circle cx="56" cy="72" r="20"/><circle cx="56" cy="72" r="7"/><path d="M71 59l46-46M104 26l10 10M94 36l8 8"/><path class="acc" d="M96 82h36M96 94h24"/>',
+  lost: '<path d="M44 88h68a20 20 0 0 0 2-40 28 28 0 0 0-54-4 22 22 0 0 0-16 44z"/><path class="acc" d="M66 64l20 20M86 64l-20 20"/><path class="soft" d="M24 102h112"/>',
+  people: '<circle cx="62" cy="48" r="14"/><path d="M36 100c2-18 12-28 26-28s24 10 26 28"/><circle class="acc" cx="108" cy="58" r="10"/><path class="acc" d="M92 100c1.5-12 7.5-19 16-19s14.5 7 16 19"/>',
+};
+const art = name => `<svg viewBox="0 0 160 120" aria-hidden="true">${ARTS[name] || ''}</svg>`;
+const emptyState = (name, title, text, btn) => `<div class="empty"><div class="art">${art(name)}</div><h3>${title}</h3>${text ? `<p>${text}</p>` : ''}${btn || ''}</div>`;
+
+const GOOGLE_G = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.7-4.2-13.6-9.9l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>';
+
+/* Loading placeholder: only while the Chama is genuinely loading, never as a timed delay */
+const Skel = {
+  page() { return '<div aria-busy="true" aria-label="Loading"><div class="sk sk-hero"></div><div class="sk sk-row"></div><div class="sk sk-row"></div><div class="sk sk-row" style="width:72%"></div></div>'; }
+};
+
+/* The old typed welcome overlay is retired: the greeting now lives at the top of Home.
+   The object keeps its method names, so every existing caller still works. */
+const Welcome = {
+  splashDone: false,
+  bind() { const sp = document.getElementById('splash'); if (!sp || sp.classList.contains('gone')) this.splashDone = true; },
+  onSplashDone() { this.splashDone = true; },
+  start() {}, markReady() {}, tryReveal() {}, hide() {}
+};
+document.addEventListener('mca:splash-done', () => Welcome.onSplashDone());
+
+/* Time-of-day greeting in the person's language (English and Kiswahili) */
+function greeting(lang) {
+  const h = new Date().getHours();
+  if (lang === 'sw') return h < 12 ? 'Habari ya asubuhi' : h < 17 ? 'Habari ya mchana' : 'Habari ya jioni';
+  return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+/* ---- src/config.js ---- */
+const __M_src_config_js = (function () {
+
+/* =====================================================================
+   0. CONFIG
+   Cloud mode uses Supabase: set supabase to { url, anonKey } (the anon key is safe to publish;
+   Row Level Security protects the data). Set supabase to null for local demo mode
+   (data stays in this browser). Setup steps: SETUP_GUIDE.md. Multiple chamas: open the page with ?c=<id>
+   ===================================================================== */
+const CONFIG = {
+  firebase: null /* { apiKey:'', authDomain:'', projectId:'', appId:'' } */,
+  supabase: { url: 'https://sgfvjsxmchohawhqraii.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnZnZqc3htY2hvaGF3aHFyYWlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyODAxMjcsImV4cCI6MjEwODg1NjEyN30.VdnDy-LWejTZB76mljZ2vnSpjhIAOWRsOTjfOcmVsgc' },
+  defaultPin: '1234'
+};
+
+return { get CONFIG() { return CONFIG; }, };
+})();
+
+/* ---- src/lib/dom.js ---- */
+const __M_src_lib_dom_js = (function () {
+
+/* =====================================================================
+   1. UTILS
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+
+const restart = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
+
+return { get $() { return $; }, get restart() { return restart; }, };
+})();
+
+/* ---- src/ui/toast.js ---- */
+const __M_src_ui_toast_js = (function () {
+const { $ } = __M_src_lib_dom_js;
+
+let toastLong = false;
+const setToastLong = v => { toastLong = !!v; };
+
+const TOAST_KIND = msg => /fail|error|not right|not saved|not sent|not recorded|not allowed|not enough|please|cannot|can.t|already|enough|full|look right|should look|choose a|choose your|blocked|invalid|wrong|missing|must be|only the|type your|type the|give a|say what|too many|too large|more than|does not|did not|could not|is not/i.test(msg) ? 'bad'
+  : /saved|done|added|removed|recorded|signed|undid|normal|restored|copied|exported|created|updated|sent/i.test(msg) ? 'ok' : 'info';
+
+const esc_ = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* Sounds are synthesised in the browser (no audio files). Mute with localStorage 'mca-sfx' = 'off'. */
+const Sfx = (() => {
+  let ctx = null;
+  const on = () => { try { return localStorage.getItem('mca-sfx') !== 'off'; } catch (e) { return true; } };
+  const ac = () => {
+    if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; try { ctx = new C(); } catch (e) { return null; } }
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    return ctx;
+  };
+  const tone = (f, t0, dur, vol, type) => {
+    const c = ac(); if (!c) return;
+    try {
+      const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
+      o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.03);
+    } catch (e) {}
+  };
+  const bell = (f, t0, dur, vol) => { tone(f, t0, dur, vol); tone(f * 2.76, t0, dur * 0.5, vol * 0.22); tone(f * 5.4, t0, dur * 0.25, vol * 0.08); };
+  return {
+    get enabled() { return on(); },
+    unlock() { if (on()) ac(); },
+    tap() { if (on()) { tone(1650, 0, 0.04, 0.05, 'triangle'); tone(820, 0.012, 0.05, 0.03, 'sine'); } },
+    pop() { if (on()) { tone(740, 0, 0.09, 0.05); tone(1110, 0.05, 0.12, 0.04); } },
+    /* approval: two rising bell strikes, short and bright */
+    ok() { if (on()) { bell(1318.5, 0, 0.5, 0.15); bell(1975.5, 0.12, 0.95, 0.13); } },
+    no() { if (on()) { tone(196, 0, 0.14, 0.11); tone(155.6, 0.14, 0.24, 0.11); } }
+  };
+})();
+
+/* Centred popups on their own element (#popRoot). Alerts stay until the person taps Understood. */
+const POP_WARN = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS.alert + '</svg>';
+const POP_ASK = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS.help + '</svg>';
+const POP_OK = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS.check + '</svg>';
+const Pop = {
+  q: [], cur: null, prev: null,
+  alert(text, o = {}) {
+    const t = String(text);
+    if ((this.cur && this.cur.kind === 'alert' && this.cur.text === t) || this.q.some(x => x.kind === 'alert' && x.text === t)) return;
+    this.push({ kind: 'alert', calm: !!o.calm, title: o.title || '', text: t, html: o.html || '', buttons: [{ label: o.label || 'OK', primary: true, yes: true }], onYes: o.onYes });
+  },
+  confirm(o) {
+    const yes = { label: o.confirmLabel || 'Continue', primary: true, yes: true, danger: !!o.danger };
+    this.push({ kind: 'confirm', title: o.title || 'Are you sure?', text: o.text || '', html: o.html || '', danger: !!o.danger,
+      buttons: o.hideCancel ? [yes] : [{ label: o.cancelLabel || 'Cancel', no: true }, yes], onYes: o.onYes, onNo: o.onNo });
+  },
+  push(spec) { this.q.push(spec); if (!this.cur) this.next(); },
+  next() {
+    const s = this.q.shift(); if (!s) { this.cur = null; return; }
+    this.cur = s; this.prev = document.activeElement;
+    let root = document.getElementById('popRoot');
+    if (!root) { root = document.createElement('div'); root.id = 'popRoot'; document.body.appendChild(root); }
+    const body = s.html ? s.html : (s.text ? '<p>' + esc_(s.text) + '</p>' : '');
+    root.innerHTML = '<div class="pop-veil"><div class="pop ' + s.kind + (s.danger ? ' danger' : '') + (s.calm ? ' calm' : '') + '" role="alertdialog" aria-modal="true"' + (s.title ? ' aria-labelledby="popT"' : '') + ' aria-describedby="popB">'
+      + '<div class="pop-ic">' + (s.calm ? POP_OK : s.kind === 'confirm' && !s.danger ? POP_ASK : POP_WARN) + '</div>'
+      + (s.title ? '<h3 class="pop-t" id="popT">' + esc_(s.title) + '</h3>' : '')
+      + '<div class="pop-b" id="popB">' + body + '</div>'
+      + '<div class="pop-act">' + s.buttons.map((b, i) => '<button type="button" class="pop-btn' + (b.primary ? ' pri' : '') + (b.danger ? ' bad' : '') + '" data-i="' + i + '">' + esc_(b.label) + '</button>').join('') + '</div></div></div>';
+    root.onclick = e => { const b = e.target.closest && e.target.closest('.pop-btn'); if (b) this.done(s, s.buttons[+b.dataset.i]); };
+    this._key = e => {
+      if (e.key === 'Escape') { e.preventDefault(); this.done(s, s.buttons[0]); }
+      else if (e.key === 'Tab') { const bs = [...root.querySelectorAll('.pop-btn')]; if (!bs.length) return; const i = bs.indexOf(document.activeElement); e.preventDefault(); bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length].focus(); }
+    };
+    document.addEventListener('keydown', this._key, true);
+    Sfx.pop();
+    const first = s.danger && s.buttons.length > 1 ? root.querySelector('.pop-btn') : (root.querySelector('.pop-btn.pri') || root.querySelector('.pop-btn'));
+    if (first) first.focus();
+  },
+  done(s, b) {
+    if (this.cur !== s) return;
+    document.removeEventListener('keydown', this._key, true);
+    const root = document.getElementById('popRoot'), veil = root && root.firstElementChild;
+    if (veil) veil.classList.add('out');
+    this.cur = null;
+    setTimeout(() => {
+      if (root && !this.cur) root.innerHTML = '';
+      try { if (this.prev && this.prev.focus && document.contains(this.prev)) this.prev.focus(); } catch (e) {}
+      try {
+        if (b && b.yes && s.onYes) { const r = s.onYes(); if (r && r.catch) r.catch(err => toast(err.message)); }
+        else if (b && b.no && s.onNo) s.onNo();
+      } catch (err) { toast(err.message); }
+      if (!this.cur) this.next();
+    }, 170);
+  }
+};
+
+/* Toasts are neutral (no colour) and stay until dismissed or 7 s. Warnings and errors open a centred alert instead. */
+let toastTimer = 0, toastAct = null;
+const hideToast = () => { clearTimeout(toastTimer); const t = $('#toast'); if (t) t.classList.remove('on'); };
+const toast = (msg, kind, opt) => {
+  const k = kind || TOAST_KIND(msg);
+  if (k === 'bad') return Pop.alert(msg, { title: /connection|internet|reach|offline/i.test(msg) ? 'Connection problem' : 'Please check' });
+  const t = $('#toast'); if (!t) return;
+  const o = opt || {}; toastAct = o.run || null;
+  t.className = 'on';
+  t.innerHTML = '<span class="tmsg">' + esc_(msg) + '</span>' + (o.label ? '<button type="button" class="tbtn" data-t="act">' + esc_(o.label) + '</button>' : '') + '<button type="button" class="tbtn" data-t="x" aria-label="Dismiss">OK</button>';
+  clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, toastLong ? 14000 : 4500);
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#toast .tbtn'); if (!b) return;
+  const run = b.dataset.t === 'act' ? toastAct : null; hideToast(); if (run) run();
+});
+
+return { get toastLong() { return toastLong; }, get setToastLong() { return setToastLong; }, get TOAST_KIND() { return TOAST_KIND; }, get toast() { return toast; }, get Pop() { return Pop; }, get Sfx() { return Sfx; }, get hideToast() { return hideToast; }, };
+})();
+
+/* ---- src/core/a11y.js ---- */
+const __M_src_core_a11y_js = (function () {
+const { $ } = __M_src_lib_dom_js;
+const { setToastLong, toast } = __M_src_ui_toast_js;
+
+const A11y = {
+  key: 'chama:a11y', def: { size: 'n', theme: 'auto', hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
+  load() {
+    let o = {}; try { o = JSON.parse(localStorage.getItem(this.key) || '{}') || {}; } catch {}
+    if (!o.size && localStorage.getItem('chama:textsize') === 'large') o.size = 'l';
+    this.d = { ...this.def, ...o }; this.apply();
+  },
+  save() { try { localStorage.setItem(this.key, JSON.stringify(this.d)); } catch { toast('Storage full'); } this.apply(); },
+  apply() {
+    setToastLong(this.d.long);
+    const h = document.documentElement, d = this.d, dark = d.theme === 'dark' || (d.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    h.dataset.size = d.size; h.dataset.mode = dark ? 'dark' : 'light'; h.classList.toggle('hc', !!d.hc);
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', dark ? '#090c0b' : '#f3f4f1'));
+    ['cb', 'ft', 'sp', 'ul', 'tg', 'rm'].forEach(k => h.classList.toggle('a-' + k, !!d[k]));
+    const ra = $('#ra'); if (ra) ra.hidden = !(d.read && 'speechSynthesis' in window);
+  },
+  refocus(sel) { const e = document.querySelector(sel); if (e) e.focus(); }
+};
+
+return { get A11y() { return A11y; }, };
+})();
+
+/* ---- src/core/policy.js ---- */
+const __M_src_core_policy_js = (function () {
+
+/* Write permission. session.js attaches the real check at start-up, so store.js never imports session.js. */
+const Policy = { canWrite: () => false };
+
+return { get Policy() { return Policy; }, };
+})();
+
+/* ---- src/core/backend.js ---- */
+const __M_src_core_backend_js = (function () {
+
+/* =====================================================================
+   5. SIGN-IN AND ACCESS
+   The chama record is readable only by its active members and writable only
+   by its treasurer (enforced by Row Level Security in Supabase).
+   The app decides what to show from the membership row, not from a local choice.
+   ===================================================================== */
+const Backend = { sb: null };
+
+/* supabase-js is served from this site (vendor/), pinned to 2.45.4, so no third-party script runs with the session */
+const loadLib = () => window.supabase && window.supabase.createClient ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'vendor/supabase-2.45.4.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+
+return { get Backend() { return Backend; }, get loadLib() { return loadLib; }, };
+})();
+
+/* ---- src/core/rerender.js ---- */
+const __M_src_core_rerender_js = (function () {
+
+/* Lets any module ask for a redraw without importing the renderer (the renderer imports the features,
+   and the features need to redraw, so a direct import would form a cycle). main.js binds the real one. */
+let impl = () => {};
+const bindRender = fn => { impl = fn; };
+const render = () => impl();
+
+
+
+return { get bindRender() { return bindRender; }, get render() { return render; }, };
+})();
+
+/* ---- src/core/utils.js ---- */
+const __M_src_core_utils_js = (function () {
+
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const kes = n => 'KES ' + Math.round(n || 0).toLocaleString('en-KE');
+
+const monthKey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+
+const addMonths = (k, n) => { const [y, m] = k.split('-').map(Number); return monthKey(new Date(y, m - 1 + n, 1)); };
+
+const monthDiff = (a, b) => { const [ya, ma] = a.split('-').map(Number), [yb, mb] = b.split('-').map(Number); return (yb - ya) * 12 + (mb - ma); };
+
+const monthLabel = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'short', year: '2-digit' }); };
+
+const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+
+const sum = (arr, f) => arr.reduce((a, x) => a + (f(x) || 0), 0);
+
+const waLink = (phone, text) => {
+  let p = String(phone || '').replace(/\D/g, '');
+  if (p.startsWith('0')) p = '254' + p.slice(1);
+  else if (p.length === 9) p = '254' + p;
+  return 'https://wa.me/' + p + '?text=' + encodeURIComponent(text);
+};
+
+return { get esc() { return esc; }, get uid() { return uid; }, get kes() { return kes; }, get monthKey() { return monthKey; }, get addMonths() { return addMonths; }, get monthDiff() { return monthDiff; }, get monthLabel() { return monthLabel; }, get todayISO() { return todayISO; }, get sum() { return sum; }, get waLink() { return waLink; }, };
+})();
+
+/* ---- src/core/domain.js ---- */
+const __M_src_core_domain_js = (function () {
+const { addMonths, monthDiff, monthKey, sum } = __M_src_core_utils_js;
+
+/* =====================================================================
+   3. DOMAIN  (pure functions, no DOM)
+   ===================================================================== */
+const Domain = {
+  now: () => monthKey(new Date()),
+  joinMonth: (s, mid) => { const m = s.members.find(x => x.id === mid); return (m && m.joined) || s.chama.startMonth; },
+  dueFor: (s, mid) => s.chama.monthly * ((s.members.find(m => m.id === mid) || {}).shares || 1),
+  paidIn: (s, mid, mk) => sum(s.payments.filter(p => p.memberId === mid && p.month === mk), p => p.amount),
+  /* cumulative: everything owed from joining through month mk, and everything paid for months up to mk */
+  dueThrough(s, mid, mk) { const j = this.joinMonth(s, mid); return mk < j ? 0 : this.dueFor(s, mid) * (monthDiff(j, mk) + 1); },
+  paidThrough: (s, mid, mk) => sum(s.payments.filter(p => p.memberId === mid && p.month <= mk), p => p.amount),
+  outstanding(s, mid, mk) { return Math.max(0, this.dueThrough(s, mid, mk) - this.paidThrough(s, mid, mk)); },
+  isOverdue(s, mk) {
+    const cur = this.now();
+    return mk < cur || (mk === cur && new Date().getDate() > s.chama.dueDay);
+  },
+  status(s, mid, mk) {
+    if (mk < this.joinMonth(s, mid)) return 'na';
+    if (this.paidThrough(s, mid, mk) >= this.dueThrough(s, mid, mk)) return 'paid';
+    if (mk > this.now()) return 'future';
+    const paid = this.paidIn(s, mid, mk);
+    if (this.isOverdue(s, mk)) return paid > 0 ? 'partial' : 'late';
+    return paid > 0 ? 'partial' : 'due';
+  },
+  lateMembers(s, mk = this.now()) {
+    if (s.shared || !this.isOverdue(s, mk)) return [];   /* members never see who else is late (D3) */
+    return s.members.filter(m => this.outstanding(s, m.id, mk) > 0);
+  },
+  memberSaved: (s, mid) => sum(s.payments.filter(p => p.memberId === mid), p => p.amount),
+  /* money is rounded to the cent, so 3,000 at 5% for 2 months is exactly 3,300 and a full repayment clears it */
+  loan(l) {
+    const r2 = x => Math.round((Number(x) || 0) * 100) / 100;
+    const total = r2(l.principal * (1 + (l.rate / 100) * l.months));
+    const paid = r2(sum(l.repayments || [], r => r.amount));
+    return { total, paid, balance: Math.max(0, r2(total - paid)), installment: r2(total / (l.months || 1)) };
+  },
+  memberLoanBalance: (s, mid) => sum(s.loans.filter(l => l.memberId === mid), l => Domain.loan(l).balance),
+  memberFinesDue: (s, mid) => sum(s.fines.filter(f => f.memberId === mid && !f.paid), f => f.amount),
+  cashOnHand: s => s.shared ? s.shared.cashOnHand : sum(s.payments, p => p.amount) + sum(s.fines.filter(f => f.paid), f => f.amount)
+    + sum(s.loans, l => sum(l.repayments, r => r.amount)) - sum(s.loans, l => l.principal) - sum(s.payouts, p => p.amount) - sum(s.expenses, e => e.amount),
+  /* a recorded payout is the truth for its month; the rotation only fills months with no payout yet */
+  recipient(s, mk = Domain.now()) {
+    const p = s.payouts.find(x => x.month === mk);
+    if (p) return s.members.find(m => m.id === p.memberId) || { id: p.memberId, name: 'Removed member' };
+    const n = s.members.length; if (!n) return null;
+    const i = ((monthDiff(s.chama.startMonth, mk) % n) + n) % n;
+    return s.members[i];
+  },
+  memberName: (s, id) => (s.members.find(m => m.id === id) || { name: 'Removed member' }).name,
+  reliability(s, mid) {
+    const cur = this.now(); let ok = 0, n = 0;
+    for (let i = 5; i >= 0; i--) {
+      const mk = addMonths(cur, -i);
+      if (!this.isOverdue(s, mk) || mk < this.joinMonth(s, mid)) continue;
+      n++; if (this.paidThrough(s, mid, mk) >= this.dueThrough(s, mid, mk)) ok++;
+    }
+    return n ? Math.round(ok / n * 100) : null;
+  }
+};
+
+return { get Domain() { return Domain; }, };
+})();
+
+/* ---- src/core/hooks.js ---- */
+const __M_src_core_hooks_js = (function () {
+
+/* Late-bound hooks. Core modules call these functions; the feature that handles the call is attached once at start-up
+   (main.js). This keeps core -> feature imports out of the dependency graph, so no import cycles form. */
+let changeHandler = (a, b) => {};
+const bindChangeHandler = fn => { changeHandler = fn; };
+const notifyChange = (a, b) => changeHandler(a, b);
+
+return { get bindChangeHandler() { return bindChangeHandler; }, get notifyChange() { return notifyChange; }, };
+})();
+
+/* ---- src/core/log.js ---- */
+const __M_src_core_log_js = (function () {
+const { Domain } = __M_src_core_domain_js;
+const { kes, monthLabel, uid } = __M_src_core_utils_js;
+const { notifyChange } = __M_src_core_hooks_js;
+
+/* =====================================================================
+   4. UI KIT  (modal + form builder)
+   ===================================================================== */
+const fmtVal = v => (v === '' || v == null) ? '(empty)' : typeof v === 'number' ? v.toLocaleString('en-KE') : String(v);
+
+
+/* Audit trail: every commit is diffed automatically, so any new feature is logged for free */
+const Log = {
+  coll: { members: 'member', payments: 'payment', loans: 'loan', fines: 'fine', payouts: 'payout', expenses: 'expense' },
+  label(c, it, s) {
+    const who = it.memberId ? Domain.memberName(s, it.memberId) : (it.name || '');
+    const amt = it.amount != null ? ' ' + kes(it.amount) : it.principal != null ? ' ' + kes(it.principal) : '';
+    const extra = it.month ? ' for ' + monthLabel(it.month) : it.title ? ' ' + it.title : '';
+    return `${this.coll[c]}: ${who}${amt}${extra}`.replace(': ,', ':');
+  },
+  record(a, b) {
+    const out = [], fv = (k, v, st) => k === 'memberId' ? Domain.memberName(st, v) : k === 'sig' ? (v ? 'signed' : '(none)') : fmtVal(v), kn = k => k === 'memberId' ? 'member' : k;
+    Object.keys(this.coll).forEach(c => {
+      const A = new Map((a[c] || []).map(x => [x.id, x])), B = new Map((b[c] || []).map(x => [x.id, x]));
+      B.forEach((x, id) => {
+        if (!A.has(id)) out.push({ kind: 'add', text: 'Added ' + this.label(c, x, b) });
+        else if (JSON.stringify(A.get(id)) !== JSON.stringify(x)) {
+          const old = A.get(id), ch = Object.keys(x).filter(k => k !== 'id' && k !== 'aliases' && k !== 'phones' && JSON.stringify(old[k]) !== JSON.stringify(x[k]));
+          if (ch.length) out.push({ kind: 'edit', text: 'Edited ' + this.label(c, x, b), diff: ch.map(k => `${kn(k)}: ${fv(k, old[k], a)} → ${fv(k, x[k], b)}`) });
+        }
+      });
+      A.forEach((x, id) => { if (!B.has(id)) out.push({ kind: 'del', text: 'Removed ' + this.label(c, x, a) }); });
+    });
+    const ch = Object.keys(b.chama).filter(k => k !== 'pin' && JSON.stringify(a.chama[k]) !== JSON.stringify(b.chama[k]));
+    if (ch.length) out.push({ kind: 'edit', text: 'Changed chama settings', diff: ch.map(k => `${k}: ${fmtVal(a.chama[k])} → ${fmtVal(b.chama[k])}`) });
+    if (a.chama.pin !== b.chama.pin) out.push({ kind: 'edit', text: 'Changed the treasurer PIN' });
+    const ts = Date.now();
+    notifyChange(a, b);
+    b.log = [...out.map(o => ({ id: uid(), ts, by: 'Treasurer', ...o })), ...(b.log || [])].slice(0, 300);
+  }
+};
+
+return { get fmtVal() { return fmtVal; }, get Log() { return Log; }, };
+})();
+
+/* ---- src/core/store.js ---- */
+const __M_src_core_store_js = (function () {
+const { Backend } = __M_src_core_backend_js;
+const { Domain } = __M_src_core_domain_js;
+const { Log } = __M_src_core_log_js;
+const { Policy } = __M_src_core_policy_js;
+const { monthKey, uid } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+const { toast } = __M_src_ui_toast_js;
+
+/* =====================================================================
+   2. STORE  (one adapter, two backends: Firestore or localStorage)
+   ===================================================================== */
+const Store = (() => {
+  const chamaId = (new URLSearchParams(location.search).get('c') || '').replace(/[^\w-]/g, '');   /* no default Chama (A7) */
+  const subs = []; let state = null, ref = null;
+  const blank = () => ({
+    chama: { name: 'My Chama', monthly: 2000, dueDay: 10, finePerLate: 100, loanRate: 10, startMonth: monthKey(new Date()), payTo: '', mode: 'rotation' },
+    members: [], payments: [], loans: [], fines: [], payouts: [], expenses: [], log: []
+  });
+  const emit = () => subs.forEach(f => f(state));
+  const loadScript = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+  const normalise = s => { const b = blank(); return { ...b, ...s, chama: { ...b.chama, ...(s.chama || {}) } }; };
+
+  /* ---- Cloud backend (Supabase). A signed-in member reads the chama; only a treasurer writes it. RLS enforces this on the server. ---- */
+  let pushing = false, remoteVersion = null, limited = false, conflictOpen = false, conflictHandler = null, lastViewVersion = null;
+  const dirtyKey = 'chama:' + chamaId + ':dirty', localKey = 'chama:' + chamaId, verKey = 'chama:' + chamaId + ':ver';
+  const setSync = v => {
+    const bar = $('#syncBar'); if (!bar) return;
+    bar.hidden = v === 'online';
+    bar.textContent = Backend.sb ? 'Offline. Changes are kept on this phone and will send when you are back online.' : 'You are offline. Everything is saved on this phone.';
+  };
+  const saveLocal = () => { try { localStorage.setItem(localKey, JSON.stringify(state)); } catch { toast('Storage full'); } };
+  const cleanCopy = s => { const c = JSON.parse(JSON.stringify(s)); if (c.chama) delete c.chama.pin; return c; };
+  const getView = async () => { const r = await Backend.sb.rpc('get_chama_view', { cid: chamaId }); if (r.error) throw r.error; return r.data; };
+  const noteVersion = v => { remoteVersion = v == null ? null : Number(v); try { if (remoteVersion !== null) localStorage.setItem(verKey, String(remoteVersion)); } catch (e) { /* storage full: the next save will ask again */ } };
+  /* Two people saved over the same version. Nothing is overwritten until the treasurer chooses. */
+  function askConflict(remote) {
+    if (conflictOpen) return; conflictOpen = true;
+    const done = () => { conflictOpen = false; };
+    const info = {
+      remote,
+      useTheirs() { state = normalise(remote.data); noteVersion(remote.version); saveLocal(); localStorage.removeItem(dirtyKey); emit(); setSync('online'); done(); toast('Loaded the latest version. Your unsent changes were dropped.'); },
+      keepMine() { noteVersion(remote.version); localStorage.setItem(dirtyKey, '1'); done(); pushSb(); }
+    };
+    if (conflictHandler) conflictHandler(info); else info.useTheirs();
+  }
+  async function pushSb() {
+    if (pushing || conflictOpen || !Backend.sb) return;
+    if (!Policy.canWrite()) { localStorage.removeItem(dirtyKey); return; }
+    pushing = true;
+    try {
+      while (localStorage.getItem(dirtyKey)) {
+        const snap = cleanCopy(state); localStorage.removeItem(dirtyKey);
+        let q = Backend.sb.from('chamas').update({ data: snap, updated_at: new Date().toISOString() }).eq('id', chamaId);
+        if (remoteVersion !== null) q = q.eq('version', remoteVersion);
+        const { data, error } = await q.select(remoteVersion !== null ? 'id,version' : 'id');
+        if (error) { localStorage.setItem(dirtyKey, '1'); throw error; }
+        if (!data || !data.length) {
+          localStorage.setItem(dirtyKey, '1');
+          let remote = null; try { remote = await getView(); } catch (e) { /* offline: try again later */ }
+          if (remote && remoteVersion !== null && Number(remote.version) !== remoteVersion) askConflict(remote);
+          else if (remote) { localStorage.removeItem(dirtyKey); toast('Not saved. Check that you are still the treasurer.'); }
+          break;
+        }
+        if (remoteVersion !== null && data[0].version != null) noteVersion(data[0].version);
+      }
+      setSync('online');
+    } catch (e) { setSync('offline'); }
+    pushing = false;
+  }
+  async function startSync() {
+    let loaded = false, view = null;
+    try { view = await getView(); } catch (e) { view = null; }
+    if (view) {
+      limited = !!view.limited;
+      const localRaw = (() => { try { return localStorage.getItem(localKey); } catch (e) { return null; } })();
+      const unsent = !limited && Policy.canWrite() && localStorage.getItem(dirtyKey) && localRaw;
+      if (unsent) {
+        /* this phone holds changes that never reached the cloud: keep them, and only overwrite if the treasurer says so */
+        state = normalise(JSON.parse(localRaw)); loaded = true;
+        const base = localStorage.getItem(verKey);
+        if (base !== null && Number(base) === Number(view.version)) noteVersion(view.version);
+        else { noteVersion(view.version); localStorage.removeItem(dirtyKey); localStorage.setItem(dirtyKey, '1'); setTimeout(() => askConflict(view), 0); }
+      } else {
+        state = normalise(view.data);
+        if (limited) { state.shared = { ...(state.shared || {}), me: view.member_id || null }; lastViewVersion = view.version; }
+        else noteVersion(view.version);
+        saveLocal(); loaded = true;
+      }
+    } else if (Policy.canWrite()) {
+      try { const { data, error } = await Backend.sb.from('chamas').select('data').eq('id', chamaId).maybeSingle(); if (!error && data) { state = normalise(data.data); saveLocal(); loaded = true; } } catch (e) { loaded = false; }
+    }
+    if (!loaded) { try { const l = localStorage.getItem(localKey); if (l) state = normalise(JSON.parse(l)); } catch {} }
+    if (!state) state = blank();
+    emit();
+    setSync(loaded ? 'online' : 'offline');
+    if (loaded && !conflictOpen && Policy.canWrite() && localStorage.getItem(dirtyKey)) pushSb();
+    if (limited) {
+      /* members cannot receive live row changes (they may not read the full row), so they refresh by themselves */
+      const refresh = async () => {
+        try {
+          const v = await getView(); setSync('online');
+          if (v && v.version !== lastViewVersion) {
+            const next = normalise(v.data); next.shared = { ...(next.shared || {}), me: v.member_id || null };
+            lastViewVersion = v.version;
+            if (state && JSON.stringify(cleanCopy(state)) === JSON.stringify(cleanCopy(next))) return;
+            state = next; saveLocal(); emit();
+          }
+        } catch (e) { setSync('offline'); }
+      };
+      setInterval(() => { if (!document.hidden) refresh(); }, 45000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+      addEventListener('online', refresh);
+    } else {
+      Backend.sb.channel('c-' + chamaId).on('postgres_changes', { event: '*', schema: 'public', table: 'chamas', filter: 'id=eq.' + chamaId }, p => {
+        if (localStorage.getItem(dirtyKey) || pushing || conflictOpen || !p.new) return;
+        const next = normalise(p.new.data);
+        if (p.new.version != null) noteVersion(p.new.version);
+        if (state && JSON.stringify(cleanCopy(state)) === JSON.stringify(cleanCopy(next))) return;
+        state = next; saveLocal(); emit();
+      }).subscribe();
+      addEventListener('online', () => { if (Backend.sb) pushSb(); });
+      setInterval(() => { if (localStorage.getItem(dirtyKey)) pushSb(); }, 15000);
+    }
+  }
+  async function init() {   /* local-only: used when no cloud backend is configured */
+    try { state = normalise(JSON.parse(localStorage.getItem(localKey) || '{}')); } catch { state = blank(); }
+    emit();
+  }
+  /* removes every chama record on this phone (sign-out on a shared phone) */
+  function wipeLocal() {
+    Object.keys(localStorage).filter(k => k.startsWith('chama:') || k === 'mca-profile').forEach(k => localStorage.removeItem(k));
+    state = null; undoStack.length = 0;
+  }
+
+  const undoStack = [];
+  function commit(mutator, noLog) {
+    const before = JSON.stringify(state);
+    mutator(state);
+    const cashBefore = Domain.cashOnHand(JSON.parse(before)), cashAfter = Domain.cashOnHand(state);
+    if (cashAfter < 0 && cashAfter < cashBefore) {
+      Object.keys(state).forEach(k => delete state[k]); Object.assign(state, JSON.parse(before));
+      throw new Error('Not enough cash on hand for this change');
+    }
+    if (!noLog) { undoStack.push(before); if (undoStack.length > 25) undoStack.shift(); Log.record(JSON.parse(before), state); }
+    saveLocal();
+    if (ref) ref.set(state).catch(e => toast('Save failed: ' + e.message));
+    else if (Backend.sb) { localStorage.setItem(dirtyKey, '1'); pushSb(); }
+    emit();
+  }
+  function undo() {
+    const prev = undoStack.pop(); if (!prev) return false;
+    commit(s => { const p = normalise(JSON.parse(prev)); Object.keys(s).forEach(k => delete s[k]); Object.assign(s, p); s.log = [{ id: uid(), ts: Date.now(), by: 'Treasurer', kind: 'edit', text: 'Undid the last change' }, ...(s.log || [])]; }, true);
+    return true;
+  }
+  const hasUnsent = () => Object.keys(localStorage).some(k => /^chama:.+:dirty$/.test(k));
+  return { init, commit, undo, setSync, startSync, wipeLocal, hasUnsent, isLimited: () => limited, setConflictHandler: f => { conflictHandler = f; }, subscribe: f => subs.push(f), get: () => state, blank, chamaId };
+})();
+
+return { get Store() { return Store; }, };
+})();
+
+/* ---- Copy for the Choose, Create and Join screens; one-time messages across reloads ---- */
+const HUB_T = {
+  en: {
+    back: 'Back', yourChamas: 'Your Chamas', selectHint: 'Select a group to continue.',
+    noChamas: 'You are not in a Chama yet. Create one, or join with an invitation.',
+    manage: 'Manage your Chamas', createRow: 'Create a Chama', createRowSub: 'Set up a new savings group',
+    joinRow: 'Join a Chama', joinRowSub: 'Accept an invitation', selected: 'Selected',
+    members: n => n + (n === 1 ? ' member' : ' members'),
+    createTitle: 'Let’s create your Chama.', createSub: 'Start a new savings group and bring your members together.', newGroup: 'New group', pickTitle: 'We have discovered you have more than one Chama.', pickSub: 'Choose the one you want to get into right now.', scanTitle: 'Scanning for your Chamas…', scanSub: 'This only takes a moment.', createdTitle: 'Chama created',
+    groupDetails: 'Group details', groupDetailsSub: 'Enter the basic information for your new group.',
+    nameLabel: 'Chama name', namePh: 'e.g. Umoja Savings Group', nameHelp: 'Choose a clear name your members will recognise.',
+    nameNeeded: 'Type a name for your Chama. It needs at least 2 characters.',
+    membership: 'Membership', existing: 'List me as a member', existingSub: 'Your own contributions and loans will be recorded under your name. Leave this off if you only keep the books.',
+    createBtn: 'Create Chama', creatingBtn: 'Creating…', afterNote: 'You can invite other members after creation.',
+    createFail: 'The Chama was not created. Check your connection and try again. Your name is still here.',
+    joinTitle: 'Join a Chama', joinSub: 'Paste the invitation link from your email, or type the invite code your treasurer gave you.',
+    joinLabel: 'Invitation link or code', joinPh: 'Link, or a code like ABCD-EFGH-JK', joinBtn: 'Continue',
+    checking: 'Checking…', joinEmpty: 'Paste the invitation link or enter your Chama key.', joinFail: 'Could not join. Try again.',
+    keysNotReady: 'Chama keys are not available on this server yet. Use the invitation link from your email.',
+    close: 'Close', cancel: 'Cancel',
+    switched: n => 'Switched to ' + n,
+    welcomeNew: n => (n ? 'Welcome to your new Chama, ' + n + '.' : 'Welcome to your new Chama.') + ' You are the treasurer by default. Add members via the invitations.'
+  },
+  sw: {
+    back: 'Rudi', yourChamas: 'Vyama vyako', selectHint: 'Chagua kikundi ili uendelee.',
+    noChamas: 'Bado hujajiunga na Chama. Anzisha kipya, au jiunge kwa mwaliko.',
+    manage: 'Simamia Vyama vyako', createRow: 'Anzisha Chama', createRowSub: 'Panga kikundi kipya cha akiba',
+    joinRow: 'Jiunge na Chama', joinRowSub: 'Kubali mwaliko', selected: 'Imechaguliwa', newGroup: 'Kikundi kipya', pickTitle: 'Tumegundua kuwa uko kwenye Chama zaidi ya kimoja.', pickSub: 'Chagua unayotaka kuingia sasa hivi.', scanTitle: 'Inatafuta Chama zako…', scanSub: 'Itachukua muda kidogo tu.', createdTitle: 'Chama kimeundwa',
+    members: n => n + (n === 1 ? ' mwanachama' : ' wanachama'),
+    createTitle: 'Tuanzishe Chama chako.', createSub: 'Kikundi kipya huanza kwa jina na lengo la pamoja.',
+    groupDetails: 'Maelezo ya kikundi', groupDetailsSub: 'Weka taarifa za msingi za kikundi chako kipya.',
+    nameLabel: 'Jina la Chama', namePh: 'Weka jina la Chama chako', nameHelp: 'Jina hili litakitambulisha kikundi chako kwenye programu.',
+    nameNeeded: 'Andika jina la Chama chako. Linahitaji herufi angalau 2.',
+    membership: 'Uanachama', existing: 'Niorodheshe kama mwanachama', existingSub: 'Michango na mikopo yako itarekodiwa kwa jina lako. Iache ikiwa unatunza vitabu tu.',
+    createBtn: 'Anzisha Chama', creatingBtn: 'Inaanzisha…', afterNote: 'Unaweza kuwaalika wanachama wengine baada ya kuanzisha.',
+    createFail: 'Chama hakikuundwa. Angalia mtandao wako kisha ujaribu tena. Jina lako bado lipo.',
+    joinTitle: 'Una kiungo cha mwaliko?', joinSub: 'Weka kiungo hapa chini au ufunguo wa Chama ili ujiunge na kikundi kilichopo.',
+    joinLabel: 'Kiungo cha mwaliko au ufunguo wa Chama', joinPh: 'Bandika kiungo cha mwaliko au weka ufunguo wako', joinBtn: 'Jiunge na Chama',
+    checking: 'Inakagua…', joinEmpty: 'Bandika kiungo cha mwaliko au weka ufunguo wa Chama.', joinFail: 'Imeshindikana kujiunga. Jaribu tena.',
+    keysNotReady: 'Ufunguo wa Chama bado haupatikani kwenye seva hii. Tumia kiungo cha mwaliko kutoka barua pepe yako.',
+    close: 'Funga', cancel: 'Ghairi',
+    switched: n => 'Umehamia ' + n,
+    welcomeNew: n => (n ? 'Karibu kwenye Chama chako kipya, ' + n + '.' : 'Karibu kwenye Chama chako kipya.') + ' Wewe ndiye mweka hazina kwa chaguo-msingi. Waalike wanachama kupitia mialiko.'
+  }
+};
+const HL = () => HUB_T[__M_src_features_auth_gate_js.OB.lang()] || HUB_T.en;
+/* A short message that must survive the reload used after switching or creating a Chama */
+function flashNext(msg) { try { sessionStorage.setItem('mca-flash', String(msg || '')); } catch (e) { /* storage blocked: the message is simply not shown */ } }
+function showFlash() {
+  let m = '';
+  try { m = sessionStorage.getItem('mca-flash') || ''; sessionStorage.removeItem('mca-flash'); } catch (e) { m = ''; }
+  if (!m) return;
+  if (m.indexOf('dialog:') === 0) { const t = HL(); setTimeout(() => dialogNotice(t.createdTitle, m.slice(7)), 350); return; }
+  setTimeout(() => __M_src_ui_toast_js.toast(m, 'ok'), 700);
+}
+/* A centred notice with one Continue button; used where the person must acknowledge the outcome */
+function dialogNotice(title, text) {
+  __M_src_ui_toast_js.Pop.alert(String(text), { title, label: 'Continue', calm: true });
+}
+/* Turns a database error into a sentence the person can act on */
+function rpcMessage(err) {
+  const m = (err && err.message) || '';
+  return /could not find the function|schema cache/i.test(m) ? HL().keysNotReady : (m || HL().joinFail);
+}
+
+/* ---- src/core/session.js ---- */
+const __M_src_core_session_js = (function () {
+const intentIs = v => { try { return sessionStorage.getItem('mca-intent') === v; } catch (e) { return false; } };
+const clearIntent = () => { try { sessionStorage.removeItem('mca-intent'); } catch (e) {} };
+const { esc } = __M_src_core_utils_js;
+const { Policy } = __M_src_core_policy_js;
+const { CONFIG } = __M_src_config_js;
+const { Backend, loadLib } = __M_src_core_backend_js;
+const { render } = __M_src_core_rerender_js;
+const { Store } = __M_src_core_store_js;
+const { toast } = __M_src_ui_toast_js;
+
+const Perm = {
+  /* mirror of ws/permissions/permissions.js and public.role_permissions (migration 002). The server is the authority; this only decides what to SHOW. */
+  map: {
+    treasurer: ['chama.view_shared', 'finance.view_own', 'finance.view_all', 'finance.record', 'members.view_list', 'members.invite', 'members.remove', 'roles.assign', 'chama.settings', 'audit.view'],
+    secretary: ['chama.view_shared', 'finance.view_own'],
+    member: ['chama.view_shared', 'finance.view_own']
+  },
+  can(role, perm) { return !!role && Object.prototype.hasOwnProperty.call(this.map, role) && this.map[role].indexOf(perm) >= 0; },
+  label(role) { return role === 'treasurer' ? 'Treasurer' : role === 'secretary' ? 'Secretary' : 'Member'; }
+};
+
+/* Invitation link: <app>/#invite=<64 hex>. The token is read once, kept for this tab only, and removed from the address bar.
+   Opening the link never joins anyone: it only asks the server to describe the invitation (verify_invitation changes nothing). */
+const Invite = {
+  token: null, info: null, checked: false, signin: false, msg: '', busy: false,
+  MSG: {
+    invalid: 'This invitation link is not valid. Ask the treasurer to send a new one.',
+    expired: 'This invitation has expired. Ask the treasurer to resend it.',
+    revoked: 'The treasurer cancelled this invitation.',
+    accepted: 'This invitation was already used.',
+    declined: 'This invitation was declined.'
+  },
+  init() {
+    let t = null;
+    try {
+      const m = /^#invite=([0-9a-f]{64})$/.exec(location.hash || '');
+      if (m) { t = m[1]; sessionStorage.setItem('mca-invite', t); history.replaceState(null, '', location.pathname + location.search); }
+      else t = sessionStorage.getItem('mca-invite');
+    } catch (e) { /* storage blocked: the link still works for this page view */ }
+    this.token = t && /^[0-9a-f]{64}$/.test(t) ? t : null;
+  },
+  clear() { this.token = null; this.info = null; this.msg = ''; this.signin = false; try { sessionStorage.removeItem('mca-invite'); } catch (e) {} },
+  async verify() {
+    if (!this.token || !Backend.sb) return;
+    try { const { data, error } = await Backend.sb.rpc('verify_invitation', { p_token: this.token }); this.info = error ? null : data; }
+    catch (e) { this.info = null; }
+    this.checked = true;
+  },
+  async accept() {
+    if (this.busy) return; this.busy = true; this.msg = '';
+    try {
+      const { data, error } = await Backend.sb.rpc('accept_invitation', { p_token: this.token });
+      if (error) { this.msg = error.message || 'Could not accept the invitation. Try again.'; return; }
+      if (data && data.ok) {
+        const cid = data.chama_id; this.clear(); toast(data.code === 'already_member' ? 'You are already in this Chama' : 'Welcome. You have joined the Chama');
+        if (cid === Store.chamaId) { Session.status = 'loading'; await Session.after(Session.user); }
+        else location.href = location.pathname + '?c=' + encodeURIComponent(cid);
+        return;
+      }
+      const code = data && data.code;
+      this.msg = code === 'wrong_email' ? 'You are signed in as ' + Session.email + ', but this invitation was sent to ' + ((this.info && this.info.email_hint) || 'a different email') + '. Sign out and sign in with that email.' : (this.MSG[code] || this.MSG.invalid);
+    } catch (e) { this.msg = 'Could not reach the server. Check your internet and try again.'; }
+    finally { this.busy = false; render(); }
+  },
+  async decline() {
+    if (this.busy) return; this.busy = true;
+    try { await Backend.sb.rpc('decline_invitation', { p_token: this.token }); } catch (e) { /* declining is best effort */ }
+    this.busy = false; this.clear(); Session.status = 'loading'; await Session.after(Session.user);
+  }
+};
+Invite.init();
+
+const Session = {
+  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null, memberPics: {},
+  ready() { return this.status === 'ready' || this.status === 'demo'; },
+  canWrite() { return Perm.can(this.role, 'finance.record'); },
+  /* Runs when the person comes back to the page: picks up a sign-in finished in another browser or app */
+  async recheck() {
+    if (!Backend.sb || this.status !== 'signed-out' || this.busy || this.verifying) return false;
+    try {
+      const { data } = await Backend.sb.auth.getSession();
+      if (data && data.session) { await this.after(data.session.user); return true; }
+    } catch (e) { /* stay on the sign-in screen */ }
+    return false;
+  },
+  set(st) {
+    this.status = st;
+    /* watchdog: a sign-in check that never finishes becomes a visible error with a way out, never a silent hang */
+    clearTimeout(this._wd);
+    if (st === 'loading') this._wd = setTimeout(() => { if (this.status === 'loading') { this.error = 'This is taking longer than usual. Check your internet, then try again.'; this.set('error'); } }, 12000);
+    if (st === 'ready' || st === 'demo') { Welcome.start(this.displayName()); Welcome.markReady(); }
+    else if (st !== 'loading') Welcome.hide();
+    try { render(); } catch (e) { console.error(e); if (this.status === 'ready') toast('This page could not be shown. Try again from the menu.'); }
+  },
+  /* the code length comes from the database (app_config), so it always matches the Supabase setting */
+  otpLength: 6,
+  async loadConfig() {
+    try {
+      const { data } = await Backend.sb.rpc('get_app_config');
+      const n = Number(data && data.otp_length);
+      if (n >= 4 && n <= 10) this.otpLength = n;
+    } catch (e) { /* keep the default; the sign-in still works */ }
+  },
+  /* every time the app opens: the server copies Supabase's code length into app_config, and the boxes follow it */
+  async syncOtp() {
+    try {
+      const { data, error } = await Backend.sb.functions.invoke('sync-config');
+      if (!error && data && data.otp_length) {
+        const was = this.otpLength; this.otpLength = data.otp_length;
+        if (was !== this.otpLength && this.status === 'signed-out') __M_src_features_auth_gate_js.Gate.paint();
+      }
+    } catch (e) { /* keep the current length */ }
+  },
+  /* the first name in the email: john.kamau@... becomes John */
+  nameFrom(email) {
+    const first = String(email || '').split('@')[0].split(/[._+-]+/)[0].replace(/\d+/g, '');
+    return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : '';
+  },
+  displayName() {
+    if (this.account && this.account.full_name) return String(this.account.full_name).trim().split(/\s+/)[0];
+    if (this.email) return this.nameFrom(this.email);
+    try { const me = JSON.parse(localStorage.getItem('mca-profile') || '{}'); if (me.name) return String(me.name).trim().split(/\s+/)[0]; } catch (e) {}
+    return '';
+  },
+  async boot() {
+    if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
+    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, lock: async function (_n, _t, fn) { return await fn(); } } }); }
+    catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
+    let settle = false;
+    Backend.sb.auth.onAuthStateChange((ev, sess) => {
+      if (!settle && ev === 'SIGNED_OUT') return;
+      if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); return; }
+      if ((ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION') && sess && !this.verifying && (!this.user || this.user.id !== sess.user.id || this.status === 'signed-out')) this.after(sess.user);
+      if (sess) { try { __M_src_features_auth_gate_js.OB.syncConsent(); } catch (e) {} }
+    });
+    try { await this.loadConfig(); await Promise.race([this.syncOtp(), new Promise(r => setTimeout(r, 1500))]); await Invite.verify(); } catch (e) { /* the account check still runs */ }
+    const oauthMsg = this.takeOAuthError();
+    let data = {};
+    try { data = (await Backend.sb.auth.getSession()).data || {}; } catch (e) { data = {}; }
+    if (!(data && data.session) && /[?&]code=/.test(location.search)) {
+      await new Promise(r => setTimeout(r, 1200));
+      try { data = (await Backend.sb.auth.getSession()).data || {}; } catch (e) { data = data || {}; }
+    }
+    settle = true;
+    if (data && data.session) { if (!this.user) await this.after(data.session.user); }
+    else { if (oauthMsg) { try { __M_src_features_auth_gate_js.Gate.notice = oauthMsg; } catch (e) {} } this.prepareGoogle(); if (!this.user) this.set('signed-out'); }
+  },
+  /* After any sign-in: (1) is the account finished? (2) is there an invitation to accept? (3) which Chama opens? */
+  async after(user) {
+    if (this.busy) return;
+    if (this.status === 'ready' && this.user && this.user.id === user.id) return;
+    this.busy = true;
+    this.user = user; this.email = String(user.email || '').toLowerCase();
+    this.set('loading');
+    try {
+      this.takeDevice(user.id);
+      this.clearStaleLocal(user.id);
+      let acct;
+      try { const { data, error } = await Backend.sb.rpc('my_account_status'); if (error) throw error; acct = data || {}; }
+      catch (e) { throw new Error('Your account could not be checked. Make sure the database steps are finished, then try again.'); }
+      this.account = acct;
+      const google = this.usesGoogle(user);
+      if (google && intentIs('forgot')) clearIntent();
+      const canEnter = !!(acct.has_password || google);
+      if (!acct.has_profile || !canEnter || acct.needs_username || (!google && intentIs('forgot'))) { this.setupMode = acct.has_profile && canEnter && !acct.needs_username ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
+      if (Invite.token && Invite.info && Invite.info.ok) { this.role = null; this.memberId = null; this.busy = false; this.set('invite'); return; }
+      await this.openWorkspace(user);
+    } catch (e) {
+      if (this.status === 'ready') { console.error(e); return; }   /* signed in already: never send the person back to sign-in */
+      this.error = e.message || 'Could not reach the cloud.'; this.set('error');
+    } finally { this.busy = false; }
+  },
+  /* Removes locally cached Chama data that does not belong to the current Chama (A21). */
+  clearStaleLocal(uid) {
+    try {
+      const keep = 'chama:' + Store.chamaId;
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('mca-set-aside:')) localStorage.removeItem(k);
+        else if (k === 'mca-profile') { try { if ((JSON.parse(localStorage.getItem(k) || 'null') || {}).uid !== uid) localStorage.removeItem(k); } catch (e) { localStorage.removeItem(k); } }
+        else if (k.startsWith('chama:') && !k.startsWith(keep) && !k.startsWith('chama:me:')) localStorage.removeItem(k);
+      });
+    } catch (e) { /* storage blocked */ }
+  },
+  /* A phone may be shared. Another person's saved Chama data is set aside (kept, not shown), never mixed into this account. */
+  takeDevice(uid) {
+    try {
+      const prev = localStorage.getItem('mca-owner');
+      if (prev && prev !== uid) Object.keys(localStorage).filter(k => k.startsWith('chama:')).forEach(k => { try { localStorage.setItem('mca-set-aside:' + prev + ':' + k, localStorage.getItem(k)); localStorage.removeItem(k); } catch (e) {} });
+      localStorage.setItem('mca-owner', uid);
+    } catch (e) { /* storage blocked: nothing to protect */ }
+  },
+  async openWorkspace(user) {
+    const { data: ws, error } = await Backend.sb.rpc('my_workspaces');
+    if (error) throw error;
+    this.workspaces = ws || [];
+    const here = this.workspaces.find(w => w.chama_id === Store.chamaId);
+    this.groupName = here ? here.chama_name : null;
+    if (here && !this.chooserOpen) return this.enter(user, here.role);
+    if (!here && this.workspaces.length === 1 && !this.chooserOpen) return this.switchTo(this.workspaces[0].chama_id);
+    this.chooserOpen = false; this.role = null; this.memberId = null; this.busy = false;
+    this.set(this.workspaces.length ? 'choose' : 'welcome');
+  },
+  async enter(user, roleFromList) {
+    /* the role comes from the same server answer that listed this Chama (my_workspaces); the member link is read next */
+    let { data: m, error } = await Backend.sb.from('chama_members').select('role,member_id').eq('chama_id', Store.chamaId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
+    if (error) throw error;
+    const role = (m && m.role) || roleFromList;
+    if (!role) throw new Error('Your membership could not be loaded. Try again.');
+    m = { role, member_id: m ? m.member_id : null };
+    this.role = m.role; this.memberId = m.member_id || null;
+    try { await this.loadProfile(user); } catch (e) { /* the profile is optional */ }
+    this.hydrating = false;
+    this.busy = false;
+    this.set('ready');
+    if (Perm.can(m.role, 'members.invite')) { this.loadAccess().catch(() => {}); this.loadInvites().catch(() => {}); }
+    Store.startSync().catch(() => {}).then(() => this.loadMemberPics().catch(() => {}));
+  },
+  switchTo(id) {
+    let left = false;
+    const go = () => { if (left) return; left = true; location.replace(location.pathname + '?c=' + encodeURIComponent(id)); };
+    const auth = Backend.sb && Backend.sb.auth;
+    if (!auth || !auth.getSession) { go(); return; }
+    auth.getSession().then(go).catch(go);
+    setTimeout(go, 700);
+  },
+  async openChooser() {
+    if (!Backend.sb || !this.user) return;
+    this.chooserOpen = true;
+    try { const { data } = await Backend.sb.rpc('my_workspaces'); this.workspaces = data || this.workspaces; } catch (e) { /* show the list we already have */ }
+    this.set('choose');
+  },
+  closeChooser() { this.chooserOpen = false; this.set(this.role ? 'ready' : 'welcome'); },
+  usesGoogle(user) {
+    const u = user || this.user;
+    if (!u) return false;
+    const ids = u.identities || [];
+    if (ids.some(i => i.provider === 'google')) return true;
+    const meta = u.app_metadata || {};
+    return meta.provider === 'google' || (meta.providers || []).indexOf('google') !== -1;
+  },
+  googleName(user) {
+    const m = ((user || this.user) && (user || this.user).user_metadata) || {};
+    return String(m.full_name || m.name || '').trim();
+  },
+  takeOAuthError() {
+    let q;
+    try { q = new URLSearchParams(location.search); } catch (e) { return ''; }
+    const raw = q.get('error_description') || '';
+    const code = q.get('error') || '';
+    if (!raw && !code) return '';
+    q.delete('error'); q.delete('error_description'); q.delete('error_code');
+    const search = q.toString();
+    try { history.replaceState(null, '', location.pathname + (search ? '?' + search : '') + location.hash); } catch (e) {}
+    let t = raw;
+    try { t = decodeURIComponent(raw.replace(/\+/g, ' ')); } catch (e) {}
+    if (/already registered|already been registered|already exists|identity is already/i.test(t)) return 'This email already has an account. Sign in with your password. Google can be used for that same email once linking is on.';
+    if (/provider is not enabled|Unsupported provider|validation_failed/i.test(t + code)) return 'Google sign-in is not switched on in the cloud yet.';
+    return 'Google sign-in did not finish. Try again, or use Sign in.';
+  },
+  googleLeft: false,
+  googleUrl: '',
+  googleVerifier() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const buf = new Uint8Array(56);
+    crypto.getRandomValues(buf);
+    let out = '';
+    for (let i = 0; i < buf.length; i++) out += chars[buf[i] % chars.length];
+    return out;
+  },
+  /* Written the way the sign-in library reads it back after Google returns. */
+  storeVerifier(verifier) {
+    localStorage.setItem('sb-sgfvjsxmchohawhqraii-auth-token-code-verifier', JSON.stringify(verifier));
+  },
+  googleAuthorize(verifier, method, challenge) {
+    const base = CONFIG.supabase && CONFIG.supabase.url;
+    if (!base) return '';
+    const back = location.origin + location.pathname + location.search;
+    const q = new URLSearchParams({
+      provider: 'google',
+      redirect_to: back,
+      code_challenge: challenge || verifier,
+      code_challenge_method: method,
+      prompt: 'select_account',
+    });
+    return base.replace(/\/$/, '') + '/auth/v1/authorize?' + q.toString();
+  },
+  googleUrlPlain() {
+    const verifier = this.googleVerifier();
+    this.storeVerifier(verifier);
+    return this.googleAuthorize(verifier, 'plain');
+  },
+  async prepareGoogle() {
+    if (this.googleLeft || this.googleUrl) return;
+    try {
+      const verifier = this.googleVerifier();
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+      if (this.googleLeft) return;
+      const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      this.storeVerifier(verifier);
+      this.googleUrl = this.googleAuthorize(verifier, 's256', challenge);
+    } catch (e) { /* the tap can still build a plain link */ }
+  },
+  /* Open Google in this tap. Do not wait on the sign-in library: that wait is what left the button pressed. */
+  googleSignIn() {
+    if (!(CONFIG.supabase && CONFIG.supabase.url)) { __M_src_features_auth_gate_js.Gate.notice = 'Sign-in is not set up in this app yet'; __M_src_features_auth_gate_js.Gate.paint(); return; }
+    this.googleLeft = true;
+    let url = '';
+    try { url = this.googleUrl || this.googleUrlPlain(); }
+    catch (e) { url = ''; }
+    if (!url) { this.googleLeft = false; __M_src_features_auth_gate_js.Gate.notice = 'Google sign-in did not start. Try again.'; __M_src_features_auth_gate_js.Gate.paint(); return; }
+    window.location.assign(url);
+  },
+  /* email OR username + the one global password. The server function finds the email; the browser never sees it. */
+  async passwordSignIn(identifier, password) {
+    const WRONG = 'Email, username or password is not right';
+    let r;
+    try { r = await Backend.sb.functions.invoke('auth-login', { body: { identifier, password } }); } catch (e) { r = { error: e }; }
+    if (!r.error && r.data && r.data.session) {
+      const { error } = await Backend.sb.auth.setSession({ access_token: r.data.session.access_token, refresh_token: r.data.session.refresh_token });
+      if (error) return { error: 'Could not start your session. Try again.' };
+      clearIntent(); return { ok: true };
+    }
+    const err = r.error;
+    if (err && err.context && typeof err.context.json === 'function') {
+      const st = err.context.status; let j = {}; try { j = await err.context.json(); } catch (e) {}
+      if (st === 429) return { error: 'Too many tries. Wait 10 minutes, then try again.' };
+      if (st !== 404) return { error: j.error || WRONG };
+    }
+    /* no direct password fallback: it would skip the server throttle (S5). Report the real state instead. */
+    if (err && err.context && err.context.status === 404) return { error: 'Sign-in is not available yet. Please try again later.' };
+    return { error: 'Could not reach sign-in. Check your connection and try again.' };
+  },
+  /* the step after the email code: name + username (new accounts) and the one global password */
+  async finishSetup(fullName, username, password) {
+    if (this.setupMode === 'new') {
+      const { error } = await Backend.sb.rpc('set_my_profile', { p_full_name: fullName, p_username: username });
+      if (error) throw new Error(error.message);
+    }
+    if (password) {
+      const { error: e2 } = await Backend.sb.auth.updateUser({ password });
+      if (e2 && /AAL2|MFA/i.test(e2.message)) {
+        try { await Backend.sb.auth.signOut(); } catch (e) {}
+        throw new Error('Your sign-in session was closed for safety. Press Start again and enter a new email code.');
+      }
+      if (e2) throw new Error(/same|different/i.test(e2.message) ? 'Choose a password you have not used before' : e2.message);
+    }
+    clearIntent(); this.account = null; this.busy = false;
+    await this.after(this.user);
+  },
+  async joinWithLink(text) {
+    const raw = String(text || ''), compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!/[0-9a-f]{64}/i.test(raw) && compact.length === 10) return this.joinWithCode(compact);
+    const m = /[0-9a-f]{64}/i.exec(String(text || ''));
+    if (!m) return { error: 'That does not look like an invitation link. Copy the whole link from the email.' };
+    Invite.token = m[0].toLowerCase(); Invite.checked = false; Invite.info = null; Invite.signin = true;
+    try { sessionStorage.setItem('mca-invite', Invite.token); } catch (e) {}
+    await Invite.verify();
+    if (Invite.info && Invite.info.ok) { this.set('invite'); return { ok: true }; }
+    const code = Invite.info && Invite.info.code; const msg = Invite.MSG[code] || (Invite.info ? Invite.MSG.invalid : 'Could not check the invitation. Check your internet and try again.');
+    Invite.clear(); return { error: msg };
+  },
+  /* ---- one profile for every Chama: name, username, phone, contact email and photo live on the account (profiles) ---- */
+  readProfile() { try { return JSON.parse(localStorage.getItem('mca-profile') || 'null') || {}; } catch (e) { return {}; } },
+  writeProfile(v) { try { localStorage.setItem('mca-profile', JSON.stringify(v)); } catch (e) { toast('Storage full'); } },
+  legacyProfile() { try { const k = Object.keys(localStorage).find(x => x.startsWith('chama:me:')); return k ? JSON.parse(localStorage.getItem(k)) || {} : {}; } catch (e) { return {}; } },
+  /* the photo to show for a member: the account photo when the member is linked, else the copy in the Chama record */
+  photoFor(m) {
+    const pic = m && m.id && this.memberPics ? this.memberPics[m.id] : null;
+    if (pic && pic.photo) return pic.photo;
+    return (m && m.photo) || null;
+  },
+  async loadProfile(user) {
+    if (!Backend.sb) return;
+    const { data, error } = await Backend.sb.rpc('get_my_profile');
+    if (error) return;   /* database steps not run yet: keep what this phone already has */
+    const cur = this.readProfile(), legacy = this.legacyProfile();
+    const base = { ...legacy, ...(cur.uid && cur.uid !== user.id ? {} : cur) };
+    const p = { ...(data || {}) };
+    let moved = !!base.moved;
+    if (!moved) {   /* one-time: copy what this phone held before the profile moved to the account */
+      let ok = true;
+      if (base.photo && !p.photo) { const r = await Backend.sb.rpc('set_my_photo', { p_photo: base.photo }); if (r.error) ok = false; else p.photo = base.photo; }
+      const nm = p.full_name || base.name || '';
+      if (nm && ((base.phone && !p.phone) || (base.email && !p.contact_email))) {
+        const ph = p.phone || base.phone || '', em = p.contact_email || base.email || '';
+        const r = await Backend.sb.rpc('save_my_details', { p_full_name: nm, p_phone: ph, p_contact_email: em, p_username: null });
+        if (r.error) ok = false; else { p.full_name = nm; p.phone = ph || null; p.contact_email = em || null; }
+      }
+      moved = ok;
+    }
+    this.writeProfile({ uid: user.id, moved, name: p.full_name || base.name || '', phone: p.phone || '', email: p.contact_email || '', username: p.username || '', photo: p.photo || null, signInEmail: p.sign_in_email || '' });
+    if (moved) Object.keys(localStorage).filter(k => k.startsWith('chama:me:')).forEach(k => localStorage.removeItem(k));
+  },
+  /* the Chama's member photos and names for this person's account. Members see each other's photos here. */
+  async loadMemberPics() {
+    if (!Backend.sb || !this.user) return;
+    const { data, error } = await Backend.sb.rpc('get_chama_member_profiles', { p_cid: Store.chamaId });
+    if (error) return;   /* database steps not run yet: members keep the copy in the Chama record */
+    const rows = data || [], pics = {};
+    rows.forEach(r => { pics[r.member_id] = { name: r.name || '', photo: r.photo || null }; });
+    this.memberPics = pics;
+    /* Only the treasurer can write the Chama record, so only the treasurer makes the member list show each person's account name */
+    const s = Store.get();
+    if (this.role === 'treasurer' && s) {
+      const fix = rows.filter(r => r.name && (s.members || []).some(m => m.id === r.member_id && m.name !== r.name));
+      if (fix.length) Store.commit(st => { fix.forEach(r => { const m = st.members.find(x => x.id === r.member_id); if (m) m.name = r.name; }); }, true);
+    }
+    render();
+  },
+  /* name, username, phone and contact email for every Chama at once */
+  async saveDetails(d) {
+    if (!Backend.sb) throw new Error('Sign in to save your details');
+    const { data, error } = await Backend.sb.rpc('save_my_details', { p_full_name: d.name, p_phone: d.phone || '', p_contact_email: d.email || '', p_username: d.username || null });
+    if (error) throw new Error(error.message);
+    const cur = this.readProfile(), username = (data && data.username) || cur.username || '';
+    this.writeProfile({ ...cur, name: d.name, phone: d.phone || '', email: d.email || '', username });
+    this.account = { ...(this.account || {}), username, full_name: d.name };
+    const s = Store.get();
+    if (this.role === 'treasurer' && this.memberId && s) Store.commit(st => { const m = st.members.find(x => x.id === this.memberId); if (m) m.name = d.name; }, true);
+  },
+  /* one photo for every Chama. null removes it. */
+  async savePhoto(url) {
+    if (!Backend.sb) throw new Error('Sign in to save your photo');
+    const { error } = await Backend.sb.rpc('set_my_photo', { p_photo: url || '' });
+    if (error) throw new Error(/does not exist|Could not find the function/i.test(error.message)
+      ? 'Photos are not available on this server yet. Try again after the database update.'
+      : error.message);
+    this.writeProfile({ ...this.readProfile(), photo: url || null });
+    if (this.memberId) this.memberPics = { ...this.memberPics, [this.memberId]: { ...((this.memberPics || {})[this.memberId] || {}), photo: url || null } };
+  },
+  /* the one global password. Checked through the same throttled sign-in as the sign-in screen, then changed. */
+  async changePassword(current, next) {
+    if (!Backend.sb) throw new Error('Sign in to change your password');
+    if (!this.email) throw new Error('Sign in again to change your password');
+    const r = await this.passwordSignIn(this.email, current);
+    if (r.error) throw new Error(/password is not right/.test(r.error) ? 'Your current password is not right' : r.error);
+    const { error } = await Backend.sb.auth.updateUser({ password: next });
+    if (error) throw new Error(/same|different|previous/i.test(error.message) ? 'Choose a password you have not used before' : error.message);
+  },
+  async loadAccess() {
+    if (this.role !== 'treasurer' || !Backend.sb) return;
+    const { data, error } = await Backend.sb.rpc('list_access', { cid: Store.chamaId });
+    if (error) toast(error.message);
+    this.access = error ? [] : (data || []); await this.loadCodes(); render();
+  },
+  async loadInvites() {
+    if (!Backend.sb || !Perm.can(this.role, 'members.invite')) return;
+    const { data, error } = await Backend.sb.rpc('list_invitations', { cid: Store.chamaId });
+    this.invites = error ? null : (data || []);   /* null = the invitation system is not installed on this database yet */
+    render();
+  },
+  /* create / resend through the server function, which emails the link. { unavailable: true } = function not deployed yet. */
+  async sendInvite(action, payload) {
+    const { data, error } = await Backend.sb.functions.invoke('send-invitation', { body: { action, chama_id: Store.chamaId, ...payload } });
+    if (error) {
+      /* the real reason is shown; nothing is hidden behind a fallback */
+      if (error.context && typeof error.context.json === 'function') {
+        const st = error.context.status; let j = {}; try { j = await error.context.json(); } catch (e) {}
+        if (st === 404) throw new Error('The invitation service is not deployed yet (404). Deploy send-invitation in Supabase.');
+        throw new Error('Invitation service (' + st + '): ' + (j.error || 'no details'));
+      }
+      throw new Error('Could not reach the invitation service: ' + (error.message || 'unknown error') + '. Check the internet, then try again.');
+    }
+    return data || {};
+  },
+  async revoke(email) {
+    const { error } = await Backend.sb.rpc('remove_member', { cid: Store.chamaId, p_email: email });
+    if (error) throw new Error(error.message);
+    await this.loadAccess(); toast('Access removed. Their records are kept');
+  },
+  cid() { return Store.chamaId; },
+  async createChama(name, listed = true) {
+    const b = Store.blank(); delete b.chama.pin; b.chama.name = name;
+    /* the creator is listed as member 1 unless they choose to be officer only; a listed creator gets a member link (member_id) */
+    const who = ((this.account && this.account.full_name) || '').trim() || 'Treasurer';
+    b.members = listed ? [{ id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), name: who, shares: 1, joined: (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); })() }] : [];
+    const { data, error } = await Backend.sb.rpc('create_chama_global', { cname: name, cdata: b });
+    if (error) throw new Error(error.message);
+    flashNext('dialog:' + HL().welcomeNew(((this.account && this.account.full_name) || '').trim()));
+    this.switchTo(data.chama_id);
+  },
+  async loadCodes() {
+    if (this.role !== 'treasurer' || !Backend.sb) { this.codes = []; return; }
+    const { data, error } = await Backend.sb.rpc('list_invite_codes', { p_cid: Store.chamaId });
+    if (error) toast(error.message);
+    this.codes = error ? [] : (data || []);
+  },
+  async createCode(o) {
+    const { data, error } = await Backend.sb.rpc('create_invite_code', { p_cid: Store.chamaId, p_role: o.role, p_hours: o.hours, p_max_uses: o.maxUses, p_listed_member: o.memberId || null });
+    if (error) throw new Error(error.message);
+    const r = Array.isArray(data) ? data[0] : data;
+    this.newCode = r ? { code: r.out_code, expires_at: r.out_expires_at } : null;
+    await this.loadAccess();
+  },
+  async revokeCode(id) {
+    const { error } = await Backend.sb.rpc('revoke_invite_code', { p_id: id });
+    if (error) throw new Error(error.message);
+    await this.loadAccess();
+  },
+  async saveTag(tag) {
+    const { data, error } = await Backend.sb.rpc('set_display_tag', { p_cid: Store.chamaId, p_tag: tag });
+    if (error) throw new Error(error.message);
+    const w = (this.workspaces || []).find(x => x.chama_id === Store.chamaId); if (w) w.display_tag = data;
+    await this.loadAccess();
+    return data;
+  },
+  codeBlockHtml() {
+    if (this.role !== 'treasurer') return '';
+    const ws = (this.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
+    const tag = ws.display_tag || '';
+    const fresh = this.newCode ? `<div class="card tint" style="margin-bottom:12px;text-align:center"><p class="plain"><b>New invite code. It is shown only once.</b></p><p class="num" style="font:700 1.7em/1.2 var(--font-display);letter-spacing:.12em;margin:10px 0;user-select:all;-webkit-user-select:all">${esc(this.newCode.code)}</p><p class="plain">Expires ${esc(new Date(this.newCode.expires_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }))}. Anyone with this code can join with the role you chose, up to the number of uses you set.</p><div class="btns" style="justify-content:center"><button class="btn pri" data-act="codeCopy">${icon('copy')}Copy code</button><button class="btn" data-act="codeDone">Done</button></div></div>` : '';
+    const now = new Date();
+    const rows = (this.codes || []).map(c => {
+      const st = c.revoked_at ? 'cancelled' : (new Date(c.expires_at) <= now ? 'expired' : (c.uses >= c.max_uses ? 'used up' : 'open'));
+      return `<div class="li has-ic"><span class="li-ic t-gold">${icon('key')}</span><div class="li-main"><b class="num">${esc(c.prefix)}…</b><small>${esc(Perm.label(c.role))} · ${esc(c.uses)} of ${esc(c.max_uses)} used · ${esc(st)}</small></div>${st === 'open' ? `<div class="li-end"><button class="btn sm bad" data-act="codeRevoke" data-id="${esc(c.id)}">Cancel</button></div>` : ''}</div>`;
+    }).join('');
+    const mem = (Store.get().members || []).map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+    const roles = `<option value="member">Member</option><option value="secretary">Secretary</option>${this.role === 'treasurer' ? '<option value="treasurer">Treasurer</option>' : ''}`;
+    return `${fresh}<div class="card form"><p class="plain" style="margin-bottom:6px">For people who will not get an email. Share the code however you like. They enter it under Join a Chama.</p>
+      <label>Role<select id="codeRole">${roles}</select></label>
+      <label>Valid for<select id="codeHours"><option value="24">1 day</option><option value="168" selected>7 days</option><option value="720">30 days</option></select></label>
+      <label>Number of uses (1 to 100)<input id="codeUses" type="number" inputmode="numeric" min="1" max="100" value="1"></label>
+      <label>Member record<select id="codeMember"><option value="">Officer only: not on the member list</option>${mem}</select></label>
+      <button type="button" class="btn pri block" style="margin-top:18px" data-act="codeCreate">${icon('key')}Create code</button></div>
+      ${rows ? `<div class="list" style="margin-top:12px">${rows}</div>` : ''}
+      <div class="card form" style="margin-top:12px"><label>Chama tag (4 letters or numbers)<input id="codeTag" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false" value="${esc(tag)}"><small>Shown to people joining, so they know they have the right group.</small></label>
+      <button type="button" class="btn block" style="margin-top:14px" data-act="tagSave">Save tag</button></div>`;
+  },
+  /* join by code: check first, then ask the person to confirm, then redeem in one database step */
+  async joinWithCode(code) {
+    if (!Backend.sb) return { error: 'Sign-in is not set up in this app yet' };
+    const { data, error } = await Backend.sb.rpc('preview_invite_code', { p_code: code });
+    if (error) return { error: rpcMessage(error) };
+    if (!data || !data.ok) return { error: (data && data.error) || 'That code did not work.' };
+    if (data.already_member) { this.switchTo(data.chama_id); return { ok: true }; }
+    __M_src_ui_modal_js.Modal.open({ title: 'Join this Chama?', submitLabel: 'Join Chama',
+      body: `<p class="plain">You are joining <b>${esc(data.chama_name)}</b> (tag <b class="num">${esc(data.display_tag)}</b>) as <b>${esc(Perm.label(data.role))}</b>.</p><p class="plain mute">You can leave later from Settings.</p>`,
+      onSubmit: () => { setTimeout(async () => {
+        try {
+          const { data: r, error: e } = await Backend.sb.rpc('redeem_invite_code', { p_code: code });
+          if (e) throw new Error(rpcMessage(e));
+          if (!r || !r.ok) { __M_src_features_auth_gate_js.Gate.joinMsg = (r && r.error) || 'That code did not work.'; __M_src_features_auth_gate_js.Gate.paint(); return toast(__M_src_features_auth_gate_js.Gate.joinMsg); }
+          this.switchTo(r.chama_id);
+        } catch (err) { toast(err.message || 'Could not join. Try again.'); }
+      }, 0); } });
+    return { ok: true };
+  },
+  async signOut() {
+    try { await Backend.sb.auth.signOut(); } catch {}
+    clearIntent(); this.account = null; this.workspaces = [];
+    Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out');
+  }
+};
+
+Policy.canWrite = () => Session.canWrite();
+
+return { get Session() { return Session; }, get Perm() { return Perm; }, get Invite() { return Invite; }, };
+})();
+
+/* ---- src/core/auth.js ---- */
+const __M_src_core_auth_js = (function () {
+const { Session, Perm } = __M_src_core_session_js;
+
+/* =====================================================================
+   5. VIEWS  (state in, html out)
+   ===================================================================== */
+const Auth = {
+  isAdmin: () => Perm.can(Session.role, 'chama.settings'),
+  can: (perm) => Perm.can(Session.role, perm)
+};
+
+const adminBtn = (html) => Auth.isAdmin() ? html : '';
+
+return { get Auth() { return Auth; }, get adminBtn() { return adminBtn; }, };
+})();
+
+/* ---- src/core/me.js ---- */
+const __M_src_core_me_js = (function () {
+const { Session } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { toast } = __M_src_ui_toast_js;
+
+const Me = {
+  key: () => 'mca-profile',
+  get() { let o = {}; try { o = JSON.parse(localStorage.getItem(this.key()) || 'null') || {}; } catch {} return { ...o, memberId: Session.memberId || null }; },
+  save(v) { const { memberId, ...rest } = v || {}; try { localStorage.setItem(this.key(), JSON.stringify(rest)); } catch { toast('Storage full'); } }
+};
+
+return { get Me() { return Me; }, };
+})();
+
+/* ---- src/core/history.js ---- */
+const __M_src_core_history_js = (function () {
+
+const Hist = {
+  s: [],
+  visit(r, prev) {
+    const n = this.s.length;
+    if (n && this.s[n - 1] === r) this.s.pop();
+    else if (prev && prev !== r) this.s.push(prev);
+    if (this.s.length > 30) this.s.shift();
+  },
+  back() { return this.s.length ? this.s[this.s.length - 1] : 'home'; }
+};
+
+return { get Hist() { return Hist; }, };
+})();
+
+/* ---- src/core/routes.js ---- */
+const __M_src_core_routes_js = (function () {
+
+/* =====================================================================
+   7. ROUTER + RENDER
+   ===================================================================== */
+const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['loans', 'Loans'], ['members', 'Members'], ['profile', 'Profile']];
+
+const SUB = ['fines', 'expenses', 'history', 'reports'];
+
+const PAGES = ['settings', 'notifications'];
+
+/* ---------- NAV: liquid tab bar, tap or drag ---------- */
+const NAV_ICON = { profile: ICONS.profile, home: ICONS.home, grid: ICONS.grid, loans: ICONS.loans, members: ICONS.members, more: ICONS.more };
+
+const NAV_LABEL = { home: 'Home', grid: 'Payments', loans: 'Loans', members: 'Members', profile: 'Me' };
+
+const SETTINGS_NAME = { 'legal/privacy': 'Privacy Policy', 'legal/terms': 'Terms of Use', 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/app': 'Display', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/help': 'Help and support', 'settings/privacy': 'Privacy and data', 'settings/actions': 'People and access', 'settings/about': 'About' };
+
+const PAGE_NAME = { home: 'Home', grid: 'Contributions', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings', notifications: 'Notifications', 'notifications/settings': 'Notification settings' };
+
+const BACK = { notifications: 'home', 'notifications/settings': 'notifications', fines: 'home', expenses: 'home', history: 'home', reports: 'home', profile: 'home', settings: 'home' };
+
+const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) || r.startsWith('settings/') || r.startsWith('notifications/') || r === 'legal/privacy' || r === 'legal/terms' ? r : 'home'; };
+
+return { get ROUTES() { return ROUTES; }, get SUB() { return SUB; }, get PAGES() { return PAGES; }, get NAV_ICON() { return NAV_ICON; }, get NAV_LABEL() { return NAV_LABEL; }, get SETTINGS_NAME() { return SETTINGS_NAME; }, get PAGE_NAME() { return PAGE_NAME; }, get BACK() { return BACK; }, get route() { return route; }, };
+})();
+
+/* ---- src/features/auth/gate.js ---- */
+const __M_src_features_auth_gate_js = (function () {
+const { Backend } = __M_src_core_backend_js;
+const { toast } = __M_src_ui_toast_js;
+const { Session, Perm, Invite } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { esc } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+
+const Haptic = {
+  pulse(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} },
+  sw() { const l = document.getElementById('hapticSw'); if (l) l.click(); },
+  tap() { this.pulse(8); __M_src_ui_toast_js.Sfx.tap(); },
+  ok() { this.pulse([16, 60, 24]); this.sw(); __M_src_ui_toast_js.Sfx.ok(); },
+  no() { this.pulse([60, 40, 60]); __M_src_ui_toast_js.Sfx.no(); }
+};
+
+/* One-time code entry. The code length follows the Supabase setting (Session.otpLength).
+   One hidden input takes typing, paste and the phone's code autofill; the cells only show it. */
+const Otp = {
+  len: 8, kind: 'email', hold: false, busy: false, until: 0, timer: null,
+  sleep(ms) { return new Promise(r => setTimeout(r, ms)); },
+  html(o) {
+    const n = this.len, half = Math.ceil(n / 2);
+    let cells = '';
+    for (let i = 0; i < n; i++) {
+      if (i === half && n > 5) cells += '<span class="otp-gap" aria-hidden="true"></span>';
+      cells += `<span class="otp-cell" style="--i:${i}"></span>`;
+    }
+    const resend = o.resend === false ? '' : `<p>Didn’t get it? <button type="button" id="otpResend" data-act="gateResend" disabled>Send again</button></p>`;
+    const change = o.change ? `<p><button type="button" data-act="gateReset">Use a different email</button></p>` : '';
+    return `<div class="otp" id="otpWrap">
+      <div class="otp-stage" id="otpStage">
+        <div class="otp-row" aria-hidden="true">${cells}</div>
+        <input id="otpIn" class="otp-in" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="${n}" aria-label="${n}-digit code from your email" autofocus>
+      </div>
+      <div class="otp-done" aria-hidden="true"><svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="24"/><path d="M16 27.5l7.5 7.5L38.5 20"/></svg></div>
+      <p class="otp-msg" id="otpMsg" role="status" aria-live="polite"></p>
+      <div class="otp-foot">${resend}${change}</div>
+    </div>`;
+  },
+  paint(v) {
+    const cells = document.querySelectorAll('#otpStage .otp-cell');
+    cells.forEach((el, i) => {
+      const ch = v[i] || '';
+      if (ch && el.textContent !== ch) { el.classList.remove('fill'); void el.offsetWidth; el.classList.add('fill'); }
+      el.textContent = ch;
+      el.classList.toggle('cur', i === v.length && v.length < this.len);
+    });
+  },
+  msg(t) { const m = document.getElementById('otpMsg'); if (m) m.textContent = t; },
+  fit() {},
+  reset() {
+    const wrap = document.getElementById('otpWrap'), inp = document.getElementById('otpIn');
+    if (wrap) wrap.classList.remove('bad', 'ok', 'shake', 'verifying');
+    if (inp) { inp.value = ''; inp.disabled = false; }
+    this.busy = false; this.hold = false; Session.verifying = false;
+    try { sessionStorage.removeItem('mca-otp'); } catch (e) {}
+    this.paint('');
+    this.msg('');
+  },
+  start() { this.until = Date.now() + 60000; clearInterval(this.timer); this.tick(); this.timer = setInterval(() => this.tick(), 500); },
+  tick() {
+    const b = document.getElementById('otpResend'); if (!b) return;
+    const left = Math.max(0, Math.ceil((this.until - Date.now()) / 1000));
+    b.disabled = left > 0; b.textContent = left > 0 ? `Send again in ${left}s` : 'Send again';
+  },
+  onInput(inp) {
+    if (this.busy) return;
+    const before = (inp._prev || '').length;
+    const clean = inp.value.replace(/\D/g, '').slice(0, this.len);
+    if (clean !== inp.value) inp.value = clean;
+    inp._prev = clean;
+    const wrap = document.getElementById('otpWrap'); if (wrap) wrap.classList.remove('bad', 'shake');
+    this.msg(''); this.paint(clean);
+    try { sessionStorage.setItem('mca-otp', clean); } catch (e) {}
+    if (clean.length > before) Haptic.tap();
+    if (clean.length === this.len) this.submit(clean);
+  },
+  async check(code) {
+    try {
+      const { error } = await Backend.sb.auth.verifyOtp({ email: Gate.email, token: code, type: 'email' });
+      if (error) return { ok: false, msg: /expired/i.test(error.message) && !/invalid/i.test(error.message) ? 'That code has expired. Tap Send again for a fresh one.' : 'That code is not right. Check the newest email and try again.' };
+      return { ok: true };
+    } catch (e) { return { ok: false, msg: 'We could not check the code. Check your internet and try again.' }; }
+  },
+  async submit(code) {
+    const wrap = document.getElementById('otpWrap'), inp = document.getElementById('otpIn');
+    if (!wrap || !inp) return;
+    this.busy = true; this.hold = true; Session.verifying = true;
+    inp.disabled = true; inp.blur(); this.msg('Checking…');
+    document.querySelectorAll('#otpStage .otp-cell').forEach(c => c.classList.remove('cur'));
+    wrap.classList.add('verifying');
+    const [res] = await Promise.all([this.check(code), this.sleep(700)]);
+    wrap.classList.remove('verifying');
+    if (res.ok) {
+      wrap.classList.add('ok');
+      try { sessionStorage.removeItem('mca-otp'); sessionStorage.removeItem('mca-gate'); } catch (e) {}
+      this.msg('Confirmed');
+      Haptic.ok();
+      await this.sleep(950);
+      return this.done();
+    }
+    wrap.classList.add('bad', 'shake'); this.msg(res.msg); Haptic.no();
+    await this.sleep(650);
+    this.busy = false; this.hold = false; Session.verifying = false;
+    wrap.classList.remove('shake');
+    inp.value = ''; inp._prev = ''; inp.disabled = false;
+    try { sessionStorage.removeItem('mca-otp'); } catch (e) {}
+    this.paint('');
+    wrap.classList.remove('bad');
+    this.msg(res.msg);
+    inp.focus();
+  },
+  async done() {
+    this.hold = false; this.busy = false; Session.verifying = false;
+    if (this.kind === 'email') {
+      try {
+        const { data } = await Backend.sb.auth.getSession();
+        if (data && data.session) return await Session.after(data.session.user);
+      } catch (e) { /* handled below */ }
+      Session.error = 'We could not finish signing in. Try again.';
+      return Session.set('error');
+    }
+  }
+};
+document.addEventListener('input', e => { if (e.target && e.target.id === 'otpIn') Otp.onInput(e.target); });
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-act]')) Haptic.tap(); }, true);
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (!img || !img.closest || !img.closest('.pk-av')) return;
+  const av = img.closest('.pk-av');
+  av.textContent = Gate.pkInitials(img.getAttribute('data-name') || '');
+}, true);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && OB.sheet) { e.preventDefault(); OB.sheet = false; OB.langQ = ''; Gate.paint(); return; }
+  const opt = e.target && e.target.closest && e.target.closest('.lg-opt');
+  if (opt && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    const all = Array.prototype.slice.call(opt.parentElement.parentElement.querySelectorAll('.lg-opt'));
+    const i = all.indexOf(opt);
+    if (i >= 0) { e.preventDefault(); const n = all[(i + (e.key === 'ArrowDown' ? 1 : -1) + all.length) % all.length]; if (n) n.focus(); }
+  }
+});
+document.addEventListener('keydown', e => {
+  const btn = e.target && e.target.closest && e.target.closest('.pk-choice');
+  if (!btn || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+  const all = Array.prototype.slice.call(document.querySelectorAll('.pk-choice'));
+  const i = all.indexOf(btn); if (i < 0) return;
+  e.preventDefault();
+  const n = all[(i + (e.key === 'ArrowDown' ? 1 : -1) + all.length) % all.length];
+  if (n) n.focus();
+});
+
+/* What the person typed survives a reload or a trip to the mail app (this tab only) */
+const gateSaved = () => { try { return JSON.parse(sessionStorage.getItem('mca-gate')) || {}; } catch (e) { return {}; } };
+/* ---- first run, before sign-in: language, a short tour, then the privacy policy and terms ----
+   A new policy version asks everyone to read and accept again (Data Protection Act 2019, s. 32 consent). */
+const OB_POLICY_VERSION = '2026-11-18-v3';
+const OB_KEY = 'mca-onboard';
+const LEGAL = { privacy: 'legal/privacy.html', terms: 'legal/terms.html' };
+const OB_T = {
+  en: { name: 'English', sub: 'Continue in English', chooseLang: 'Choose your language', langNote: 'You can change this later from the sign-in screen.',
+    next: 'Next', skip: 'Skip', back: 'Back', start: 'Get started', cont: 'Agree and continue', tourTitle: 'A quick tour',
+    privacyTitle: 'Your privacy', privacyLead: 'The short version. Read the full documents before you agree.',
+    agree1: 'I have read and agree to the Terms of Use and the Privacy Policy.', agree2: 'I am 18 or older.',
+    readPrivacy: 'Privacy Policy', readTerms: 'Terms of Use',
+    sumWhatT: 'What we collect', sumWhatB: 'Your name, email and sign-in details. Phone and photo only if you add them. The records your chama keeps.',
+    sumWhyT: 'Why', sumWhyB: 'To sign you in and keep your chama’s records. We never sell data and there are no adverts.',
+    sumWhoT: 'Who sees it', sumWhoB: 'Members see their own money and the group totals. Only the treasurer sees everyone’s records and can change them.',
+    sumRightsT: 'Your rights', sumRightsB: 'See, correct, download or delete your data, and complain to the Data Protection Commissioner.',
+    email: 'Email address', lang: 'Language', change: 'Change',
+    pwLabel: 'Password', pwNew: 'Create a password', pwConfirm: 'Confirm password', pwPh: 'Your password', pwRuleLen: 'At least 6 characters', pwRuleCap: 'A capital letter', pwRuleNum: 'A number', pwRuleSym: 'A symbol, such as ! or #', pwRuleSame: 'Both passwords match' },
+  sw: { name: 'Kiswahili', sub: 'Endelea kwa Kiswahili', chooseLang: 'Chagua lugha yako', langNote: 'Unaweza kubadilisha baadaye kwenye skrini ya kuingia.',
+    next: 'Endelea', skip: 'Ruka', back: 'Rudi', start: 'Anza', cont: 'Kubali na uendelee', tourTitle: 'Ziara fupi',
+    privacyTitle: 'Faragha yako', privacyLead: 'Kwa ufupi. Soma nyaraka kamili kabla ya kukubali.',
+    agree1: 'Nimesoma na nakubali Masharti ya Matumizi na Sera ya Faragha.', agree2: 'Nina miaka 18 au zaidi.',
+    readPrivacy: 'Sera ya Faragha', readTerms: 'Masharti ya Matumizi',
+    sumWhatT: 'Tunachokusanya', sumWhatB: 'Jina lako, barua pepe na maelezo ya kuingia. Simu na picha ukiziongeza tu. Rekodi ambazo chama chako kinaweka.',
+    sumWhyT: 'Kwa nini', sumWhyB: 'Kukuingiza na kuweka rekodi za chama chako. Hatuuzi data na hakuna matangazo.',
+    sumWhoT: 'Nani anaona', sumWhoB: 'Wanachama wanaona pesa zao na jumla ya kikundi. Mweka hazina pekee anaona rekodi za wote na kuzibadilisha.',
+    sumRightsT: 'Haki zako', sumRightsB: 'Kuona, kurekebisha, kupakua au kufuta data yako, na kulalamika kwa Kamishna wa Ulinzi wa Data.',
+    email: 'Barua pepe', lang: 'Lugha', change: 'Badilisha',
+    pwLabel: 'Nenosiri', pwNew: 'Tengeneza nenosiri', pwConfirm: 'Thibitisha nenosiri', pwPh: 'Nenosiri lako', pwRuleLen: 'Herufi 6 au zaidi', pwRuleCap: 'Herufi kubwa moja', pwRuleNum: 'Namba moja', pwRuleSym: 'Alama moja, kama ! au #', pwRuleSame: 'Yanalingana' }
+};
+/* Three slides, not eight: what it is, how it works for a group, and that it is private */
+const OB_TIPS = {
+  en: [
+    { art: 'coins', t: 'Every shilling, accounted for', b: 'Contributions, loans, fines and payouts in one clear record your whole chama can trust.' },
+    { art: 'group', t: 'One group, one truth', b: 'The treasurer records. Members see their own money and the group totals, always up to date.' },
+    { art: 'shield', t: 'Private by design', b: 'Nobody sees another member’s money unless they keep the books. You can download or delete your data at any time.' }
+  ],
+  sw: [
+    { art: 'coins', t: 'Kila shilingi inahesabiwa', b: 'Michango, mikopo, faini na malipo kwenye rekodi moja ambayo chama chote kinaiamini.' },
+    { art: 'group', t: 'Kikundi kimoja, ukweli mmoja', b: 'Mweka hazina anarekodi. Wanachama wanaona pesa zao na jumla ya kikundi, kila wakati.' },
+    { art: 'shield', t: 'Faragha kwanza', b: 'Hakuna anayeona pesa za mwanachama mwingine isipokuwa mweka hazina. Unaweza kupakua au kufuta data yako wakati wowote.' }
+  ]
+};
+
+const LG_REQUIRED = ['app_name','title','subtitle','choose_other','search','hint','none','next','continue_in','sheet_title','done'];
+const LG_ALL = (window.CHAMA_LANGUAGES || []).filter(l => {
+  const row = (window.CHAMA_STRINGS || {})[l.code];
+  return row && LG_REQUIRED.every(k => row[k] && String(row[k]).trim());
+});
+function lgFlag(country) {
+  return String(country || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2).split('').map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
+}
+function lgT(code, key, vars) {
+  const all = window.CHAMA_STRINGS || {};
+  const table = all[code] || all.en || {};
+  let text = table[key];
+  if (text == null) text = (all.en || {})[key] || key;
+  text = String(text);
+  if (vars) Object.keys(vars).forEach(k => { text = text.replace('{' + k + '}', vars[k]); });
+  return text;
+}
+function lgMatches(lang, raw) {
+  const q = String(raw || '').trim();
+  if (!q) return true;
+  const chars = Array.from(q);
+  const cps = chars.map(c => c.codePointAt(0)).filter(cp => cp >= 0x1F1E6 && cp <= 0x1F1FF);
+  if (chars.length === 2 && cps.length === 2) {
+    return lang.country === String.fromCharCode(cps[0] - 0x1F1E6 + 65, cps[1] - 0x1F1E6 + 65);
+  }
+  const needle = q.toLowerCase();
+  return [lang.name, lang.native, lang.code, lang.country, lgFlag(lang.country)].some(v => String(v).toLowerCase().indexOf(needle) !== -1);
+}
+
+/* Shared frame for every screen before the app opens: optional back button, body, footer with language and legal links */
+function shell(inner, o = {}) {
+  const L = OB_T[OB.lang()] || OB_T.en;
+  const back = o.back ? `<button type="button" class="auth-back" ${o.back} aria-label="${esc(L.back)}">${icon('back')}</button>` : '<span></span>';
+  const foot = o.foot === false ? '' : `<footer class="auth-foot">
+    ${o.lang === false ? '' : `<button type="button" class="langbtn" data-ob="change-lang">${icon('globe')}<span>${esc(OB_T[OB.lang()].name)}</span></button>`}
+    <nav aria-label="Legal"><a href="${LEGAL.terms}" target="_blank" rel="noopener">${esc(L.readTerms)}</a><a href="${LEGAL.privacy}" target="_blank" rel="noopener">${esc(L.readPrivacy)}</a></nav>
+  </footer>`;
+  return `<section class="auth">
+    <div class="auth-top">${back}${o.right || ''}</div>
+    <div class="auth-body${o.top ? ' top' : ''}">${inner}</div>
+    ${foot}
+  </section>`;
+}
+const pwField = (id, label, ac, ph, eye) => `<label class="f" for="${id}">${esc(label)}
+  <span class="field pw">${icon('lock')}<input id="${id}" name="${id}" type="password" autocomplete="${ac}" placeholder="${esc(ph || '')}" autocapitalize="none" spellcheck="false">${eye ? `<button type="button" class="eye" data-act="togglePw" aria-pressed="false">${esc(GL().show)}</button>` : ''}</span></label>`;
+
+const OB = {
+  pick: null, slide: 0, ag1: false, ag2: false, revisit: false, sheet: false, langPick: null, langQ: '',
+  read() { try { return JSON.parse(localStorage.getItem(OB_KEY)) || {}; } catch (e) { return {}; } },
+  syncConsent() { const st = this.read(); if (st.policy !== OB_POLICY_VERSION || !st.agreedAt || st.serverSynced === OB_POLICY_VERSION || !Backend.sb) return;
+    Backend.sb.rpc('record_consent', { p_policy_version: OB_POLICY_VERSION, p_app_version: __M_src_content_app_info_js.APP.version }).then(r => { if (!r.error && r.data && r.data.ok) this.write({ serverSynced: OB_POLICY_VERSION }); }).catch(() => {}); },
+  write(p) { try { localStorage.setItem(OB_KEY, JSON.stringify(Object.assign(this.read(), p))); } catch (e) { toast('Storage is full. Free some space and try again'); } },
+  lang() { const l = this.read().lang; return OB_T[l] ? l : 'en'; },
+  L() { return OB_T[this.lang()]; },
+  complete() { const s = this.read(); return !!(OB_T[s.lang] && s.policy === OB_POLICY_VERSION && s.agreedAt); },
+  needed() { return !this.complete() || this.revisit; },
+  stepNow() { const s = this.read(); if (this.revisit || !OB_T[s.lang]) return 'lang'; if (!s.tipsDone) return 'tips'; return 'privacy'; },
+
+  chosen() {
+    const ok = c => LG_ALL.some(l => l.code === c);
+    try { const c = localStorage.getItem('chama.lang'); if (ok(c)) return c; } catch (e) {}
+    const saved = this.read().chosen;
+    if (ok(saved)) return saved;
+    return this.lang();
+  },
+  applyChoice(code) {
+    if (!LG_ALL.some(l => l.code === code)) return;
+    try { localStorage.setItem('chama.lang', code); } catch (e) {}
+    try { document.documentElement.lang = code; } catch (e) {}
+    this.write({ lang: code === 'sw' ? 'sw' : 'en', chosen: code });
+  },
+  langOption(lang, mode, code) {
+    const on = lang.code === code;
+    const sub = mode === 'sheet' ? lang.name : lgT(code, 'continue_in', { name: lang.native });
+    return `<li><button type="button" class="lg-opt" role="radio" data-ob="lg-pick" data-v="${esc(lang.code)}" aria-checked="${on ? 'true' : 'false'}" aria-label="${esc(lang.native + ' (' + lang.name + ')')}" tabindex="${on ? '0' : '-1'}"><span class="lg-flag" aria-hidden="true">${lgFlag(lang.country)}</span><span class="lg-labels"><span class="lg-name">${esc(lang.native)}</span><span class="lg-sub">${esc(sub)}</span></span><span class="lg-check" aria-hidden="true">${icon('check')}</span></button></li>`;
+  },
+  langScreen() {
+    const code = this.langPick || this.chosen();
+    const meta = LG_ALL.find(l => l.code === code) || LG_ALL[0];
+    const dir = meta && meta.dir === 'rtl' ? 'rtl' : 'ltr';
+    const primary = LG_ALL.filter(l => l.primary);
+    if (meta && !meta.primary) primary.unshift(meta);
+    const shown = LG_ALL.filter(l => lgMatches(l, this.langQ)).slice().sort((a, b) => a.name.localeCompare(b.name));
+    const open = !!this.sheet;
+    return `<div dir="${dir}">${shell(`${markTile()}
+<h1 class="auth-t">${esc(lgT(code, 'title'))}</h1>
+<p class="auth-s">${esc(lgT(code, 'subtitle'))}</p>
+<ul class="lg-list" role="radiogroup" aria-label="${esc(lgT(code, 'title'))}">${primary.map(l => this.langOption(l, 'main', code)).join('')}</ul>
+<button type="button" class="btn ghost lg-more" data-ob="lg-open" aria-haspopup="dialog">${esc(lgT(code, 'choose_other'))}</button>
+<button type="button" class="btn pri block" style="margin-top:18px" data-ob="lg-next">${esc(lgT(code, 'next'))}</button>`, { foot: false })}
+<div class="lg-back${open ? ' open' : ''}" data-ob="lg-close"></div>
+<section class="lg-sheet${open ? ' open' : ''}" role="dialog" aria-modal="true" aria-hidden="${open ? 'false' : 'true'}" aria-label="${esc(lgT(code, 'sheet_title'))}">
+<div class="lg-grab" aria-hidden="true"></div>
+<div class="lg-sheet-h"><h2>${esc(lgT(code, 'sheet_title'))}</h2><button type="button" class="btn ghost" data-ob="lg-close">${esc(lgT(code, 'done'))}</button></div>
+<div class="lg-search">${icon('search')}<input id="lgSearch" type="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="${esc(lgT(code, 'search'))}" aria-label="${esc(lgT(code, 'search'))}" value="${esc(this.langQ || '')}"></div>
+<p class="lg-hint">${esc(lgT(code, 'hint'))}</p>
+<ul class="lg-all" id="lgAll" role="radiogroup" aria-label="${esc(lgT(code, 'sheet_title'))}">${shown.map(l => this.langOption(l, 'sheet', code)).join('')}</ul>
+<p class="lg-empty" id="lgEmpty"${shown.length ? ' hidden' : ''}>${esc(lgT(code, 'none'))}</p>
+</section></div>`;
+  },
+  html() {
+    const step = this.stepNow(), L = this.L(), lang = this.lang();
+    if (step === 'lang') return this.langScreen();
+    if (step === 'tips') {
+      const tips = OB_TIPS[lang], i = this.slide, last = i === tips.length - 1;
+      const slides = tips.map((t, k) => `<div class="ob-slide" aria-hidden="${k !== i}"><div class="auth-art">${art(t.art)}</div><h2>${esc(t.t)}</h2><p>${esc(t.b)}</p></div>`).join('');
+      const dots = tips.map((t, k) => `<button type="button" class="ob-dot" data-ob="slide" data-i="${k}" aria-label="${k + 1} / ${tips.length}" aria-current="${k === i}"></button>`).join('');
+      return shell(`<div class="ob-vp" id="obVp" aria-roledescription="carousel" aria-label="${esc(L.tourTitle)}"><div class="ob-track" id="obTrack" style="transform:translateX(${-i * 100}%)">${slides}</div></div>
+<div class="ob-dots">${dots}</div><span class="vh" id="obCount" aria-live="polite">${i + 1} / ${tips.length}</span>
+<button type="button" class="btn pri block" style="margin-top:22px" data-ob="next">${esc(last ? L.start : L.next)}</button>`,
+        { right: `<button type="button" class="btn ghost" data-ob="skip-tips">${esc(L.skip)}</button>`, back: `data-ob="prev" id="obPrev"${i === 0 ? ' style="visibility:hidden"' : ''}`, foot: false });
+    }
+    const item = (ic, t, b) => `<div><span class="li-ic">${icon(ic)}</span><div><b>${esc(t)}</b><span>${esc(b)}</span></div></div>`;
+    const chk = (id, on, text) => `<label class="check"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span class="box">${icon('check')}</span><span>${text}</span></label>`;
+    const terms = `<a href="${LEGAL.terms}" target="_blank" rel="noopener">${esc(L.readTerms)}</a>`, priv = `<a href="${LEGAL.privacy}" target="_blank" rel="noopener">${esc(L.readPrivacy)}</a>`;
+    const agree1 = esc(L.agree1).replace(esc(L.readTerms), terms).replace(esc(L.readPrivacy), priv);
+    return shell(`<h1 class="auth-t" style="margin-top:4px">${esc(L.privacyTitle)}</h1><p class="auth-s">${esc(L.privacyLead)}</p>
+<div class="pp-sum">${item('doc', L.sumWhatT, L.sumWhatB)}${item('info', L.sumWhyT, L.sumWhyB)}${item('members', L.sumWhoT, L.sumWhoB)}${item('shield', L.sumRightsT, L.sumRightsB)}</div>
+<div class="legal-links"><a class="btn tint sm" href="${LEGAL.privacy}" target="_blank" rel="noopener">${icon('doc')}${esc(L.readPrivacy)}</a><a class="btn tint sm" href="${LEGAL.terms}" target="_blank" rel="noopener">${icon('scale')}${esc(L.readTerms)}</a></div>
+${chk('obAg1', this.ag1, agree1)}${chk('obAg2', this.ag2, esc(L.agree2))}
+<button type="button" class="btn pri block" style="margin-top:12px" data-ob="accept" ${this.ag1 && this.ag2 ? '' : 'disabled'}>${esc(L.cont)}</button>`,
+      { back: 'data-ob="back-tips"', top: true, foot: false });
+  },
+  go(i) {
+    const tips = OB_TIPS[this.lang()], n = tips.length;
+    this.slide = Math.max(0, Math.min(n - 1, i));
+    const tr = document.getElementById('obTrack');
+    if (!tr) return Gate.paint();
+    tr.style.transform = 'translateX(' + (-this.slide * 100) + '%)';
+    document.querySelectorAll('.ob-dot').forEach((d, k) => d.setAttribute('aria-current', String(k === this.slide)));
+    document.querySelectorAll('.ob-slide').forEach((d, k) => d.setAttribute('aria-hidden', String(k !== this.slide)));
+    const c = document.getElementById('obCount'); if (c) c.textContent = (this.slide + 1) + ' / ' + n;
+    const pv = document.getElementById('obPrev'); if (pv) pv.style.visibility = this.slide === 0 ? 'hidden' : '';
+    const nx = document.querySelector('[data-ob="next"]'); if (nx) nx.textContent = this.slide === n - 1 ? this.L().start : this.L().next;
+  },
+  move(d) { if (document.getElementById('obTrack')) this.go(this.slide + d); },
+  finishTips() { this.write({ tipsDone: true }); this.slide = 0; Gate.paint(); }
+};
+
+document.addEventListener('click', e => {
+  const t = e.target.closest ? e.target.closest('[data-ob],[data-gm]') : null;
+  if (!t) return;
+  if (t.dataset.gm) {
+    const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value;
+    const idEl = document.getElementById('gateId'); if (idEl) Gate.id = idEl.value;
+    const pwEl = document.getElementById('gatePw'); if (pwEl && Gate.mode === 'in') Gate.signPw = pwEl.value;
+    Gate.mode = t.dataset.gm; Gate.notice = ''; Gate.sent = false; Gate.paint();
+    const f = document.querySelector('#view input:not([type=checkbox])'); if (f && Gate.mode !== 'start') setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (err) {} }, 80);
+    return;
+  }
+  switch (t.dataset.ob) {
+    case 'change-lang': OB.revisit = true; OB.pick = null; OB.sheet = false; OB.langPick = null; OB.langQ = ''; return Gate.paint();
+    case 'lg-open': OB.sheet = true; return Gate.paint();
+    case 'lg-close': OB.sheet = false; OB.langQ = ''; return Gate.paint();
+    case 'lg-pick': OB.langPick = t.dataset.v; OB.sheet = false; return Gate.paint();
+    case 'lg-next': OB.applyChoice(OB.langPick || OB.chosen()); OB.revisit = false; OB.langPick = null; OB.sheet = false; OB.langQ = ''; return Gate.paint();
+    case 'slide': return OB.go(Number(t.dataset.i));
+    case 'prev': return OB.go(OB.slide - 1);
+    case 'next': return OB.slide >= OB_TIPS[OB.lang()].length - 1 ? OB.finishTips() : OB.go(OB.slide + 1);
+    case 'skip-tips': return OB.finishTips();
+    case 'back-tips': OB.write({ tipsDone: false }); OB.slide = OB_TIPS[OB.lang()].length - 1; return Gate.paint();
+    case 'accept':
+      if (OB.ag1 && OB.ag2) { OB.write({ policy: OB_POLICY_VERSION, agreedAt: new Date().toISOString() }); OB.ag1 = false; OB.ag2 = false; OB.syncConsent(); }
+      return Gate.paint();
+  }
+});
+document.addEventListener('change', e => {
+  const id = e.target && e.target.id;
+  if (id !== 'obAg1' && id !== 'obAg2') return;
+  if (id === 'obAg1') OB.ag1 = e.target.checked; else OB.ag2 = e.target.checked;
+  const b = document.querySelector('[data-ob="accept"]'); if (b) b.disabled = !(OB.ag1 && OB.ag2);
+});
+let obSwipeX = null;
+document.addEventListener('pointerdown', e => { obSwipeX = (e.target.closest && e.target.closest('#obVp')) ? e.clientX : null; }, true);
+document.addEventListener('pointerup', e => {
+  if (obSwipeX === null) return;
+  const dx = e.clientX - obSwipeX; obSwipeX = null;
+  if (Math.abs(dx) > 40) OB.move(dx < 0 ? 1 : -1);
+}, true);
+document.addEventListener('keydown', e => {
+  if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if (e.key === 'ArrowRight') OB.move(1);
+  if (e.key === 'ArrowLeft') OB.move(-1);
+});
+document.addEventListener('input', e => { if (e.target && (e.target.id === 'gatePw' || e.target.id === 'gatePw2')) Gate.refreshRules(); });
+
+
+const GT = {
+  en: { inTitle: 'Welcome back', inSub: 'Sign in with your email or username and your password.', idLabel: 'Email or username', idPh: 'you@example.com', cta: 'Sign in', signing: 'Signing in…',
+    forgot: 'Forgot password?', newHere: 'New here?', createAcct: 'Create an account', firstTime: 'Signed in before with an email code only? Use Forgot password once to set one.',
+    upTitle: 'Create your account', upSub: 'Enter your email. We will send a code to confirm it is yours, then you choose a username and password.', sendCode: 'Send code', haveAcct: 'Already have an account?', signInLink: 'Sign in',
+    fgTitle: 'Reset your password', fgSub: 'Enter the email on your account. We will send a code, then you choose a new password.',
+    setupTitle: 'Finish your account', setupSub: 'Choose your name, a username and one password. You will use them for every Chama you join.', setupSubGoogle: 'Choose your name and a username. You can keep signing in with Google.', resetTitle: 'Choose a new password', resetSub: 'You will use this password to sign in.',
+    fullName: 'Full name', username: 'Username', usernameHint: '3 to 20 letters, numbers, dot, dash or underscore', saveCont: 'Save and continue', show: 'Show', hide: 'Hide',
+    welcome: n => 'Welcome' + (n ? ', ' + n : ''), welcomeSub: 'You are not in a Chama yet. Start one, or join the group that invited you.', createChama: 'Start a new Chama', joinChama: 'Join with an invitation',
+    chamaName: 'Name of your Chama', chamaPh: 'e.g. Umoja Savings Group', create: 'Create Chama', creating: 'Creating…', joinSub: 'Paste the whole link from your invitation email. Or open that link on this phone.', joinPh: 'Paste the invitation link', joinBtn: 'Check invitation',
+    chooseTitle: 'Choose your Chama', chooseSub: 'You belong to more than one Chama. Pick the one to open.', back: 'Back', signOut: 'Sign out', roleWord: r => ({ treasurer: 'Treasurer', secretary: 'Secretary', member: 'Member' }[r] || r), another: 'Start another Chama', notMember: 'You are not a member of that Chama. Choose one of yours.',
+    google: 'Continue with Google', or: 'or', startTitle: 'Your chama, beautifully kept.', startSub: 'Contributions, loans and payouts in one clear record for every member.', agreeNote: 'By continuing you agree to the Terms of Use and Privacy Policy.',
+    codeTitle: 'Check your email', codeSub: (n, e) => `Enter the ${n}-digit code we sent to <b>${e}</b>.`, sending: 'Sending your code…', signingIn: 'Signing you in…', cancel: 'Cancel' },
+  sw: { inTitle: 'Karibu tena', inSub: 'Ingia kwa barua pepe au jina la mtumiaji na nenosiri lako.', idLabel: 'Barua pepe au jina la mtumiaji', idPh: 'wewe@mfano.com', cta: 'Ingia', signing: 'Inaingia…',
+    forgot: 'Umesahau nenosiri?', newHere: 'Mgeni?', createAcct: 'Fungua akaunti', firstTime: 'Uliingia awali kwa msimbo tu? Tumia "Umesahau nenosiri?" mara moja.',
+    upTitle: 'Fungua akaunti yako', upSub: 'Weka barua pepe yako. Tutatuma msimbo kuthibitisha, kisha uchague jina la mtumiaji na nenosiri.', sendCode: 'Tuma msimbo', haveAcct: 'Tayari una akaunti?', signInLink: 'Ingia',
+    fgTitle: 'Weka nenosiri jipya', fgSub: 'Weka barua pepe ya akaunti yako. Tutatuma msimbo, kisha uchague nenosiri jipya.',
+    setupTitle: 'Kamilisha akaunti yako', setupSub: 'Chagua jina lako, jina la mtumiaji na nenosiri moja. Utavitumia kwa kila Chama.', setupSubGoogle: 'Chagua jina lako na jina la mtumiaji. Unaweza kuendelea kuingia na Google.', resetTitle: 'Chagua nenosiri jipya', resetSub: 'Utatumia nenosiri hili kuingia.',
+    fullName: 'Jina kamili', username: 'Jina la mtumiaji', usernameHint: 'Herufi, nambari, nukta, kistari au mstari wa chini; 3 hadi 20', saveCont: 'Hifadhi na endelea', show: 'Onyesha', hide: 'Ficha',
+    welcome: n => 'Karibu' + (n ? ', ' + n : ''), welcomeSub: 'Bado hujajiunga na Chama. Anzisha kimoja, au jiunge na kikundi kilichokualika.', createChama: 'Anzisha Chama kipya', joinChama: 'Jiunge kwa mwaliko',
+    chamaName: 'Jina la Chama chako', chamaPh: 'mf. Umoja Savings Group', create: 'Anzisha Chama', creating: 'Inaanzisha…', joinSub: 'Bandika kiungo chote kutoka barua pepe ya mwaliko. Au fungua kiungo hicho kwenye simu hii.', joinPh: 'Bandika kiungo cha mwaliko', joinBtn: 'Angalia mwaliko',
+    chooseTitle: 'Chagua Chama chako', chooseSub: 'Uko katika zaidi ya Chama kimoja. Chagua cha kufungua.', back: 'Rudi', signOut: 'Toka', roleWord: r => ({ treasurer: 'Mweka hazina', secretary: 'Katibu', member: 'Mwanachama' }[r] || r), another: 'Anzisha Chama kingine', notMember: 'Wewe si mwanachama wa Chama hicho. Chagua kimoja chako.',
+    google: 'Endelea na Google', or: 'au', startTitle: 'Chama chako, kwa mpangilio.', startSub: 'Michango, mikopo na malipo kwenye rekodi moja wazi kwa kila mwanachama.', agreeNote: 'Ukiendelea unakubali Masharti ya Matumizi na Sera ya Faragha.',
+    codeTitle: 'Angalia barua pepe yako', codeSub: (n, e) => `Weka msimbo wa tarakimu ${n} tuliotuma kwa <b>${e}</b>.`, sending: 'Inatuma msimbo…', signingIn: 'Inakuingiza…', cancel: 'Ghairi' }
+};
+const GL = () => GT[OB.lang()] || GT.en;
+const AUTH_T = GT;
+
+const Gate = {
+  email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', signPw: '', coolUntil: 0, coolTimer: null, sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' || m === 'in' ? m : 'start'; })(),
+  navRow(x) { return `<div class="btns">${x}</div>`; },
+  pwProblem(p) { return p.length < 6 ? 'Use at least 6 characters' : !/[A-Z]/.test(p) ? 'Add a capital letter' : !/[0-9]/.test(p) ? 'Add a number' : !/[^A-Za-z0-9]/.test(p) ? 'Add a symbol, such as ! or #' : p.length > 72 ? 'Use 72 characters or fewer' : ''; },
+  refreshRules() {
+    const p = (document.getElementById('gatePw') || {}).value || '', p2 = (document.getElementById('gatePw2') || {}).value || '';
+    const set = (k, ok) => { const li = document.querySelector('#pwRules [data-r="' + k + '"]'); if (li) li.classList.toggle('ok', !!ok); };
+    set('len', p.length >= 6); set('cap', /[A-Z]/.test(p)); set('num', /[0-9]/.test(p)); set('sym', /[^A-Za-z0-9]/.test(p)); set('same', p.length > 0 && p === p2);
+  },
+  pwFields(withConfirm) {
+    const L = OB.L();
+    return pwField('gatePw', L.pwNew, 'new-password', L.pwPh, true) +
+      (withConfirm ? pwField('gatePw2', L.pwConfirm, 'new-password', L.pwConfirm, false) : '') +
+      `<ul class="pwr" id="pwRules" aria-live="polite"><li data-r="len">${esc(L.pwRuleLen)}</li><li data-r="cap">${esc(L.pwRuleCap)}</li><li data-r="num">${esc(L.pwRuleNum)}</li><li data-r="sym">${esc(L.pwRuleSym)}</li>${withConfirm ? `<li data-r="same">${esc(L.pwRuleSame)}</li>` : ''}</ul>`;
+  },
+  eyeBtn() { const G = GL(); return `<button type="button" class="eye" data-act="togglePw" aria-pressed="false">${esc(G.show)}</button>`; },
+  /* Resend countdown on the create-account button */
+  armCool() {
+    clearInterval(this.coolTimer);
+    if ((this.coolUntil || 0) <= Date.now()) return;
+    const tick = () => {
+      const b = document.querySelector('[data-act="gateSend"]');
+      if (!b) { clearInterval(this.coolTimer); return; }
+      const left = Math.max(0, Math.ceil((this.coolUntil - Date.now()) / 1000));
+      const label = b.querySelector('.btn-label');
+      const sw = OB.lang() === 'sw';
+      if (left > 0) { b.disabled = true; if (label) label.textContent = sw ? `Tuma tena baada ya ${left}s` : `Resend in ${left}s`; }
+      else { b.disabled = false; b.removeAttribute('aria-busy'); if (label) label.textContent = GL().sendCode; clearInterval(this.coolTimer); }
+    };
+    tick();
+    this.coolTimer = setInterval(tick, 500);
+  },
+  authCard() {
+    const L = OB.L(), G = GL(), mode = this.mode;
+    const note = this.notice ? `<p class="notice" role="alert">${icon('alert', 's')}<span>${esc(this.notice)}</span></p>` : '';
+    if (mode === 'start') return shell(`${markTile('lg')}
+<h1 class="auth-t">${esc(G.startTitle)}</h1>
+<p class="auth-s">${esc(G.startSub)}</p>
+${note}
+<div class="btns col" style="margin-top:30px">
+<button type="button" class="btn google block" data-act="gateGoogle"${this.signing ? ' disabled aria-busy="true"' : ''}>${GOOGLE_G}<span>${esc(G.google)}</span></button>
+<div class="auth-or">${esc(G.or)}</div>
+<button type="button" class="btn pri block" data-gm="in">${esc(G.cta)}</button>
+<button type="button" class="btn tint block" data-gm="up">${esc(G.createAcct)}</button>
+</div>
+<p class="fhelp" style="text-align:center;margin-top:16px">${esc(G.agreeNote)}</p>`);
+    if (mode === 'in') return shell(`<h1 class="auth-t" style="margin-top:0">${esc(G.inTitle)}</h1>
+<p class="auth-s">${esc(G.inSub)}</p>
+<form class="auth-form" id="signForm" novalidate>
+<label class="f" for="gateId">${esc(G.idLabel)}<span class="field">${icon('profile')}<input id="gateId" name="identifier" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="${esc(G.idPh)}" value="${esc(this.id)}"></span></label>
+${pwField('gatePw', L.pwLabel, 'current-password', L.pwPh, true)}
+<div style="display:flex;justify-content:flex-end"><button type="button" class="linkish" data-gm="forgot">${esc(G.forgot)}</button></div>
+<p class="ferr" id="signErr" role="alert" aria-live="polite">${esc(this.notice || '')}</p>
+<button type="button" class="btn pri block" data-act="gateSignIn"${this.signing ? ' disabled aria-busy="true"' : ''}><span class="btn-label">${esc(this.signing ? G.signing : G.cta)}</span></button>
+</form>
+<p class="auth-alt">${esc(G.newHere)} <button type="button" data-gm="up">${esc(G.createAcct)}</button></p>`, { back: 'data-gm="start"' });
+    if (mode === 'up') {
+      const sw = OB.lang() === 'sw';
+      const left = Math.max(0, Math.ceil(((this.coolUntil || 0) - Date.now()) / 1000));
+      const sendLabel = this.sending ? (sw ? 'Inatuma…' : 'Sending…') : left > 0 ? (sw ? `Tuma tena baada ya ${left}s` : `Resend in ${left}s`) : G.sendCode;
+      const sendOff = this.sending || left > 0;
+      return shell(`<h1 class="auth-t" style="margin-top:0">${esc(G.upTitle)}</h1>
+<p class="auth-s">${esc(G.upSub)}</p>
+<div class="auth-form">
+<label class="f" for="gateEmail">${esc(L.email)}<span class="field">${icon('mail')}<input id="gateEmail" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="you@example.com" value="${esc(this.email)}"></span></label>
+<p class="ferr" id="upErr" role="alert" aria-live="polite">${esc(this.notice || '')}</p>
+<button type="button" class="btn pri block" data-act="gateSend"${sendOff ? ' disabled aria-busy="true"' : ''}><span class="btn-label">${esc(sendLabel)}</span></button>
+<p class="fhelp" style="text-align:center;margin-top:12px">${esc(G.agreeNote)}</p>
+</div>
+<p class="auth-alt">${esc(G.haveAcct)} <button type="button" data-gm="in">${esc(G.signInLink)}</button></p>`, { back: 'data-gm="start"' });
+    }
+    return shell(`<h1 class="auth-t" style="margin-top:0">${esc(G.fgTitle)}</h1><p class="auth-s">${esc(G.fgSub)}</p>${note}
+<div class="auth-form">
+<label class="f" for="gateEmail">${esc(L.email)}<span class="field">${icon('mail')}<input id="gateEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="${esc(this.email)}"></span></label>
+<button type="button" class="btn pri block" data-act="gateSend"><span class="btn-label">${esc(G.sendCode)}</span></button>
+</div>
+<p class="auth-alt"><button type="button" data-gm="in">${esc(G.signInLink)}</button></p>`, { back: 'data-gm="in"' });
+  },
+  setupCard() {
+    const G = GL(), isNew = Session.setupMode === 'new', acct = Session.account || {};
+    const note = this.notice ? `<p class="notice" role="alert">${icon('alert', 's')}<span>${esc(this.notice)}</span></p>` : '';
+    const googleNew = isNew && Session.usesGoogle();
+    const nameNow = acct.full_name || (googleNew ? Session.googleName() : '');
+    const fields = isNew ? `<label class="f" for="setName">${esc(G.fullName)}<span class="field">${icon('profile')}<input id="setName" autocomplete="name" autocapitalize="words" maxlength="120" value="${esc(nameNow)}" placeholder="e.g. Wanjiku Kamau"></span></label>
+<label class="f" for="setUser">${esc(G.username)}<span class="field">${icon('tag')}<input id="setUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(acct.username || '') ? '' : (acct.username || ''))}" placeholder="e.g. wanjiku.k"></span><small>${esc(G.usernameHint)}</small></label>` : '';
+    return shell(`<h1 class="auth-t" style="margin-top:0">${esc(isNew ? G.setupTitle : G.resetTitle)}</h1><p class="auth-s">${esc(isNew ? (googleNew ? G.setupSubGoogle : G.setupSub) : G.resetSub)}</p>
+<p class="tag brand" style="margin-top:14px">${icon('mail', 's')}${esc(Session.email)}</p>${note}
+<div class="auth-form">${fields}${googleNew ? '' : this.pwFields(true)}
+<button type="button" class="btn pri block" data-act="gateSetup"${this.signing ? ' disabled aria-busy="true"' : ''}>${this.signing ? '<span class="spin" aria-hidden="true"></span>' : ''}<span>${esc(G.saveCont)}</span></button>
+<button type="button" class="btn ghost block" style="margin-top:8px" data-act="gateSignOut">${esc(G.signOut)}</button></div>`, { top: true, lang: false });
+  },
+  /* Choose a Chama, welcome (no Chama yet), Create a Chama and Join a Chama */
+  hubPage(isWelcome) {
+    if (this.sub === 'create') return this.createPage();
+    const H = HL(), G = GL(), list = Session.workspaces || [];
+    if (!isWelcome || list.length) return this.pickerPage(H, G, list);
+    return shell(`<div class="auth-art">${art('group')}</div>
+<h1 class="auth-t" style="margin-top:6px">${esc(G.welcome(Session.displayName()))}</h1>
+<p class="auth-s">${esc(G.welcomeSub)}</p>
+<div class="list" style="margin-top:26px">
+<button type="button" class="li has-ic" data-act="wsSub" data-s="create"><span class="li-ic">${icon('plus')}</span><span class="li-main"><b>${esc(H.createRow)}</b><small>${esc(H.createRowSub)}</small></span>${icon('chev', 'chev')}</button>
+<button type="button" class="li has-ic" data-act="wsSub" data-s="join"><span class="li-ic t-gold">${icon('key')}</span><span class="li-main"><b>${esc(H.joinRow)}</b><small>${esc(H.joinRowSub)}</small></span>${icon('chev', 'chev')}</button>
+</div>
+<button type="button" class="btn ghost block" style="margin-top:18px" data-act="gateSignOut">${icon('out')}${esc(G.signOut)}</button>`, { lang: false });
+  },
+
+  pickerPage(H, G, list) {
+    const sw = OB.lang() === 'sw';
+    const canLeave = !!(Session.role || (typeof Store !== 'undefined' && Store.chamaId));
+    const lastId = (typeof Store !== 'undefined' && list.some(w => w.chama_id === Store.chamaId)) ? Store.chamaId : '';
+    if (!this.picked || !list.some(w => w.chama_id === this.picked)) this.picked = lastId || (list.length === 1 ? list[0].chama_id : '');
+    const picked = list.find(w => w.chama_id === this.picked);
+    const n = list.length;
+    const openLabel = picked ? (sw ? 'Fungua ' + picked.chama_name : 'Open ' + picked.chama_name) : (sw ? 'Chagua Chama' : 'Choose a Chama');
+    const rows = list.map((w, i) => {
+      const on = w.chama_id === this.picked;
+      const photo = String(w.photo || w.chama_photo || w.logo_url || w.image_url || '');
+      const safePhoto = /^(https:\/\/|data:image\/(png|jpeg|webp);base64,)[^"'<>\s]+$/.test(photo) ? photo : '';
+      const alt = ['', ' alt-1', ' alt-2', ' alt-3'][i % 4];
+      const av = safePhoto
+        ? `<span class="pk-av${alt}"><img alt="" data-name="${esc(w.chama_name || '')}" src="${esc(safePhoto)}"></span>`
+        : `<span class="pk-av${alt}">${esc(this.pkInitials(w.chama_name))}</span>`;
+      const meta = [G.roleWord(w.role), w.display_tag, typeof w.member_count === 'number' ? H.members(w.member_count) : ''].filter(Boolean).map(esc).join(' · ');
+      const last = w.chama_id === lastId ? `<span class="tag brand">${sw ? 'Iliyofunguliwa mwisho' : 'Open now'}</span>` : '';
+      return `<li><button type="button" class="pk-choice" role="radio" data-act="pkPick" data-id="${esc(w.chama_id)}" aria-checked="${on ? 'true' : 'false'}" tabindex="${on || (!this.picked && i === 0) ? '0' : '-1'}">
+${av}<span class="pk-info"><span class="pk-name">${esc(w.chama_name || 'Chama')}</span><span class="pk-meta">${meta}${last}</span></span>
+<span class="pk-check" aria-hidden="true">${icon('check')}</span></button></li>`;
+    }).join('');
+    const lead = n > 1 ? (sw ? 'Uko kwenye zaidi ya kimoja. Chagua kimoja ufungue.' : 'You belong to ' + n + ' Chamas. Pick one to open.') : (sw ? 'Chagua Chama ufungue.' : 'Pick the Chama to open.');
+    return shell(`<h1 class="auth-t" style="margin-top:0">${sw ? 'Chagua Chama' : 'Your Chamas'}</h1>
+<p class="auth-s">${esc(lead)}</p>
+<ul class="pk-list" role="radiogroup" aria-label="${sw ? 'Chama zako' : 'Your Chamas'}">${rows || `<li class="pk-empty">${esc(H.noChamas)}</li>`}</ul>
+<button type="button" class="btn pri block" style="margin-top:18px" data-act="pkOpen"${picked && !this.opening ? '' : ' disabled'}>${this.opening ? '<span class="spin" aria-hidden="true"></span>' : ''}<span>${esc(openLabel)}</span></button>
+<div class="sec-h" style="margin-top:30px"><h3>${esc(H.manage)}</h3></div>
+<div class="list">
+<button type="button" class="li has-ic" data-act="wsSub" data-s="create"><span class="li-ic">${icon('plus')}</span><span class="li-main"><b>${esc(H.createRow)}</b><small>${esc(H.createRowSub)}</small></span>${icon('chev', 'chev')}</button>
+<button type="button" class="li has-ic" data-act="wsSub" data-s="join"><span class="li-ic t-gold">${icon('key')}</span><span class="li-main"><b>${esc(H.joinRow)}</b><small>${esc(H.joinRowSub)}</small></span>${icon('chev', 'chev')}</button>
+</div>
+<button type="button" class="btn ghost block" style="margin-top:14px" data-act="gateSignOut">${icon('out')}${esc(G.signOut)}</button>`,
+      { back: canLeave ? `data-act="wsBack"` : '', top: true, lang: false });
+  },
+  pkInitials(name) {
+    const parts = String(name || '').replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const letters = parts.slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    return letters || '?';
+  },
+  /* One Chama row (kept for callers that still ask for it) */
+  chamaRow(w) {
+    const G = GL(), on = (this.picked || Store.chamaId) === w.chama_id;
+    return `<button type="button" class="pk-choice" data-act="wsOpen" data-id="${esc(w.chama_id)}" aria-checked="${on}"><span class="pk-av">${esc(this.pkInitials(w.chama_name))}</span><span class="pk-info"><span class="pk-name">${esc(w.chama_name || 'Chama')}</span><span class="pk-meta">${esc(G.roleWord(w.role))}</span></span></button>`;
+  },
+  createPage() {
+    const H = HL(), d = this.draft, busy = this.signing;
+    const nameErr = this.nameErr ? `<p class="ferr" id="newChamaErr" role="alert">${esc(this.nameErr)}</p>` : '';
+    const formErr = this.formErr ? `<p class="notice" role="alert">${icon('alert', 's')}<span>${esc(this.formErr)}</span></p>` : '';
+    return shell(`<span class="tag brand">${icon('sparkle', 's')}${esc(H.newGroup)}</span>
+<h1 class="auth-t" style="margin-top:14px">${esc(H.createTitle)}</h1>
+<p class="auth-s">${esc(H.createSub)}</p>
+<form id="createForm" class="auth-form" novalidate>
+<label class="f" for="newChamaName">${esc(H.nameLabel)}
+<input id="newChamaName" type="text" maxlength="80" autocomplete="off" autocapitalize="words" enterkeyhint="done" placeholder="${esc(H.namePh)}" value="${esc(d.name)}" aria-describedby="newChamaHelp${this.nameErr ? ' newChamaErr' : ''}" aria-invalid="${this.nameErr ? 'true' : 'false'}"${busy ? ' disabled' : ''}></label>
+<p class="fhelp" id="newChamaHelp">${esc(H.nameHelp)}</p>
+${nameErr}
+<label class="check" style="margin-top:14px"><input type="checkbox" id="newChamaListed"${d.listed ? ' checked' : ''}${busy ? ' disabled' : ''}><span class="box">${icon('check')}</span><span><b>${esc(H.existing)}</b><br>${esc(H.existingSub)}</span></label>
+${formErr}
+<button type="submit" class="btn pri block" id="createBtn"${busy ? ' disabled aria-busy="true"' : ''}>${busy ? `<span class="spin" aria-hidden="true"></span><span>${esc(H.creatingBtn)}</span>` : `<span>${esc(H.createBtn)}</span>`}</button>
+<p class="fhelp" style="text-align:center;margin-top:12px">${esc(H.afterNote)}</p>
+</form>`, { back: 'data-act="wsSub" data-s=""', top: true, lang: false });
+  },
+  /* Join a Chama: a sheet over the chooser */
+  joinModal() {
+    const H = HL(), G = GL(), busy = this.joinBusy;
+    return `<div class="jm-veil" data-jm="veil"><section class="jm" role="dialog" aria-modal="true" aria-labelledby="jmTitle" aria-describedby="jmSub">
+<button type="button" class="jm-x" data-act="wsSub" data-s="" aria-label="${esc(H.close)}">&times;</button>
+<div class="auth-art" style="width:120px;height:90px">${art('key')}</div>
+<h3 id="jmTitle">${esc(H.joinTitle)}</h3>
+<p class="jm-sub" id="jmSub">${esc(H.joinSub)}</p>
+<label class="f" for="joinLink" style="margin-top:18px">${esc(H.joinLabel)}<span class="field">${icon('link')}<input id="joinLink" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="go" placeholder="${esc(H.joinPh)}" value="${esc(this.draft.link)}"${this.joinMsg ? ' aria-describedby="joinErr" aria-invalid="true"' : ''}${busy ? ' disabled' : ''}></span></label>
+${this.joinMsg ? `<p class="ferr" id="joinErr" role="alert">${esc(this.joinMsg)}</p>` : ''}
+<button type="button" class="btn pri block" style="margin-top:18px" data-act="wsJoin"${busy ? ' disabled aria-busy="true"' : ''}>${busy ? `<span class="spin" aria-hidden="true"></span><span>${esc(H.checking)}</span>` : `<span>${esc(H.joinBtn)}</span>`}</button>
+<button type="button" class="btn ghost block" style="margin-top:6px" data-act="wsSub" data-s="">${esc(H.cancel)}</button>
+</section></div>`;
+  },
+  welcomeCard() { return this.hubPage(true); },
+  chooseCard() { return this.hubPage(false); },
+  /* Create: validates the name, then calls the existing creation service. Nothing is faked; the typed name is kept on failure. */
+  async submitCreate() {
+    if (this.signing) return;
+    const H = HL(), el = document.getElementById('newChamaName'), cb = document.getElementById('newChamaListed');
+    if (cb) this.draft.listed = cb.checked;
+    const raw = el ? el.value : this.draft.name;
+    this.draft.name = raw;
+    const name = raw.trim().replace(/\s+/g, ' ');
+    if (name.length < 2) { this.nameErr = H.nameNeeded; this.formErr = ''; this.paint(); const i = document.getElementById('newChamaName'); if (i) i.focus(); return; }
+    if (name.length > 80) { this.nameErr = 'Keep the name to 80 characters or fewer.'; this.paint(); return; }
+    this.nameErr = ''; this.formErr = ''; this.signing = true; this.paint();
+    try { await Session.createChama(name, this.draft.listed); }
+    catch (e) { this.signing = false; this.formErr = (e && e.message) || H.createFail; this.paint(); }
+  },
+  /* Join: uses the existing link or Chama-key path (Session.joinWithLink) and shows its real error */
+  async submitJoin() {
+    if (this.joinBusy) return;
+    const H = HL(), el = document.getElementById('joinLink');
+    const v = String(el ? el.value : (this.draft.link || ''));
+    this.draft.link = v;
+    if (!v.trim()) { this.joinMsg = H.joinEmpty; this.paint(); return; }
+    this.joinBusy = true; this.joinMsg = ''; this.paint();
+    let r;
+    try { r = await Session.joinWithLink(v); } catch (e) { r = { error: (e && e.message) || H.joinFail }; }
+    this.joinBusy = false;
+    if (r && r.error) this.joinMsg = r.error;
+    this.paint();
+  },
+  /* Opening a Chama reloads the app into it, so the confirmation is kept for the next load */
+  openChama(id) {
+    if (this.opening) return;
+    this.opening = true;
+    this.picked = id;
+    this.paint();
+    const w = (Session.workspaces || []).find(x => x.chama_id === id);
+    flashNext(HL().switched(w && w.chama_name ? w.chama_name : 'Chama'));
+    setTimeout(() => Session.switchTo(id), 250);
+  },
+  inviteCard() {
+    const I = Invite.info, signedIn = Session.status === 'invite';
+    if (Invite.token && !Invite.checked) return this.loading('Checking your invitation…');
+    if (!I) return this.card('Invitation', '<p class="auth-s">We could not check this invitation. Check your internet and try again.</p><div class="btns col" style="margin-top:24px"><button class="btn pri block" data-act="inviteRetry">Try again</button><button class="btn ghost block" data-act="inviteDismiss">Skip</button></div>', 'lost');
+    if (!I.ok) return this.card('Invitation', `<p class="auth-s">${esc(Invite.MSG[I.code] || Invite.MSG.invalid)}</p><div class="btns col" style="margin-top:24px"><button class="btn pri block" data-act="inviteDismiss">Continue</button></div>`, 'lost');
+    const when = d => { try { return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } };
+    const rows = `<div class="card inv"><div class="kv"><span>Chama</span><b>${esc(I.chama_name || 'A Chama')}</b></div>
+<div class="kv"><span>Your role</span><b>${esc(Perm.label(I.role))}</b></div>
+${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_name)}</b></div>` : ''}
+<div class="kv"><span>Sent to</span><b>${esc(I.email_hint || '')}</b></div>
+<div class="kv"><span>Expires</span><b>${esc(when(I.expires_at))}</b></div></div>`;
+    const note = '<p class="fhelp" style="margin-top:12px">Joining lets you see this Chama’s records for your role. You can leave later.</p>';
+    if (!signedIn) return this.card('You’re invited', rows + note + '<div class="btns col" style="margin-top:22px"><button class="btn pri block" data-act="inviteContinue">Sign in or create an account to accept</button></div>', 'invite');
+    const msg = Invite.msg ? `<p class="notice" role="alert">${icon('alert', 's')}<span>${esc(Invite.msg)}</span></p>` : '';
+    return this.card('You’re invited', `<p class="auth-s">Signed in as <b>${esc(Session.email)}</b></p>${rows}${note}${msg}<div class="btns col" style="margin-top:22px"><button class="btn pri block" data-act="inviteAccept"${Invite.busy ? ' disabled' : ''}>Accept invitation</button><button class="btn block" data-act="inviteDecline">Decline</button><button class="btn ghost block" data-act="gateSignOut">Use another email</button></div>`, 'invite');
+  },
+  card(t, body, artName) { return shell(`${artName ? `<div class="auth-art">${art(artName)}</div>` : ''}<h1 class="auth-t" style="margin-top:${artName ? 6 : 0}px">${esc(t)}</h1>${body}`, { top: !artName, lang: false }); },
+  loading(text, cancel) {
+    return shell(`<div class="loader"><span class="spin" aria-hidden="true"></span><p>${esc(text)}</p>${cancel ? `<button class="btn ghost" data-act="gateCancel">${esc(GL().cancel)}</button>` : ''}</div>`, { lang: false, foot: false });
+  },
+  paint() {
+    if (Otp.hold) return;
+    document.body.classList.add('no-tabs', 'gate-on');
+    ['#menuBtn', '#backBtn', '#pageTitle', '#bell'].forEach(q => { const el = $(q); if (el) el.hidden = true; });
+    $('#syncBar').hidden = true;
+    { const jr = document.getElementById('jmRoot'); if (jr) jr.innerHTML = ''; }
+    if (Session.status === 'signed-out' && OB.needed()) { $('#view').innerHTML = OB.html(); return; }
+    const st = Session.status; let html; const G = GL();
+    if (st === 'invite' || (st === 'signed-out' && Invite.token && !Invite.signin && !this.sent)) { $('#view').innerHTML = this.inviteCard(); return; }
+    try { if (st === 'signed-out') sessionStorage.setItem('mca-gate', JSON.stringify({ email: this.email, sent: this.sent, mode: this.mode })); else sessionStorage.removeItem('mca-gate'); } catch (e) {}
+    if (st === 'loading') html = this.loading(G.signingIn, true);
+    else if (st === 'signed-out') {
+      Otp.kind = 'email'; Otp.len = Session.otpLength;
+      html = this.sending && this.mode !== 'up'
+        ? this.loading(G.sending, true)
+        : this.sent
+        ? shell(`<div class="auth-art">${art('mail')}</div><h1 class="auth-t" style="margin-top:6px">${esc(G.codeTitle)}</h1><p class="auth-s">${G.codeSub(Otp.len, esc(this.email))}</p>${Otp.html({ change: true })}`, { back: 'data-act="gateReset"', lang: false })
+        : this.authCard();
+    }
+    else if (st === 'setup') html = this.setupCard();
+    else if (st === 'welcome') html = this.welcomeCard();
+    else if (st === 'choose') html = this.chooseCard();
+    else html = this.card('Something went wrong', `<p class="auth-s">${esc(Session.error || 'We could not reach the server.')}</p><div class="btns col" style="margin-top:24px"><button class="btn pri block" data-act="gateRetry">Try again</button>${Session.user ? '<button class="btn ghost block" data-act="gateSignOut">Sign out</button>' : ''}</div>`, 'lost');
+    $('#view').innerHTML = html;
+    if (st === 'signed-out' && this.mode === 'in') { const pw = document.getElementById('gatePw'); if (pw) pw.value = this.signPw || ''; }
+    if (st === 'signed-out' && this.mode === 'up' && !this.sent && !this.sending) this.armCool();
+    if (OB.sheet) { const q = document.getElementById('lgSearch'); if (q) setTimeout(() => q.focus(), 280); }
+    const jr = document.getElementById('jmRoot');
+    if ((st === 'welcome' || st === 'choose') && this.sub === 'join' && jr) jr.innerHTML = this.joinModal();
+    if (st === 'signed-out' && this.sent) {
+      try { const d = sessionStorage.getItem('mca-otp') || ''; const inp = document.getElementById('otpIn'); if (inp && d) { inp.value = d; inp._prev = d; Otp.paint(d); } else Otp.paint(''); } catch (e) {}
+      Otp.tick();
+      const inp = document.getElementById('otpIn'); if (inp) setTimeout(() => { try { inp.focus({ preventScroll: true }); } catch (e) {} }, 120);
+    }
+  }
+};
+
+/* Typed values live in Gate.draft, so a redraw after an error never clears them */
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'newChamaName') {
+    Gate.draft.name = t.value;
+    if (Gate.nameErr) { Gate.nameErr = ''; t.setAttribute('aria-invalid', 'false'); const x = document.getElementById('newChamaErr'); if (x) x.remove(); }
+  } else if (t.id === 'joinLink') {
+    Gate.draft.link = t.value;
+  }
+});
+document.addEventListener('change', e => { if (e.target.id === 'newChamaListed') Gate.draft.listed = e.target.checked; });
+document.addEventListener('submit', e => { if (e.target.id === 'createForm') { e.preventDefault(); Gate.submitCreate(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && Gate.sub === 'join') { Gate.sub = null; Gate.joinMsg = ''; Gate.paint(); }
+  if (e.key === 'Enter' && e.target.id === 'joinLink') { e.preventDefault(); Gate.submitJoin(); }
+});
+document.addEventListener('click', e => {
+  if (e.target.classList && e.target.classList.contains('jm-veil')) { Gate.sub = null; Gate.joinMsg = ''; Gate.paint(); }
+});
+
+return { get Gate() { return Gate; }, get Otp() { return Otp; }, get OB() { return OB; }, get GL() { return GL; }, get GT() { return GT; }, get AUTH_T() { return AUTH_T; }, get LG_ALL() { return LG_ALL; }, get lgMatches() { return lgMatches; }, get LEGAL() { return LEGAL; }, get OB_POLICY_VERSION() { return OB_POLICY_VERSION; }, };
+})();
+
+/* ---- src/core/state.js ---- */
+const __M_src_core_state_js = (function () {
+const { Store } = __M_src_core_store_js;
+
+/* =====================================================================
+   6. ACTIONS  (every mutation lives here; admin-only ones are flagged)
+   ===================================================================== */
+const S = () => Store.get();
+
+return { get S() { return S; }, };
+})();
+
+/* ---- src/lib/validate.js ---- */
+const __M_src_lib_validate_js = (function () {
+
+const num = (v, label, { min = 0, allowZero = false } = {}) => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < min || (!allowZero && n === 0)) throw new Error(label + ' must be a valid number');
+  return n;
+};
+
+const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+return { get num() { return num; }, get validEmail() { return validEmail; }, };
+})();
+
+/* ---- src/ui/avatar.js ---- */
+const __M_src_ui_avatar_js = (function () {
+const { esc } = __M_src_core_utils_js;
+const { Session } = __M_src_core_session_js;
+
+const av = (m, n = 32) => {
+  const nm = (m && m.name) || '', ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+  const photo = Session.photoFor(m);
+  /* only a plain base64 JPEG is ever put in src: a photo is data from another person's account */
+  const tone = ['', ' c1', ' c2', ' c3'][(nm.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 4];
+  return typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)
+    ? `<img class="av" style="--n:${Number(n) || 32}px" src="${photo}" alt="">` : `<span class="av${tone}" style="--n:${Number(n) || 32}px" aria-hidden="true">${esc(ini)}</span>`;
+};
+
+const memberChip = (s, id, n = 28) => { const m = (s.members || []).find(x => x.id === id); return `<span class="who">${av(m || { name: 'Removed member' }, n)}<span>${esc(m ? m.name : 'Removed member')}</span></span>`; };
+
+return { get av() { return av; }, get memberChip() { return memberChip; }, };
+})();
+
+/* ---- src/ui/modal.js ---- */
+const __M_src_ui_modal_js = (function () {
+const { esc } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+const { toast } = __M_src_ui_toast_js;
+
+/* Payments go to the server first (table chama_payments, RPC record_payment). A repeated tap or retry reuses the same
+   request key, so the server records it once. The local record is updated only after the server confirms. */
+const newRequestKey = () => (crypto.randomUUID ? crypto.randomUUID()
+  : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)));
+const pendingPayKeys = new Map();
+async function savePayments(list) {
+  const Backend = __M_src_core_backend_js.Backend, Store = __M_src_core_store_js.Store, uid = __M_src_core_utils_js.uid, Matcher = __M_src_lib_matcher_js.Matcher;
+  const saved = [];
+  try {
+    for (const p of list) {
+      const sig = [p.memberId, p.month, p.amount, p.code || ''].join('|');
+      if (!pendingPayKeys.has(sig)) pendingPayKeys.set(sig, newRequestKey());
+      const { data, error } = await Backend.sb.rpc('record_payment', {
+        p_cid: Store.chamaId, p_member: p.memberId, p_month: p.month, p_amount: p.amount,
+        p_code: p.code || null, p_date: p.date, p_idem: pendingPayKeys.get(sig) });
+      if (error) throw error;
+      if (!data || !data.ok) { if (data && data.status === 'duplicate_code') pendingPayKeys.delete(sig); throw new Error((data && data.error) || 'Payment not recorded'); }
+      pendingPayKeys.delete(sig);
+      saved.push(p);
+    }
+  } catch (err) {
+    toast(err && err.message && !/fetch|network|Failed/i.test(err.message) ? err.message : 'Payment not saved. Check your connection and try again.');
+  }
+  if (saved.length) {
+    Store.commit(st => saved.forEach(p => st.payments.push({ id: uid(), memberId: p.memberId, month: p.month, amount: p.amount, code: p.code || '', date: p.date })));
+    saved.forEach(p => { if (p.learn) Matcher.learn(p.learn.m, p.learn.t); });
+    toast(saved.length === 1 ? 'Payment recorded' : saved.length + ' payments recorded');
+  }
+}
+const Modal = {
+  open({ title, fields = [], body = '', submitLabel = 'Save', onSubmit, danger, hideCancel }) {
+    /* confirmations and notices without form fields are centred popups, not sheets */
+    if (!fields.length && onSubmit && (danger || hideCancel) && typeof body === 'string' && body.length < 1200) {
+      return __M_src_ui_toast_js.Pop.confirm({ title, html: body, confirmLabel: submitLabel, danger: !!danger, hideCancel: !!hideCancel, onYes: () => onSubmit({}) });
+    }
+    const f = fields.map(x => {
+      const v = esc(x.value ?? '');
+      let input;
+      if (x.type === 'select') input = `<select name="${x.name}">${x.options.map(([val, lab]) => `<option value="${esc(val)}" ${val == x.value ? 'selected' : ''}>${esc(lab)}</option>`).join('')}</select>`;
+      else input = `<input name="${x.name}" type="${x.type || 'text'}" value="${v}" ${x.required ? 'required' : ''} ${x.min != null ? `min="${x.min}"` : ''} ${x.type === 'number' ? 'step="any" inputmode="decimal"' : ''} placeholder="${esc(x.placeholder || '')}" autocomplete="off">`;
+      return `<label>${esc(x.label)}${input}</label>`;
+    }).join('');
+    $('#modalRoot').innerHTML = `<div class="veil" data-act="closeModal"><form class="sheet" role="dialog" aria-modal="true">
+      <div class="mhead"><button type="button" class="xbtn" data-act="closeModal" aria-label="Close">&times;</button><h3>${esc(title)}</h3><span class="xsp" aria-hidden="true"></span></div>${body}${f}
+      ${(hideCancel && !onSubmit) ? '' : `<div class="actions">${hideCancel ? '' : `<button type="button" class="btn" data-act="closeModal">${onSubmit ? 'Cancel' : 'Close'}</button>`}
+      ${onSubmit ? `<button class="btn ${danger ? 'bad solid' : 'pri'}">${esc(submitLabel)}</button>` : ''}</div>`}</form></div>`;
+    const form = $('#modalRoot form');
+    form.addEventListener('click', e => { const a = e.target.closest('[data-act]'); if (!a || !form.contains(a)) e.stopPropagation(); });
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      if (form._busy) return;
+      try { onSubmit && onSubmit(Object.fromEntries(new FormData(form))); } catch (err) { toast(err.message); return; }
+      form._busy = true;
+      Modal.close();
+    });
+    const first = form.querySelector('input:not([type=checkbox]):not([type=file]),select,textarea'); if (first) setTimeout(() => { try { first.focus({ preventScroll: true }); } catch (e) {} }, 320);
+    document.body.style.overflow = 'hidden';
+  },
+  close: () => { $('#modalRoot').innerHTML = ''; if (!document.body.classList.contains('menu-open')) document.body.style.overflow = ''; }
+};
+
+function confirmBox(text, onYes) {
+  __M_src_ui_toast_js.Pop.confirm({ title: 'Are you sure?', text, confirmLabel: 'Continue', danger: true, onYes });
+}
+
+return { get Modal() { return Modal; }, get confirmBox() { return confirmBox; }, get savePayments() { return savePayments; }, };
+})();
+
+/* ---- src/ui/signature.js ---- */
+const __M_src_ui_signature_js = (function () {
+const { esc } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+const { Modal } = __M_src_ui_modal_js;
+
+const sigImg = (v, alt) => /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(v || '') ? `<img src="${v}" alt="${esc(alt)}" style="height:44px;margin-top:8px;display:block">` : '';
+
+
+const Signature = {
+  open(title, onSave) {
+    Modal.open({ title, submitLabel: 'Save signature', body: '<canvas id="sigPad" width="600" height="240" aria-label="Signature pad" style="width:100%;height:170px;border:1.5px dashed var(--line-2);border-radius:16px;touch-action:none;background:#fff;margin-top:6px"></canvas><p class="mute small" style="margin-top:8px">Sign with a finger inside the box. <button type="button" class="linkish" data-act="sigClear">Clear</button></p>',
+      onSubmit: () => { const c = $('#sigPad'); if (!c._ink) throw new Error('Please sign first'); const o = document.createElement('canvas'); o.width = 300; o.height = 120; o.getContext('2d').drawImage(c, 0, 0, 300, 120); onSave(o.toDataURL('image/png')); } });
+    const c = $('#sigPad'), x = c.getContext('2d'); x.lineWidth = 3; x.lineCap = 'round'; x.strokeStyle = '#12231f'; let down = false, last = null;
+    const pt = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+    c.addEventListener('pointerdown', e => { down = true; c.setPointerCapture(e.pointerId); const p = pt(e); last = p; c._ink = true; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(p[0] + .1, p[1] + .1); x.stroke(); });
+    c.addEventListener('pointermove', e => { if (!down) return; const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; evs.forEach(ev => { const q = pt(ev); x.beginPath(); x.moveTo(last[0], last[1]); x.lineTo(q[0], q[1]); x.stroke(); last = q; c._ink = true; }); });
+    ['pointerup', 'pointercancel'].forEach(t => c.addEventListener(t, () => { down = false; }));
+  }
+};
+
+return { get sigImg() { return sigImg; }, get Signature() { return Signature; }, };
+})();
+
+/* ---- src/features/home/index.js ---- */
+const __M_src_features_home_index_js = (function () {
+const { adminBtn, Auth } = __M_src_core_auth_js;
+const { Domain } = __M_src_core_domain_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { addMonths, esc, kes, monthLabel, sum, todayISO, uid, waLink } = __M_src_core_utils_js;
+const { num } = __M_src_lib_validate_js;
+const { av } = __M_src_ui_avatar_js;
+const { Modal, confirmBox } = __M_src_ui_modal_js;
+const { Signature, sigImg } = __M_src_ui_signature_js;
+const { toast } = __M_src_ui_toast_js;
+
+const longMonth = mk => { const [y, m] = mk.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'long' }); };
+const firstName = n => String(n || '').trim().split(/\s+/)[0] || '';
+
+const views = {
+  home(s) {
+    const Sess = __M_src_core_session_js.Session, admin = Auth.isAdmin();
+    let lang = 'en'; try { lang = __M_src_features_auth_gate_js.OB.lang(); } catch (e) {}
+    const today = new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long' });
+    const greet = `<div class="greet"><small>${esc(today)}</small><h1>${esc(greeting(lang))}${Sess.displayName() ? ', ' + esc(Sess.displayName()) : ''}</h1></div>`;
+    if (!s.members.length) {
+      return greet + `<div class="card">${s.shared
+        ? emptyState('people', 'Nothing to show yet', 'Your treasurer has not added the member list yet. Your records will appear here once they do.')
+        : emptyState('people', 'Add your first members', 'Your chama starts with its people. Add each member, then record their contributions every month.', '<button class="btn pri" data-act="addMember">' + icon('userPlus') + 'Add a member</button>')}</div>`;
+    }
+    const cur = Domain.now(), exp = sum(s.members, m => Domain.dueFor(s, m.id));
+    const got = s.shared ? ((s.shared.monthCollected || {})[cur] || 0) : sum(s.payments.filter(p => p.month === cur), p => p.amount);
+    const pct = exp ? Math.min(100, Math.round(got / exp * 100)) : 0;
+    const rec = Domain.recipient(s), late = Domain.lateMembers(s), po = s.payouts.find(p => p.month === cur), idx = rec ? s.members.indexOf(rec) : -1;
+    const loansOut = s.shared ? s.shared.loansBalance : sum(s.loans, l => Domain.loan(l).balance);
+    const finesDue = s.shared ? s.shared.finesDue : sum(s.fines.filter(f => !f.paid), f => f.amount);
+    const meId = s.shared ? s.shared.me : Sess.memberId;
+    const me = meId ? s.members.find(m => m.id === meId) : null;
+
+    /* hero: the one number that matters most for this person */
+    let hero;
+    if (s.shared) {
+      const st = me ? Domain.status(s, me.id, cur) : null, bal = me ? Domain.outstanding(s, me.id, cur) : 0;
+      const head = !me ? 'Not linked yet' : st === 'paid' ? 'Paid up' : st === 'future' || st === 'na' ? 'Nothing due' : kes(bal) + ' due';
+      const sub = !me ? 'Ask your treasurer to link your sign-in to your member record.' : st === 'paid' ? 'Thank you. Your ' + longMonth(cur) + ' contribution is in.' : st === 'late' ? 'Late. It was due by day ' + s.chama.dueDay + '.' : st === 'partial' ? 'Part paid. Due by day ' + s.chama.dueDay + '.' : 'Due by day ' + s.chama.dueDay + ' of ' + longMonth(cur) + '.';
+      hero = `<section class="hero" aria-label="Your month">
+        <div class="hero-l">Your ${esc(longMonth(cur))}</div>
+        <div class="hero-v">${esc(head)}</div>
+        <div class="hero-s">${esc(sub)}</div>
+        <div class="hero-row"><div style="flex:1"><div class="hero-s">Group collected ${esc(kes(got))} of ${esc(kes(exp))}</div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Group collected this month"><i style="width:${pct}%"></i></div></div><span class="hero-chip num">${pct}%</span></div>
+      </section>`;
+    } else {
+      hero = `<section class="hero" aria-label="Cash on hand">
+        <div class="hero-l">Cash on hand</div>
+        <div class="hero-v">${esc(kes(Domain.cashOnHand(s)))}</div>
+        <div class="hero-s">After loans, payouts and expenses</div>
+        <div class="hero-row"><div style="flex:1"><div class="hero-s">Collected in ${esc(longMonth(cur))}: ${esc(kes(got))} of ${esc(kes(exp))}</div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Collected this month"><i style="width:${pct}%"></i></div></div><span class="hero-chip num">${pct}%</span></div>
+      </section>`;
+    }
+
+    const qa = admin ? `<div class="qa" role="group" aria-label="Quick actions">
+      <button type="button" data-act="quickPay"><span class="qa-i">${icon('wallet')}</span>Record payment</button>
+      <button type="button" data-act="addLoan"><span class="qa-i">${icon('loans')}</span>New loan</button>
+      <button type="button" data-act="addMember"><span class="qa-i">${icon('userPlus')}</span>Add member</button>
+      <button type="button" data-act="importPay"><span class="qa-i">${icon('import')}</span>Import M-Pesa</button>
+    </div>` : '';
+
+    const stats = s.shared
+      ? `<div class="stats"><div><span>Saved</span><b>${esc(kes(me ? Domain.memberSaved(s, me.id) : 0))}</b></div><div><span>Your loan</span><b>${esc(kes(me ? Domain.memberLoanBalance(s, me.id) : 0))}</b></div><div><span>Group cash</span><b>${esc(kes(Domain.cashOnHand(s)))}</b></div></div>`
+      : `<div class="stats"><div><span>Loans out</span><b>${esc(kes(loansOut))}</b></div><div><span>Unpaid fines</span><b>${esc(kes(finesDue))}</b></div><div><span>Paid up</span><b class="num">${s.members.length - late.length}/${s.members.length}</b></div></div>`;
+
+    /* this month: the payout (merry-go-round) and, for the treasurer, who is behind */
+    const rows = [];
+    if (s.chama.mode !== 'savings' && rec) {
+      const amt = po ? po.amount : exp;
+      const end = po ? '<span class="tag ok">Sent</span>' : (admin ? `<button class="btn sm pri" data-act="markPayout" data-amt="${esc(exp)}">Mark sent</button>` : '<span class="tag">Due</span>');
+      rows.push(`<div class="li has-av">${av(rec, 40)}<div class="li-main"><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b><small>Receives the pot · ${esc(kes(amt))} · turn ${Math.max(1, idx + 1)} of ${s.members.length}</small></div><div class="li-end">${end}</div></div>`);
+      if (po && admin) rows.push(`<div class="li"><div class="li-main"><small>Sent ${esc(kes(po.amount))} on ${esc(po.date)}</small>${sigImg(po.sig, 'Recipient signature')}</div><div class="li-end">${po.sig ? '' : `<button class="btn sm" data-act="signPayout" data-id="${esc(po.id)}">Get signature</button>`}<button class="btn sm bad" data-act="undoPayout" data-id="${esc(po.id)}">Undo</button></div></div>`);
+    }
+    if (admin) {
+      if (late.length) {
+        late.slice(0, 4).forEach(m => {
+          const bal = Domain.outstanding(s, m.id, cur);
+          const msg = `Hi ${firstName(m.name)}, a friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} contribution balance is ${kes(bal)}.${s.chama.payTo ? ' Pay to: ' + s.chama.payTo + '.' : ''} Thank you!`;
+          rows.push(`<div class="li has-av">${av(m, 40)}<div class="li-main"><b>${esc(m.name)}</b><small class="num">${esc(kes(bal))} behind</small></div><div class="li-end">${m.phone ? `<a class="btn sm tint" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, msg))}" aria-label="Remind ${esc(m.name)} on WhatsApp">${icon('chat')}Remind</a>` : '<small>No phone</small>'}</div></div>`);
+        });
+        if (late.length > 4) rows.push(`<a class="li" href="#/grid"><div class="li-main"><b>${late.length - 4} more behind</b></div>${icon('chev', 'chev')}</a>`);
+      } else {
+        rows.push(`<div class="li has-ic"><span class="li-ic">${icon('check')}</span><div class="li-main"><b>${Domain.isOverdue(s, cur) ? 'Everyone is paid up' : 'Nobody is late yet'}</b><small>${Domain.isOverdue(s, cur) ? 'Every member has paid for ' + esc(longMonth(cur)) + '.' : 'Contributions are due by day ' + esc(s.chama.dueDay) + '.'}</small></div></div>`);
+      }
+    }
+    const month = rows.length ? `<section class="sec"><div class="sec-h"><h2>This month</h2>${admin ? '<a href="#/grid">Contributions</a>' : ''}</div><div class="list">${rows.join('')}</div></section>` : '';
+
+    const recent = [...s.payments].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 3);
+    const recentHtml = `<section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your recent payments' : 'Recent payments'}</h2>${recent.length ? '<a href="#/grid">See all</a>' : ''}</div><div class="list">${recent.length
+      ? recent.map(p => { const m = s.members.find(x => x.id === p.memberId); return s.shared
+          ? `<div class="li has-ic"><span class="li-ic">${icon('check')}</span><div class="li-main"><b>${esc(longMonth(p.month))}</b><small>${esc(p.date)}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`
+          : `<div class="li has-av">${av(m || { name: 'Removed member' }, 40)}<div class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`; }).join('')
+      : `<div class="li empty">No payments recorded yet</div>`}</div></section>`;
+
+    return `${greet}${hero}${qa}${stats}${month}${recentHtml}`;
+  }
+};
+
+const actions = {
+  quickPay: { admin: true, run() { location.hash = '#/grid'; setTimeout(() => toast('Tap a member’s status to record their payment'), 350); } },
+  markPayout: { admin: true, run(d) {
+    const s = S(), rec = Domain.recipient(s), cur = Domain.now(); if (!rec) return;
+    Modal.open({ title: `Payout to ${rec.name}`, submitLabel: 'Record payout', fields: [{ name: 'amount', label: 'Amount sent (KES)', type: 'number', value: d.amt ? Number(d.amt) : '', placeholder: d.amt ? 'e.g. ' + Number(d.amt).toLocaleString('en-KE') : '' }],
+      body: `<p class="plain">Record the money you sent to <b>${esc(rec.name)}</b> for ${esc(monthLabel(cur))}. You can ask them to sign next.</p>`,
+      onSubmit: v => { const amount = num(v.amount, 'Amount'); const id = uid(); Store.commit(st => st.payouts.push({ id, memberId: rec.id, month: cur, amount, date: todayISO() })); toast('Payout recorded');
+        setTimeout(() => Signature.open(`Signature of ${rec.name}`, sig => Store.commit(st => { const p = st.payouts.find(x => x.id === id); if (p) p.sig = sig; })), 60); } });
+  } },
+  signPayout: { admin: true, run(d) {
+    const s = S(), p = s.payouts.find(x => x.id === d.id); if (!p) return;
+    Signature.open(`Signature of ${Domain.memberName(s, p.memberId)}`, sig => Store.commit(st => { const x = st.payouts.find(y => y.id === d.id); if (x) x.sig = sig; }));
+  } },
+  undoPayout: { admin: true, run: d => confirmBox('Undo this payout? It is removed from the records and the change is kept in History.', () => Store.commit(s => { s.payouts = s.payouts.filter(p => p.id !== d.id); })) },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/lib/matcher.js ---- */
+const __M_src_lib_matcher_js = (function () {
+
+
+
+/* Matches a payment to a member using masked phones, partial names and learned aliases */
+const Matcher = {
+  toks: s => String(s || '').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean),
+  key(s) { return this.toks(s).sort().join(' '); },
+  loc: p => String(p || '').replace(/[\s+-]/g, '').replace(/^(254|0)/, ''),
+  phone(mp, tp) {
+    const a = this.loc(mp), b = this.loc(tp); if (a.length < 9 || b.length < 3) return 0;
+    const mm = b.match(/^(\d*)([*xX]+)(\d*)$/);
+    if (!mm) return /^\d+$/.test(b) ? (a === b ? 1 : -1) : 0;
+    if (!a.startsWith(mm[1]) || !a.endsWith(mm[3])) return -1;
+    const k = mm[1].length + mm[3].length; return k >= 6 ? 0.9 : k >= 3 ? 0.45 : 0;
+  },
+  name(m, tx) {
+    const want = this.toks(tx.name), have = this.toks(m.name); if (!want.length) return 0; let tot = 0;
+    want.forEach(w => { let best = 0; have.forEach(h => { if (w === h) best = 1; else if (w.length >= 3 && h.length >= 3 && (h.startsWith(w) || w.startsWith(h))) best = Math.max(best, 0.75); else if (w.length === 1 && h[0] === w) best = Math.max(best, 0.3); }); tot += best; });
+    return tot / want.length * (want.length === 1 ? 0.6 : 1);
+  },
+  score(m, tx) {
+    if (tx.name && (m.aliases || []).includes(this.key(tx.name))) return 1;
+    const full = tx.phone && !/[*xX]/.test(tx.phone);
+    if (full && (m.phones || []).includes(this.loc(tx.phone))) return 1;
+    const ph = this.phone(m.phone, tx.phone); if (ph === 1) return 1; if (ph < 0) return 0;
+    return 1 - (1 - ph) * (1 - this.name(m, tx));
+  },
+  rank(s, tx) { return s.members.map(m => ({ m, sc: this.score(m, tx) })).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc); },
+  learn(m, tx) {
+    m.aliases = m.aliases || []; m.phones = m.phones || [];
+    const k = this.key(tx.name); if (k && !m.aliases.includes(k)) m.aliases.push(k);
+    if (tx.phone && !/[*xX]/.test(tx.phone)) { const l = this.loc(tx.phone); if (l && !m.phones.includes(l)) m.phones.push(l); }
+  }
+};
+
+return { get Matcher() { return Matcher; }, };
+})();
+
+/* ---- src/lib/mpesa.js ---- */
+const __M_src_lib_mpesa_js = (function () {
+
+/* Reads M-Pesa confirmation text (typed, pasted, or OCR'd from a screenshot) */
+const Mpesa = {
+  amount(raw) { let n = String(raw).replace(/,/g, ''); const p = n.split('.'); if (p.length > 2) n = p.slice(0, -1).join('') + '.' + p[p.length - 1]; return parseFloat(n); },
+  parse(raw) {
+    const t = String(raw).replace(/\s+/g, ' '), re = /\b([A-Z0-9]{10}) Confirmed/gi, hits = [], seen = new Set(), out = [];
+    let m; while ((m = re.exec(t))) hits.push({ code: m[1].toUpperCase(), at: m.index });
+    hits.forEach((h, k) => {
+      const seg = t.slice(h.at, k + 1 < hits.length ? hits[k + 1].at : undefined);
+      if (!/received/i.test(seg) || seen.has(h.code)) return;
+      const a = seg.match(/(?:Ksh|Kshs|KES)\.?\s?([\d,.]+\d)/i); if (!a) return;
+      const f = seg.match(/from\s+(.+?)\s+on\s+\d{1,2}\/\d{1,2}\/\d{2,4}/i), who = f ? f[1] : '';
+      const ph = who.match(/(?:\+?254|0)\s?[17][\d\s*xX]{5,10}\d/), phone = ph ? ph[0].replace(/\s/g, '') : '';
+      const name = who.replace(ph ? ph[0] : '', '').replace(/[-:,.]/g, ' ').replace(/\s+/g, ' ').trim();
+      const d = seg.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); let date = '';
+      if (d) date = `${d[3].length === 2 ? '20' + d[3] : d[3]}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`;
+      seen.add(h.code); out.push({ code: h.code, amount: this.amount(a[1]), name, phone, date });
+    });
+    return out;
+  }
+};
+
+return { get Mpesa() { return Mpesa; }, };
+})();
+
+/* ---- src/lib/importer.js ---- */
+const __M_src_lib_importer_js = (function () {
+const { Domain } = __M_src_core_domain_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { addMonths, esc, kes, monthLabel, todayISO, uid } = __M_src_core_utils_js;
+const { Matcher } = __M_src_lib_matcher_js;
+const { Mpesa } = __M_src_lib_mpesa_js;
+const { Modal, savePayments } = __M_src_ui_modal_js;
+const { toast } = __M_src_ui_toast_js;
+
+const Import = {
+  lib: src => new Promise((ok, no) => { const el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = no; document.head.appendChild(el); }),
+  async shrink(file) {
+    const bmp = await createImageBitmap(file), k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); return c;
+  },
+  async ocr(file) {
+    if (!window.Tesseract) await this.lib('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+    return (await Tesseract.recognize(await this.shrink(file), 'eng')).data.text;
+  },
+  async run(text, files) {
+    try {
+      let all = text;
+      for (let i = 0; i < files.length; i++) { toast(`Reading screenshot ${i + 1} of ${files.length}`); try { all += '\n' + await this.ocr(files[i]); } catch { toast('Could not read screenshot ' + (i + 1) + '. Try pasting the text.'); } }
+      const txs = Mpesa.parse(all);
+      if (!txs.length) return toast('No incoming payments found. Try pasting the message text.');
+      this.review(txs);
+    } catch (e) { toast(e.message); }
+  },
+  defaultMonth(s, mid) {
+    const cur = Domain.now();
+    for (let i = 5; i >= 0; i--) { const mk = addMonths(cur, -i); if ((mk === cur || s.payments.some(p => p.month === mk)) && Domain.outstanding(s, mid, mk) > 0 && mk >= Domain.joinMonth(s, mid)) return mk; }
+    return cur;
+  },
+  review(txs) {
+    const s = S(), cur = Domain.now(), months = Array.from({ length: 6 }, (_, i) => addMonths(cur, i - 5));
+    const rows = txs.map((t, i) => {
+      const r = Matcher.rank(s, t), top = r[0], sure = top && top.sc >= 0.8 && !(r[1] && r[1].sc > top.sc - 0.15);
+      t.memberId = top && top.sc >= 0.4 ? top.m.id : ''; t.dup = s.payments.some(p => p.code && p.code === t.code);
+      const mo = t.memberId ? Import.defaultMonth(s, t.memberId) : cur;
+      return `<div class="mrow"><input type="checkbox" name="inc_${i}" aria-label="Include ${esc(t.code)}" ${t.dup ? 'disabled' : 'checked'}>
+        <div class="grow"><b class="num">${esc(kes(t.amount))}</b> <span class="tag ${t.dup ? 'bad' : sure ? 'ok' : 'warn'}">${t.dup ? 'Already recorded' : sure ? 'Matched' : t.memberId ? 'Please check' : 'No match'}</span>
+        <div class="mute small">${esc(t.code)} \u00b7 ${esc(t.name || 'no name')} ${esc(t.phone)}</div>
+        <select name="m_${i}" aria-label="Member for ${esc(t.code)}"><option value="">Choose member</option>${s.members.map(m => `<option value="${esc(m.id)}" ${m.id === t.memberId ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
+        <select name="mo_${i}" aria-label="Month for ${esc(t.code)}">${months.map(k => `<option value="${k}" ${k === mo ? 'selected' : ''}>${monthLabel(k)}</option>`).join('')}</select></div></div>`;
+    }).join('');
+    Modal.open({ title: `${txs.length} payment${txs.length > 1 ? 's' : ''} found`, submitLabel: 'Record payments', body: '<p class="plain">Check each member and month. Ticked payments are recorded.</p>' + rows, onSubmit: v => {
+      const picks = txs.map((t, i) => ({ t, i })).filter(x => v['inc_' + x.i] != null);
+      if (!picks.length) throw new Error('Nothing selected');
+      picks.forEach(({ t, i }) => { if (!v['m_' + i]) throw new Error('Choose a member for ' + t.code); });
+      savePayments(picks.map(({ t, i }) => { const m = S().members.find(x => x.id === v['m_' + i]); return { memberId: m.id, month: v['mo_' + i], amount: t.amount, code: t.code, date: t.date || todayISO(), name: m.name, learn: { m, t } }; }));
+    } });
+  }
+};
+
+return { get Import() { return Import; }, };
+})();
+
+/* ---- src/ui/forms.js ---- */
+const __M_src_ui_forms_js = (function () {
+
+const memberOptions = s => s.members.map(m => [m.id, m.name]);
+
+return { get memberOptions() { return memberOptions; }, };
+})();
+
+/* ---- src/features/contributions/index.js ---- */
+const __M_src_features_contributions_index_js = (function () {
+const { Auth, adminBtn } = __M_src_core_auth_js;
+const { Domain } = __M_src_core_domain_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { addMonths, esc, kes, monthLabel, sum, todayISO, uid } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+const { Import } = __M_src_lib_importer_js;
+const { num } = __M_src_lib_validate_js;
+const { av, memberChip } = __M_src_ui_avatar_js;
+const { memberOptions } = __M_src_ui_forms_js;
+const { Modal, confirmBox, savePayments } = __M_src_ui_modal_js;
+const { toast } = __M_src_ui_toast_js;
+const { render } = __M_src_core_rerender_js;
+let cgMonth = null;   // selected month, UI state only
+
+const views = {
+  grid(s) {
+    const admin = Auth.isAdmin();
+    const head = `<h1 class="lt">Contributions</h1><p class="lt-sub">${esc(kes(s.chama.monthly))} per share, due by day ${esc(s.chama.dueDay)} each month</p>`;
+    if (!s.members.length) return head + `<div class="card">${emptyState('receipt', 'No members yet', admin ? 'Add your members first. Then their monthly contributions show up here.' : 'Your treasurer has not added members yet.', admin ? '<button class="btn pri" data-act="addMember">' + icon('userPlus') + 'Add a member</button>' : '')}</div>`;
+    const cur = Domain.now(), months = Array.from({ length: 6 }, (_, i) => addMonths(cur, i - 5));
+    if (!cgMonth || !months.includes(cgMonth)) cgMonth = cur;
+    const mo = cgMonth, idx = months.indexOf(mo);
+    const people = s.shared ? s.members.filter(m => m.id === s.shared.me) : s.members;
+    const total = s.shared ? ((s.shared.monthCollected || {})[mo] || 0) : sum(s.payments.filter(p => p.month === mo), p => p.amount);
+    const expected = sum(s.members.filter(m => Domain.joinMonth(s, m.id) <= mo), m => Domain.dueFor(s, m.id));
+    const pct = expected ? Math.min(100, Math.round(total / expected * 100)) : 0;
+    const label = { paid: 'Paid', late: 'Late', due: 'Record', future: 'Not due', na: 'Not due', partial: 'Part paid' };
+    const memberLabel = { paid: 'Paid', late: 'Late', due: 'Due', future: 'Not due', na: 'Not due', partial: 'Part paid' };
+    const paidCount = s.shared ? null : s.members.filter(m => Domain.status(s, m.id, mo) === 'paid').length;
+
+    const rows = people.map(m => {
+      const st = Domain.status(s, m.id, mo), paid = Domain.paidIn(s, m.id, mo), due = Domain.dueFor(s, m.id);
+      const can = admin && !['future', 'na'].includes(st);
+      const sub = ['future', 'na'].includes(st) ? 'Not due this month' : `${kes(paid)} of ${kes(due)}`;
+      const text = st === 'partial' ? kes(paid) : (admin ? label[st] : memberLabel[st]);
+      return `<div class="li has-av">${av(m, 40)}<div class="li-main"><b>${esc(m.name)}${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}</b><small class="num">${esc(sub)}</small></div>
+        <div class="li-end"><button type="button" class="st ${st}" ${can ? `data-act="pay" data-m="${esc(m.id)}" data-mo="${esc(mo)}"` : 'disabled'} aria-label="${esc(m.name)}, ${esc(monthLabel(mo))}: ${esc(memberLabel[st])}${can ? '. Tap to record a payment' : ''}">${esc(text)}</button></div></div>`;
+    }).join('');
+
+    const pills = months.map(mk => `<button type="button" role="tab" aria-selected="${mk === mo}" data-act="cgMonth" data-mo="${mk}">${esc(monthLabel(mk))}</button>`).join('');
+    const recent = [...s.payments].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 10);
+
+    return `${head}
+      ${admin ? `<div class="btns" style="margin-top:0"><button class="btn tint sm" data-act="importPay">${icon('import')}Import from M-Pesa</button></div>` : ''}
+      <div class="months" role="tablist" aria-label="Month" style="--n:6;--i:${idx}"><span class="pill" aria-hidden="true"></span>${pills}</div>
+      <div class="card" style="padding:16px 18px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span class="mute small">${s.shared ? 'Group total' : 'Collected'} · ${esc(monthLabel(mo))}</span>${paidCount != null ? `<span class="tag ${paidCount === s.members.length ? 'ok' : ''}">${paidCount} of ${s.members.length} paid</span>` : ''}</div>
+        <div class="num" style="font:700 1.6em/1.2 var(--font-display);margin-top:4px">${esc(kes(total))}</div>
+        <div class="bar" style="margin-top:10px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Share of expected collected"><i style="width:${pct}%"></i></div>
+        <p class="mute small" style="margin-top:8px">${pct}% of ${esc(kes(expected))} expected</p>
+      </div>
+      <section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your contribution' : 'Members'}</h2></div>
+        <div class="list">${rows || '<div class="li empty">Your sign-in is not linked to a member record yet</div>'}</div>
+        <p class="foot-note">${admin ? 'Tap a status to record a payment. Every change is kept in History.' : 'You see your own contribution and the group total. Other members’ payments stay private.'}</p>
+      </section>
+      <section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your payments' : 'Recent payments'}</h2></div>
+        <div class="list">${recent.length ? recent.map(p => {
+          const m = s.members.find(x => x.id === p.memberId);
+          const inner = `${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</small></span><span class="li-end"><span class="num">${esc(kes(p.amount))}</span>${admin ? icon('chev', 'chev') : ''}</span>`;
+          return admin ? `<button type="button" class="li has-av" data-act="payMenu" data-id="${esc(p.id)}">${inner}</button>` : `<div class="li has-av">${inner}</div>`;
+        }).join('') : '<div class="li empty">No payments recorded yet</div>'}</div>
+      </section>`;
+  }
+};
+
+const actions = {
+  pay: { admin: true, run(d) {
+    const s = S(), m = s.members.find(x => x.id === d.m); if (!m) return;
+    const due = Domain.dueFor(s, m.id), left = Math.max(0, due - Domain.paidIn(s, m.id, d.mo));
+    Modal.open({ title: `${m.name}`, submitLabel: 'Record payment', fields: [
+      { name: 'amount', label: 'Amount (KES)', type: 'number', value: left || due, placeholder: 'e.g. ' + due.toLocaleString('en-KE') },
+      { name: 'code', label: 'M-Pesa code (optional)', placeholder: 'e.g. SJK4L2P9QX' }],
+      body: `<p class="plain">Contribution for <b>${esc(monthLabel(d.mo))}</b>. ${left ? esc(kes(left)) + ' is still due.' : 'This month is already paid. Anything extra counts toward later months.'}</p>`,
+      onSubmit: v => {
+        const amount = num(v.amount, 'Amount');
+        if (amount > 10000000) throw new Error('That amount is too large. Check the number.');
+        const code = (v.code || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (code && !/^[A-Z0-9]{6,15}$/.test(code)) throw new Error('An M-Pesa code has 6 to 15 letters and numbers');
+        if (code && S().payments.some(p => p.code === code)) throw new Error('That M-Pesa code is already recorded');
+        savePayments([{ memberId: m.id, month: d.mo, amount, code, date: todayISO(), name: m.name }]);
+      } });
+  } },
+  payMenu: { admin: true, run(d) {
+    const s = S(), p = s.payments.find(x => x.id === d.id); if (!p) return;
+    Modal.open({ title: 'Payment', body: `<div class="kv"><span>Member</span><b>${esc(Domain.memberName(s, p.memberId))}</b></div><div class="kv"><span>Amount</span><b class="num">${esc(kes(p.amount))}</b></div><div class="kv"><span>For month</span><b>${esc(monthLabel(p.month))}</b></div><div class="kv"><span>Date</span><b>${esc(p.date)}</b></div><div class="kv"><span>M-Pesa code</span><b>${esc(p.code || 'None')}</b></div>
+      <div class="btns"><button type="button" class="btn grow" data-act="editPay" data-id="${esc(p.id)}">${icon('pencil')}Edit</button><button type="button" class="btn bad grow" data-act="delPay" data-id="${esc(p.id)}">${icon('trash')}Remove</button></div>` });
+  } },
+  delPay: { admin: true, run: d => { Modal.close(); confirmBox('Remove this payment? It is taken off the records. The change is kept in History and can be undone from the menu.', () => Store.commit(s => { s.payments = s.payments.filter(p => p.id !== d.id); })); } },
+  editPay: { admin: true, run(d) {
+    const s = S(), p = s.payments.find(x => x.id === d.id); if (!p) return;
+    Modal.open({ title: 'Edit payment', fields: [
+      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s), value: p.memberId },
+      { name: 'month', label: 'For month', type: 'month', value: p.month, required: true },
+      { name: 'amount', label: 'Amount (KES)', type: 'number', value: p.amount },
+      { name: 'code', label: 'M-Pesa code', value: p.code }],
+      onSubmit: v => { const amount = num(v.amount, 'Amount'); const code = (v.code || '').trim().toUpperCase().replace(/\s+/g, ''); if (code && !/^[A-Z0-9]{6,15}$/.test(code)) throw new Error('An M-Pesa code has 6 to 15 letters and numbers'); if (code && S().payments.some(x => x.code === code && x.id !== p.id)) throw new Error('That M-Pesa code is already recorded'); if (!/^\d{4}-\d{2}$/.test(v.month)) throw new Error('Pick a month'); if (!S().members.some(m => m.id === v.memberId)) throw new Error('Choose a member'); Store.commit(st => Object.assign(st.payments.find(x => x.id === p.id), { memberId: v.memberId, month: v.month, amount, code })); toast('Payment updated'); } });
+  } },
+  importPay: { admin: true, run() {
+    if (!S().members.length) return toast('Add members first');
+    Modal.open({ title: 'Import M-Pesa payments', submitLabel: 'Read payments',
+      body: '<p class="plain">Paste the confirmation messages, or add screenshots. Nothing is recorded until you check each match.</p><label>Messages<textarea name="text" rows="5" placeholder="SJK4L2P9QX Confirmed. Ksh2,000.00 received from…"></textarea></label><label>Screenshots<input type="file" name="shots" accept="image/*" multiple></label><p class="fhelp">Screenshots are read on this phone. They are not uploaded.</p>',
+      onSubmit: v => { const files = [...$('#modalRoot input[type=file]').files]; if (!(v.text || '').trim() && !files.length) throw new Error('Paste a message or add a screenshot'); if (files.length > 10) throw new Error('Add up to 10 screenshots at a time'); Import.run(v.text || '', files); } });
+  } },
+  cgMonth: { run(d) { cgMonth = d.mo; render(); } },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/loans/index.js ---- */
+const __M_src_features_loans_index_js = (function () {
+const { Auth, adminBtn } = __M_src_core_auth_js;
+const { Domain } = __M_src_core_domain_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { esc, kes, todayISO, uid, sum } = __M_src_core_utils_js;
+const { num } = __M_src_lib_validate_js;
+const { av } = __M_src_ui_avatar_js;
+const { memberOptions } = __M_src_ui_forms_js;
+const { Modal } = __M_src_ui_modal_js;
+const { Signature, sigImg } = __M_src_ui_signature_js;
+const { toast } = __M_src_ui_toast_js;
+
+const views = {
+  loans(s) {
+    const admin = Auth.isAdmin();
+    const head = `<h1 class="lt">Loans</h1><p class="lt-sub">${s.shared ? 'Your loans and repayments' : 'Money lent to members and paid back'}</p>`;
+    const all = s.loans.map(l => ({ l, c: Domain.loan(l) }));
+    const active = all.filter(x => x.c.balance > 0), done = all.filter(x => x.c.balance <= 0);
+    const stats = `<div class="stats"><div><span>Outstanding</span><b>${esc(kes(sum(all, x => x.c.balance)))}</b></div><div><span>Active</span><b class="num">${active.length}</b></div><div><span>Repaid</span><b>${esc(kes(sum(all, x => x.c.paid)))}</b></div></div>`;
+    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri" data-act="addLoan">${icon('plus')}New loan</button></div>` : '';
+    if (!all.length) return head + btn + `<div class="card" style="margin-top:14px">${emptyState('loan', 'No loans yet', admin ? 'When the chama lends to a member, record it here with the interest and repayment period.' : 'Loans you take from your chama will show here.')}</div>`;
+    const row = ({ l, c }) => {
+      const m = s.members.find(x => x.id === l.memberId), pct = c.total ? Math.min(100, Math.round(c.paid / c.total * 100)) : 100;
+      return `<button type="button" class="li has-av" data-act="loanMenu" data-id="${esc(l.id)}">${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(Domain.memberName(s, l.memberId))}</b><small class="num">${esc(kes(l.principal))} · ${esc(l.rate)}% × ${esc(l.months)} mo · ${esc(l.date)}</small><span class="bar ${c.balance ? '' : 'ok'}" style="margin-top:7px"><i style="width:${pct}%"></i></span></span><span class="li-end"><span><span class="num">${esc(kes(c.balance))}</span><small>${c.balance ? 'left' : 'cleared'}</small></span>${icon('chev', 'chev')}</span></button>`;
+    };
+    return `${head}${btn}${stats}
+      ${active.length ? `<section class="sec"><div class="sec-h"><h2>Active</h2></div><div class="list">${active.map(row).join('')}</div></section>` : ''}
+      ${done.length ? `<section class="sec"><div class="sec-h"><h2>Cleared</h2></div><div class="list">${done.map(row).join('')}</div></section>` : ''}
+      <p class="foot-note">Interest is flat: the rate is charged on the amount borrowed, each month, for the agreed months.</p>`;
+  },
+};
+
+const actions = {
+  loanMenu(d) {
+    const s = S(), l = s.loans.find(x => x.id === d.id); if (!l) return;
+    const c = Domain.loan(l), admin = Auth.isAdmin();
+    const reps = (l.repayments || []).slice().reverse();
+    Modal.open({ title: Domain.memberName(s, l.memberId), body: `
+      <div class="kv"><span>Borrowed</span><b class="num">${esc(kes(l.principal))}</b></div>
+      <div class="kv"><span>Interest</span><b>${esc(l.rate)}% a month for ${esc(l.months)} months</b></div>
+      <div class="kv"><span>Total to repay</span><b class="num">${esc(kes(c.total))}</b></div>
+      <div class="kv"><span>Repaid</span><b class="num">${esc(kes(c.paid))}</b></div>
+      <div class="kv"><span>Balance</span><b class="num">${esc(kes(c.balance))}</b></div>
+      <div class="kv"><span>About each month</span><b class="num">${esc(kes(c.installment))}</b></div>
+      <div class="kv"><span>Issued</span><b>${esc(l.date)}</b></div>
+      ${l.sig ? `<div class="kv"><span>Signature</span><b>${sigImg(l.sig, 'Borrower signature')}</b></div>` : ''}
+      ${reps.length ? `<h3 style="font-size:.9em;margin:18px 0 4px">Repayments</h3>${reps.map(r => `<div class="kv"><span>${esc(r.date)}</span><b class="num">${esc(kes(r.amount))}</b></div>`).join('')}` : ''}
+      ${admin ? `<div class="btns">${c.balance ? `<button type="button" class="btn pri grow" data-act="repay" data-id="${esc(l.id)}">Record repayment</button>` : ''}<button type="button" class="btn grow" data-act="signLoan" data-id="${esc(l.id)}">${icon('sign')}${l.sig ? 'Sign again' : 'Get signature'}</button><button type="button" class="btn grow" data-act="editLoan" data-id="${esc(l.id)}">${icon('pencil')}Edit</button></div>` : ''}` });
+  },
+  editLoan: { admin: true, run(d) {
+    const s = S(), l = s.loans.find(x => x.id === d.id); if (!l) return;
+    Modal.open({ title: 'Edit loan', fields: [
+      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s), value: l.memberId },
+      { name: 'principal', label: 'Amount (KES)', type: 'number', value: l.principal },
+      { name: 'rate', label: 'Interest (% per month, flat)', type: 'number', value: l.rate },
+      { name: 'months', label: 'Repay over (months)', type: 'number', value: l.months }],
+      onSubmit: v => { const principal = num(v.principal, 'Amount'), rate = num(v.rate, 'Rate', { allowZero: true }), months = Math.round(num(v.months, 'Months')); if (rate > 100) throw new Error('Interest above 100% a month is not allowed'); if (months > 120) throw new Error('Repay over 120 months or fewer'); Store.commit(st => Object.assign(st.loans.find(x => x.id === l.id), { memberId: v.memberId, principal, rate, months })); toast('Loan updated'); } });
+  } },
+  signLoan: { admin: true, run(d) {
+    const l = S().loans.find(x => x.id === d.id); if (!l) return;
+    Signature.open(`Signature of ${Domain.memberName(S(), l.memberId)}`, sig => Store.commit(st => { st.loans.find(x => x.id === l.id).sig = sig; }));
+  } },
+  addLoan: { admin: true, run() {
+    const s = S(); if (!s.members.length) return toast('Add members first');
+    Modal.open({ title: 'New loan', submitLabel: 'Issue loan', fields: [
+      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s) },
+      { name: 'principal', label: 'Amount (KES)', type: 'number' },
+      { name: 'rate', label: 'Interest (% per month, flat)', type: 'number', value: s.chama.loanRate },
+      { name: 'months', label: 'Repay over (months)', type: 'number', value: 3 }],
+      body: `<p class="plain">Cash on hand: <b class="num">${esc(kes(Domain.cashOnHand(s)))}</b>. A loan cannot be more than that.</p>`,
+      onSubmit: v => {
+        const principal = num(v.principal, 'Amount'), rate = num(v.rate, 'Rate', { allowZero: true }), months = Math.round(num(v.months, 'Months'));
+        if (rate > 100) throw new Error('Interest above 100% a month is not allowed');
+        if (months < 1 || months > 120) throw new Error('Repay over 1 to 120 months');
+        if (principal > Domain.cashOnHand(S())) throw new Error('Not enough cash on hand for this loan');
+        Store.commit(st => st.loans.push({ id: uid(), memberId: v.memberId, principal, rate, months, date: todayISO(), repayments: [] })); toast('Loan issued');
+      } });
+  } },
+  repay: { admin: true, run(d) {
+    const l = S().loans.find(x => x.id === d.id); if (!l) return; const c = Domain.loan(l);
+    Modal.open({ title: 'Record repayment', submitLabel: 'Save repayment', fields: [{ name: 'amount', label: `Amount (balance ${kes(c.balance)})`, type: 'number', value: Math.round(Math.min(c.installment, c.balance)), placeholder: 'e.g. ' + kes(Math.round(Math.min(c.installment, c.balance))) }],
+      onSubmit: v => { const amount = num(v.amount, 'Amount'); if (amount > c.balance + 0.5) throw new Error('That is more than the balance of ' + kes(c.balance)); Store.commit(st => st.loans.find(x => x.id === l.id).repayments.push({ amount, date: todayISO() })); toast('Repayment saved'); } });
+  } },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/members/form.js ---- */
+const __M_src_features_members_form_js = (function () {
+const { Store } = __M_src_core_store_js;
+const { monthKey, uid, esc } = __M_src_core_utils_js;
+const { Modal } = __M_src_ui_modal_js;
+
+function memberForm(m) {
+  Modal.open({ title: m ? 'Edit member' : 'Add member', submitLabel: m ? 'Save' : 'Add member', fields: [
+    { name: 'name', label: 'Full name', value: m?.name, required: true, placeholder: 'e.g. Achieng Atieno' },
+    { name: 'phone', label: 'Phone (for WhatsApp reminders)', type: 'tel', value: m?.phone, placeholder: '0712 345 678' },
+    { name: 'role', label: 'Title in the group (optional)', value: m?.role, placeholder: 'Chair, Secretary, Treasurer' },
+    { name: 'shares', label: 'Shares (2 pays double)', type: 'number', value: m?.shares || 1 }],
+    body: m ? `<p class="plain">Changes are kept in History.</p><div class="btns" style="margin-top:6px"><button type="button" class="btn bad sm" data-act="delMember" data-id="${esc(m.id)}">Remove this member</button></div>` : '<p class="plain">Members are the people whose money the chama records. To let someone sign in, invite them from People and access.</p>',
+    onSubmit: v => {
+      const phone = String(v.phone || '').replace(/[\s-]/g, '');
+      const d = { name: String(v.name || '').trim().replace(/\s+/g, ' '), phone, role: String(v.role || '').trim(), shares: Math.max(1, Math.round(Number(v.shares) || 1)) };
+      if (!d.name) throw new Error('Type the member’s name');
+      if (d.name.length > 80) throw new Error('Keep the name to 80 characters or fewer');
+      if (phone && !/^(\+?254|0)[17]\d{8}$/.test(phone)) throw new Error('Phone number should look like 0712345678');
+      if (d.shares > 20) throw new Error('Use 20 shares or fewer');
+      Store.commit(s => m ? Object.assign(s.members.find(x => x.id === m.id), d) : s.members.push({ id: uid(), ...d, joined: monthKey(new Date()) }));
+    } });
+}
+
+return { get memberForm() { return memberForm; }, };
+})();
+
+/* ---- src/lib/reports.js ---- */
+const __M_src_lib_reports_js = (function () {
+const { Domain } = __M_src_core_domain_js;
+const { kes, monthLabel, sum } = __M_src_core_utils_js;
+
+const Reports = {
+  summary(s) {
+    const late = Domain.lateMembers(s);
+    return [`${s.chama.name}: ${monthLabel(Domain.now())} update`, `Cash on hand: ${kes(Domain.cashOnHand(s))}`, `Loans out: ${kes(s.shared ? s.shared.loansBalance : sum(s.loans, l => Domain.loan(l).balance))}`, s.shared ? '' : (late.length ? `Still to pay: ${late.map(m => m.name.split(' ')[0]).join(', ')}` : 'Everyone is paid up')].filter(Boolean).join('\n');
+  },
+  statement(s, m) {
+    const rows = s.payments.filter(p => p.memberId === m.id).sort((a, b) => a.month.localeCompare(b.month));
+    return [`${s.chama.name}: statement for ${m.name}`, `Total saved: ${kes(Domain.memberSaved(s, m.id))}`, `Loan balance: ${kes(Domain.memberLoanBalance(s, m.id))}`, `Unpaid fines: ${kes(Domain.memberFinesDue(s, m.id))}`, ...rows.slice(-6).map(p => `${monthLabel(p.month)}: ${kes(p.amount)}`)].join('\n');
+  },
+  /* spreadsheet cells that start with = + - @ are treated as text, so a name can never run as a formula */
+  cell(v) { let t = String(v ?? ''); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; },
+  download(name, text, type) {
+    const safe = String(name).replace(/[^\w .()-]+/g, '-').slice(0, 80);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = safe;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+};
+
+return { get Reports() { return Reports; }, };
+})();
+
+/* ---- src/features/members/index.js ---- */
+const __M_src_features_members_index_js = (function () {
+const { adminBtn, Auth } = __M_src_core_auth_js;
+const { Domain } = __M_src_core_domain_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { esc, kes, monthLabel, sum, waLink } = __M_src_core_utils_js;
+const { memberForm } = __M_src_features_members_form_js;
+const { Reports } = __M_src_lib_reports_js;
+const { av } = __M_src_ui_avatar_js;
+const { Modal, confirmBox } = __M_src_ui_modal_js;
+
+/* Treasurer-only card: people who joined by invite code and are not yet member records. Nothing is added until the treasurer confirms each one. */
+const joinedCard = s => {
+  const Sess = __M_src_core_session_js.Session, P = __M_src_core_session_js.Perm;
+  if (s.shared || !Sess || Sess.role !== 'treasurer') return '';
+  const rows = (Sess.access || []).filter(a => a.status === 'active' && !a.member_id && a.role === 'member');
+  if (!rows.length) return '';
+  return `<section class="sec"><div class="sec-h"><h2>Joined by invite code</h2></div><div class="list">${rows.map(a => `<div class="li has-ic"><span class="li-ic t-gold">${icon('key')}</span><div class="li-main"><b>${esc(a.email)}</b><small>${esc(P.label(a.role))} · not on the member list yet</small></div><div class="li-end"><button class="btn sm pri" data-act="confirmJoined" data-email="${esc(a.email)}">Confirm</button></div></div>`).join('')}</div><p class="foot-note">These people signed in with an invite code. Confirm each one to add them to the member list. Nothing is added until you confirm.</p></section>`;
+};
+/* Phone masking stays off until the owner approves it (05, B2). false keeps the current full phone numbers. */
+const CG_MASK_PHONES = false;
+const maskPhone = p => (p ? '•••• ' + String(p).replace(/\D/g, '').slice(-3) : '');
+const views = {
+  members(s) {
+    const admin = Auth.isAdmin(), meId = s.shared ? s.shared.me : null;
+    const head = `<h1 class="lt">Members</h1><p class="lt-sub">${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}${s.chama.mode === 'savings' ? '' : ' · listed in payout order'}</p>`;
+    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri grow" data-act="addMember">${icon('userPlus')}Add member</button><a class="btn tint grow" href="#/settings/actions">${icon('mail')}Invite</a></div>` : '';
+    if (!s.members.length) return head + btn + joinedCard(s) + `<div class="card" style="margin-top:14px">${s.shared ? emptyState('people', 'No member list yet', 'Your treasurer has not shared the member list yet.') : emptyState('people', 'No members yet', 'Add the people in your chama. You can invite them to sign in afterwards.')}</div>`;
+    const rows = s.members.map((m, i) => {
+      const rel = s.shared ? null : Domain.reliability(s, m.id);
+      const mine = meId && m.id === meId;
+      const sub = s.shared
+        ? (mine ? 'You · saved ' + kes(Domain.memberSaved(s, m.id)) : 'Turn ' + (i + 1))
+        : `Saved ${kes(Domain.memberSaved(s, m.id))}${Domain.memberLoanBalance(s, m.id) ? ' · loan ' + kes(Domain.memberLoanBalance(s, m.id)) : ''}${rel != null ? ' · ' + rel + '% on time' : ''}`;
+      const tags = `${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}${m.role && !s.shared ? ` <span class="tag brand">${esc(m.role)}</span>` : ''}`;
+      const inner = `${av(m, 42)}<span class="li-main"><b>${esc(m.name)}${tags}</b><small class="num">${esc(sub)}</small></span>`;
+      return (admin || mine) ? `<button type="button" class="li has-av" data-act="memberMenu" data-id="${esc(m.id)}">${inner}<span class="li-end">${icon('chev', 'chev')}</span></button>` : `<div class="li has-av">${inner}</div>`;
+    }).join('');
+    return `${head}${btn}${joinedCard(s)}<section class="sec"><div class="sec-h"><h2>${s.chama.mode === 'savings' ? 'Everyone' : 'Payout order'}</h2></div><div class="list">${rows}</div>
+      <p class="foot-note">${s.shared ? 'You see other members’ names only. Their money stays private.' : 'Tap a member for their statement, phone and payout position.'}</p></section>`;
+  }
+};
+
+/* Confirming a joined person writes the Chama document, so the treasurer's copy must be refreshed afterwards (otherwise the next save is refused as a conflict). */
+const openConfirmJoined = email => {
+  const base = email.split('@')[0].replace(/[._+\-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+  Modal.open({ title: 'Confirm member', submitLabel: 'Confirm member',
+    fields: [{ name: 'name', label: 'Full name', value: base, required: true }],
+    body: `<p class="plain"><b>${esc(email)}</b> joined with an invite code. Confirming adds them to the member list, where their payments and loans will be recorded.</p>`,
+    onSubmit: v => { setTimeout(() => confirmJoinedMember(email, String(v.name || '').trim()), 0); } });
+};
+const confirmJoinedMember = async (email, name) => {
+  if (!name) return __M_src_ui_toast_js.toast('Enter the member’s name');
+  const sb = __M_src_core_backend_js.Backend.sb;
+  if (!sb) return __M_src_ui_toast_js.toast('Sign-in is not set up in this app yet');
+  __M_src_ui_toast_js.toast('Confirming ' + email + '…', 'info');
+  const { error } = await sb.rpc('confirm_joined_member', { p_cid: Store.chamaId, p_email: email, p_name: name });
+  if (error) return __M_src_ui_toast_js.toast(rpcMessage(error), 'bad');
+  flashNext(name + ' is now a member.');
+  location.reload();
+};
+const actions = {
+  confirmJoined: { admin: true, run: d => openConfirmJoined(d.email) },
+  addMember: { admin: true, run: () => memberForm() },
+  editMember: { admin: true, run: d => memberForm(S().members.find(m => m.id === d.id)) },
+  moveMember: { admin: true, run(d) {
+    Modal.close();
+    Store.commit(s => { const i = s.members.findIndex(m => m.id === d.id); if (i > 0) [s.members[i - 1], s.members[i]] = [s.members[i], s.members[i - 1]]; });
+    __M_src_ui_toast_js.toast('Moved up one place in the payout order');
+  } },
+  memberMenu(d) {
+    const s = S(), m = s.members.find(x => x.id === d.id); if (!m) return;
+    const admin = Auth.isAdmin(), i = s.members.indexOf(m);
+    const rcv = sum(s.payouts.filter(p => p.memberId === m.id), p => p.amount), rel = s.shared ? null : Domain.reliability(s, m.id);
+    const phone = m.phone ? (CG_MASK_PHONES ? maskPhone(m.phone) : m.phone) : '';
+    Modal.open({ title: m.name, body: `
+      <div style="display:flex;justify-content:center;margin:4px 0 14px">${av(m, 72)}</div>
+      <div class="kv"><span>Saved</span><b class="num">${esc(kes(Domain.memberSaved(s, m.id)))}</b></div>
+      <div class="kv"><span>Loan balance</span><b class="num">${esc(kes(Domain.memberLoanBalance(s, m.id)))}</b></div>
+      <div class="kv"><span>Unpaid fines</span><b class="num">${esc(kes(Domain.memberFinesDue(s, m.id)))}</b></div>
+      ${rcv ? `<div class="kv"><span>Received in payouts</span><b class="num">${esc(kes(rcv))}</b></div>` : ''}
+      ${rel != null ? `<div class="kv"><span>On time (last 6 months)</span><b>${rel}%</b></div>` : ''}
+      ${s.chama.mode === 'savings' ? '' : `<div class="kv"><span>Payout turn</span><b>${i + 1} of ${s.members.length}</b></div>`}
+      ${m.joined ? `<div class="kv"><span>Joined</span><b>${esc(monthLabel(m.joined))}</b></div>` : ''}
+      ${admin ? `<div class="kv"><span>Phone</span><b>${phone ? `<a href="tel:${esc(String(m.phone).replace(/[^\d+]/g, ''))}">${esc(phone)}</a>` : 'Not added'}</b></div>` : ''}
+      <div class="btns">
+        <button type="button" class="btn grow" data-act="statement" data-id="${esc(m.id)}">${icon('doc')}Statement</button>
+        ${admin ? `${i > 0 && s.chama.mode !== 'savings' ? `<button type="button" class="btn grow" data-act="moveMember" data-id="${esc(m.id)}">${icon('up')}Move up</button>` : ''}<button type="button" class="btn grow" data-act="editMember" data-id="${esc(m.id)}">${icon('pencil')}Edit</button>` : ''}
+      </div>` });
+  },
+  statement(d) {
+    const s = S(), m = s.members.find(x => x.id === d.id); if (!m) return;
+    const rows = s.payments.filter(p => p.memberId === m.id).sort((a, b) => b.month.localeCompare(a.month));
+    Modal.open({ title: 'Statement', body: `<p class="plain" style="text-align:center;margin-bottom:6px"><b>${esc(m.name)}</b></p>
+      <div class="stats" style="margin:8px 0 14px"><div><span>Saved</span><b>${esc(kes(Domain.memberSaved(s, m.id)))}</b></div><div><span>Loan</span><b>${esc(kes(Domain.memberLoanBalance(s, m.id)))}</b></div><div><span>Fines</span><b>${esc(kes(Domain.memberFinesDue(s, m.id)))}</b></div></div>
+      ${rows.slice(0, 12).map(p => `<div class="kv"><span>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''}</span><b class="num">${esc(kes(p.amount))}</b></div>`).join('') || '<p class="plain">No payments yet.</p>'}
+      ${m.phone && !s.shared ? `<div class="btns"><a class="btn pri block" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, Reports.statement(s, m)))}">${icon('chat')}Send on WhatsApp</a></div>` : ''}` });
+  },
+  delMember: { admin: true, run: d => { if (Domain.memberLoanBalance(S(), d.id) > 0 || Domain.memberFinesDue(S(), d.id) > 0) throw new Error('Settle their loan and fines before removing them'); Modal.close(); confirmBox('Remove this member? Their past payments stay in the records.', () => Store.commit(s => { s.members = s.members.filter(m => m.id !== d.id); })); } },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/history/index.js ---- */
+const __M_src_features_history_index_js = (function () {
+const { esc } = __M_src_core_utils_js;
+
+const views = {
+  history(s) {
+    const L = s.log || [], tag = k => k === 'del' ? ['bad', 'Removed'] : k === 'edit' ? ['warn', 'Edited'] : ['ok', 'Added'];
+    const head = `<h1 class="lt">History</h1><p class="lt-sub">${s.shared ? 'A record of every change' : L.length + ' changes · visible to the treasurer'}</p>`;
+    if (s.shared) return head + `<div class="card">${emptyState('ledger', 'Kept by the treasurer', 'The full history of changes is visible to the treasurer. Your own payments and notices are on your profile.')}</div>`;
+    if (!L.length) return head + `<div class="card">${emptyState('ledger', 'No changes yet', 'Every payment, loan, fine and setting change will be listed here with what changed and when.')}</div>`;
+    return head + `<div class="list">${L.map(e => `<div class="li" style="align-items:flex-start"><div class="li-main"><b style="white-space:normal">${esc(e.text)}</b>${(e.diff || []).map(x => `<small class="num">${esc(x)}</small>`).join('')}<small>${esc(new Date(e.ts).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' }))} · ${esc(e.by)}</small></div><div class="li-end"><span class="tag ${tag(e.kind)[0]}">${tag(e.kind)[1]}</span></div></div>`).join('')}</div>`;
+  },
+};
+
+return { get views() { return views; }, };
+})();
+
+/* ---- src/features/fines/index.js ---- */
+const __M_src_features_fines_index_js = (function () {
+const { adminBtn, Auth } = __M_src_core_auth_js;
+const { Domain } = __M_src_core_domain_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { esc, kes, todayISO, uid, sum } = __M_src_core_utils_js;
+const { num } = __M_src_lib_validate_js;
+const { memberChip, av } = __M_src_ui_avatar_js;
+const { memberOptions } = __M_src_ui_forms_js;
+const { Modal, confirmBox } = __M_src_ui_modal_js;
+const { toast } = __M_src_ui_toast_js;
+
+const views = {
+  fines(s) {
+    const admin = Auth.isAdmin();
+    const head = `<h1 class="lt">Fines</h1><p class="lt-sub">${s.shared ? 'Your fines' : 'Late fee ' + esc(kes(s.chama.finePerLate)) + ' · set in Chama settings'}</p>`;
+    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri grow" data-act="addFine">${icon('plus')}Add fine</button><button class="btn tint grow" data-act="autoFines">${icon('clock')}Fine late members</button></div>` : '';
+    if (!s.fines.length) return head + btn + `<div class="card" style="margin-top:14px">${emptyState('done', 'No fines', s.shared ? 'You have no fines. Keep it up.' : 'Fines for late payments or missed meetings will be listed here.')}</div>`;
+    const unpaid = s.fines.filter(f => !f.paid), paid = s.fines.filter(f => f.paid);
+    const row = f => { const m = s.members.find(x => x.id === f.memberId); const inner = `${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(f.reason)} · ${esc(f.date)}</small></span><span class="li-end"><span><span class="num">${esc(kes(f.amount))}</span><small>${f.paid ? 'paid' : 'unpaid'}</small></span>${admin ? icon('chev', 'chev') : ''}</span>`;
+      return admin ? `<button type="button" class="li has-av" data-act="fineMenu" data-id="${esc(f.id)}">${inner}</button>` : `<div class="li has-av">${inner}</div>`; };
+    return `${head}${btn}<div class="stats two"><div><span>Unpaid</span><b>${esc(kes(sum(unpaid, f => f.amount)))}</b></div><div><span>Collected</span><b>${esc(kes(sum(paid, f => f.amount)))}</b></div></div>
+      ${unpaid.length ? `<section class="sec"><div class="sec-h"><h2>Unpaid</h2></div><div class="list">${[...unpaid].reverse().map(row).join('')}</div></section>` : ''}
+      ${paid.length ? `<section class="sec"><div class="sec-h"><h2>Paid</h2></div><div class="list">${[...paid].reverse().map(row).join('')}</div></section>` : ''}`;
+  },
+};
+
+const actions = {
+  fineMenu: { admin: true, run(d) {
+    const s = S(), f = s.fines.find(x => x.id === d.id); if (!f) return;
+    Modal.open({ title: 'Fine', body: `<div class="kv"><span>Member</span><b>${esc(Domain.memberName(s, f.memberId))}</b></div><div class="kv"><span>Amount</span><b class="num">${esc(kes(f.amount))}</b></div><div class="kv"><span>Reason</span><b>${esc(f.reason)}</b></div><div class="kv"><span>Date</span><b>${esc(f.date)}</b></div><div class="kv"><span>Status</span><b>${f.paid ? 'Paid' : 'Unpaid'}</b></div>
+      <div class="btns">${f.paid ? '' : `<button type="button" class="btn pri grow" data-act="payFine" data-id="${esc(f.id)}">${icon('check')}Mark paid</button>`}<button type="button" class="btn grow" data-act="editFine" data-id="${esc(f.id)}">${icon('pencil')}Edit</button><button type="button" class="btn bad grow" data-act="delFine" data-id="${esc(f.id)}">${icon('trash')}Remove</button></div>` });
+  } },
+  editFine: { admin: true, run(d) {
+    const s = S(), f = s.fines.find(x => x.id === d.id); if (!f) return;
+    Modal.open({ title: 'Edit fine', fields: [
+      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s), value: f.memberId },
+      { name: 'amount', label: 'Amount (KES)', type: 'number', value: f.amount },
+      { name: 'reason', label: 'Reason', value: f.reason, required: true }],
+      onSubmit: v => { const amount = num(v.amount, 'Amount'); const reason = String(v.reason || '').trim(); if (!reason) throw new Error('Give a reason'); Store.commit(st => Object.assign(st.fines.find(x => x.id === f.id), { memberId: v.memberId, amount, reason })); toast('Fine updated'); } });
+  } },
+  addFine: { admin: true, run() {
+    const s = S(); if (!s.members.length) return toast('Add members first');
+    Modal.open({ title: 'Add fine', submitLabel: 'Add fine', fields: [
+      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s) },
+      { name: 'amount', label: 'Amount (KES)', type: 'number', value: s.chama.finePerLate || '', placeholder: 'e.g. ' + kes(s.chama.finePerLate) },
+      { name: 'reason', label: 'Reason', placeholder: 'e.g. Missed meeting', required: true }],
+      onSubmit: v => { const reason = String(v.reason || '').trim(); if (!reason) throw new Error('Give a reason'); const amount = num(v.amount, 'Amount'); Store.commit(st => st.fines.push({ id: uid(), memberId: v.memberId, amount, reason, date: todayISO(), paid: false })); toast('Fine added'); } });
+  } },
+  autoFines: { admin: true, run() {
+    const s = S(), cur = Domain.now(), reason = 'Late contribution ' + cur, late = Domain.lateMembers(s, cur).filter(m => !s.fines.some(f => f.memberId === m.id && (f.period === cur || (!f.period && f.reason === reason))));
+    if (!s.chama.finePerLate) return toast('Set a late fine in Chama settings first');
+    if (!late.length) return toast('No new late members to fine');
+    confirmBox(`Fine ${late.length} late ${late.length === 1 ? 'member' : 'members'} ${kes(s.chama.finePerLate)} each? ${late.map(m => m.name).join(', ')}.`, () => Store.commit(st => late.forEach(m => st.fines.push({ id: uid(), memberId: m.id, amount: st.chama.finePerLate, reason, period: cur, date: todayISO(), paid: false }))));
+  } },
+  payFine: { admin: true, run: d => { Modal.close(); Store.commit(s => { const f = s.fines.find(x => x.id === d.id); if (f) f.paid = true; }); toast('Fine marked paid'); } },
+  delFine: { admin: true, run: d => { Modal.close(); confirmBox('Remove this fine?', () => Store.commit(s => { s.fines = s.fines.filter(f => f.id !== d.id); })); } },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/expenses/form.js ---- */
+const __M_src_features_expenses_form_js = (function () {
+const { Domain } = __M_src_core_domain_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { todayISO, uid, esc } = __M_src_core_utils_js;
+const { num } = __M_src_lib_validate_js;
+const { Modal } = __M_src_ui_modal_js;
+
+function expenseForm(e) {
+  Modal.open({ title: e ? 'Edit expense' : 'Add expense', submitLabel: e ? 'Save' : 'Add expense', fields: [
+    { name: 'title', label: 'What was it for?', value: e?.title, required: true, placeholder: 'e.g. Meeting venue' },
+    { name: 'category', label: 'Type', type: 'select', value: e?.category || 'Meeting', options: ['Meeting', 'Welfare', 'Investment', 'Admin', 'Other'].map(x => [x, x]) },
+    { name: 'amount', label: 'Amount (KES)', type: 'number', value: e?.amount }],
+    body: e ? `<div class="btns" style="margin-top:0"><button type="button" class="btn bad sm" data-act="delExpense" data-id="${esc(e.id)}">Remove this expense</button></div>` : '',
+    onSubmit: v => {
+      const d = { title: String(v.title || '').trim(), category: v.category, amount: num(v.amount, 'Amount') };
+      if (!d.title) throw new Error('Say what the money was for');
+      if (!e && d.amount > Domain.cashOnHand(S())) throw new Error('That is more than the cash on hand');
+      Store.commit(s => e ? Object.assign(s.expenses.find(x => x.id === e.id), d) : s.expenses.push({ id: uid(), ...d, date: todayISO() }));
+    } });
+}
+
+return { get expenseForm() { return expenseForm; }, };
+})();
+
+/* ---- src/features/expenses/index.js ---- */
+const __M_src_features_expenses_index_js = (function () {
+const { adminBtn, Auth } = __M_src_core_auth_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { esc, kes, sum } = __M_src_core_utils_js;
+const { expenseForm } = __M_src_features_expenses_form_js;
+const { confirmBox, Modal } = __M_src_ui_modal_js;
+
+const views = {
+  expenses(s) {
+    const admin = Auth.isAdmin();
+    const head = `<h1 class="lt">Expenses</h1><p class="lt-sub">Money the chama has spent</p>`;
+    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri" data-act="addExpense">${icon('plus')}Add expense</button></div>` : '';
+    if (!s.expenses.length) return head + btn + `<div class="card" style="margin-top:14px">${emptyState('receipt', 'Nothing spent yet', 'Meeting costs, welfare and investments will be listed here.')}</div>`;
+    const cats = {}; s.expenses.forEach(e => { cats[e.category] = (cats[e.category] || 0) + (Number(e.amount) || 0); });
+    return `${head}${btn}<div class="card" style="margin-top:4px"><span class="mute small">Total spent</span><div class="num" style="font:700 1.6em/1.2 var(--font-display);margin-top:2px">${esc(kes(sum(s.expenses, e => e.amount)))}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${Object.entries(cats).map(([k, v]) => `<span class="tag">${esc(k)} · ${esc(kes(v))}</span>`).join('')}</div></div>
+      <section class="sec"><div class="list">${[...s.expenses].reverse().map(e => { const inner = `<span class="li-ic t-gold">${icon('receipt')}</span><span class="li-main"><b>${esc(e.title)}</b><small>${esc(e.category)} · ${esc(e.date)}</small></span><span class="li-end"><span class="num">${esc(kes(e.amount))}</span>${admin ? icon('chev', 'chev') : ''}</span>`;
+        return admin ? `<button type="button" class="li has-ic" data-act="editExpense" data-id="${esc(e.id)}">${inner}</button>` : `<div class="li has-ic">${inner}</div>`; }).join('')}</div></section>`;
+  },
+};
+
+const actions = {
+  addExpense: { admin: true, run: () => expenseForm() },
+  editExpense: { admin: true, run: d => expenseForm(S().expenses.find(e => e.id === d.id)) },
+  delExpense: { admin: true, run: d => { Modal.close(); confirmBox('Remove this expense?', () => Store.commit(s => { s.expenses = s.expenses.filter(e => e.id !== d.id); })); } },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/reports/index.js ---- */
+const __M_src_features_reports_index_js = (function () {
+const { adminBtn, Auth } = __M_src_core_auth_js;
+const { Domain } = __M_src_core_domain_js;
+const { S } = __M_src_core_state_js;
+const { Reports } = __M_src_lib_reports_js;
+const { esc } = __M_src_core_utils_js;
+
+const views = {
+  reports(s) {
+    const admin = Auth.isAdmin();
+    return `<h1 class="lt">Reports and backup</h1><p class="lt-sub">Share a summary, or keep a copy of the records</p>
+      <div class="list">
+        <a class="li has-ic" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=${encodeURIComponent(Reports.summary(s))}"><span class="li-ic">${icon('chat')}</span><span class="li-main"><b>Share a summary on WhatsApp</b><small>Cash, loans${s.shared ? '' : ' and who is behind'}, as one message for your group</small></span>${icon('chev', 'chev')}</a>
+        ${admin ? `<button type="button" class="li has-ic" data-act="exportCsv"><span class="li-ic t-info">${icon('download')}</span><span class="li-main"><b>Payments spreadsheet</b><small>Every payment as a CSV file for Excel or Sheets</small></span>${icon('chev', 'chev')}</button>
+        <button type="button" class="li has-ic" data-act="exportJson"><span class="li-ic t-gold">${icon('download')}</span><span class="li-main"><b>Full backup</b><small>Everything in this Chama, as one file. Keep it somewhere safe and private</small></span>${icon('chev', 'chev')}</button>` : ''}
+        <a class="li has-ic" href="#/members"><span class="li-ic t-ink">${icon('doc')}</span><span class="li-main"><b>Member statements</b><small>${admin ? 'Open a member for their statement' : 'Open your name in Members'}</small></span>${icon('chev', 'chev')}</a>
+      </div>
+      ${admin ? '<p class="foot-note">Backups contain members’ personal data. Store them securely and do not share them outside the chama’s officials.</p>' : ''}`;
+  },
+};
+
+const actions = {
+  exportCsv: { admin: true, run() {
+    const s = S(), q = Reports.cell;
+    const rows = [['Date', 'Member', 'Month', 'Amount', 'M-Pesa code'], ...s.payments.map(p => [p.date, Domain.memberName(s, p.memberId), p.month, p.amount, p.code])];
+    Reports.download(`${s.chama.name}-payments.csv`, '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+  } },
+  exportJson: { admin: true, run() {
+    const s = JSON.parse(JSON.stringify(S())); if (s.chama) delete s.chama.pin;
+    Reports.download(`${s.chama.name}-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(s, null, 1), 'application/json');
+  } },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/profile/index.js ---- */
+const __M_src_features_profile_index_js = (function () {
+const { Domain } = __M_src_core_domain_js;
+const { Gate } = __M_src_features_auth_gate_js;
+const { Me } = __M_src_core_me_js;
+const { render } = __M_src_core_rerender_js;
+const { Session } = __M_src_core_session_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { esc, kes, monthLabel, sum } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+const { av } = __M_src_ui_avatar_js;
+const { toast } = __M_src_ui_toast_js;
+
+const roleName = () => Session.role === 'treasurer' ? 'Treasurer' : Session.role === 'secretary' ? 'Secretary' : 'Member';
+const views = {
+  profile(s) {
+    const me = Me.get(), m = me.memberId ? s.members.find(x => x.id === me.memberId) : null;
+    const name = me.name || (m && m.name) || '';
+    const st = m ? Domain.status(s, m.id, Domain.now()) : null;
+    const msg = { paid: ['ok', 'Paid up this month'], partial: ['warn', 'Part paid this month'], late: ['bad', 'Late this month'], due: ['', 'Not paid yet this month'] }[st];
+    const owed = m ? sum(s.loans.filter(l => l.memberId === m.id), l => Domain.loan(l).balance) : 0;
+    const fines = m ? sum(s.fines.filter(f => f.memberId === m.id && !f.paid), f => f.amount) : 0;
+    const shot = me.photo || (m && Session.photoFor(m)) || '';
+    const google = Session.usesGoogle(), hasPw = !!(Session.account && Session.account.has_password);
+    const money = m ? `<div class="stats four"><div><span>Monthly amount</span><b>${esc(kes(Domain.dueFor(s, m.id)))}</b></div><div><span>Saved so far</span><b>${esc(kes(Domain.memberSaved(s, m.id)))}</b></div><div><span>Loan I owe</span><b>${esc(kes(owed))}</b></div><div><span>Unpaid fines</span><b>${esc(kes(fines))}</b></div></div>`
+      : `<div class="card" style="margin-top:12px"><h2>Not on the member list</h2><p class="plain">${Session.role === 'treasurer' ? 'You manage this Chama as an officer. You have no contributions of your own here. To be listed, add yourself in Members.' : 'Your treasurer has not linked your sign-in to a member record yet. Once they do, your money shows here.'}</p></div>`;
+    const recent = m ? s.payments.filter(p => p.memberId === m.id).sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5) : [];
+    return `
+    <section class="card pcard">
+      <div class="pphoto">${av({ id: m && m.id, name, photo: shot }, 104)}<button type="button" class="cam" data-act="pickPhoto" aria-label="${shot ? 'Change photo' : 'Add a photo'}">${icon('camera')}</button></div>
+      <div class="pname">${name ? esc(name) : 'Add your name'}</div>
+      <div class="prole">${esc(roleName())} · ${esc(Session.groupName || (s.chama && s.chama.name) || 'your Chama')}</div>
+      ${msg ? `<p style="margin-top:12px"><span class="tag ${msg[0]}">${esc(msg[1])}</span></p>` : ''}
+      ${shot ? '<div class="btns" style="justify-content:center"><button type="button" class="btn ghost sm" data-act="removePhoto">Remove photo</button></div>' : ''}
+    </section>
+    ${money}
+    ${m ? `<section class="sec"><div class="sec-h"><h2>My recent payments</h2>${recent.length ? `<button type="button" data-act="statement" data-id="${esc(m.id)}">Statement</button>` : ''}</div><div class="list">${recent.length ? recent.map(p => `<div class="li"><div class="li-main"><b>${esc(monthLabel(p.month))}</b><small>${esc(p.date || '')}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`).join('') : '<div class="li empty">No payments recorded for you yet</div>'}</div></section>` : ''}
+    <section class="sec"><div class="sec-h"><h2>My details</h2></div>
+      <div class="card form">
+        <label>Full name<input id="meName" value="${esc(name)}" autocomplete="name" autocapitalize="words" maxlength="120"></label>
+        <label>Username<input id="meUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || ''))}" placeholder="e.g. john.kamau"><small>3 to 20 letters, numbers, dot, dash or underscore. You can sign in with it.</small></label>
+        <label>Phone number<input id="mePhone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(me.phone || (m && m.phone) || '')}" placeholder="0712 345 678"></label>
+        <label>Contact email<input id="meEmail" type="email" inputmode="email" autocomplete="email" value="${esc(me.email || '')}" placeholder="you@example.com"><small>Optional. Your sign-in email stays ${esc(Session.email || 'the same')}.</small></label>
+        <button type="button" class="btn pri block" style="margin-top:20px" data-act="saveMe">Save my details</button>
+        <p class="fhelp" style="text-align:center">The same details are used in every Chama you belong to.</p>
+      </div>
+    </section>
+    <section class="sec"><div class="sec-h"><h2>Password</h2></div>
+      <div class="card form">${hasPw ? `
+        <label>Current password<input id="pwCur" type="password" autocomplete="current-password"></label>
+        <label>New password<input id="pwNew" type="password" autocomplete="new-password"><small>At least 6 characters, with a capital letter, a number and a symbol.</small></label>
+        <label>Confirm new password<input id="pwAgain" type="password" autocomplete="new-password"></label>
+        <button type="button" class="btn block" style="margin-top:20px" data-act="changePassword">Change password</button>` : `<p class="plain">${google ? 'You sign in with Google, so you have no app password. To add one, sign out, choose Sign in, then Forgot password.' : 'No password is set on this account yet. Sign out, choose Sign in, then Forgot password to set one.'}</p>`}
+      </div>
+    </section>
+    <section class="sec"><div class="sec-h"><h2>Account</h2></div>
+      <div class="list">
+        <div class="li"><div class="li-main"><small>Sign-in email</small><b>${esc(Session.email || 'Not set')}</b></div></div>
+        <div class="li"><div class="li-main"><small>Signs in with</small><b>${google && !hasPw ? 'Google' : hasPw ? (google ? 'Google, or email or username and password' : 'Email or username and password') : 'Email code'}</b></div></div>
+        <div class="li"><div class="li-main"><small>Member ID</small><b class="num">${Session.memberId ? esc(String(Session.memberId).slice(-6).toUpperCase()) : 'Not linked'}</b></div></div>
+        <a class="li has-ic" href="#/settings/privacy"><span class="li-ic t-ink">${icon('shield')}</span><span class="li-main"><b>Privacy and my data</b><small>Download, correct or delete your data</small></span>${icon('chev', 'chev')}</a>
+        <a class="li has-ic" href="#/settings"><span class="li-ic t-ink">${icon('gear')}</span><span class="li-main"><b>Settings</b></span>${icon('chev', 'chev')}</a>
+      </div>
+    </section>`;
+  },
+};
+
+const actions = {
+  pickPhoto() {
+    const input = document.getElementById('mePhoto');
+    if (!input) return;
+    input.value = '';
+    input.click();
+  },
+  async saveMe() {
+    const btn = document.querySelector('[data-act="saveMe"]');
+    try {
+      const name = $('#meName').value.trim().replace(/\s+/g, ' '), phone = $('#mePhone').value.replace(/[\s-]/g, ''), email = $('#meEmail').value.trim().toLowerCase(), username = $('#meUser').value.trim().toLowerCase();
+      if (!name) throw new Error('Please type your name');
+      if (name.length > 120) throw new Error('Keep your name to 120 characters or fewer');
+      if (username && !/^[a-z0-9._-]{3,20}$/.test(username)) throw new Error('Username must be 3 to 20 letters, numbers, dot, dash or underscore');
+      if (phone && !/^(\+?254|0)[17]\d{8}$/.test(phone)) throw new Error('Phone number should look like 0712345678');
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email address does not look right');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+      await Session.saveDetails({ name, phone, email, username: username || null });
+      toast('Your details are saved'); render();
+    } catch (e) { toast(e.message); if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = 'Save my details'; } }
+  },
+  async removePhoto() {
+    __M_src_ui_toast_js.Pop.confirm({ title: 'Remove your photo?', text: 'Your initials will show instead, in every Chama.', confirmLabel: 'Remove', danger: true,
+      onYes: async () => { try { await Session.savePhoto(null); toast('Photo removed'); render(); } catch (e) { toast(e.message); } } });
+  },
+  async changePassword() {
+    const btn = document.querySelector('[data-act="changePassword"]');
+    try {
+      const cur = $('#pwCur').value, next = $('#pwNew').value, again = $('#pwAgain').value;
+      if (!cur) throw new Error('Type your current password');
+      const bad = Gate.pwProblem(next); if (bad) throw new Error(bad);
+      if (next !== again) throw new Error('The new passwords do not match');
+      if (next === cur) throw new Error('Choose a password you have not used before');
+      if (btn) { btn.disabled = true; btn.textContent = 'Changing…'; }
+      await Session.changePassword(cur, next);
+      toast('Password changed'); render();
+    } catch (e) { toast(e.message); if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = 'Change password'; } }
+  },
+  exportMe() {
+    const s = S(), me = Me.get(), m = s ? s.members.find(x => x.id === me.memberId) : null;
+    const prof = Session.readProfile ? Session.readProfile() : {};
+    const { photo: _p, ...profile } = prof || {};
+    const out = { exported: new Date().toISOString(), app: 'My Chama App', account: { sign_in_email: Session.email || '', name: profile.name || '', username: profile.username || '', phone: profile.phone || '', contact_email: profile.email || '', role_in_this_chama: Session.role || '' }, chama: s ? s.chama.name : '' };
+    if (m) {
+      const pick = a => (a || []).filter(x => x.memberId === m.id), { photo, aliases, phones, ...rest } = m;
+      Object.assign(out, { member: rest, payments: pick(s.payments), loans: pick(s.loans), fines: pick(s.fines), payouts: pick(s.payouts) });
+    }
+    try { out.consent = JSON.parse(localStorage.getItem('mca-onboard') || '{}'); delete out.consent.serverSynced; } catch (e) {}
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'my-chama-data.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+    toast('Your data was downloaded');
+  },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/content/app-info.js ---- */
+const __M_src_content_app_info_js = (function () {
+
+/* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
+   Fill every empty value before public launch. Empty values show as "Not set yet". */
+const APP = {
+  name: 'My Chama App', version: '0.13.0', released: '2026-11-18',
+  support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
+  privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
+  controller: '',       // registered legal name of the data controller (person or company running the app)
+  odpcNumber: '',       // Office of the Data Protection Commissioner registration number
+  regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
+  notes: [
+    ['0.13.0', 'A full redesign. A calmer Home with the one number that matters most to you, quick actions for the treasurer, and a simpler month view. Tap any payment, loan, fine or member to see details and act on it. A new code screen, a new opening mark, and simple line drawings throughout. Dark mode follows your phone. Clear Terms of Use and Privacy Policy pages, which everyone is asked to accept once. Fixes: recording a payment, saving your consent, the language search, and Enter to sign in.'],
+    ['0.12.7-dev.1', 'Home, Contributions, Members and Profile use the approved layout: raised cards, money tiles, and a sliding month pill. Reset all data is no longer on Home.'],
+    ['0.12.5-dev.1', 'Continue with Google signs you in, or creates your account if you are new.'],
+    ['0.12.2-dev.1', 'One profile for every Chama. Your photo, name, username, phone and contact email are kept once, on your account.'],
+    ['0.12.1-dev.1', 'Payments are saved on the server first, with a request key, so a double tap or a retry cannot record the same payment twice.'],
+    ['0.12.0-dev.4', 'Invite codes, Chama tags, switching between Chamas, and 7-day invitations.'],
+    ['0.12.0-dev.2', 'One account and one password for every Chama. Members see their own payments, loans and fines plus group totals only.'],
+  ],
+};
+
+/* Plain-language summary shown in Settings > Privacy and data. The full text is legal/privacy.html. */
+const PRIVACY = [
+  ['What we keep', 'Your name, sign-in email and username. Your phone number, contact email and photo only if you add them. The contributions, loans, repayments, fines, payouts and expenses your chama records, and signatures given on a loan or payout.'],
+  ['Why', 'To sign you in, to keep your chama’s records accurate, and to show each person what they are allowed to see. We do not sell data, show adverts, or use your data to decide on credit.'],
+  ['Who can see it', 'The treasurer sees and changes all of the chama’s records. Members and secretaries see their own money and the group totals only. Other members see your name and photo, never your money. Our hosting and email providers process data for us under contract.'],
+  ['Where it is kept', 'In a secure cloud database (Supabase, in the European Union), and on your phone for offline use. Data is encrypted in transit.'],
+  ['How long', 'While your chama uses the app. If you delete your account, your sign-in and profile are erased after 30 days. Financial records stay with the chama, because they belong to the group and may need to be kept by law.'],
+  ['Your rights', 'Under the Data Protection Act, 2019 you may be told how your data is used, see it, correct it, download it, object to its use, and ask for it to be deleted. You can complain to the Office of the Data Protection Commissioner.'],
+];
+
+const HELP_ARTICLES = [
+  { id: 'start', cat: 'Getting started', q: 'Where do I find things?', a: 'Home shows the month at a glance. Contributions shows who has paid each month. Loans shows money lent and paid back. Members shows the group and the payout order. Profile is about you. The menu button at the top left holds fines, expenses, history, reports and settings.' },
+  { id: 'roles', cat: 'Getting started', q: 'What can each role do?', a: 'The treasurer records and changes everything and sees every member’s money. Members and secretaries see their own payments, loans and fines, plus the group totals. Other members’ money stays private.' },
+  { id: 'pay', cat: 'Payments', q: 'How is a payment recorded?', a: 'Only the treasurer records payments. Open Contributions, choose the month, and tap the status next to the member. Type the amount and, if there is one, the M-Pesa code. The same M-Pesa code cannot be recorded twice.' },
+  { id: 'import', cat: 'Payments', q: 'Can I import M-Pesa messages?', a: 'Yes. In Contributions, tap Import from M-Pesa. Paste the confirmation messages or add screenshots. The app suggests a member for each payment. Check each one before you record them. Screenshots are read on your phone and are not uploaded.' },
+  { id: 'pay-wrong', cat: 'Payments', q: 'A payment is missing or wrong', a: 'The treasurer can tap the payment in Contributions to edit or remove it. Every change is kept in History with what changed and when. Undo last change, in the menu under Chama, reverses the most recent change.' },
+  { id: 'fine', cat: 'Payments', q: 'How do fines work?', a: 'The late fee is set in Chama settings. The treasurer can add a fine by hand, or tap Fine late members to fine everyone who is behind for this month, once.' },
+  { id: 'loan', cat: 'Members and loans', q: 'How do I give a loan?', a: 'Open Loans and tap New loan. Choose the member, the amount, the interest and the months. A loan cannot be larger than the cash on hand. Tap the loan to record repayments or to ask the borrower to sign.' },
+  { id: 'member', cat: 'Members and loans', q: 'How do I add a member?', a: 'Open Members and tap Add member. To let that person sign in, open People and access in Settings and invite them by email, or create an invite code.' },
+  { id: 'order', cat: 'Members and loans', q: 'How is the payout order set?', a: 'In a merry-go-round chama, the order of the member list is the payout order. The treasurer can tap a member and choose Move up.' },
+  { id: 'signin', cat: 'Account and security', q: 'How do I sign in?', a: 'Use your email or username and your password, or Continue with Google. New accounts confirm their email with a code first. If you forget your password, choose Forgot password and we send a code to your email.' },
+  { id: 'code', cat: 'Account and security', q: 'I did not get the code', a: 'Check your spam or promotions folder, and that you typed the email correctly. You can ask for a new code after one minute. Only the newest code works.' },
+  { id: 'safe', cat: 'Account and security', q: 'Keeping your account safe', a: 'Never share your password or a sign-in code, even with someone who says they are from My Chama. We will never ask for them. If you see a change you did not make, tell your treasurer and change your password in Profile.' },
+  { id: 'sync', cat: 'App and data', q: 'Changes are not saving to the cloud', a: 'The app saves on your phone first and sends changes when you are online. A yellow bar at the top means you are offline. Run the checks below to see what is happening on this phone.' },
+  { id: 'easy', cat: 'App and data', q: 'Make the app easier to read', a: 'Open Settings, then Display and accessibility. You can make the text larger, use dark colours, stronger contrast, bigger buttons, less movement, and turn on a read-aloud button.' },
+  { id: 'backup', cat: 'App and data', q: 'Save a backup', a: 'The treasurer can open Reports and backup in the menu. Full backup saves a file of everything. Payments spreadsheet is for Excel or Google Sheets.' },
+  { id: 'privacy', cat: 'Privacy and data', q: 'How do I see, download or delete my information?', a: 'Open Settings, then Privacy and my data. Download my data gives you a copy. You can correct your details in Profile. To delete your account, leave every Chama first, then use Delete my account. You have 30 days to change your mind.' },
+];
+
+return { get APP() { return APP; }, get PRIVACY() { return PRIVACY; }, get HELP_ARTICLES() { return HELP_ARTICLES; }, };
+})();
+
+/* ---- src/lib/help.js ---- */
+const __M_src_lib_help_js = (function () {
+const { CONFIG } = __M_src_config_js;
+const { APP, HELP_ARTICLES } = __M_src_content_app_info_js;
+const { render } = __M_src_core_rerender_js;
+const { Store } = __M_src_core_store_js;
+const { esc, waLink } = __M_src_core_utils_js;
+const { toast } = __M_src_ui_toast_js;
+
+const Help = {
+  cat: 'All', open: {}, diag: null,
+  votes() { try { return JSON.parse(localStorage.getItem('chama:help:votes') || '{}') || {}; } catch { return {}; } },
+  vote(id, v) {
+    const all = this.votes(); all[id] = v;
+    try { localStorage.setItem('chama:help:votes', JSON.stringify(all)); } catch { toast('Storage full'); }
+    if (v === 'no') this.open[id] = true;
+    render();
+  },
+  filter(q) {
+    q = String(q || '').trim().toLowerCase(); let any = false;
+    document.querySelectorAll('.hart').forEach(el => { const hit = !q || el.dataset.s.includes(q); el.hidden = !hit; any = any || hit; });
+    const none = document.getElementById('helpNone'); if (none) none.hidden = any;
+  },
+  runChecks() {
+    const s = Store.get(), out = [], probe = 'chama:help:probe';
+    let dirty = false; try { dirty = !!localStorage.getItem('chama:' + Store.chamaId + ':dirty'); } catch (e) {}
+    out.push({ st: navigator.onLine ? 'ok' : 'bad', t: 'Internet connection', m: navigator.onLine ? 'This phone is connected.' : 'This phone is offline. Changes are saved and will send later.' });
+    let local = false;
+    try { localStorage.setItem(probe, '1'); local = localStorage.getItem(probe) === '1'; localStorage.removeItem(probe); } catch {}
+    out.push({ st: local ? 'ok' : 'bad', t: 'Saving on this phone', m: local ? 'Records can be saved on this phone.' : 'This phone is not letting the app save. Check that storage is not full and that private browsing is off.' });
+    out.push({ st: !CONFIG.supabase ? 'warn' : dirty ? 'warn' : 'ok', t: 'Cloud', m: !CONFIG.supabase ? 'The cloud is not set up in this app.' : dirty ? 'Waiting to send. It will send when the phone is online.' : 'All changes have been sent.' });
+    out.push({ st: s && s.members ? 'ok' : 'bad', t: 'Records', m: s && s.members ? `${s.members.length} members and ${s.payments.length} payments are on this phone.` : 'The records could not be read. Close the app and open it again.' });
+    out.push({ st: 'ok', t: 'App version', m: `Version ${APP.version}, released ${APP.released}.` });
+    this.diag = { at: Date.now(), out };
+    render();
+    toast(out.every(x => x.st === 'ok') ? 'All checks passed' : 'Some checks need attention', 'info');
+  },
+  reportText() {
+    const d = this.diag ? this.diag.out : [];
+    return [`${APP.name} ${APP.version} problem report`, `Chama: ${(Store.get() || {}).chama ? Store.get().chama.name : 'unknown'}`,
+      `Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })} (Nairobi time)`,
+      ...d.map(x => `${x.t}: ${x.st === 'ok' ? 'OK' : x.st === 'warn' ? 'Check' : 'Problem'}. ${x.m}`), 'What went wrong:'].join('\n');
+  },
+  copyReport() {
+    if (!this.diag) return toast('Run the checks first');
+    const text = this.reportText();
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast('Report copied'), () => toast('Could not copy. Select the text and copy it.'));
+    else toast('Copying is not supported on this phone');
+  },
+  shareReport() {
+    if (!APP.support) return toast('Support contact is not set yet');
+    if (!this.diag) return toast('Run the checks first');
+    const text = this.reportText();
+    const url = APP.support.includes('@') ? `mailto:${APP.support}?subject=${encodeURIComponent('Chama problem report')}&body=${encodeURIComponent(text)}` : waLink(APP.support, text);
+    window.open(url, '_blank', 'noopener');
+  },
+  render() {
+    const votes = this.votes(), cats = ['All', ...new Set(HELP_ARTICLES.map(a => a.cat))];
+    const chips = `<div class="chips" role="group" aria-label="Topics">${cats.map(c => `<button class="chip" aria-pressed="${this.cat === c}" data-act="helpCat" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>`;
+    const arts = HELP_ARTICLES.filter(a => this.cat === 'All' || a.cat === this.cat).map(a => {
+      const v = votes[a.id];
+      const feedback = v ? `<p class="mute small" style="margin-top:10px">${v === 'yes' ? 'Thank you for telling us.' : 'Sorry it did not help. Run the checks below, or contact support.'}</p>`
+        : `<div class="hv"><span class="mute small">Did this help?</span><button class="btn sm" data-act="helpVote" data-id="${a.id}" data-v="yes">Yes</button><button class="btn sm" data-act="helpVote" data-id="${a.id}" data-v="no">No</button></div>`;
+      return `<details class="hart" data-id="${a.id}" data-s="${esc((a.q + ' ' + a.a + ' ' + a.cat).toLowerCase())}" ${this.open[a.id] ? 'open' : ''}><summary>${esc(a.q)}</summary><div class="hbody"><p>${esc(a.a)}</p>${feedback}</div></details>`;
+    }).join('');
+    const d = this.diag;
+    const pill = st => st === 'ok' ? '<span class="tag ok">OK</span>' : st === 'warn' ? '<span class="tag warn">Check</span>' : '<span class="tag bad">Problem</span>';
+    const checks = d ? d.out.map(x => `<div class="chk">${pill(x.st)}<div><b>${esc(x.t)}</b><span class="m">${esc(x.m)}</span></div></div>`).join('')
+      + `<p class="mute small" style="margin-top:8px">Checked ${esc(new Date(d.at).toLocaleTimeString('en-KE', { timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit' }))} Nairobi time.</p>`
+      : '<p class="plain">Checks the connection, saving and the cloud on this phone.</p>';
+    const actions = `<div class="btns"><button class="btn pri" data-act="helpCheck">Run checks</button>${d ? ' <button class="btn" data-act="helpCopy">Copy report</button>' : ''}${d && APP.support ? ' <button class="btn" data-act="helpShare">Send to support</button>' : ''}</div>`;
+    const regs = APP.regulators.map(r => `<a class="li has-ic" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer"><span class="li-ic t-ink">${icon('scale')}</span><span class="li-main"><b>${esc(r.name)}</b><small>${esc(r.what)}</small></span>${icon('chev', 'chev')}</a>`).join('');
+    return `<h1 class="lt">Help</h1><p class="lt-sub">Answers in plain words</p>
+      <div class="nsearch"><label><svg class="mag ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS.search}</svg><span class="vh">Search help</span><input id="helpQ" type="search" placeholder="Search, for example payment or code"></label></div>
+      ${chips}<div style="margin-top:12px">${arts}</div>
+      <p id="helpNone" class="mute" hidden>No guides match. Try another word, or contact support below.</p>
+      <section class="sec"><div class="sec-h"><h2>Troubleshoot this phone</h2></div><div class="card">${checks}${actions}</div></section>
+      <section class="sec"><div class="sec-h"><h2>Still stuck?</h2></div><div class="list">
+        <div class="li has-ic"><span class="li-ic">${icon('members')}</span><span class="li-main"><b>Your treasurer</b><small>They record payments and manage access</small></span></div>
+        <div class="li has-ic"><span class="li-ic t-info">${icon('help')}</span><span class="li-main"><b>App support</b><small>${esc(APP.support || 'Not set yet')}</small></span></div>
+        ${regs}</div></section>`;
+  }
+};
+
+return { get Help() { return Help; }, };
+})();
+
+/* ---- src/features/account/deletion.js ---- */
+const __M_src_features_account_deletion_js = (function () {
+const { esc } = __M_src_core_utils_js;
+const { toast } = __M_src_ui_toast_js;
+const { Modal } = __M_src_ui_modal_js;
+const { Backend } = __M_src_core_backend_js;
+const { Session } = __M_src_core_session_js;
+const { render } = __M_src_core_rerender_js;
+
+/* Deleting an ACCOUNT (not leaving a Chama, which is a different thing: D6).
+   Rules, enforced by the server (migration 009): no active Chama, a sign-in in the last 10 minutes, then a 30-day hold.
+   Restoring is possible at any time during the hold. The Chama and its records are never deleted by this. */
+const DAYS = 30;
+const fmtDate = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const daysLeft = d => Math.max(0, Math.ceil((d.getTime() - Date.now()) / 86400000));
+const plural = n => `${n} ${n === 1 ? 'day' : 'days'}`;
+
+const Account = {
+  pending: null, checked: false, busy: false, uid: null,
+  async load() {
+    if (!Session.user || !Session.ready()) return;
+    if (Session.user.id !== this.uid) { this.uid = Session.user.id; this.checked = false; this.pending = null; }
+    if (this.checked || this.busy || !Backend.sb) return;
+    this.busy = true;
+    try {
+      const { data, error } = await Backend.sb.rpc('account_deletion_status');
+      if (!error) this.pending = data && data.pending ? { requestedAt: new Date(data.requested_at), purgeAt: new Date(data.purge_at) } : null;
+    } catch (e) { this.pending = null; }
+    this.busy = false; this.checked = true; render();
+  },
+  banner() {
+    if (!this.pending) return '';
+    const n = daysLeft(this.pending.purgeAt);
+    return `<section class="card warn" role="status" style="margin-bottom:14px"><h2>Account deletion scheduled</h2>
+      <p class="plain">Your account will be deleted in ${plural(n)}, on ${esc(fmtDate(this.pending.purgeAt))}. Restore it before then and nothing is lost.</p>
+      <div class="btns"><button class="btn pri" data-act="restoreAccount">Restore my account</button></div></section>`;
+  },
+  card() {
+    if (this.pending) {
+      const n = daysLeft(this.pending.purgeAt);
+      return `<div class="card danger"><h2>Delete my account</h2>
+        <p class="plain">Deletion is scheduled for ${esc(fmtDate(this.pending.purgeAt))}: ${plural(n)} left. Restore it to keep your account.</p>
+        <div class="btns"><button class="btn pri" data-act="restoreAccount">Restore my account</button></div></div>`;
+    }
+    return `<div class="card danger"><h2>Delete my account</h2>
+      <p class="plain">Your account is kept for ${DAYS} days first, so you can change your mind. After that your sign-in and profile are erased. Your records in each Chama stay with that Chama.</p>
+      <p class="plain">Leave every Chama first. Leaving a Chama is a separate step, in Chama settings.</p>
+      <div class="btns"><button class="btn bad" data-act="deleteAccount">Delete my account</button></div></div>`;
+  },
+  openDelete(err = '') {
+    Modal.open({
+      title: 'Delete my account', submitLabel: 'Continue', danger: false,
+      body: `<p class="plain"><b>Your account is not deleted straight away.</b> It is kept for ${DAYS} days. Sign in within those days to restore it. After that it is erased.</p>
+        ${err ? `<p class="notice" role="alert">${esc(err)}</p>` : ''}`,
+      fields: [{ name: 'reason', label: 'Reason (optional)', value: '', placeholder: 'Optional' }],
+      onSubmit: v => { __M_src_ui_toast_js.Pop.confirm({ title: 'Delete your account?', text: 'You will be signed out now. Your account is kept for ' + DAYS + ' days, then erased. Sign in again within that time to restore it.', confirmLabel: 'Delete account', danger: true, onYes: () => Account.submitDelete(v) }); },
+    });
+  },
+  async submitDelete(v) {
+    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    const { data, error } = await Backend.sb.rpc('request_account_deletion', { p_reason: String(v.reason || '').trim().slice(0, 500) || null });
+    if (error) { toast(/Leave your/i.test(error.message) ? 'You still belong to a Chama. Leave it, or hand it over, then delete your account.' : /recent|sign in again|10 minutes/i.test(error.message) ? 'For your safety, sign out and sign in again, then delete your account within 10 minutes.' : error.message); if (/Leave your/i.test(error.message)) location.hash = '#/settings/chama'; return; }
+    this.checked = false; this.pending = null;
+    try { await Backend.sb.auth.signOut({ scope: 'global' }); } catch (e) { /* the local sign-out below still runs */ }
+    try { Object.keys(localStorage).filter(k => k.startsWith('chama:') && !/dirty/i.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) { /* storage unavailable */ }
+    await Session.signOut();
+    dialogNotice('Deletion scheduled', `Your account is scheduled for deletion. You have ${DAYS} days to restore it by signing in again.`);
+  },
+  async restore() {
+    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    const { error } = await Backend.sb.rpc('cancel_account_deletion');
+    if (error) return toast(error.message);
+    this.pending = null; this.checked = true;
+    toast('Restored. Your account is kept.');
+    render();
+  },
+  /* kept so older callers do not break; deletion notices about other members are no longer shown (privacy, D8) */
+  noticesHTML() { return ''; },
+  refreshNotices() {},
+};
+
+const actions = {
+  deleteAccount: () => Account.openDelete(),
+  restoreAccount: () => Account.restore(),
+};
+
+return { get Account() { return Account; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/settings/index.js ---- */
+const __M_src_features_settings_index_js = (function () {
+const { Account } = __M_src_features_account_deletion_js;
+const { CONFIG } = __M_src_config_js;
+const { APP, PRIVACY } = __M_src_content_app_info_js;
+const { A11y } = __M_src_core_a11y_js;
+const { Auth } = __M_src_core_auth_js;
+const { Backend } = __M_src_core_backend_js;
+const { Me } = __M_src_core_me_js;
+const { render } = __M_src_core_rerender_js;
+const { Session, Perm } = __M_src_core_session_js;
+const { S } = __M_src_core_state_js;
+const { Store } = __M_src_core_store_js;
+const { esc, kes } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+const { Help } = __M_src_lib_help_js;
+const { num, validEmail } = __M_src_lib_validate_js;
+const { Modal } = __M_src_ui_modal_js;
+const { toast } = __M_src_ui_toast_js;
+
+/* In-app reader for the legal documents. The same files are public pages (legal/*.html), so there is one source of truth. */
+const Legal = {
+  cache: {}, loading: {},
+  file: k => (k === 'terms' ? 'legal/terms.html' : 'legal/privacy.html'),
+  html(k) {
+    if (this.cache[k]) return this.cache[k];
+    if (!this.loading[k]) {
+      this.loading[k] = true;
+      fetch(this.file(k), { credentials: 'same-origin' }).then(r => r.ok ? r.text() : Promise.reject(new Error(String(r.status)))).then(t => {
+        const doc = new DOMParser().parseFromString(t, 'text/html');
+        const main = doc.querySelector('article.legal');
+        if (!main) throw new Error('missing');
+        main.querySelectorAll('script, iframe, object, embed, form, style').forEach(n => n.remove());
+        main.querySelectorAll('*').forEach(n => [...n.attributes].forEach(a => { if (/^on/i.test(a.name) || (a.name === 'href' && /^\s*javascript:/i.test(a.value))) n.removeAttribute(a.name); }));
+        main.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
+        main.querySelectorAll('a[href="terms.html"]').forEach(a => a.setAttribute('href', '#/legal/terms'));
+        main.querySelectorAll('a[href="privacy.html"]').forEach(a => a.setAttribute('href', '#/legal/privacy'));
+        this.cache[k] = main.outerHTML;
+      }).catch(() => { this.cache[k] = `<div class="card">${emptyState('lost', 'Could not open the document', 'Check your internet connection, then try again.', `<a class="btn pri" href="${this.file(k)}" target="_blank" rel="noopener">Open in the browser</a>`)}</div>`; })
+        .finally(() => { this.loading[k] = false; render(); });
+    }
+    return Skel.page();
+  }
+};
+
+const views = {
+  settings(s, r = 'settings') {
+    const d = A11y.d, admin = Auth.isAdmin(), me = Me.get();
+    const li = (href, ic, tone, t, sub, extra) => `<a class="li has-ic" href="#/${href}"${extra || ''}><span class="li-ic ${tone || ''}">${icon(ic)}</span><span class="li-main"><b>${esc(t)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span>${icon('chev', 'chev')}</a>`;
+    const act = (a, ic, tone, t, sub, cls) => `<button type="button" class="li has-ic${cls ? ' ' + cls : ''}" data-act="${a}"><span class="li-ic ${tone || ''}">${icon(ic)}</span><span class="li-main"><b>${esc(t)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span>${icon('chev', 'chev')}</button>`;
+    const seg = (k, t, o) => `<div class="card" role="group" aria-label="${esc(t)}"><h2 style="font-size:.86em;color:var(--ink-2)">${esc(t)}</h2><div class="seg" style="margin-top:10px">${o.map(([v, l]) => `<button type="button" aria-pressed="${d[k] === v}" data-act="a11ySet" data-k="${k}" data-v="${v}">${esc(l)}</button>`).join('')}</div></div>`;
+    const sw = (k, t, h) => `<div class="li"><span class="li-main"><b>${esc(t)}</b><small>${esc(h)}</small></span><button type="button" class="sw" role="switch" aria-checked="${!!d[k]}" aria-label="${esc(t)}" data-act="a11y" data-k="${k}"></button></div>`;
+    const grp = (t, rows) => `<section class="sec"><div class="sec-h"><h2>${esc(t)}</h2></div><div class="list">${rows.join('')}</div></section>`;
+    const back = h => '';
+    if (r === 'settings') return `<h1 class="lt">Settings</h1><p class="lt-sub">${esc(Session.email || '')}</p>`
+      + grp('You', [li('profile', 'profile', '', 'My profile', 'Name, photo, phone and password'), `<button type="button" class="li has-ic" data-act="openLang"><span class="li-ic t-info">${icon('globe')}</span><span class="li-main"><b>Language</b></span>${icon('chev', 'chev')}</button>`, li('notifications/settings', 'bell', 't-gold', 'Notifications', 'What you hear about')])
+      + grp('Chama', [li('settings/chama', 'gear', 't-ink', 'Chama settings', admin ? 'Name, contribution, due day, fines, loans' : 'See the rules your chama uses'), li('settings/actions', 'members', '', admin ? 'People and access' : 'My access', admin ? 'Invite people, codes, roles and hand-over' : 'Your role and leaving'), li('reports', 'download', 't-info', 'Reports and backup', ''), act('wsSwitch', 'swap', 't-gold', 'Switch or add a Chama', '')])
+      + grp('Display', [li('settings/app', 'text', 't-ink', 'Display and accessibility', 'Dark mode, text size, contrast, motion')])
+      + grp('Support and legal', [li('settings/help', 'help', 't-info', 'Help', 'Guides and troubleshooting'), li('settings/privacy', 'shield', '', 'Privacy and my data', 'Download or delete your data'), li('legal/terms', 'scale', 't-ink', 'Terms of Use', ''), li('legal/privacy', 'doc', 't-ink', 'Privacy Policy', ''), li('settings/about', 'info', 't-ink', 'About', 'Version ' + APP.version)])
+      + `<section class="sec"><div class="list">${act('signOutAsk', 'out', 't-bad', 'Sign out', '', 'danger')}</div></section>`;
+    if (r.startsWith('settings/app')) {
+      const sub = r.slice('settings/app'.length).replace(/^\//, '');
+      const show = k => !sub || sub === k;
+      return `<h1 class="lt">Display and accessibility</h1><p class="lt-sub">Saved on this phone only</p>`
+        + (show('appearance') ? seg('theme', 'Appearance', [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Automatic']]) : '')
+        + (show('text') ? `<div style="margin-top:12px">${seg('size', 'Text size', [['n', 'Default'], ['l', 'Large'], ['x', 'Largest']])}</div>` : '')
+        + (show('seeing') ? grp('Seeing', [sw('hc', 'Stronger contrast', 'Black and white with thicker lines'), sw('cb', 'Symbols with colours', 'Adds ✓ and ✕ so colour is never the only clue'), sw('ft', 'Easy-read lettering', 'A plainer typeface for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')]) : '')
+        + (show('hands') ? grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')]) : '')
+        + (show('reading') ? grp('Reading and messages', [sw('long', 'Keep messages longer', 'Small messages stay on screen for 14 seconds'), sw('read', 'Read-aloud button', 'Shows a button that reads the page out loud')]) : '')
+        + `<div class="btns"><button class="btn" data-act="a11yReset">Reset to default</button></div>`;
+    }
+    if (r === 'settings/account') return `<h1 class="lt">My account</h1><div class="card"><div class="kv"><span>Name</span><b>${esc(me.name || 'Not added yet')}</b></div><div class="kv"><span>Phone</span><b>${esc(me.phone || 'Not added yet')}</b></div><div class="kv"><span>Contact email</span><b>${esc(me.email || 'Not added yet')}</b></div><div class="kv"><span>Sign-in email</span><b>${esc(Session.email || '')}</b></div></div>
+      <div class="btns"><a class="btn pri" href="#/profile">Edit in my profile</a></div>`;
+    if (r === 'settings/chama') { const c = s.chama; return `<h1 class="lt">${esc(c.name)}</h1><p class="lt-sub">${admin ? 'You are the treasurer, so you can change these.' : 'Only the treasurer can change these.'}</p>
+      <div class="card"><div class="kv"><span>Monthly contribution</span><b class="num">${esc(kes(c.monthly))}</b></div>
+      <div class="kv"><span>Due by</span><b>Day ${esc(c.dueDay)}</b></div>
+      <div class="kv"><span>Late fine</span><b class="num">${esc(kes(c.finePerLate))}</b></div>
+      <div class="kv"><span>Loan interest</span><b>${esc(c.loanRate)}% a month, flat</b></div>
+      <div class="kv"><span>Type</span><b>${c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round'}</b></div>
+      ${c.mode === 'savings' ? '' : `<div class="kv"><span>First payout month</span><b>${esc(c.startMonth || '')}</b></div>`}
+      ${c.payTo ? `<div class="kv"><span>Pay to</span><b>${esc(c.payTo)}</b></div>` : ''}</div>
+      ${admin ? '<div class="btns"><button class="btn pri" data-act="settings">' + icon('pencil') + 'Edit Chama details</button><button class="btn" data-act="undo">' + icon('undo') + 'Undo last change</button></div>' : ''}
+      <section class="sec"><div class="list"><button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`; }
+    if (r === 'settings/data') return `<h1 class="lt">Data and storage</h1><div class="card"><h2>Where records are kept</h2>
+      <p class="plain">Every change is saved on this phone first, then sent to the chama’s secure cloud database when you are online. ${CONFIG.supabase ? '' : 'The cloud is not set up in this app.'}</p>
+      <p class="plain">Signing out removes this Chama’s records from this phone. Changes that have not been sent yet are lost, so wait until you are online before you sign out.</p></div>
+      <div class="btns"><a class="btn" href="#/reports">Reports and backup</a><a class="btn" href="#/settings/help">Run checks</a></div>`;
+    if (r === 'settings/actions') return this.access(s, admin);
+    if (r === 'settings/about') return `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 0 6px">${markTile('lg')}<h1 class="lt" style="margin-top:16px">${esc(APP.name)}</h1><p class="mute">Version ${esc(APP.version)} · ${esc(APP.released)}</p></div>
+      <div class="card"><p class="plain">Record-keeping for chamas: contributions, loans, fines, payouts and expenses, shared clearly with every member. My Chama keeps records only. It does not hold, send or lend money.</p></div>
+      <section class="sec"><div class="sec-h"><h2>What’s new</h2></div><div class="list">${APP.notes.slice(0, 3).map(([v, t]) => `<div class="li"><div class="li-main"><b>${esc(v)}</b><small style="white-space:normal">${esc(t)}</small></div></div>`).join('')}</div></section>
+      <section class="sec"><div class="list">
+        <div class="li"><div class="li-main"><small>Help contact</small><b>${esc(APP.support || 'Not set yet')}</b></div></div>
+        ${li('legal/terms', 'scale', 't-ink', 'Terms of Use', '')}${li('legal/privacy', 'doc', 't-ink', 'Privacy Policy', '')}
+        <a class="li has-ic" href="vendor/supabase-LICENSE" target="_blank" rel="noopener"><span class="li-ic t-ink">${icon('doc')}</span><span class="li-main"><b>Open-source licences</b><small>supabase-js (MIT)</small></span>${icon('chev', 'chev')}</a>
+      </div></section>`;
+    if (r === 'settings/help') return Help.render();
+    if (r === 'settings/privacy') {
+      let consent = {}; try { consent = JSON.parse(localStorage.getItem('mca-onboard') || '{}') || {}; } catch (e) {}
+      return `<h1 class="lt">Privacy and my data</h1><p class="lt-sub">How your information is handled, and your choices</p>
+      <div class="list">${PRIVACY.map(x => `<div class="li"><div class="li-main"><b>${esc(x[0])}</b><small style="white-space:normal">${esc(x[1])}</small></div></div>`).join('')}</div>
+      <section class="sec"><div class="sec-h"><h2>Your choices</h2></div><div class="list">
+        ${act('exportMe', 'download', '', 'Download my data', 'A copy of your details and your records in this Chama')}
+        ${li('profile', 'pencil', 't-info', 'Correct my details', 'Name, username, phone and contact email')}
+        ${li('legal/privacy', 'doc', 't-ink', 'Read the Privacy Policy', '')}
+        ${li('legal/terms', 'scale', 't-ink', 'Read the Terms of Use', '')}
+      </div></section>
+      <section class="sec"><div class="list">
+        <div class="li"><div class="li-main"><small>Privacy contact</small><b>${esc(APP.privacyContact || 'Not set yet')}</b></div></div>
+        <div class="li"><div class="li-main"><small>You accepted</small><b>${consent.agreedAt ? 'Version ' + esc(consent.policy || '') + ' on ' + esc(new Date(consent.agreedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) : 'Not recorded on this phone'}</b></div></div>
+      </div><p class="foot-note">To withdraw your consent, leave your Chamas and delete your account below, or write to the privacy contact. Withdrawing does not affect what was done before.</p></section>
+      <section class="sec">${Account.card()}</section>`;
+    }
+    if (r === 'legal/privacy' || r === 'legal/terms') return `<div class="card">${Legal.html(r.slice(6))}</div>`;
+    return '';
+  },
+  access(s, admin) {
+    const label = a => a.status === 'active' ? 'signed in' : a.status === 'removed' ? 'access removed' : 'waiting to sign in';
+    if (!admin) return `<h1 class="lt">My access</h1><div class="card"><div class="kv"><span>Role</span><b>${esc(Perm.label(Session.role))}</b></div><div class="kv"><span>Signed in as</span><b>${esc(Session.email)}</b></div><div class="kv"><span>Member record</span><b>${Session.memberId ? 'Linked' : 'Not linked'}</b></div></div>
+      <p class="foot-note">You see your own money and the group totals. Your treasurer controls who can sign in.</p>
+      <section class="sec"><div class="list"><button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
+    const opts = s.members.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+    const invWhen = d => { try { return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); } catch (e) { return ''; } };
+    const invites = (Session.invites || []).filter(i => i.status !== 'accepted');
+    const invRows = invites.map(i => `<div class="li has-ic" style="align-items:flex-start"><span class="li-ic t-info">${icon('mail')}</span><div class="li-main"><b style="overflow-wrap:anywhere">${esc(i.invited_email)}</b><small>${esc(Perm.label(i.intended_role))} · ${i.status === 'pending' ? 'expires ' + esc(invWhen(i.expires_at)) : esc(i.status)}${i.member_id ? ' · linked to a member' : ''}</small>${i.status === 'pending' || i.status === 'expired' ? `<span class="btns"><button class="btn sm" data-act="resendInvite" data-i="${esc(i.id)}">Resend</button>${i.status === 'pending' ? `<button class="btn sm bad" data-act="revokeInvite" data-i="${esc(i.id)}" aria-label="Cancel invitation to ${esc(i.invited_email)}">Cancel</button>` : ''}</span>` : ''}</div></div>`).join('');
+    const others = (Session.access || []).filter(a => a.status === 'active' && String(a.email).toLowerCase() !== String(Session.email || '').toLowerCase());
+    const list = (Session.access || []).map(a => { const self = String(a.email).toLowerCase() === String(Session.email || '').toLowerCase();
+      return `<div class="li has-ic"><span class="li-ic ${a.role === 'treasurer' ? 't-gold' : ''}">${icon(a.role === 'treasurer' ? 'key' : 'profile')}</span><div class="li-main"><b>${esc(a.email)}${self ? ' (you)' : ''}</b><small>${esc(Perm.label(a.role))} · ${label(a)} · ${a.member_id ? 'listed as a member' : 'officer only'}</small></div>${a.status === 'removed' || a.role === 'treasurer' || self ? '' : `<div class="li-end"><button class="btn sm bad" data-act="revoke" data-e="${esc(a.email)}">Remove</button></div>`}</div>`; }).join('');
+    return `<h1 class="lt">People and access</h1><p class="lt-sub">Who can sign in to ${esc(s.chama.name)}, and what they can see</p>
+      <div class="card form"><h2>Invite by email</h2><p class="plain">They get an email with a link, sign in with that email address, and press Accept. Nobody joins until they accept.</p>
+        <label>Email address<input id="invEmail" type="email" inputmode="email" autocomplete="off" autocapitalize="none" placeholder="name@example.com"></label>
+        <label>Role<select id="invRole"><option value="member">Member: sees own money and group totals</option>${Array.isArray(Session.invites) ? '<option value="secretary">Secretary: same access as a member for now</option>' : ''}<option value="treasurer">Treasurer: sees and changes everything</option></select></label>
+        <label>Member record<select id="invMember"><option value="">Officer only: not on the member list</option>${opts}</select><small>Link them to their name, so they see their own money.</small></label>
+        <button type="button" class="btn pri block" style="margin-top:18px" data-act="invite">${icon('mail')}${Array.isArray(Session.invites) ? 'Send invitation' : 'Add person'}</button>
+      </div>
+      ${Array.isArray(Session.invites) ? `<section class="sec"><div class="sec-h"><h2>Invitations</h2></div><div class="list">${invRows || '<div class="li empty">No open invitations</div>'}</div></section>` : ''}
+      <section class="sec"><div class="sec-h"><h2>Invite code</h2></div>${Session.codeBlockHtml()}</section>
+      <section class="sec"><div class="sec-h"><h2>People with access</h2><button type="button" data-act="loadAccess">Refresh</button></div><div class="list">${list || '<div class="li empty">Nobody else has access yet</div>'}</div></section>
+      ${others.length ? `<section class="sec"><div class="sec-h"><h2>Hand over the Chama</h2></div><div class="list">${others.map(a => `<div class="li"><div class="li-main"><b>${esc(a.email)}</b><small>${esc(Perm.label(a.role))}</small></div><div class="li-end"><button class="btn sm" data-act="handover" data-e="${esc(a.email)}">Make treasurer</button></div></div>`).join('')}</div><p class="foot-note">You can stay on as co-treasurer, or step down to Member. The Chama always keeps one treasurer.</p></section>` : ''}`;
+  },
+};
+/* keep `this` pointing at views when called as Views.settings */
+views.settings = views.settings.bind(views);
+
+const actions = {
+  a11y: d => { A11y.d[d.k] = A11y.d[d.k] ? 0 : 1; A11y.save(); render(); A11y.refocus(`[data-act=a11y][data-k=${d.k}]`); },
+  a11ySet: d => { A11y.d[d.k] = d.v; A11y.save(); render(); A11y.refocus(`[data-act=a11ySet][data-k=${d.k}][data-v=${d.v}]`); },
+  a11yReset() { A11y.d = { ...A11y.def }; A11y.save(); render(); toast('Back to default', 'info'); },
+  openLang() { if (typeof window.openLanguagePicker === 'function') window.openLanguagePicker(); },
+  skip() { $('#view').focus(); },
+  readAloud() {
+    const ss = window.speechSynthesis, b = $('#ra'); if (!ss) throw new Error('This phone cannot read aloud');
+    if (ss.speaking) { ss.cancel(); b.textContent = 'Read this page aloud'; return; }
+    const u = new SpeechSynthesisUtterance($('#view').innerText); u.lang = 'en-KE'; u.rate = 0.95;
+    u.onend = u.onerror = () => { b.textContent = 'Read this page aloud'; }; b.textContent = 'Stop reading'; ss.speak(u);
+  },
+  codeCreate: async () => {
+    const role = $('#codeRole').value, hours = Number($('#codeHours').value), maxUses = Number($('#codeUses').value), memberId = $('#codeMember').value || null;
+    if (!(Number.isInteger(maxUses) && maxUses >= 1 && maxUses <= 100)) return toast('Uses must be a whole number from 1 to 100');
+    try { await Session.createCode({ role, hours, maxUses, memberId }); toast('Code created. Copy it now: it is shown once', 'info'); } catch (e) { toast(e.message); }
+  },
+  codeCopy: () => {
+    const c = Session.newCode && Session.newCode.code; if (!c) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(c).then(() => toast('Code copied'), () => toast('Could not copy. Press and hold the code to copy it.'));
+    else toast('Press and hold the code to copy it.', 'info');
+  },
+  codeDone: () => { Session.newCode = null; Session.loadAccess(); },
+  codeRevoke: async d => { try { await Session.revokeCode(d.id); toast('Code cancelled', 'info'); } catch (e) { toast(e.message); } },
+  tagSave: async () => {
+    const t = ($('#codeTag').value || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(t)) return toast('A tag is exactly 4 letters or numbers');
+    try { const tag = await Session.saveTag(t); toast('Chama tag saved: ' + tag); } catch (e) { toast(e.message); }
+  },
+  revoke: async d => { __M_src_ui_toast_js.Pop.confirm({ title: 'Remove access?', text: d.e + ' will no longer be able to open this Chama. Their records are kept.', confirmLabel: 'Remove', danger: true, onYes: async () => { try { await Session.revoke(d.e); } catch (e) { toast(e.message); } } }); },
+  loadAccess: () => Session.loadAccess(),
+  invite: async () => {
+    const email = ($('#invEmail').value || '').trim().toLowerCase(), mid = $('#invMember').value || null, role = $('#invRole').value;
+    if (!validEmail(email)) return toast('Email address does not look right');
+    if (email === String(Session.email || '').toLowerCase()) return toast('That is your own email');
+    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
+    const btn = document.querySelector('[data-act="invite"]'); if (btn) btn.disabled = true;
+    let r;
+    try { r = await Session.sendInvite('create', { email, role, member_id: mid }); } catch (e) { if (btn) btn.disabled = false; return toast(e.message); }
+    if (btn) btn.disabled = false;
+    if (r.unavailable) return toast('Invitation not sent. The invitation service did not answer.');
+    $('#invEmail').value = ''; $('#invMember').value = '';
+    toast(r.email_status === 'sent' ? 'Invitation sent to ' + email
+      : r.email_status === 'not_configured' ? 'Invitation saved, but email sending is not set up yet. Use Resend once it is.'
+      : 'Invitation saved, but the email could not be sent (' + (r.email_error || 'unknown reason') + '). Use Resend to try again.');
+    await Promise.all([Session.loadInvites(), Session.loadAccess()]);
+  },
+  resendInvite: async d => {
+    try {
+      const r = await Session.sendInvite('resend', { invitation_id: d.i });
+      if (r.unavailable) return toast('Invitation not renewed. The invitation service did not answer.');
+      toast(r.email_status === 'sent' ? 'Invitation sent again. The old link no longer works' : 'Invitation renewed, but the email was not sent (' + (r.email_error || r.email_status) + ')');
+      await Session.loadInvites();
+    } catch (e) { toast(e.message); }
+  },
+  revokeInvite: async d => {
+    const { error } = await Backend.sb.rpc('revoke_invitation', { p_id: d.i });
+    if (error) return toast(error.message);
+    toast('Invitation cancelled', 'info'); await Session.loadInvites();
+  },
+  settings: { admin: true, run() {
+    const c = S().chama;
+    Modal.open({ title: 'Chama details', fields: [
+      { name: 'name', label: 'Chama name', value: c.name, required: true },
+      { name: 'monthly', label: 'Monthly contribution per share (KES)', type: 'number', value: c.monthly },
+      { name: 'dueDay', label: 'Due by day of the month (1 to 28)', type: 'number', value: c.dueDay },
+      { name: 'finePerLate', label: 'Late fine (KES)', type: 'number', value: c.finePerLate },
+      { name: 'loanRate', label: 'Default loan interest (% a month, flat)', type: 'number', value: c.loanRate },
+      { name: 'mode', label: 'Chama type', type: 'select', value: c.mode, options: [['rotation', 'Merry-go-round (the pot rotates)'], ['savings', 'Savings or table banking (no rotation)']] },
+      { name: 'startMonth', label: 'First payout month', type: 'month', value: c.startMonth },
+      { name: 'payTo', label: 'Pay to (till, paybill or number), shown in reminders', value: c.payTo }],
+      onSubmit: v => {
+        const name = String(v.name || '').trim().replace(/\s+/g, ' ');
+        if (name.length < 2 || name.length > 80) throw new Error('Chama name must be 2 to 80 characters');
+        const d = { name, mode: v.mode === 'savings' ? 'savings' : 'rotation', payTo: String(v.payTo || '').trim().slice(0, 60), startMonth: /^\d{4}-\d{2}$/.test(v.startMonth || '') ? v.startMonth : c.startMonth,
+          monthly: num(v.monthly, 'Contribution'), dueDay: Math.round(num(v.dueDay, 'Due day', { min: 1 })), finePerLate: num(v.finePerLate, 'Fine', { allowZero: true }), loanRate: num(v.loanRate, 'Rate', { allowZero: true }) };
+        if (d.dueDay > 28) throw new Error('Due day must be 1 to 28');
+        if (d.loanRate > 100) throw new Error('Interest above 100% a month is not allowed');
+        Store.commit(s => { s.chama = { ...s.chama, ...d }; });
+        toast('Chama details saved');
+      } });
+  } },
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/notifications/notify.js ---- */
+const __M_src_features_notifications_notify_js = (function () {
+const { APP } = __M_src_content_app_info_js;
+const { Auth } = __M_src_core_auth_js;
+const { Domain } = __M_src_core_domain_js;
+const { Me } = __M_src_core_me_js;
+const { render } = __M_src_core_rerender_js;
+const { ROUTES } = __M_src_core_routes_js;
+const { Store } = __M_src_core_store_js;
+const { esc, kes, monthLabel, uid } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+const { toast } = __M_src_ui_toast_js;
+
+/* =====================================================================
+   5a. NOTIFICATIONS
+   Events are written into state.notes inside the same commit as the change,
+   so they sync with the chama. Reminders are worked out from the records.
+   Read state is per phone and per viewer. An item becomes read only when its
+   detail page is opened (or it is marked read from there or from the list).
+   ===================================================================== */
+const NOTE_TYPES = {
+  payment_confirmed:     { cat: 'financial', icon: 'wallet', tone: 'financial', label: 'Payment recorded' },
+  payment_reversed:      { cat: 'financial', icon: 'wallet', tone: 'warn', label: 'Payment reversed', high: true },
+  contribution_due_soon: { cat: 'financial', icon: 'alert', tone: 'warn', label: 'Contribution due soon' },
+  contribution_overdue:  { cat: 'financial', icon: 'alert', tone: 'danger', label: 'Contribution overdue', high: true },
+  late_summary:          { cat: 'group', icon: 'users', tone: 'group', label: 'Late contributions', high: true },
+  password_changed:      { cat: 'system', icon: 'shield', tone: 'danger', label: 'Security', mandatory: true, high: true },
+  release_published:     { cat: 'system', icon: 'doc', tone: 'system', label: 'App update' }
+};
+
+const NOTE_CAT_LABEL = { financial: 'Financial', group: 'Group', system: 'System' };
+
+const NOTE_ICON = {
+  wallet: '<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l12-3v3"/><circle cx="16.5" cy="13.5" r="1"/>',
+  users: '<circle cx="9" cy="8" r="3.4"/><path d="M3 20c.7-3.3 3.1-5.2 6-5.2s5.3 1.9 6 5.2"/><path d="M16 4.6a3.3 3.3 0 0 1 0 6.4M18 14.8c1.7.6 2.7 2.2 3 4.6"/>',
+  shield: '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9.5 12l2 2 3.5-4"/>',
+  doc: '<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.5"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 6.5 2.5 8.5 2.5 8.5h-17S6 14.5 6 8z"/><path d="M10.2 20.2a2 2 0 0 0 3.6 0"/>',
+  sliders: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'
+};
+
+const NOTE_SYN = { money: ['kes', 'payment', 'contribution', 'financial'], pay: ['payment'], paid: ['payment'], late: ['overdue', 'late', 'owed', 'due'], due: ['due', 'owed'], owed: ['owed', 'due'], security: ['pin', 'security'], update: ['version', 'app', 'update'], version: ['version'], group: ['group', 'treasurer'] };
+
+const NOTE_LIST_CATS = ['financial', 'group', 'system'];
+
+const svgIcon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NOTE_ICON[k] || ''}</svg>`;
+
+const Notify = {
+  filter: 'all', q: '', lastCount: null,
+  viewer() { const me = Me.get(), admin = Auth.isAdmin(); return { admin, memberId: me.memberId || null, key: (admin ? 'treasurer' : 'member') + ':' + (me.memberId || 'none') }; },
+  prefs() {
+    let p = {}; try { p = JSON.parse(localStorage.getItem('chama:notif:prefs:' + Store.chamaId) || '{}') || {}; } catch {}
+    return { cat: { financial: true, group: true, system: true, ...(p.cat || {}) }, preview: !!p.preview };
+  },
+  savePrefs(p) { try { localStorage.setItem('chama:notif:prefs:' + Store.chamaId, JSON.stringify(p)); } catch { toast('Storage full'); } },
+  readKey() { return 'chama:notif:read:' + Store.chamaId + ':' + this.viewer().key; },
+  readSet() { try { return new Set(JSON.parse(localStorage.getItem(this.readKey()) || '[]')); } catch { return new Set(); } },
+  writeSet(set) { try { localStorage.setItem(this.readKey(), JSON.stringify([...set].slice(-800))); } catch { toast('Storage full'); } },
+  markRead(ids) { const set = this.readSet(); ids.forEach(id => set.add(id)); this.writeSet(set); },
+  dayKey: ts => new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }),
+  when: ts => new Date(ts).toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+  ago(ts) {
+    const m = Math.round((Date.now() - ts) / 60000);
+    if (m < 1) return 'Just now';
+    if (m < 60) return m + 'm ago';
+    const h = Math.round(m / 60); if (h < 24) return h + 'h ago';
+    const d = Math.round(h / 24); if (d < 7) return d + 'd ago';
+    return new Date(ts).toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short' });
+  },
+  make(type, entity, to, title, body, dest, destLabel, ts, facts) {
+    return { id: uid(), key: type + ':' + entity + ':' + to + ':' + ts, type, to, title, body, dest: dest || null, destLabel: destLabel || null, facts: facts || [], ts };
+  },
+  /* called from Log.record, so each note is written in the same commit as its change */
+  fromChange(a, b) {
+    const out = [], ts = Date.now();
+    const A = new Map((a.payments || []).map(x => [x.id, x])), B = new Map((b.payments || []).map(x => [x.id, x]));
+    const facts = x => [['Member', Domain.memberName(b, x.memberId)], ['Amount', kes(x.amount)], ['Month', monthLabel(x.month)]];
+    B.forEach((x, id) => { if (!A.has(id)) out.push(this.make('payment_confirmed', id, x.memberId, 'Payment recorded', `${kes(x.amount)} for ${monthLabel(x.month)} has been recorded.`, '#/grid', 'contributions', ts, facts(x))); });
+    A.forEach((x, id) => { if (!B.has(id)) out.push(this.make('payment_reversed', id, x.memberId, 'Payment reversed', `${kes(x.amount)} for ${monthLabel(x.month)} has been removed from the records.`, '#/grid', 'contributions', ts, facts(x))); });
+    if (a.chama.pin !== b.chama.pin) out.push(this.make('password_changed', 'pin', 'treasurer', 'Treasurer PIN changed', 'The PIN that opens treasurer mode was changed. If this was not you, see Help.', '#/settings/actions', 'treasurer mode', ts, [['Changed', this.when(ts)]]));
+    if (out.length) b.notes = [...out, ...(b.notes || [])].slice(0, 200);
+  },
+  derived(s, v) {
+    const out = [], mk = Domain.now(), now = new Date(), [y, mo] = mk.split('-').map(Number), dueDay = Number(s.chama.dueDay) || 10, d = now.getDate();
+    if (v.memberId && s.members.some(m => m.id === v.memberId) && Domain.status(s, v.memberId, mk) !== 'na') {
+      const owed = Domain.outstanding(s, v.memberId, mk);
+      if (owed > 0 && d >= dueDay - 3) {
+        const late = d > dueDay, type = late ? 'contribution_overdue' : 'contribution_due_soon';
+        out.push({ id: `derived:${type}:${v.memberId}:${mk}`, type, to: v.memberId,
+          title: late ? 'Contribution overdue' : 'Contribution due soon',
+          body: `${kes(owed)} is still owed. ${late ? 'It was due by day ' + dueDay + '.' : 'It is due by day ' + dueDay + ' of this month.'}`,
+          dest: '#/grid', destLabel: 'contributions', facts: [['Still owed', kes(owed)], ['Due by', 'Day ' + dueDay], ['Month', monthLabel(mk)]],
+          ts: Math.min(Date.now(), new Date(y, mo - 1, dueDay, 9).getTime()) });
+      }
+    }
+    if (v.admin && Domain.isOverdue(s, mk)) {
+      const late = Domain.lateMembers(s, mk);
+      if (late.length) out.push({ id: `derived:late_summary:${mk}`, type: 'late_summary', to: 'treasurer',
+        title: 'Late contributions', body: `${late.length} ${late.length === 1 ? 'member still owes' : 'members still owe'} for ${monthLabel(mk)}.`,
+        dest: '#/grid', destLabel: 'contributions', facts: [['Members late', String(late.length)], ['Month', monthLabel(mk)]],
+        ts: Math.min(Date.now(), new Date(y, mo - 1, dueDay + 1, 9).getTime()) });
+    }
+    return out;
+  },
+  releases() {
+    const ts = Date.parse(APP.released) || 0;
+    return APP.notes.slice(0, 1).map(([ver, text], i) => ({ id: 'release:' + ver, type: 'release_published', to: 'all', title: `Version ${ver} is out`, body: text, dest: null, facts: [['Version', ver], ['Released', APP.released]], ts: ts - i * 60000 }));
+  },
+  visible(n, v, p) {
+    if (!n.mand && p.cat[n.cat] === false) return false;
+    if (n.to === 'all') return true;
+    if (n.to === 'treasurer') return v.admin;
+    if (v.memberId && n.to === v.memberId) return true;
+    return v.admin && n.cat === 'financial';
+  },
+  list(s) {
+    const v = this.viewer(), p = this.prefs();
+    const all = [...(s.notes || []), ...this.derived(s, v), ...this.releases()].map(n => {
+      const t = NOTE_TYPES[n.type] || {};
+      return { ...n, cat: t.cat || 'system', icon: t.icon || 'bell', tone: t.tone || 'system', label: t.label || 'Update', mand: !!t.mandatory, prio: t.high ? 'high' : 'normal' };
+    });
+    return all.filter(n => this.visible(n, v, p)).sort((x, y) => y.ts - x.ts);
+  },
+  unread(s) { const r = this.readSet(); return this.list(s).filter(n => !r.has(n.id)).length; },
+  toggleRead(id) { const r = this.readSet(); if (r.has(id)) r.delete(id); else r.add(id); this.writeSet(r); render(); },
+  markAll() { this.markRead(this.list(Store.get()).map(n => n.id)); render(); toast('All marked as read'); },
+  setCat(k) {
+    if (k === 'security') return toast('Security alerts cannot be turned off');
+    const p = this.prefs(); p.cat[k] = !p.cat[k]; this.savePrefs(p); render(); toast('Saved');
+  },
+  togglePreview() { const p = this.prefs(); p.preview = !p.preview; this.savePrefs(p); render(); toast('Saved'); },
+  resetPrefs() { this.savePrefs({ cat: { financial: true, group: true, system: true }, preview: false }); render(); toast('Back to normal'); },
+  chipPass(n, chip, rs) { return chip === 'all' || (chip === 'unread' ? !rs.has(n.id) : n.cat === chip); },
+  tokenMatch(n, t, rs) {
+    if (t === 'unread') return !rs.has(n.id);
+    if (t === 'read') return rs.has(n.id);
+    if (t === 'today') return this.dayKey(n.ts) === this.dayKey(Date.now());
+    let hay = [n.title, n.body, NOTE_CAT_LABEL[n.cat], n.label, this.dayKey(n.ts), this.when(n.ts), ...(n.facts || []).map(f => f[1])].join(' ').toLowerCase();
+    hay = hay + ' ' + hay.replace(/,/g, '');
+    return hay.includes(t) || (NOTE_SYN[t] || []).some(x => hay.includes(x));
+  },
+  rowHTML(n, rs) {
+    const unread = !rs.has(n.id), show = this.prefs().preview;
+    return `<a class="ncard${unread ? ' unread' : ''}" href="#/notifications/${encodeURIComponent(n.id)}"${unread ? ' aria-label="Unread: ' + esc(n.title) + '"' : ''}><span class="nico ${esc(n.tone)}">${svgIcon(n.icon)}</span><span class="nmain"><span class="ntop"><b>${esc(n.title)}</b><time>${esc(this.ago(n.ts))}</time></span><span class="nbody">${show ? esc(n.body) : 'Open to read'}</span><span class="nmeta"><span class="ncat">${esc(NOTE_CAT_LABEL[n.cat])}</span>${n.prio === 'high' ? '<span class="pill">Important</span>' : ''}</span></span></a>`;
+  },
+  listHTML(s) {
+    const rs = this.readSet(), q = this.q.trim().toLowerCase(), toks = q ? q.split(/\s+/) : [];
+    const items = this.list(s).filter(n => this.chipPass(n, this.filter, rs)).filter(n => !toks.length || toks.every(t => this.tokenMatch(n, t, rs)));
+    if (!items.length) return `<div class="card">${toks.length ? emptyState('lost', 'No matches', 'Nothing matches “' + esc(this.q.trim()) + '”. Try a shorter word, or clear the search.') : this.filter === 'unread' ? emptyState('done', 'All caught up', 'You have read everything.') : emptyState('done', 'Nothing here yet', 'Payments and app updates will show up here.')}</div>`;
+    return '<div class="list">' + items.map(n => this.rowHTML(n, rs)).join('') + '</div>';
+  },
+  paintBell(s, r) {
+    const bell = $('#bell'), badge = $('#nbCount'), n = this.unread(s);
+    bell.hidden = !ROUTES.some(x => x[0] === r);
+    bell.setAttribute('aria-label', n ? `Notifications, ${n} unread` : 'Notifications');
+    badge.hidden = !n; badge.textContent = n > 99 ? '99+' : String(n);
+    if (this.lastCount !== null && n > this.lastCount && !bell.hidden) {
+      bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring');
+      setTimeout(() => bell.classList.remove('ring'), 1000);
+    }
+    this.lastCount = n;
+  }
+};
+
+return { get NOTE_TYPES() { return NOTE_TYPES; }, get NOTE_CAT_LABEL() { return NOTE_CAT_LABEL; }, get NOTE_ICON() { return NOTE_ICON; }, get NOTE_SYN() { return NOTE_SYN; }, get NOTE_LIST_CATS() { return NOTE_LIST_CATS; }, get svgIcon() { return svgIcon; }, get Notify() { return Notify; }, };
+})();
+
+/* ---- src/features/notifications/index.js ---- */
+const __M_src_features_notifications_index_js = (function () {
+const { Account } = __M_src_features_account_deletion_js;
+const { render } = __M_src_core_rerender_js;
+const { esc } = __M_src_core_utils_js;
+const { NOTE_CAT_LABEL, NOTE_LIST_CATS, Notify, svgIcon } = __M_src_features_notifications_notify_js;
+
+const views = {
+  notifications(s) {
+    const rs = Notify.readSet(), all = Notify.list(s);
+    const count = k => all.filter(n => Notify.chipPass(n, k, rs)).length;
+    const unreadN = count('unread');
+    const chips = [['all', 'All'], ['unread', 'Unread'], ...NOTE_LIST_CATS.map(c => [c, NOTE_CAT_LABEL[c]])];
+    const chipBar = `<div class="chips" role="group" aria-label="Filter notifications">${chips.map(([k, t]) => `<button class="chip" aria-pressed="${Notify.filter === k}" data-act="noteFilter" data-v="${k}">${esc(t)}${k === 'unread' && unreadN ? ` <span class="cnt">${unreadN > 99 ? '99+' : unreadN}</span>` : ''}</button>`).join('')}</div>`;
+    return `<h1 class="lt">Notifications</h1>
+      <div class="nsearch"><label><svg class="mag ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS.search}</svg><span class="vh">Search notifications</span><input id="notifQ" type="search" placeholder="Search, e.g. unread, KES, late" value="${esc(Notify.q)}" autocomplete="off"></label><a class="hb" href="#/notifications/settings" aria-label="Notification settings">${icon('sliders')}</a></div>`
+      + chipBar
+      + `<div class="nbar"><span class="mute">${unreadN ? unreadN + ' unread' : 'All caught up'}</span>${unreadN ? '<button class="btn ghost sm" data-act="noteAll">Mark all as read</button>' : ''}</div>`
+      + Account.noticesHTML(s)
+      + `<div id="notifList">${Notify.listHTML(s)}</div>`;
+  },
+  notificationDetail(s, r) {
+    const id = decodeURIComponent(r.slice('notifications/'.length));
+    const n = Notify.list(s).find(x => x.id === id);
+    if (!n) return `<div class="card">${emptyState('lost', 'No longer available', 'This notification was removed or has expired.', '<a class="btn pri" href="#/notifications">Back to notifications</a>')}</div>`;
+    const unread = !Notify.readSet().has(n.id);
+    const facts = n.facts.map(([k, v]) => `<div class="kv"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
+    return `<article class="ndetail">
+      <div class="nhero"><span class="nico ${esc(n.tone)}">${svgIcon(n.icon)}</span><div><span class="ncat">${esc(NOTE_CAT_LABEL[n.cat])}</span>${n.prio === 'high' ? ' <span class="pill">Important</span>' : ''}</div></div>
+      <h1 class="ntitle">${esc(n.title)}</h1>
+      <p class="nwhen">${esc(Notify.when(n.ts))} · Nairobi time</p>
+      <p class="nfull">${esc(n.body)}</p>
+      ${facts ? `<div class="card facts">${facts}</div>` : ''}
+      <div class="btns">${n.dest && /^#\/[\w/-]*$/.test(String(n.dest)) ? `<a class="btn pri grow" href="${esc(n.dest)}">View ${esc(n.destLabel || 'details')}</a>` : ''}<button class="btn grow" data-act="noteToggle" data-id="${esc(n.id)}">${unread ? 'Mark as read' : 'Mark as unread'}</button></div>
+    </article>`;
+  },
+  'notifications/settings'(s) {
+    const p = Notify.prefs();
+    const row = (k, ic, tone, t, h, on, locked) => `<div class="li has-ic"><span class="nico ${tone}" style="width:32px;height:32px;border-radius:9px">${svgIcon(ic)}</span><span class="li-main"><b>${esc(t)}</b><small>${esc(h)}</small></span><button type="button" class="sw${locked ? ' lock' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(t)}" ${locked ? 'aria-disabled="true"' : ''} data-act="notePref" data-k="${k}"></button></div>`;
+    return `<h1 class="lt">Notification settings</h1><p class="lt-sub">In the app for now. Saved on this phone only.</p>`
+      + `<div class="list">`
+      + row('financial', 'wallet', 'financial', 'Money', 'Payments recorded or reversed, and due dates', p.cat.financial !== false, false)
+      + row('group', 'users', 'group', 'Group', 'Late-contribution summaries for the treasurer', p.cat.group !== false, false)
+      + row('system', 'doc', 'system', 'App updates', 'New versions of this app', p.cat.system !== false, false)
+      + row('security', 'shield', 'danger', 'Security alerts', 'Always on', true, true)
+      + `</div>`
+      + `<section class="sec"><div class="list"><div class="li"><span class="li-main"><b>Show message text in the list</b><small>Off keeps messages hidden until you open them, for privacy on shared phones</small></span><button type="button" class="sw" role="switch" aria-checked="${p.preview}" aria-label="Show message text in the list" data-act="notePreview"></button></div></div></section>`
+      + `<div class="btns"><button class="btn" data-act="notePrefReset">Reset to default</button></div>`;
+  },
+};
+
+const actions = {
+  noteToggle: d => Notify.toggleRead(d.id),
+  noteAll: () => Notify.markAll(),
+  noteFilter: d => { Notify.filter = d.v; render(); },
+  notePref: d => Notify.setCat(d.k),
+  notePreview: () => Notify.togglePreview(),
+  notePrefReset: () => Notify.resetPrefs(),
+};
+
+return { get views() { return views; }, get actions() { return actions; }, };
+})();
+
+/* ---- src/features/help/index.js ---- */
+const __M_src_features_help_index_js = (function () {
+const { render } = __M_src_core_rerender_js;
+const { Help } = __M_src_lib_help_js;
+
+const actions = {
+  helpCat: d => { Help.cat = d.v; render(); },
+  helpVote: d => Help.vote(d.id, d.v),
+  helpCheck: () => Help.runChecks(),
+  helpCopy: () => Help.copyReport(),
+  helpShare: () => Help.shareReport(),
+};
+
+return { get actions() { return actions; }, };
+})();
+
+/* ---- src/features/auth/index.js ---- */
+const __M_src_features_auth_index_js = (function () {
+const { Modal } = __M_src_ui_modal_js;
+const { Backend } = __M_src_core_backend_js;
+const { render } = __M_src_core_rerender_js;
+const { Session, Invite, Perm } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { esc } = __M_src_core_utils_js;
+const { Gate, Otp, OB, GL } = __M_src_features_auth_gate_js;
+const { $ } = __M_src_lib_dom_js;
+const { validEmail } = __M_src_lib_validate_js;
+const { toast } = __M_src_ui_toast_js;
+
+/* the email code confirms an email address: for a new account, and for a forgotten password. It never creates an account while resetting. */
+const plainOtpError = (m) => {
+  const t = String(m || '');
+  const sw = OB.lang() === 'sw';
+  if (/already registered|already exists|already been registered|user already/i.test(t)) return sw ? 'Barua pepe hii tayari ina akaunti. Ingia badala yake.' : 'This email already has an account. Sign in instead.';
+  if (/rate|too many|once every|security purposes/i.test(t)) return sw ? 'Subiri kidogo, kisha ujaribu tena.' : 'Please wait a moment, then try again.';
+  if (/^[_a-z0-9]+$/.test(t) || /error_code|validation_failed|status/i.test(t)) return sw ? 'Imeshindikana kutuma msimbo. Jaribu tena.' : 'Could not send the code. Try again.';
+  return t || (sw ? 'Imeshindikana kutuma msimbo. Jaribu tena.' : 'Could not send the code. Try again.');
+};
+const gateSendCode = async (email, btn) => {
+  const typed = Gate.mode === 'up' ? (Gate.email || email) : email;
+  try { sessionStorage.setItem('mca-intent', Gate.mode); } catch (e) {}
+  Gate.email = typed; Gate.notice = ''; Gate.sending = true; if (btn) btn.disabled = true; Gate.paint();
+  const t0 = Date.now();
+  const { error } = await Backend.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: Gate.mode === 'up' } });
+  await new Promise(r => setTimeout(r, Math.max(0, 900 - (Date.now() - t0))));
+  Gate.sending = false;
+  /* while resetting, an unknown email must look the same as a known one: no error, the code simply never arrives */
+  if (error && !(Gate.mode === 'forgot' && /signups? not allowed|not found/i.test(error.message))) {
+    Gate.email = typed;
+    const msg = plainOtpError(error.message);
+    if (Gate.mode === 'up') { Gate.notice = msg; Gate.paint(); return; }
+    Gate.paint(); return toast(msg);
+  }
+  Gate.email = email; Gate.coolUntil = Date.now() + 60000; Gate.sent = true; render();
+  try { Otp.start(); } catch (e) { /* the code screen still works without the resend timer */ }
+};
+const armUpCool = () => Gate.armCool();
+Store.setConflictHandler(info => {
+  Store.setSync('offline');
+  Modal.open({ title: 'Someone else saved changes', body: `<p class="plain">Another treasurer changed this Chama while you were working. Nothing has been overwritten yet. Choose which version to keep.</p>
+<div class="btns col"><button type="button" class="btn pri" data-act="conflictTheirs">Load the latest (drop my unsent changes)</button>
+<button type="button" class="btn bad" data-act="conflictMine">Keep my changes (replace theirs)</button></div>
+<p class="fhelp">If you close this, nothing is saved until you choose.</p>` });
+  Store._conflict = info;
+});
+const lowerNoSpace = v => String(v || '').trim().toLowerCase();
+
+const actions = {
+  conflictTheirs: () => { const c = Store._conflict; Modal.close(); if (c) c.useTheirs(); },
+  conflictMine: () => { const c = Store._conflict; Modal.close(); if (c) c.keepMine(); },
+  togglePw: () => { const i = document.getElementById('gatePw'); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector('[data-act="togglePw"]'); if (b) { b.textContent = show ? GL().hide : GL().show; b.setAttribute('aria-pressed', show ? 'true' : 'false'); } },
+  gateSignIn: async () => {
+    if (Gate.signing) return;
+    const idEl = document.getElementById('gateId'), pwEl = document.getElementById('gatePw');
+    const rawId = (idEl && idEl.value) || '', pw = (pwEl && pwEl.value) || '';
+    const id = rawId.trim();
+    if (idEl) Gate.id = rawId;
+    if (pwEl && Gate.mode === 'in') Gate.signPw = pw;
+    const err = document.getElementById('signErr');
+    const btn = document.querySelector('[data-act="gateSignIn"]');
+    const label = btn && btn.querySelector('.btn-label');
+    const sw = OB.lang() === 'sw';
+    const showErr = (m, field) => { if (err) err.textContent = m || ''; Gate.notice = m || ''; if (field && field.focus) field.focus(); };
+    if (!id) return showErr(sw ? 'Weka barua pepe au jina la mtumiaji.' : 'Enter your email or username.', idEl);
+    if (!pw) return showErr(sw ? 'Weka nenosiri lako.' : 'Enter your password.', pwEl);
+    if (!Backend.sb) return showErr('Sign-in is not set up in this app yet');
+    if (err) err.textContent = '';
+    Gate.notice = '';
+    Gate.signing = true;
+    if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); }
+    if (label) label.textContent = GL().signing;
+    try {
+      const r = await Session.passwordSignIn(id, pw);
+      if (r && r.error) showErr(r.error, pwEl);
+    } catch (e) {
+      showErr((e && e.message) || (sw ? 'Imeshindikana kuingia. Jaribu tena.' : 'Sign-in failed. Please try again.'), pwEl);
+    } finally {
+      Gate.signing = false;
+      if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute('aria-busy'); if (label) label.textContent = GL().cta; }
+    }
+  },
+  gateSend: async () => {
+    if (Gate.sending) return;
+    const btn = document.querySelector('[data-act="gateSend"]');
+    const raw = ($('#gateEmail') && $('#gateEmail').value) || '';
+    const email = raw.trim().toLowerCase();
+    const up = Gate.mode === 'up';
+    if (up) Gate.email = raw;
+    const showUp = (m) => { const el = document.getElementById('upErr'); if (el) el.textContent = m; Gate.notice = m; const f = document.getElementById('gateEmail'); if (f) f.focus(); };
+    if (up && (Gate.coolUntil || 0) > Date.now()) return;
+    if (!email) return up ? showUp(OB.lang() === 'sw' ? 'Weka barua pepe yako.' : 'Enter your email address.') : toast('Email address does not look right');
+    if (!validEmail(email)) return up ? showUp(OB.lang() === 'sw' ? 'Barua pepe hiyo haionekani sawa. Iangalie kisha ujaribu tena.' : 'That email does not look right. Check it and try again.') : toast('Email address does not look right');
+    if (!Backend.sb) return up ? showUp('Sign-in is not set up in this app yet') : toast('Sign-in is not set up in this app yet');
+    try { const { data: cur } = await Backend.sb.auth.getSession(); const curEmail = String((cur && cur.session && cur.session.user && cur.session.user.email) || '').toLowerCase(); if (curEmail && curEmail !== email) await Backend.sb.auth.signOut(); } catch (e) { /* the code step checks the session again */ }
+    return gateSendCode(email, btn);
+  },
+  gateSetup: async () => {
+    const G = GL(), isNew = Session.setupMode === 'new';
+    const name = (($('#setName') && $('#setName').value) || '').trim().replace(/\s+/g, ' '), user = lowerNoSpace($('#setUser') && $('#setUser').value);
+    const pw = (($('#gatePw') && $('#gatePw').value) || ''), pw2 = (($('#gatePw2') && $('#gatePw2').value) || '');
+    const fail = m => { Gate.notice = m; Gate.signing = false; Gate.paint(); };
+    if (isNew) {
+      if (name.length < 2) return fail('Type your full name');
+      if (!/^[a-z0-9._-]{3,20}$/.test(user)) return fail(G.usernameHint);
+    }
+    const googleNew = isNew && Session.usesGoogle();
+    if (!googleNew) {
+      const why = Gate.pwProblem(pw); if (why) return fail(why);
+      if (pw !== pw2) return fail('The two passwords do not match');
+    }
+    Gate.notice = ''; Gate.signing = true; Gate.paint();
+    try { await Session.finishSetup(name, user, googleNew ? '' : pw); Gate.signing = false; }
+    catch (e) { fail(e.message); const n = document.getElementById('setName'); if (n) n.value = name; const u = document.getElementById('setUser'); if (u) u.value = user; }
+  },
+  wsSub: d => {
+    Gate.sub = d.s || null; Gate.joinMsg = ''; Gate.nameErr = ''; Gate.formErr = ''; Gate.paint();
+    setTimeout(() => { const f = document.getElementById(Gate.sub === 'join' ? 'joinLink' : Gate.sub === 'create' ? 'newChamaName' : ''); if (f) f.focus(); }, 60);
+  },
+  wsCreate: () => Gate.submitCreate(),
+  wsJoin: () => Gate.submitJoin(),
+  wsOpen: d => Gate.openChama(d.id),
+  wsSwitch: () => { Gate.sub = null; Gate.notice = ''; Session.openChooser(); },
+  wsBack: () => {
+    if (Session.role) return Session.closeChooser();
+    const id = (typeof Store !== 'undefined' && Store.chamaId) || '';
+    if (id) return Session.switchTo(id);
+    return Session.closeChooser();
+  },
+  pkPick: (d) => { if (!d || !d.id) return; Gate.picked = d.id; Gate.paint(); },
+  pkOpen: () => { if (Gate.picked) Gate.openChama(Gate.picked); },
+  leaveChama: () => {
+    if (Session.role === 'treasurer') { toast('You are the treasurer. Hand the Chama to someone else first, or stay as co-treasurer.'); location.hash = '#/settings/actions'; return; }
+    Modal.open({ title: 'Leave this Chama?', submitLabel: 'Leave Chama', danger: true,
+      body: '<p class="plain">You will stop seeing this Chama. Your past payments and loans stay in its records, because they belong to the group. A treasurer can invite you back.</p>',
+      onSubmit: () => { setTimeout(async () => {
+        const cid = Session.cid();
+        const { error } = await Backend.sb.rpc('leave_chama', { cid });
+        if (error) return toast(error.message);
+        toast('You left the Chama');
+        const rest = (Session.workspaces || []).filter(w => w.chama_id !== cid);
+        if (rest.length === 1) Session.switchTo(rest[0].chama_id);
+        else { location.replace(location.pathname); }
+      }, 0); } });
+  },
+  handover: d => {
+    Modal.open({ title: 'Hand over the Chama', submitLabel: 'Hand over',
+      body: `<p class="plain">Make <b>${esc(d.e)}</b> the treasurer.</p>`,
+      fields: [{ name: 'mode', label: 'After handing over', type: 'select', options: [['step_down', 'Step down to Member'], ['stay', 'Stay on as co-treasurer']], value: 'step_down' }],
+      onSubmit: v => { setTimeout(async () => {
+        const { error } = await Backend.sb.rpc('transfer_ownership', { cid: Session.cid(), p_email: d.e, p_stay_as_treasurer: v.mode === 'stay' });
+        if (error) return toast(error.message);
+        toast('Treasurer updated');
+        Session.role = v.mode === 'stay' ? 'treasurer' : 'member';
+        Session.loadAccess().catch(() => {}); render();
+      }, 0); } });
+  },
+  gateReset: () => { Gate.sent = false; Gate.sending = false; Otp.hold = false; Otp.busy = false; Session.verifying = false; render(); },
+  gateCancel: () => {
+    Gate.sent = false; Gate.sending = false; Otp.hold = false; Otp.busy = false; Session.verifying = false;
+    if (Session.status === 'loading') return Session.signOut();
+    Session.set('signed-out');
+  },
+  gateResend: async () => {
+    if (!Gate.email || !Backend.sb) return toast('Use a different email and start again');
+    const b = document.getElementById('otpResend'); if (b) b.disabled = true;
+    const { error } = await Backend.sb.auth.signInWithOtp({ email: Gate.email, options: { shouldCreateUser: Gate.mode === 'up' } });
+    if (error && !(Gate.mode === 'forgot' && /signups? not allowed|not found/i.test(error.message))) { if (b) b.disabled = false; return Otp.msg(/seconds|wait|rate/i.test(error.message) ? 'Please wait a minute before asking for another code.' : plainOtpError(error.message)); }
+    Otp.reset(); Otp.start(); Otp.msg('A new code is on its way.');
+  },
+  gateRecheck: async () => { const ok = await Session.recheck(); if (!ok) toast('Not signed in yet. Open the link on this phone, or type the code instead'); },
+  gateCode: async () => {
+    const token = ($('#gateCode').value || '').replace(/\D/g, '');
+    const email = Gate.email;
+    const len = Session.otpLength || 8;
+    if (token.length !== len) return toast(`Type the ${len}-digit code from the email`);
+    if (!email || !Backend.sb) return toast('Press Start again and send a new link');
+    try {
+      const { error } = await Backend.sb.auth.verifyOtp({ email, token, type: 'email' });
+      if (error) return toast(/expired/i.test(error.message || '') || error.code === 'otp_expired' ? 'This code has expired. Press Start again to get a new one.' : 'That code did not work. Check it, or press Start again for a new one');
+      /* the sign-in listener continues; this is a fallback in case it has not yet */
+      setTimeout(() => Session.recheck(), 400);
+    } catch (e) { toast('Could not check the code. Try again'); }
+  },
+  gateSignOut: () => actions.signOutAsk(),
+  gateGoogle: () => Session.googleSignIn(),
+  signOutAsk: () => {
+    __M_src_ui_toast_js.Pop.confirm({
+      title: 'Sign out?',
+      html: (() => { try { return '<p>This removes the Chama’s records from this phone. You can sign in again at any time.</p>' + (Store.hasUnsent() ? '<p class="notice" role="alert">Some changes on this phone have not reached the cloud yet. Signing out now will lose them. Wait until you are online.</p>' : ''); } catch (e) { return ''; } })(),
+      confirmLabel: 'Sign out', danger: true,
+      onYes: () => { setTimeout(() => actions.signOutApp(), 0); },
+    });
+  },
+  signOutApp: async () => {
+    try { await Session.signOut(); } catch (e) { /* carry on: the reload clears the session view */ }
+    try { sessionStorage.removeItem('mca-splash'); sessionStorage.removeItem('mca-gate'); sessionStorage.removeItem('mca-intent'); } catch (e) {}
+    location.reload();
+  },
+  gateRetry: () => (Session.user ? Session.after(Session.user) : Session.boot()),
+  inviteContinue: () => { Invite.signin = true; Gate.paint(); },
+  inviteAccept: () => Invite.accept(),
+  inviteDecline: () => Invite.decline(),
+  inviteDismiss: () => { Invite.clear(); if (Session.user) { Session.status = 'loading'; Session.after(Session.user); } else Gate.paint(); },
+  inviteRetry: async () => { Invite.checked = false; Gate.paint(); await Invite.verify(); Gate.paint(); },
+};
+
+return { get actions() { return actions; }, };
+})();
+
+/* ---- src/features/shell/index.js ---- */
+const __M_src_features_shell_index_js = (function () {
+const { Store } = __M_src_core_store_js;
+const { $ } = __M_src_lib_dom_js;
+const { Modal } = __M_src_ui_modal_js;
+const { toast } = __M_src_ui_toast_js;
+
+const actions = {
+  closeModal: () => Modal.close(),
+  sigClear() { const c = $('#sigPad'); if (c) { c.getContext('2d').clearRect(0, 0, c.width, c.height); c._ink = false; } },
+  undo: { admin: true, run() { toast(Store.undo() ? 'Last change undone' : 'Nothing to undo'); } },
+};
+
+return { get actions() { return actions; }, };
+})();
+
+/* ---- src/features/index.js ---- */
+const __M_src_features_index_js = (function () {
+const homeFeature = __M_src_features_home_index_js;
+const contributionsFeature = __M_src_features_contributions_index_js;
+const loansFeature = __M_src_features_loans_index_js;
+const membersFeature = __M_src_features_members_index_js;
+const historyFeature = __M_src_features_history_index_js;
+const finesFeature = __M_src_features_fines_index_js;
+const expensesFeature = __M_src_features_expenses_index_js;
+const reportsFeature = __M_src_features_reports_index_js;
+const profileFeature = __M_src_features_profile_index_js;
+const settingsFeature = __M_src_features_settings_index_js;
+const notificationsFeature = __M_src_features_notifications_index_js;
+const helpFeature = __M_src_features_help_index_js;
+const authFeature = __M_src_features_auth_index_js;
+const accountFeature = __M_src_features_account_deletion_js;
+const shellFeature = __M_src_features_shell_index_js;
+/* Feature registry. Each feature folder exports `views` (pages it draws) and/or `actions` (things that change data).
+   This file merges them into one table, and stops at start-up if two features claim the same name.
+   To add a feature: create its folder, then add one import line and one entry in FEATURE_LIST below. */
+
+const FEATURE_LIST = [homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature];
+
+function merge(kind) {
+  const out = Object.create(null);
+  FEATURE_LIST.forEach(f => Object.entries(f[kind] || {}).forEach(([k, v]) => {
+    if (k in out) throw new Error(`Duplicate ${kind === 'views' ? 'page' : 'action'} "${k}"`);
+    out[k] = v;
+  }));
+  return out;
+}
+const Views = merge('views');
+const Actions = merge('actions');
+
+return { get Views() { return Views; }, get Actions() { return Actions; }, };
+})();
+
+/* ---- src/ui/menu.js ---- */
+const __M_src_ui_menu_js = (function () {
+const { $ } = __M_src_lib_dom_js;
+
+const P = { alert: ICONS.alert, wallet: ICONS.wallet, clock: ICONS.clock, doc: ICONS.doc, users: ICONS.members, undo: ICONS.undo, pencil: ICONS.pencil, exit: ICONS.out, user: ICONS.profile, gear: ICONS.gear, back: ICONS.back, chev: ICONS.chev, close: ICONS.close, out: ICONS.out, globe: ICONS.globe, receipt: ICONS.receipt, shield: ICONS.shield, help: ICONS.help, scale: ICONS.scale, swap: ICONS.swap, mail: ICONS.mail, text: ICONS.text, bell: ICONS.bell, download: ICONS.download };
+const svg = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
+const toast = (t) => { try { __M_src_ui_toast_js.toast(t); } catch (e) {} };
+const drawer = () => document.getElementById('drawer');
+
+function userNow() {
+  const Me = __M_src_core_me_js.Me, Store = __M_src_core_store_js.Store;
+  const me = Me.get() || {}, data = Store.get() || {}, member = me.memberId && data.members ? data.members.find(x => x.id === me.memberId) : null;
+  const name = me.name || (member && member.name) || 'Member';
+  const photo = (__M_src_core_session_js.Session.photoFor(member) || me.photo || '');
+  return { first: (String(name).trim()[0] || 'M').toUpperCase(), name, welcome: 'Welcome back', photo: /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo) ? photo : '' };
+}
+function chamaNow() {
+  const Store = __M_src_core_store_js.Store, Session = __M_src_core_session_js.Session;
+  const data = Store.get() || {};
+  let role = '';
+  try { role = __M_src_features_auth_gate_js.GL().roleWord(Session.role) || ''; } catch (e) {}
+  return { id: Store.chamaId || '', name: (data.chama && data.chama.name) || 'Chama', role };
+}
+function langNow() {
+  let code = 'en';
+  try { code = localStorage.getItem('chama.lang') || __M_src_features_auth_gate_js.OB.lang(); } catch (e) {}
+  const list = window.CHAMA_LANGUAGES || [];
+  const hit = list.find(l => l.code === code);
+  return { code, native: hit ? hit.native : (code === 'sw' ? 'Kiswahili' : 'English') };
+}
+function fineCount() {
+  try {
+    const data = __M_src_core_store_js.Store.get() || {};
+    return (data.fines || []).filter(f => !f.paid).length;
+  } catch (e) { return 0; }
+}
+
+function go(hash) {
+  try { Menu.close(); } catch (e) {}
+  if (location.hash !== hash) location.hash = hash;
+}
+function openProfile() { go('#/profile'); }
+function openChamaPicker() {
+  Menu.close();
+  try { __M_src_core_session_js.Session.openChooser(); } catch (e) { toast('Could not open your Chamas'); }
+}
+function openLanguagePicker() {
+  Menu.close();
+  const OB = __M_src_features_auth_gate_js.OB;
+  const Session = __M_src_core_session_js.Session;
+  OB.sheet = false; OB.langPick = null; OB.langQ = '';
+  const view = document.getElementById('view');
+  if (!view || !OB.langScreen) return;
+  const paintLang = () => { view.innerHTML = OB.langScreen(); };
+  paintLang();
+  const trap = (e) => {
+    const t = e.target.closest && e.target.closest('[data-ob]');
+    if (!t || !view.contains(t)) return;
+    if (Session.status !== 'ready' && Session.status !== 'demo') return;
+    const act = t.dataset.ob;
+    if (act !== 'lg-pick' && act !== 'lg-open' && act !== 'lg-close' && act !== 'lg-next') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (act === 'lg-pick') { OB.langPick = t.dataset.v; OB.sheet = false; paintLang(); }
+    else if (act === 'lg-open') { OB.sheet = true; paintLang(); }
+    else if (act === 'lg-close') { OB.sheet = false; OB.langQ = ''; paintLang(); }
+    else {
+      OB.applyChoice(OB.langPick || OB.chosen());
+      OB.revisit = false; OB.langPick = null; OB.sheet = false; OB.langQ = '';
+      document.removeEventListener('click', trap, true);
+      try { __M_src_core_rerender_js.render(); } catch (err) {}
+      Menu.refresh();
+    }
+  };
+  document.addEventListener('click', trap, true);
+}
+function openSection(id) {
+  if (id === 'edit') {
+    if (!__M_src_core_auth_js.Auth.isAdmin()) { toast('Only the treasurer can edit these'); return; }
+    go('#/settings/chama');
+    return;
+  }
+  if (id === 'reports') { go('#/reports'); return; }
+  if (id === 'leave') {
+    Menu.close();
+    const fn = __M_src_features_index_js.Actions.leaveChama;
+    if (typeof fn === 'function') fn();
+  }
+}
+function undoLastChange() {
+  if (!__M_src_core_auth_js.Auth.isAdmin()) { toast('Only the treasurer can undo'); return; }
+  toast(__M_src_core_store_js.Store.undo() ? 'Last change undone' : 'Nothing to undo');
+}
+function signOut() {
+  Menu.close();
+  const fn = __M_src_features_index_js.Actions.signOutApp;
+  if (typeof fn === 'function') fn();
+}
+
+function el(tag, cls, html) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (html != null) n.innerHTML = html;
+  return n;
+}
+function row(opts) {
+  const r = el(opts.toggle != null ? 'div' : 'button', 'mn-row' + (opts.danger ? ' danger' : ''));
+  if (r.tagName === 'BUTTON') r.type = 'button';
+  if (opts.icon) {
+    const ic = el('span', 'mn-ico', svg(opts.icon));
+    ic.style.background = opts.tone || '#0d8a64';
+    r.appendChild(ic);
+  }
+  const lbl = el('span', 'mn-lbl');
+  lbl.textContent = opts.label;
+  r.appendChild(lbl);
+  if (opts.badgeKey) {
+    const b = el('span', 'mn-badge');
+    b.dataset.key = opts.badgeKey;
+    b.hidden = true;
+    r.appendChild(b);
+  }
+  if (opts.valueKey || opts.value) {
+    const v = el('span', 'mn-val');
+    if (opts.valueKey) v.dataset.key = opts.valueKey;
+    v.textContent = opts.value || '';
+    r.appendChild(v);
+  }
+  if (opts.toggle != null) {
+    const sw = el('button', 'mn-switch');
+    sw.type = 'button';
+    sw.setAttribute('role', 'switch');
+    sw.setAttribute('aria-label', opts.label);
+    sw.setAttribute('aria-checked', opts.toggle ? 'true' : 'false');
+    sw.addEventListener('click', () => {
+      const on = sw.getAttribute('aria-checked') !== 'true';
+      sw.setAttribute('aria-checked', on ? 'true' : 'false');
+      if (opts.onToggle) opts.onToggle(on);
+    });
+    r.appendChild(sw);
+    return r;
+  }
+  if (opts.chevron !== false) r.appendChild(el('span', 'mn-chev', svg('chev')));
+  if (opts.onTap) {
+    r.addEventListener('pointerdown', () => r.classList.add('pressed'));
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => r.addEventListener(ev, () => r.classList.remove('pressed')));
+    r.addEventListener('click', () => setTimeout(opts.onTap, 110));
+  }
+  return r;
+}
+function group(rows, label, foot) {
+  const wrap = document.createDocumentFragment();
+  if (label) wrap.appendChild(el('div', 'mn-label', label));
+  const card = el('div', 'mn-group');
+  rows.forEach(r => card.appendChild(r));
+  wrap.appendChild(card);
+  if (foot) wrap.appendChild(el('p', 'mn-foot', foot));
+  return wrap;
+}
+
+const stack = [];
+function makeScreen(def, origin) {
+  const dr = drawer();
+  const s = el('section', 'mn-screen' + (def.root ? ' root' : ''));
+  s.setAttribute('aria-label', def.title || 'Menu');
+  let nav = null;
+  if (!def.root) {
+    nav = el('div', 'mn-nav');
+    const back = el('button', 'mn-back', svg('back') + '<span></span>');
+    back.type = 'button';
+    back.querySelector('span').textContent = stack.length ? stack[stack.length - 1].def.title : 'Menu';
+    back.addEventListener('click', () => Menu.back());
+    const title = el('span', 'mn-navtitle');
+    title.textContent = def.title;
+    nav.append(back, title);
+    s.appendChild(nav);
+  }
+  const scroll = el('div', 'mn-scroll');
+  s.appendChild(scroll);
+  if (!def.root) {
+    const h = el('h1', 'mn-large');
+    h.textContent = def.title;
+    scroll.appendChild(h);
+  }
+  def.build(scroll, s);
+  scroll.addEventListener('scroll', () => {
+    if (nav) nav.classList.toggle('scrolled', scroll.scrollTop > 16);
+  });
+  if (origin && origin.isConnected && dr) {
+    const d = dr.getBoundingClientRect(), r = origin.getBoundingClientRect();
+    s.style.setProperty('--sx', String(Math.max(0.2, r.width / d.width)));
+    s.style.setProperty('--sy', String(Math.max(0.08, r.height / d.height)));
+    s.style.transformOrigin = (r.left - d.left + r.width / 2) + 'px ' + (r.top - d.top + r.height / 2) + 'px';
+    s.origin = true;
+  }
+  s.def = def;
+  return s;
+}
+function push(def, origin) {
+  const dr = drawer(); if (!dr) return;
+  const prev = stack[stack.length - 1];
+  const s = makeScreen(def, origin);
+  dr.appendChild(s);
+  s.classList.add(s.origin ? 'from-origin' : 'enter');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    s.classList.remove('from-origin', 'enter');
+    if (prev) prev.classList.add('behind');
+  }));
+  stack.push(s);
+  setTimeout(() => { const b = s.querySelector('button'); if (b) b.focus({ preventScroll: true }); }, 480);
+}
+function pop() {
+  if (stack.length <= 1) { Menu.close(); return; }
+  const top = stack.pop();
+  const prev = stack[stack.length - 1];
+  top.classList.add(top.origin ? 'to-origin' : 'leave');
+  if (prev) prev.classList.remove('behind');
+  setTimeout(() => top.remove(), 520);
+}
+
+const Menu = {
+  y: 0, timer: null,
+  open() {
+    const dr = drawer(); if (!dr || dr.classList.contains('open')) return;
+    clearTimeout(this.timer);
+    this.y = window.scrollY || 0;
+    Object.assign(document.body.style, { position: 'fixed', top: -this.y + 'px', left: '0', right: '0', width: '100%', overflow: 'hidden' });
+    document.body.classList.add('menu-open');
+    dr.hidden = false;
+    const shade = $('#shade'); if (shade) { shade.hidden = false; shade.classList.add('open'); }
+    $('#menuBtn').setAttribute('aria-expanded', 'true');
+    while (stack.length) stack.pop();
+    this.build();
+    void dr.offsetWidth;
+    requestAnimationFrame(() => dr.classList.add('open'));
+    setTimeout(() => { const b = dr.querySelector('.mn-x'); if (b) b.focus({ preventScroll: true }); }, 400);
+  },
+  close() {
+    const dr = drawer(); if (!dr) return;
+    const was = dr.classList.contains('open');
+    while (stack.length > 1) { const top = stack.pop(); top.remove(); }
+    if (stack[0]) stack[0].classList.remove('behind');
+    document.body.classList.remove('menu-open');
+    dr.classList.remove('open');
+    const shade = $('#shade'); if (shade) shade.classList.remove('open');
+    $('#menuBtn').setAttribute('aria-expanded', 'false');
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => { dr.hidden = true; if (shade) shade.hidden = true; }, 420);
+    if (was) {
+      Object.assign(document.body.style, { position: '', top: '', left: '', right: '', width: '', overflow: '' });
+      window.scrollTo(0, this.y || 0);
+      const btn = $('#menuBtn'); if (btn) btn.focus();
+    }
+  },
+  back() {
+    const dr = drawer();
+    if (!dr || !dr.classList.contains('open')) return;
+    pop();
+  },
+  refresh() {
+    const user = userNow(), chama = chamaNow(), lang = langNow(), fines = fineCount();
+    document.querySelectorAll('#drawer [data-key="chama"]').forEach(n => { n.textContent = chama.name; });
+    document.querySelectorAll('#drawer [data-key="lang"]').forEach(n => { n.textContent = lang.native; });
+    document.querySelectorAll('#drawer [data-key="user"]').forEach(n => { n.textContent = user.name; });
+    document.querySelectorAll('#drawer [data-key="fines"]').forEach(n => { n.hidden = fines < 1; n.textContent = String(fines); });
+    document.querySelectorAll('#drawer [data-key="money"]').forEach(n => { n.textContent = fines ? (fines + (fines === 1 ? ' fine due' : ' fines due')) : 'Fines and expenses'; });
+    const av = document.querySelector('#drawer .mn-avatar'); if (av) { if (user.photo) av.innerHTML = '<img alt="" src="' + user.photo + '">'; else av.textContent = user.first; }
+    const sub = document.querySelector('#drawer .mn-who em'); if (sub) sub.textContent = (chama.role ? chama.role + ' · ' : '') + chama.name;
+    const strong = document.querySelector('#drawer .mn-who strong'); if (strong) strong.textContent = user.name;
+    const A = __M_src_core_a11y_js.A11y.d || {};
+    const dr = drawer();
+    if (dr) {
+      dr.classList.toggle('mn-large', A.size === 'l' || A.size === 'x');
+      dr.classList.toggle('mn-calm', !!A.rm);
+    }
+  },
+  build() {
+    const dr = drawer(); if (!dr) return;
+    dr.innerHTML = '';
+    const user = userNow(), chama = chamaNow(), lang = langNow();
+    const root = makeScreen({
+      root: true, title: 'Menu',
+      build(scroll) {
+        const hero = el('div', 'mn-hero');
+        hero.innerHTML = `<div class="mn-hero-top"><span class="mn-brand">${markTile()}My Chama</span><button class="mn-x" type="button" aria-label="Close menu">${svg('close')}</button></div>`;
+        hero.querySelector('.mn-x').addEventListener('click', () => Menu.close());
+        const profile = el('button', 'mn-profile');
+        profile.type = 'button';
+        profile.setAttribute('aria-label', 'Open your profile');
+        profile.innerHTML = `<span class="mn-avatar" aria-hidden="true"></span><span class="mn-who"><strong></strong><em></em></span><span class="mn-chev">${svg('chev')}</span>`;
+        profile.querySelector('strong').textContent = user.name;
+        profile.addEventListener('click', () => setTimeout(() => window.openProfile(), 110));
+        hero.appendChild(profile);
+        scroll.appendChild(hero);
+        const admin = __M_src_core_auth_js.Auth.isAdmin();
+        scroll.appendChild(group([
+          row({ icon: 'receipt', tone: '#c0392b', label: 'Fines', badgeKey: 'fines', onTap: () => go('#/fines') }),
+          row({ icon: 'wallet', tone: '#b0843a', label: 'Expenses', onTap: () => go('#/expenses') }),
+          row({ icon: 'clock', tone: '#2e6bb8', label: 'History', onTap: () => go('#/history') }),
+          row({ icon: 'download', tone: '#0b6b4d', label: 'Reports and backup', onTap: () => go('#/reports') })
+        ], 'Money and records'));
+        scroll.appendChild(group([
+          row({ icon: 'swap', tone: '#b0843a', label: 'Switch Chama', valueKey: 'chama', value: chama.name, onTap: () => window.openChamaPicker() }),
+          row({ icon: 'users', tone: '#0b6b4d', label: admin ? 'People and access' : 'My access', onTap: () => go('#/settings/actions') }),
+          row({ icon: 'pencil', tone: '#47524c', label: 'Chama settings', onTap: () => go('#/settings/chama') }),
+          ...(admin ? [row({ icon: 'undo', tone: '#47524c', label: 'Undo last change', chevron: false, onTap: () => window.undoLastChange() })] : [])
+        ], 'Chama'));
+        scroll.appendChild(group([
+          row({ icon: 'gear', tone: '#47524c', label: 'Settings', onTap: () => go('#/settings') }),
+          row({ icon: 'text', tone: '#2e6bb8', label: 'Display and accessibility', onTap: () => go('#/settings/app') }),
+          row({ icon: 'globe', tone: '#2e6bb8', label: 'Language', valueKey: 'lang', value: lang.native, onTap: () => window.openLanguagePicker() }),
+          row({ icon: 'help', tone: '#0b6b4d', label: 'Help', onTap: () => go('#/settings/help') }),
+          row({ icon: 'shield', tone: '#47524c', label: 'Privacy and my data', onTap: () => go('#/settings/privacy') })
+        ], 'App'));
+        const reveal = el('div', 'mn-reveal show');
+        const inner = el('div');
+        const btn = el('button', 'mn-sign', svg('out') + '<span>Sign out</span>');
+        btn.type = 'button';
+        inner.appendChild(btn);
+        reveal.appendChild(inner);
+        scroll.appendChild(reveal);
+        let ver = 'MY CHAMA';
+        try { ver = 'MY CHAMA · ' + __M_src_content_app_info_js.APP.version; } catch (e) {}
+        scroll.appendChild(el('p', 'mn-ver', ver));
+        btn.addEventListener('click', () => { Menu.close(); const fn = __M_src_features_index_js.Actions.signOutAsk; if (typeof fn === 'function') fn(); });
+      }
+    });
+    dr.appendChild(root);
+    stack.push(root);
+    this.refresh();
+  }
+};
+
+function moneyDef() {
+  return { title: 'Money', build(scroll) {
+    const fines = fineCount();
+    scroll.appendChild(group([
+      row({ icon: 'alert', tone: '#e8a33d', label: 'Fines', badgeKey: 'fines', onTap: () => go('#/fines') }),
+      row({ icon: 'wallet', tone: '#2fb47c', label: 'Expenses', onTap: () => go('#/expenses') })
+    ], 'Money out and in', 'Fines are added by the Treasurer. Expenses need a receipt.'));
+    Menu.refresh();
+    if (!fines) { /* badge stays hidden */ }
+  }};
+}
+function recordsDef() {
+  return { title: 'Records', build(scroll) {
+    scroll.appendChild(group([
+      row({ icon: 'clock', tone: '#3f9fb8', label: 'History', onTap: () => go('#/history') }),
+      row({ icon: 'doc', tone: '#3f9fb8', label: 'Reports & backup', onTap: () => window.openSection('reports') })
+    ], 'Records', 'History keeps every change. Backups are saved to the Chama.'));
+  }};
+}
+function chamaDef() {
+  return { title: 'Chama settings', build(scroll) {
+    const switchRow = row({ icon: 'users', tone: '#e2a332', label: 'Switch Chama', valueKey: 'chama', value: chamaNow().name, onTap: () => { window.openChamaPicker(); /* open the real chooser with the expand-from-row motion, origin = switchRow */ } });
+    scroll.appendChild(group([switchRow], 'Chama', 'Only the Chama you are in right now is affected by these settings.'));
+    scroll.appendChild(group([
+      row({ icon: 'pencil', tone: '#e2a332', label: 'Edit Chama details', onTap: () => window.openSection('edit') }),
+      row({ icon: 'undo', tone: '#e2a332', label: 'Undo last change', chevron: false, onTap: () => window.undoLastChange() })
+    ], 'Manage'));
+    scroll.appendChild(group([
+      row({ icon: 'exit', tone: '#e5534b', label: 'Leave this Chama', danger: true, onTap: () => window.openSection('leave') })
+    ], '', 'Leaving ends your access. Your past records stay with the Chama.'));
+    Menu.refresh();
+  }};
+}
+function accountDef() {
+  return { title: 'Your account', build(scroll) {
+    scroll.appendChild(group([
+      row({ icon: 'user', tone: '#8c6bd6', label: 'My profile', valueKey: 'user', value: userNow().name, onTap: () => window.openProfile() }),
+      row({ icon: 'globe', tone: '#5a7fd6', label: 'Language', valueKey: 'lang', value: langNow().native, onTap: () => window.openLanguagePicker() }),
+      row({ icon: 'gear', tone: '#7d8a86', label: 'Settings', onTap: () => push(settingsDef()) })
+    ], 'Your account', 'Your profile, language and how the app looks on this phone.'));
+  }};
+}
+function settingsDef() {
+  const A = __M_src_core_a11y_js.A11y;
+  return { title: 'Settings', build(scroll) {
+    scroll.appendChild(group([
+      row({ label: 'Larger text', chevron: false, toggle: A.d.size === 'l' || A.d.size === 'x', onToggle: (on) => { A.d.size = on ? 'l' : 'n'; A.save(); Menu.refresh(); } }),
+      row({ label: 'Calmer motion', chevron: false, toggle: !!A.d.rm, onToggle: (on) => { A.d.rm = on ? 1 : 0; A.save(); Menu.refresh(); } })
+    ], 'Display', 'Larger text makes the menu easier to read. Calmer motion turns off most movement.'));
+  }};
+}
+
+(function () {
+  const dr = drawer(); if (!dr) return;
+  let sx = null, sy = null;
+  dr.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  dr.addEventListener('touchend', e => {
+    if (sx == null) return;
+    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    sx = null;
+    if (dx < -56 && Math.abs(dy) < 80) Menu.back();
+  }, { passive: true });
+  addEventListener('keydown', e => {
+    if (!dr.classList.contains('open')) return;
+    if (e.key === 'Tab') {
+      const top = stack[stack.length - 1]; if (!top) return;
+      const f = [...top.querySelectorAll('button')].filter(b => !b.disabled && b.offsetParent);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+})();
+
+window.openProfile = openProfile;
+window.openChamaPicker = openChamaPicker;
+window.openLanguagePicker = openLanguagePicker;
+window.openSection = openSection;
+window.undoLastChange = undoLastChange;
+window.signOut = signOut;
+try { Menu.build(); } catch (e) { console.error(e); }
+
+return { get Menu() { return Menu; } };
+})();
+
+
+/* ---- src/ui/nav.js ---- */
+const __M_src_ui_nav_js = (function () {
+const { NAV_ICON, NAV_LABEL, ROUTES, SUB } = __M_src_core_routes_js;
+const { $, restart } = __M_src_lib_dom_js;
+
+function buildNav() {
+  const nav = $('#nav');
+  nav.innerHTML = '<i class="liquid" aria-hidden="true"><i class="blob"></i></i>' + ROUTES.map(([k]) =>
+    `<a href="#/${k}" data-k="${k}">${k === 'profile' ? '<span class="nav-av" aria-hidden="true"></span>' : `<svg viewBox="0 0 24 24" aria-hidden="true">${NAV_ICON[k]}</svg>`}<span>${NAV_LABEL[k]}</span></a>`).join('');
+  let cur = null, ready = false, drag = null, quiet = 0;
+  const liquid = () => nav.querySelector('.liquid');
+  const links = () => [...nav.querySelectorAll('a[data-k]')];
+  const vertical = () => getComputedStyle(nav).flexDirection === 'column';
+  const keyFor = r => ROUTES.some(x => x[0] === r) ? r : SUB.includes(r) ? null : null;
+  function place(key, instant) {
+    const el = liquid(), a = key ? nav.querySelector(`a[data-k="${key}"]`) : null;
+    links().forEach(x => x.classList.toggle('on', x === a));
+    if (!a) { el.classList.remove('show'); cur = null; return; }
+    const nb = nav.getBoundingClientRect(), r = a.getBoundingClientRect();
+    if (instant) el.classList.add('still');
+    el.style.setProperty('--lx', (r.left - nb.left) + 'px');
+    el.style.setProperty('--ly', (r.top - nb.top) + 'px');
+    el.style.setProperty('--lw', r.width + 'px');
+    el.style.setProperty('--lh', r.height + 'px');
+    el.classList.add('show');
+    if (instant) { void el.offsetWidth; el.classList.remove('still'); }
+    else if (cur !== key) restart(el, 'slosh');
+    cur = key;
+  }
+  function sync(r) {
+    const key = keyFor(r);
+    if (!ready) { ready = true; place(key, true); return; }
+    if (key === cur) { links().forEach(x => x.classList.toggle('on', x.dataset.k === key)); return; }
+    place(key, false);
+  }
+  /* drag: the liquid follows the finger, then settles on the nearest tab and navigates */
+  nav.addEventListener('dragstart', e => e.preventDefault()); /* stop native link-drag from cancelling the gesture */
+  nav.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false };
+  });
+  window.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const v = vertical(), el = liquid();
+    if (!drag.on) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+      drag.on = true;
+      el.classList.add('drag', 'show');
+    }
+    const ls = links(), nb = nav.getBoundingClientRect();
+    const first = ls[0].getBoundingClientRect(), last = ls[ls.length - 1].getBoundingClientRect();
+    const base = v ? nb.top : nb.left, size = v ? first.height : first.width;
+    const lo = (v ? first.top : first.left) - base, hi = (v ? last.bottom : last.right) - base - size;
+    const p = v ? e.clientY : e.clientX;
+    const pos = Math.min(hi, Math.max(lo, p - base - size / 2));
+    el.style.setProperty(v ? '--ly' : '--lx', pos + 'px');
+  });
+  const finish = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const moved = drag.on; drag = null;
+    if (!moved) return;
+    quiet = Date.now() + 450;
+    const v = vertical(), el = liquid(), lr = el.getBoundingClientRect();
+    const c = v ? e.clientY : e.clientX;
+    let best = null, bd = Infinity;
+    links().forEach(a => {
+      const r = a.getBoundingClientRect(), m = v ? r.top + r.height / 2 : r.left + r.width / 2, d = Math.abs(m - c);
+      if (d < bd) { bd = d; best = a; }
+    });
+    el.classList.remove('drag');
+    if (!best) return;
+    const key = best.dataset.k;
+    place(key, false);
+    if (location.hash !== '#/' + key) location.hash = '#/' + key;
+  };
+  window.addEventListener('pointerup', finish);
+  window.addEventListener('pointercancel', finish);
+  /* a drag must not also fire a tap on whatever it ended over */
+  nav.addEventListener('click', e => { if (Date.now() < quiet) { e.preventDefault(); e.stopPropagation(); } }, true);
+  window.addEventListener('resize', () => { if (cur) place(cur, true); });
+  return { sync };
+}
+
+let navInstance = null;
+const Nav = {
+  init() { if (!navInstance) navInstance = buildNav(); },
+  sync(r) { if (navInstance) navInstance.sync(r); }
+};
+
+return { get Nav() { return Nav; }, };
+})();
+
+/* ---- src/core/render.js ---- */
+const __M_src_core_render_js = (function () {
+const { Auth } = __M_src_core_auth_js;
+const { Hist } = __M_src_core_history_js;
+const { Me } = __M_src_core_me_js;
+const { PAGE_NAME, ROUTES, SETTINGS_NAME, route } = __M_src_core_routes_js;
+const { Session, Perm } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { esc } = __M_src_core_utils_js;
+const { Gate } = __M_src_features_auth_gate_js;
+const { Views } = __M_src_features_index_js;
+const { Notify } = __M_src_features_notifications_notify_js;
+const { $, restart } = __M_src_lib_dom_js;
+const { av } = __M_src_ui_avatar_js;
+const { Menu } = __M_src_ui_menu_js;
+const { Nav } = __M_src_ui_nav_js;
+const { Account } = __M_src_features_account_deletion_js;
+
+let lastRoute = null, painted = '';
+
+/* Bottom-bar profile tab: the member's photo in a circle, or initials when there is no photo (never the person icon) */
+function paintNavAvatar() {
+  const box = document.querySelector('#nav a[data-k="profile"] .nav-av'); if (!box) return;
+  const s = Store.get(), meA = Me.get() || {};
+  const mmA = s && meA.memberId ? (s.members || []).find(x => x.id === meA.memberId) : null;
+  const nm = meA.name || (mmA && mmA.name) || '', photo = Session.photoFor(mmA) || meA.photo;
+  const ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+  const ok = typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo);
+  box.innerHTML = ok ? `<img src="${photo}" alt="">` : `<span>${esc(ini)}</span>`;
+}
+
+function renderPage() {
+  if (!Session.ready()) { painted = ''; return Gate.paint(); }   /* setup, welcome, chooser and sign-in are all gate screens */
+  const s = Store.get();
+  if (!s) {
+    const view = document.getElementById('view');
+    if (view && !view.querySelector('.opening-chama')) view.innerHTML = '<div class="opening-chama">' + Skel.page() + '</div>';
+    document.body.classList.remove('no-tabs', 'gate-on');
+    const hd0 = document.querySelector('header'); if (hd0) hd0.hidden = false;
+    const menu0 = document.getElementById('menuBtn'); if (menu0) menu0.hidden = false;
+    const name0 = document.getElementById('hname'); if (name0) name0.hidden = false;
+    painted = '';
+    return;
+  }
+  const r = route(), admin = Auth.isAdmin(), changed = r !== lastRoute, prev = lastRoute; lastRoute = r; if (changed) Hist.visit(r, prev);
+  { const hd = document.querySelector('header'); if (hd) hd.hidden = false; document.body.classList.remove('gate-on'); }
+  try { const dr = document.getElementById('drawer'); if (dr && dr.classList.contains('open')) Menu.close(); } catch (e) {}
+  const chamaName = (s.chama && s.chama.name) || 'My Chama';
+  const titleEl = document.getElementById('title'); if (titleEl) titleEl.textContent = chamaName;
+  { const cs = document.querySelector('#chamaSmall'); if (cs) { cs.hidden = false; cs.textContent = Perm.label(Session.role) || 'Member'; } }
+  document.body.classList.toggle('adm', admin);
+  const viewEl = document.getElementById('view');
+  const home = r === 'home', pt = document.getElementById('pageTitle'), menuBtn = document.getElementById('menuBtn'), backBtn = document.getElementById('backBtn'), hname = document.getElementById('hname');
+  if (menuBtn) menuBtn.hidden = !home;
+  if (hname) hname.hidden = !home;
+  if (backBtn) { backBtn.hidden = home; backBtn.setAttribute('href', '#/' + Hist.back()); }
+  const pageName = PAGE_NAME[r] || SETTINGS_NAME[r] || (r.startsWith('notifications/') ? 'Notification' : 'Chama');
+  document.title = (home ? chamaName : pageName) + ' · My Chama';
+  if (pt) { pt.hidden = home; pt.innerHTML = `<small>${esc(chamaName)}</small><b>${esc(pageName)}</b>`; if (changed) restart(pt, 'enter'); }
+  if (changed && !home && viewEl) { try { window.scrollTo(0, 0); } catch (e) {} }
+  if (changed && viewEl) restart(viewEl, 'pg');
+  Nav.sync(r);
+  paintNavAvatar();
+  const meD = Me.get() || {}, mmD = meD.memberId && s.members ? s.members.find(x => x.id === meD.memberId) : null;
+  try { if (Menu.refresh) Menu.refresh(); } catch (e) {}
+  document.querySelectorAll('#drawer .dgroup').forEach(g => { g.hidden = ![...g.querySelectorAll('.dl')].some(x => !x.hidden); });
+  if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
+  document.body.classList.toggle('no-tabs', !ROUTES.some(x => x[0] === r));
+  let html = '';
+  try {
+    Account.load();
+    html = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r));
+  } catch (e) {
+    console.error(e);
+    html = '<div class="card">' + emptyState('lost', 'This page could not open', 'Your records are safe. Go back, or close the app and open it again.', '<a class="btn pri" href="#/home">Go to Home</a>') + '</div>';
+  }
+  if (viewEl && html !== painted) {
+    const y = changed ? 0 : window.scrollY;
+    const ae = document.activeElement;
+    const keep = ae && ae.id && viewEl.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.type !== 'file';
+    const keepId = keep ? ae.id : '', keepVal = keep ? ae.value : '';
+    viewEl.innerHTML = html;
+    painted = html;
+    if (y) window.scrollTo(0, y);
+    if (keepId) {
+      const again = document.getElementById(keepId);
+      if (again && again.type !== 'file') {
+        again.value = keepVal;
+        try { again.focus({ preventScroll: true }); } catch (e) {}
+      }
+    }
+  } else painted = html;
+  try { Notify.paintBell(s, r); } catch (e) {}
+}
+
+return { get renderPage() { return renderPage; }, };
+})();
+
+/* ---- src/lib/image.js ---- */
+const __M_src_lib_image_js = (function () {
+
+const photoFrom = file => new Promise((ok, no) => {
+  const finish = bmp => {
+    try {
+      const w = bmp.width, h = bmp.height;
+      if (!w || !h) throw new Error('That picture is empty');
+      const side = 360, n = Math.min(w, h);
+      const c = document.createElement('canvas'); c.width = c.height = side;
+      c.getContext('2d').drawImage(bmp, (w - n) / 2, (h - n) / 2, n, n, 0, 0, side, side);
+      if (bmp.close) bmp.close();
+      let q = 0.82, url = c.toDataURL('image/jpeg', q);
+      while (url.length > 90000 && q > 0.45) { q -= 0.08; url = c.toDataURL('image/jpeg', q); }
+      ok(url);
+    } catch (e) { no(e instanceof Error ? e : new Error('Could not use that picture')); }
+  };
+  if (typeof createImageBitmap === 'function') {
+    createImageBitmap(file).then(finish).catch(() => {
+      const img = new Image(), u = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(u); finish(img); };
+      img.onerror = () => { URL.revokeObjectURL(u); no(new Error('That file is not a picture. Try a JPG or PNG.')); };
+      img.src = u;
+    });
+    return;
+  }
+  const img = new Image(), u = URL.createObjectURL(file);
+  img.onload = () => { URL.revokeObjectURL(u); finish(img); };
+  img.onerror = () => { URL.revokeObjectURL(u); no(new Error('That file is not a picture. Try a JPG or PNG.')); };
+  img.src = u;
+});
+
+return { get photoFrom() { return photoFrom; }, };
+})();
+
+/* ---- src/main.js ---- */
+const __M_src_main_js = (function () {
+const { CONFIG } = __M_src_config_js;
+const { A11y } = __M_src_core_a11y_js;
+const { Auth } = __M_src_core_auth_js;
+const { Me } = __M_src_core_me_js;
+const { renderPage } = __M_src_core_render_js;
+const { bindRender, render } = __M_src_core_rerender_js;
+const { bindChangeHandler } = __M_src_core_hooks_js;
+const { Session } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { Actions } = __M_src_features_index_js;
+const { Notify } = __M_src_features_notifications_notify_js;
+const { $ } = __M_src_lib_dom_js;
+const { Help } = __M_src_lib_help_js;
+const { photoFrom } = __M_src_lib_image_js;
+const { Menu } = __M_src_ui_menu_js;
+const { Modal } = __M_src_ui_modal_js;
+const { Nav } = __M_src_ui_nav_js;
+const { toast } = __M_src_ui_toast_js;
+const { Gate, OB, LG_ALL, lgMatches } = __M_src_features_auth_gate_js;
+/* Start-up. Everything else is imported; this file only wires the pieces together, in the original order. */
+
+bindRender(renderPage);
+bindChangeHandler((a, b) => Notify.fromChange(a, b));
+Nav.init();
+document.addEventListener('pointerdown', e => {
+  const S_ = __M_src_ui_toast_js.Sfx; S_.unlock();
+  const b = e.target.closest && e.target.closest('button, .btn, [data-act], [data-gm]');
+  if (b && !b.disabled && !b.closest('.otp-stage, .pop')) S_.tap();
+}, true);
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target) return;
+  if (e.target.id === 'gateEmail') Actions.gateSend();
+  else if (e.target.id === 'gateId' || (e.target.id === 'gatePw' && Gate.mode === 'in')) Actions.gateSignIn();
+  else if (e.target.id === 'invEmail') Actions.invite();
+});
+
+
+document.addEventListener('input', e => { if (e.target && e.target.id === 'helpQ') Help.filter(e.target.value); });
+document.addEventListener('input', e => {
+  if (!e.target || e.target.id !== 'lgSearch') return;
+  OB.langQ = e.target.value;
+  const code = OB.langPick || OB.chosen();
+  const shown = LG_ALL.filter(l => lgMatches(l, OB.langQ)).sort((a, b) => a.name.localeCompare(b.name));
+  const ul = document.getElementById('lgAll');
+  const empty = document.getElementById('lgEmpty');
+  if (ul) ul.innerHTML = shown.map(l => OB.langOption(l, 'sheet', code)).join('');
+  if (empty) empty.hidden = shown.length > 0;
+});
+document.addEventListener('input', e => {
+  if (!e.target) return;
+  if (e.target.id === 'gateId') Gate.id = e.target.value;
+  if (e.target.id === 'gatePw' && Gate.mode === 'in') Gate.signPw = e.target.value;
+  if (e.target.id === 'gateEmail') Gate.email = e.target.value;
+});
+
+document.addEventListener('toggle', e => { const el = e.target; if (el && el.classList && el.classList.contains('hart')) Help.open[el.dataset.id] = el.open; }, true);
+
+
+document.addEventListener('input', e => {
+  if (e.target && e.target.id === 'notifQ') { Notify.q = e.target.value; const el = document.getElementById('notifList'); if (el) el.innerHTML = Notify.listHTML(Store.get()); }
+});
+
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  if (el.dataset.act === 'pickPhoto') {
+    const input = document.getElementById('mePhoto');
+    if (input) { input.value = ''; input.click(); }
+    return;
+  }
+  const a = Actions[el.dataset.act]; if (!a) return;
+  e.preventDefault();
+  const fn = typeof a === 'function' ? a : a.run, needsAdmin = typeof a === 'object' && a.admin;
+  if (needsAdmin && !Auth.isAdmin()) return toast('Only the treasurer can do that');
+  try { fn.call(a, el.dataset); } catch (err) { toast(err.message); }
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('#modalRoot .veil') && !document.querySelector('#popRoot .pop-veil')) Modal.close(); });
+document.addEventListener('click', e => { if (e.target && e.target.classList && e.target.classList.contains('veil')) Modal.close(); });
+addEventListener('scroll', () => { const h = document.getElementById('top'); if (h) h.classList.toggle('scrolled', window.scrollY > 4); }, { passive: true });
+
+/* Menu buttons stay inside the drawer until a real screen is opened. */
+
+$('#menuBtn').addEventListener('click', () => ($('#drawer').hidden ? Menu.open() : Menu.close()));
+
+$('#shade').addEventListener('click', () => Menu.close());
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#drawer').classList.contains('open') && Menu.back) Menu.back(); });
+
+A11y.load();
+
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => A11y.apply());
+
+document.addEventListener('change', async e => {
+  if (e.target.id !== 'mePhoto' || !e.target.files[0]) return;
+  try {
+    const url = await photoFrom(e.target.files[0]);
+    await Session.savePhoto(url);
+    toast('Photo saved'); render();
+  } catch (err) { toast(err.message); }
+});
+
+addEventListener('hashchange', () => { if (window.speechSynthesis) speechSynthesis.cancel(); });
+
+window.addEventListener('hashchange', render);
+
+const drawerX = document.getElementById('drawerX');
+if (drawerX) drawerX.addEventListener('click', () => Menu.close());
+
+Store.subscribe(render);
+
+
+/* Paste a code straight into the boxes, from anywhere on the code screen */
+document.addEventListener('paste', e => {
+  const inp = document.getElementById('otpIn'); if (!inp || inp.disabled) return;
+  const text = (e.clipboardData || window.clipboardData || { getData: () => '' }).getData('text') || '';
+  const digits = text.replace(/\D/g, ''); if (!digits) return;
+  e.preventDefault();
+  inp.value = digits.slice(0, inp.maxLength > 0 ? inp.maxLength : 6);
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
+/* Coming back to the app (for example after opening the sign-in link elsewhere) picks up the sign-in */
+addEventListener('focus', () => Session.recheck());
+addEventListener('resize', () => { try { __M_src_features_auth_gate_js.Otp.fit(); } catch (e) {} });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Session.recheck(); });
+
+Welcome.bind(Session);
+Session.boot();
+showFlash();
+
+addEventListener('offline', () => Store.setSync('offline'));
+
+addEventListener('online', () => { if (!CONFIG.supabase) Store.setSync('online'); });
+
+if (!navigator.onLine) Store.setSync('offline');
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+return { };
+})();
+
+/* ---- entry ---- */
+
