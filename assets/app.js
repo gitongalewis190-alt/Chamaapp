@@ -731,6 +731,12 @@ function rpcMessage(err) {
 const __M_src_core_session_js = (function () {
 const intentIs = v => { try { return sessionStorage.getItem('mca-intent') === v; } catch (e) { return false; } };
 const clearIntent = () => { try { sessionStorage.removeItem('mca-intent'); } catch (e) {} };
+/* A password reset must survive the email link opening in a new tab (sessionStorage is per tab).
+   Kept 30 minutes, for one email only, and cleared once a new password is saved or kept. */
+const RESET_KEY = 'mca-reset';
+const markReset = email => { try { localStorage.setItem(RESET_KEY, JSON.stringify({ e: String(email || '').trim().toLowerCase(), t: Date.now() })); } catch (e) {} };
+const resetPending = email => { try { const v = JSON.parse(localStorage.getItem(RESET_KEY) || 'null'); return !!(v && v.e && v.e === String(email || '').trim().toLowerCase() && Date.now() - v.t < 30 * 60000); } catch (e) { return false; } };
+const clearReset = () => { try { localStorage.removeItem(RESET_KEY); } catch (e) {} };
 const { esc } = __M_src_core_utils_js;
 const { Policy } = __M_src_core_policy_js;
 const { CONFIG } = __M_src_config_js;
@@ -827,8 +833,11 @@ const authLock = async (name, acquireTimeout, fn) => {
 };
 
 const Session = {
-  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null, memberPics: {},
+  status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, viaCode: false, resetOffered: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null, memberPics: {},
   ready() { return this.status === 'ready' || this.status === 'demo'; },
+  markReset(email) { markReset(email); },
+  /* the person signed in with an email code but wants to keep the password they already have */
+  async keepPassword() { clearIntent(); clearReset(); this.resetOffered = false; this.viaCode = false; this.account = null; this.busy = false; await this.after(this.user); },
   canWrite() { return Perm.can(this.role, 'finance.record'); },
   /* Runs when the person comes back to the page: picks up a sign-in finished in another browser or app */
   async recheck() {
@@ -885,7 +894,13 @@ const Session = {
     let settle = false;
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
       if (!settle && ev === 'SIGNED_OUT') return;
-      if (ev === 'SIGNED_OUT') { Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); return; }
+      if (ev === 'SIGNED_OUT') {
+        /* not asked for on this phone: the session ended on the server (expired, signed out elsewhere, password changed) */
+        const unasked = !this.leaving && !!this.user;
+        this.leaving = false;
+        if (unasked) { try { const G = __M_src_features_auth_gate_js.Gate; G.notice = 'Your session ended, so you were signed out for safety. Sign in again to continue. Everything already saved to the cloud is safe.'; G.mode = 'in'; G.sent = false; } catch (e) {} try { __M_src_features_smart_js.Lock.unlock(); } catch (e) {} }
+        Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); return;
+      }
       if ((ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION') && sess && !this.verifying && (!this.user || this.user.id !== sess.user.id || this.status === 'signed-out')) this.after(sess.user);
       if (sess) { try { __M_src_features_auth_gate_js.OB.syncConsent(); } catch (e) {} }
     });
@@ -911,7 +926,7 @@ const Session = {
       if (link && !this.user) {
         OtpLink.clear();
         const G = __M_src_features_auth_gate_js.Gate, O = __M_src_features_auth_gate_js.Otp;
-        G.email = link.email; G.sent = true; G.mode = 'in';
+        G.email = link.email; G.sent = true; G.mode = 'in'; this.viaCode = true;
         try { __M_src_features_auth_gate_js.OB.agree('continue:email-code-link'); } catch (e) {}
         this.set('signed-out');
         setTimeout(() => { const inp = document.getElementById('otpIn'); if (!inp) return; O.len = link.code.length; inp.value = link.code; inp.dispatchEvent(new Event('input', { bubbles: true })); }, 400);
@@ -947,9 +962,14 @@ const Session = {
       catch (e) { throw new Error('Your account could not be checked. Make sure the database steps are finished, then try again.'); }
       this.account = acct;
       const google = this.usesGoogle(user);
-      if (google && intentIs('forgot')) clearIntent();
+      if (google && intentIs('forgot')) { clearIntent(); clearReset(); }
       const canEnter = !!(acct.has_password || google);
-      if (!acct.has_profile || !canEnter || acct.needs_username || (!google && intentIs('forgot'))) { this.setupMode = acct.has_profile && canEnter && !acct.needs_username ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
+      /* an email code only signs in an account that has a password when the person asked to reset it
+         (or chose Create account with an email that already has one): either way, offer a new password */
+      const viaCode = this.viaCode; this.viaCode = false;
+      const wantsReset = !google && (intentIs('forgot') || resetPending(this.email) || (viaCode && acct.has_password));
+      if (wantsReset) this.resetOffered = true;
+      if (!acct.has_profile || !canEnter || acct.needs_username || wantsReset) { this.setupMode = acct.has_profile && canEnter && !acct.needs_username ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
       if (Invite.token && Invite.info && Invite.info.ok) { this.role = null; this.memberId = null; this.busy = false; this.set('invite'); return; }
       await this.openWorkspace(user);
     } catch (e) {
@@ -1182,7 +1202,7 @@ const Session = {
       }
       if (e2) throw new Error(/same|different/i.test(e2.message) ? 'Choose a password you have not used before' : e2.message);
     }
-    clearIntent(); this.account = null; this.busy = false;
+    clearIntent(); clearReset(); this.resetOffered = false; this.viaCode = false; this.account = null; this.busy = false;
     await this.after(this.user);
   },
   async joinWithLink(text) {
@@ -1370,6 +1390,7 @@ const Session = {
     return data;
   },
   async signOut() {
+    this.leaving = true;
     try { await Backend.sb.auth.signOut(); } catch {}
     clearIntent(); this.account = null; this.workspaces = [];
     Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out');
@@ -1577,7 +1598,7 @@ const Otp = {
     if (this.kind === 'email') {
       try {
         const { data } = await Backend.sb.auth.getSession();
-        if (data && data.session) return await Session.after(data.session.user);
+        if (data && data.session) { Session.viaCode = true; return await Session.after(data.session.user); }
       } catch (e) { /* handled below */ }
       Session.error = 'We could not finish signing in. Try again.';
       return Session.set('error');
@@ -1859,6 +1880,7 @@ const GT = {
     forgot: 'Forgot password?', newHere: 'New here?', createAcct: 'Create an account', firstTime: 'Signed in before with an email code only? Use Forgot password once to set one.',
     upTitle: 'Create your account', upSub: 'Enter your email. We will send a code to confirm it is yours, then you choose a username and password.', sendCode: 'Send code', haveAcct: 'Already have an account?', signInLink: 'Sign in',
     fgTitle: 'Reset your password', fgSub: 'Enter the email on your account. We will send a code, then you choose a new password.',
+    keepPw: 'Keep my current password',
     setupTitle: 'Finish your account', setupSub: 'Choose your name, a username and one password. You will use them for every Chama you join.', setupSubGoogle: 'Choose your name and a username. You can keep signing in with Google.', resetTitle: 'Choose a new password', resetSub: 'You will use this password to sign in.',
     fullName: 'Full name', username: 'Username', usernameHint: '3 to 20 letters, numbers, dot, dash or underscore', saveCont: 'Save and continue', show: 'Show', hide: 'Hide',
     welcome: n => 'Welcome' + (n ? ', ' + n : ''), welcomeSub: 'You are not in a Chama yet. Start one, or join the group that invited you.', createChama: 'Start a new Chama', joinChama: 'Join with an invitation',
@@ -1870,6 +1892,7 @@ const GT = {
     forgot: 'Umesahau nenosiri?', newHere: 'Mgeni?', createAcct: 'Fungua akaunti', firstTime: 'Uliingia awali kwa msimbo tu? Tumia "Umesahau nenosiri?" mara moja.',
     upTitle: 'Fungua akaunti yako', upSub: 'Weka barua pepe yako. Tutatuma msimbo kuthibitisha, kisha uchague jina la mtumiaji na nenosiri.', sendCode: 'Tuma msimbo', haveAcct: 'Tayari una akaunti?', signInLink: 'Ingia',
     fgTitle: 'Weka nenosiri jipya', fgSub: 'Weka barua pepe ya akaunti yako. Tutatuma msimbo, kisha uchague nenosiri jipya.',
+    keepPw: 'Baki na nenosiri langu la sasa',
     setupTitle: 'Kamilisha akaunti yako', setupSub: 'Chagua jina lako, jina la mtumiaji na nenosiri moja. Utavitumia kwa kila Chama.', setupSubGoogle: 'Chagua jina lako na jina la mtumiaji. Unaweza kuendelea kuingia na Google.', resetTitle: 'Chagua nenosiri jipya', resetSub: 'Utatumia nenosiri hili kuingia.',
     fullName: 'Jina kamili', username: 'Jina la mtumiaji', usernameHint: 'Herufi, nambari, nukta, kistari au mstari wa chini; 3 hadi 20', saveCont: 'Hifadhi na endelea', show: 'Onyesha', hide: 'Ficha',
     welcome: n => 'Karibu' + (n ? ', ' + n : ''), welcomeSub: 'Bado hujajiunga na Chama. Anzisha kimoja, au jiunge na kikundi kilichokualika.', createChama: 'Anzisha Chama kipya', joinChama: 'Jiunge kwa mwaliko',
@@ -1924,11 +1947,11 @@ const Gate = {
 <h1 class="auth-t">${esc(G.startTitle)}</h1>
 <p class="auth-s">${esc(G.startSub)}</p>
 ${note}
-<div class="btns col" style="margin-top:30px">
-<button type="button" class="btn google block" data-act="gateGoogle"${this.signing ? ' disabled aria-busy="true"' : ''}>${GOOGLE_G}<span>${esc(G.google)}</span></button>
+<div class="auth-start">
+<button type="button" class="btn pri block auth-main" data-gm="in">${icon('profile')}<span>${esc(G.cta)}</span></button>
+<button type="button" class="btn tint block auth-main" data-gm="up">${icon('userPlus')}<span>${esc(G.createAcct)}</span></button>
 <div class="auth-or">${esc(G.or)}</div>
-<button type="button" class="btn pri block" data-gm="in">${esc(G.cta)}</button>
-<button type="button" class="btn tint block" data-gm="up">${esc(G.createAcct)}</button>
+<button type="button" class="btn google block" data-act="gateGoogle"${this.signing ? ' disabled aria-busy="true"' : ''}>${GOOGLE_G}<span>${esc(G.google)}</span></button>
 </div>
 ${this.agreeLine()}`);
     if (mode === 'in') return shell(`<h1 class="auth-t" style="margin-top:0">${esc(G.inTitle)}</h1>
@@ -1974,6 +1997,7 @@ ${this.agreeLine()}
 <p class="tag brand" style="margin-top:14px">${icon('mail', 's')}${esc(Session.email)}</p>${note}
 <div class="auth-form">${fields}${googleNew ? '' : this.pwFields(false)}
 <button type="button" class="btn pri block" data-act="gateSetup"${this.signing ? ' disabled aria-busy="true"' : ''}>${this.signing ? '<span class="spin" aria-hidden="true"></span>' : ''}<span>${esc(G.saveCont)}</span></button>
+${isNew ? '' : `<button type="button" class="btn ghost block" style="margin-top:8px" data-act="gateKeepPw">${esc(G.keepPw)}</button>`}
 <button type="button" class="btn ghost block" style="margin-top:8px" data-act="gateSignOut">${esc(G.signOut)}</button></div>`, { top: true, lang: false });
   },
   /* Choose a Chama, welcome (no Chama yet), Create a Chama and Join a Chama */
@@ -2214,6 +2238,8 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
     else html = this.card('Something went wrong', `<p class="auth-s">${esc(Session.error || 'We could not reach the server.')}</p><div class="btns col" style="margin-top:24px"><button class="btn pri block" data-act="gateRetry">Try again</button>${Session.user ? '<button class="btn ghost block" data-act="gateSignOut">Sign out</button>' : ''}</div>`, 'lost');
     $('#view').innerHTML = html;
     if (st === 'signed-out' && this.mode === 'in') { const pw = document.getElementById('gatePw'); if (pw) pw.value = this.signPw || ''; }
+    /* keep "Show" on across repaints, so a failed attempt does not silently hide what was typed */
+    Object.keys(this.pwShown || {}).forEach(id => { if (!this.pwShown[id]) return; const i = document.getElementById(id), b = document.querySelector(`[data-act="togglePw"][data-for="${id}"]`); if (i) i.type = 'text'; if (b) { b.textContent = G.hide; b.setAttribute('aria-pressed', 'true'); } });
     if (st === 'signed-out' && this.mode === 'up' && !this.sent && !this.sending) this.armCool();
     if (OB.sheet) { const q = document.getElementById('lgSearch'); if (q) setTimeout(() => q.focus(), 280); }
     /* while a join request waits, look again every 20 seconds and open the Chama as soon as it is approved */
@@ -3677,7 +3703,7 @@ const views = {
       + grp('You', [li('profile', 'profile', '', 'My profile', 'Name, photo, phone and password'), `<button type="button" class="li has-ic" data-act="openLang"><span class="li-ic t-info">${icon('globe')}</span><span class="li-main"><b>Language</b></span>${icon('chev', 'chev')}</button>`, li('notifications/settings', 'bell', 't-gold', 'Notifications', 'What you hear about')])
       + grp('Chama', [li('settings/chama', 'gear', 't-ink', 'Chama settings', admin ? 'Name, contribution, due day, fines, loans' : 'See the rules your chama uses'), li('settings/actions', 'members', '', admin ? 'People and access' : 'My access', admin ? 'Invite people, codes, roles and hand-over' : 'Your role and leaving'), li('reports', 'download', 't-info', 'Reports and backup', ''), act('wsSwitch', 'swap', 't-gold', 'Switch or add a Chama', '')])
       + grp('Display', [li('settings/app', 'text', 't-ink', 'Display and accessibility', 'Dark mode, text size, contrast, motion, sounds')])
-      + grp('Security and tools', [act('lockSetup', 'lock', 't-ink', 'App lock', (() => { try { return localStorage.getItem('mca-lock') ? 'On · asks for your PIN' : 'Off · ask for a PIN on this phone'; } catch (e) { return ''; } })()), act('moneyToggle', 'eye', 't-info', 'Hide amounts', document.documentElement.classList.contains('hide-money') ? 'On · tap a number to peek' : 'Off · for using the app in public'), act('icsExport', 'clock', 't-gold', 'Add dates to my calendar', 'Due dates and meetings, with reminders'), act('palette', 'search', 't-ink', 'Search', 'People, payments and pages · press / on a keyboard'),
+      + grp('Security and tools', [act('lockSetup', 'lock', 't-ink', 'App lock', (() => { try { return (() => { const c = JSON.parse(localStorage.getItem('mca-lock') || 'null'); return c && c.hash; })() ? (JSON.parse(localStorage.getItem('mca-lock')).on === false ? 'Off · PIN kept for next time' : 'On · asks for your PIN') : 'Off · ask for a PIN on this phone'; } catch (e) { return ''; } })()), act('moneyToggle', 'eye', 't-info', 'Hide amounts', document.documentElement.classList.contains('hide-money') ? 'On · tap a number to peek' : 'Off · for using the app in public'), act('icsExport', 'clock', 't-gold', 'Add dates to my calendar', 'Due dates and meetings, with reminders'), act('palette', 'search', 't-ink', 'Search', 'People, payments and pages · press / on a keyboard'),
         ...(admin ? [li('insights', 'chart', '', 'Insights', 'Forecast, members to watch, loan limits')] : []), ...(Session.role && Session.role !== 'member' ? [li('register', 'doc', 't-info', 'Member register', 'Contacts for officers, with export')] : [])])
       + grp('Support and legal', [li('settings/help', 'help', 't-info', 'Help', 'Guides and troubleshooting'), act('feedback', 'chat', '', 'Send feedback', 'Rate the app, report a problem, suggest an idea'), li('settings/privacy', 'shield', '', 'Privacy and my data', 'Download or delete your data'), li('legal/terms', 'scale', 't-ink', 'Terms of Use', ''), li('legal/privacy', 'doc', 't-ink', 'Privacy Policy', ''), li('settings/about', 'info', 't-ink', 'About', 'Version ' + APP.version)])
       + `<section class="sec"><div class="list">${act('signOutAsk', 'out', 't-bad', 'Sign out', '', 'danger')}</div></section>`;
@@ -4203,6 +4229,7 @@ const plainOtpError = (m) => {
 const gateSendCode = async (email, btn) => {
   const typed = Gate.mode === 'up' ? (Gate.email || email) : email;
   try { sessionStorage.setItem('mca-intent', Gate.mode); } catch (e) {}
+  if (Gate.mode === 'forgot') Session.markReset(email);
   Gate.email = typed; Gate.notice = ''; Gate.sending = true; if (btn) btn.disabled = true; Gate.paint();
   const t0 = Date.now();
   const { error } = await Backend.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: Gate.mode === 'up' } });
@@ -4232,7 +4259,7 @@ const lowerNoSpace = v => String(v || '').trim().toLowerCase();
 const actions = {
   conflictTheirs: () => { const c = Store._conflict; Modal.close(); if (c) c.useTheirs(); },
   conflictMine: () => { const c = Store._conflict; Modal.close(); if (c) c.keepMine(); },
-  togglePw: d => { const id = (d && d.for) || 'gatePw', i = document.getElementById(id); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector(`[data-act="togglePw"][data-for="${id}"]`) || document.querySelector('[data-act="togglePw"]'); if (b) { b.textContent = show ? GL().hide : GL().show; b.setAttribute('aria-pressed', show ? 'true' : 'false'); } },
+  togglePw: d => { const id = (d && d.for) || 'gatePw', i = document.getElementById(id); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector(`[data-act="togglePw"][data-for="${id}"]`) || document.querySelector('[data-act="togglePw"]'); if (b) { b.textContent = show ? GL().hide : GL().show; b.setAttribute('aria-pressed', show ? 'true' : 'false'); } Gate.pwShown = Object.assign({}, Gate.pwShown, { [id]: show }); },
   gateSignIn: async () => {
     if (Gate.signing) return;
     OB.agree('continue:sign-in');
@@ -4280,6 +4307,7 @@ const actions = {
     try { const { data: cur } = await Backend.sb.auth.getSession(); const curEmail = String((cur && cur.session && cur.session.user && cur.session.user.email) || '').toLowerCase(); if (curEmail && curEmail !== email) await Backend.sb.auth.signOut(); } catch (e) { /* the code step checks the session again */ }
     return gateSendCode(email, btn);
   },
+  gateKeepPw: async () => { if (Gate.signing) return; Gate.signing = true; try { await Session.keepPassword(); } finally { Gate.signing = false; } },
   gateSetup: async () => {
     const G = GL(), isNew = Session.setupMode === 'new';
     const name = (($('#setName') && $('#setName').value) || '').trim().replace(/\s+/g, ' '), user = lowerNoSpace($('#setUser') && $('#setUser').value);
@@ -5349,41 +5377,85 @@ const Palette = {
 };
 
 /* ================= app lock ================= */
+/* App lock. The PIN (hashed, salted with the account id) and the optional biometric key live on this phone only.
+   Turning the lock off keeps the PIN, so turning it on again does not ask for a new one. The screen is built once;
+   key presses only change the dots, so nothing behind it can flash through. */
+const b64u = buf => btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = str => { const t = String(str || '').replace(/-/g, '+').replace(/_/g, '/'); const bin = atob(t + '==='.slice((t.length + 3) % 4)); return Uint8Array.from(bin, c => c.charCodeAt(0)); };
 const Lock = {
-  cfg() { return ls.get('mca-lock', null); },
+  cfg() { const c = ls.get('mca-lock', null); return c && c.hash ? c : null; },
+  active() { const c = this.cfg(); return !!(c && c.on !== false); },
+  save(patch) { const c = Object.assign({ after: 1, on: true }, this.cfg() || {}, patch); ls.set('mca-lock', c); return c; },
   async hash(pin) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('mca|' + ((Session.user && Session.user.id) || '') + '|' + pin)); return Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, '0')).join(''); },
-  entry: '', tries: 0, locked: false,
-  show() {
-    if (!this.cfg() || this.locked) return; this.locked = true; this.entry = '';
-    let root = document.getElementById('lockRoot'); if (!root) { root = document.createElement('div'); root.id = 'lockRoot'; document.body.appendChild(root); }
-    this.paint();
+  entry: '', tries: 0, locked: false, checking: false, hiddenAt: 0, lastActive: Date.now(),
+  bioAvailable() { return !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext); },
+  async bioSupported() {
+    if (!this.bioAvailable()) return false;
+    try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { return false; }
   },
-  paint(msg) {
+  /* registers a key held by this phone's fingerprint / face unlock; nothing leaves the phone */
+  async bioEnroll() {
+    const uidBytes = new TextEncoder().encode(String((Session.user && Session.user.id) || 'me').slice(0, 64));
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: 'My Chama' },
+      user: { id: uidBytes, name: Session.email || 'me', displayName: (Session.account && Session.account.full_name) || 'My Chama' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' },
+      timeout: 60000, attestation: 'none' } });
+    if (!cred) throw new Error('Fingerprint or face unlock was not set up');
+    this.save({ bio: b64u(cred.rawId) });
+  },
+  async bioUnlock() {
+    const c = this.cfg(); if (!c || !c.bio || this.checking) return;
+    this.checking = true;
+    try {
+      const got = await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: 'public-key', id: unb64u(c.bio), transports: ['internal'] }], userVerification: 'required', timeout: 60000 } });
+      if (got) return this.unlock();
+    } catch (e) { this.message('Fingerprint or face did not work. Use your PIN.', true); }
+    finally { this.checking = false; }
+  },
+  show() {
+    if (!this.active() || this.locked) return; this.locked = true; this.entry = ''; this.tries = 0;
+    let root = document.getElementById('lockRoot'); if (!root) { root = document.createElement('div'); root.id = 'lockRoot'; document.body.appendChild(root); }
+    this.build();
+    const c = this.cfg(); if (c && c.bio) setTimeout(() => this.bioUnlock(), 350);
+  },
+  build() {
     const root = document.getElementById('lockRoot'); if (!root) return;
-    root.innerHTML = `<div class="lock"><div class="lk-in">${markTile('lg')}<h2>Enter your app PIN</h2><p>${esc(msg || 'My Chama is locked on this phone')}</p>
-<div class="lk-dots${msg ? ' bad' : ''}">${[0, 1, 2, 3].map(i => `<i class="${i < this.entry.length ? 'on' : ''}"></i>`).join('')}</div>
-<div class="lk-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map(k => k === '' ? '<span></span>' : `<button type="button" data-lk="${k}">${k}</button>`).join('')}</div>
+    const c = this.cfg() || {};
+    root.innerHTML = `<div class="lock" role="dialog" aria-modal="true" aria-labelledby="lkTitle"><div class="lk-in">${markTile('lg')}<h2 id="lkTitle">Enter your app PIN</h2><p id="lkMsg" aria-live="polite">My Chama is locked on this phone</p>
+<div class="lk-dots" id="lkDots">${[0, 1, 2, 3].map(() => '<i></i>').join('')}</div>
+<div class="lk-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, c.bio ? 'bio' : '', 0, '⌫'].map(k => k === '' ? '<span></span>' : k === 'bio' ? `<button type="button" data-lk="bio" class="lk-bio" aria-label="Unlock with fingerprint or face">${icon('hand')}</button>` : `<button type="button" data-lk="${k}" aria-label="${k === '⌫' ? 'Delete' : k}">${k}</button>`).join('')}</div>
 <button type="button" class="linkish" data-lk="forgot">Forgot the PIN? Sign out</button></div></div>`;
   },
+  dots(bad) { const d = document.getElementById('lkDots'); if (!d) return; d.querySelectorAll('i').forEach((el, i) => el.classList.toggle('on', i < this.entry.length)); d.classList.remove('bad'); if (bad) { void d.offsetWidth; d.classList.add('bad'); } },
+  message(t, bad) { const m = document.getElementById('lkMsg'); if (m) m.textContent = t; this.dots(bad); },
+  unlock() { this.locked = false; this.tries = 0; this.entry = ''; this.lastActive = Date.now(); const r = document.getElementById('lockRoot'); if (r) r.innerHTML = ''; },
   async key(k) {
     if (k === 'forgot') return Pop.confirm({ title: 'Sign out to reset the PIN?', text: 'You can sign in again with your password and set a new PIN.', confirmLabel: 'Sign out', danger: true, onYes: () => { try { localStorage.removeItem('mca-lock'); } catch (e) {} __M_src_features_index_js.Actions.signOutApp(); } });
-    if (k === '⌫') { this.entry = this.entry.slice(0, -1); return this.paint(); }
+    if (k === 'bio') return this.bioUnlock();
+    if (this.checking) return;
+    if (k === '⌫') { this.entry = this.entry.slice(0, -1); return this.dots(); }
     if (this.entry.length >= 4) return;
-    this.entry += k; this.paint();
-    if (this.entry.length === 4) {
-      const ok = (await this.hash(this.entry)) === this.cfg().hash;
-      if (ok) { this.locked = false; this.tries = 0; const r = document.getElementById('lockRoot'); if (r) r.innerHTML = ''; return; }
-      this.tries++; this.entry = '';
-      if (this.tries >= 5) { try { localStorage.removeItem('mca-lock'); } catch (e) {} return __M_src_features_index_js.Actions.signOutApp(); }
-      this.paint('Wrong PIN. ' + (5 - this.tries) + ' tries left before you are signed out.');
-    }
-  },
-  hiddenAt: 0
+    this.entry += k; this.dots();
+    if (this.entry.length < 4) return;
+    this.checking = true;
+    const ok = (await this.hash(this.entry)) === (this.cfg() || {}).hash;
+    this.checking = false;
+    if (ok) return this.unlock();
+    this.tries++; this.entry = '';
+    if (this.tries >= 5) { try { localStorage.removeItem('mca-lock'); } catch (e) {} return __M_src_features_index_js.Actions.signOutApp(); }
+    this.message('Wrong PIN. ' + (5 - this.tries) + (5 - this.tries === 1 ? ' try' : ' tries') + ' left before you are signed out.', true);
+  }
 };
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-lk]'); if (b) Lock.key(b.dataset.lk); });
-document.addEventListener('keydown', e => { if (!Lock.locked) return; if (/^\d$/.test(e.key)) Lock.key(e.key); else if (e.key === 'Backspace') Lock.key('⌫'); });
+document.addEventListener('keydown', e => { if (!Lock.locked) return; if (/^\d$/.test(e.key)) { e.preventDefault(); Lock.key(e.key); } else if (e.key === 'Backspace') { e.preventDefault(); Lock.key('⌫'); } });
+/* the window counts both time away from the app and time without a touch inside it */
+['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(ev => addEventListener(ev, () => { if (!Lock.locked) Lock.lastActive = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => { const c = Lock.cfg(); if (!Lock.active() || Lock.locked || document.hidden || !Session.ready()) return; if (Date.now() - Lock.lastActive > (c.after || 1) * 60000) Lock.show(); }, 15000);
 document.addEventListener('visibilitychange', () => {
-  const c = Lock.cfg(); if (!c) return;
+  if (!Lock.active()) return;
+  const c = Lock.cfg();
   if (document.hidden) Lock.hiddenAt = Date.now();
   else if (Lock.hiddenAt && Date.now() - Lock.hiddenAt > (c.after || 1) * 60000 && Session.ready()) Lock.show();
 });
@@ -5403,11 +5475,16 @@ const actions = {
     const msg = m => `Hi ${m.name.split(' ')[0]}, a friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} balance is ${kes(Domain.outstanding(s, m.id, cur))}.${s.chama.payTo ? ' Pay to ' + s.chama.payTo + '.' : ''} Thank you!`;
     const group = `${s.chama.name}: ${monthLabel(cur)} contributions were due by day ${s.chama.dueDay}. ${late.length} of us are still to pay. ${s.chama.payTo ? 'Pay to ' + s.chama.payTo + '. ' : ''}Thank you all!`;
     sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('chat')}</span><h3>Remind ${late.length} ${late.length === 1 ? 'member' : 'members'}</h3><p>Each opens WhatsApp with a friendly message you can edit. Phones are needed.</p></div>
-<div class="list sx-list">${late.map(m => `<div class="li has-av">${av(m, 38)}<span class="li-main"><b>${esc(m.name)}</b><small class="num">${esc(kes(Domain.outstanding(s, m.id, cur)))} behind</small></span><span class="li-end">${m.phone ? `<a class="btn sm tint" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, msg(m)))}" data-act="remindDone">${icon('chat', 's')}Send</a>` : '<span class="mute small">No phone</span>'}</span></div>`).join('')}</div>
+<div class="list sx-list">${late.map(m => `<div class="li has-av">${av(m, 38)}<span class="li-main"><b>${esc(m.name)}</b><small class="num">${esc(kes(Domain.outstanding(s, m.id, cur)))} behind</small></span><span class="li-end">${m.phone ? `<a class="btn sm tint" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, msg(m)))}" data-act="remindDone" data-id="${esc(m.id)}">${icon('chat', 's')}Send</a>` : '<span class="mute small">No phone</span>'}</span></div>`).join('')}</div>
 <button type="button" class="btn block lg" data-act="remindGroup" data-t="${esc(group)}">${icon('copy')}Copy one message for the group</button>
 <button type="button" class="btn pri block" style="margin-top:10px" data-act="remindChat" data-t="${esc(group)}">${icon('chat')}Post it in the Chama chat</button>`, { key: 'remind', label: 'Remind' });
   } },
-  remindDone: () => {},
+  remindDone: d => {
+    /* WhatsApp opened in a new tab: mark this person as reminded so the treasurer can work down the list */
+    const b = document.querySelector(`[data-act="remindDone"][data-id="${CSS.escape(d.id || '')}"]`);
+    if (b) setTimeout(() => { b.classList.remove('tint'); b.classList.add('ghost'); b.innerHTML = `${icon('check', 's')}Sent`; }, 300);
+    try { const k = 'mca-reminded:' + Store.chamaId + ':' + Domain.now(), seen = ls.get(k, []); if (d.id && !seen.includes(d.id)) ls.set(k, seen.concat(d.id)); } catch (e) {}
+  },
   remindGroup: d => { (navigator.clipboard ? navigator.clipboard.writeText(d.t) : Promise.reject()).then(() => toast('Copied. Paste it in your WhatsApp group.', 'ok'), () => toast(d.t, 'info')); },
   remindChat: async d => { const ok = await C().send('group', 'announcement', d.t, { title: 'Contribution reminder', pin: false }); if (ok) { sheet().close(); toast('Posted in the chat', 'ok'); } },
   shareReceipt: async d => {
@@ -5464,21 +5541,48 @@ const actions = {
     if (error) return toast(rpcMessage(error));
     sheet().close(); toast('Thank you. Your feedback was sent.', 'ok');
   },
-  lockSetup: () => {
-    if (Lock.cfg()) return Pop.confirm({ title: 'Turn off the app lock?', text: 'Anyone holding this phone could open My Chama.', confirmLabel: 'Turn off', danger: true, onYes: () => { try { localStorage.removeItem('mca-lock'); } catch (e) {} render(); toast('App lock off', 'info'); } });
-    sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('lock')}</span><h3>Lock My Chama</h3><p>Ask for a 4-digit PIN when the app has been away for a while. The PIN stays on this phone only.</p></div>
-<label class="fgrp" for="lk1"><span class="flab">New PIN</span><span class="field">${icon('lock')}<input id="lk1" type="password" inputmode="numeric" maxlength="4" pattern="\\d{4}" autocomplete="off" autofocus></span></label>
-<label class="fgrp" for="lk2"><span class="flab">Type it again</span><span class="field">${icon('lock')}<input id="lk2" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></span></label>
-<div class="fgrp"><span class="flab">Lock after</span><div class="chips2">${[[1, '1 minute'], [5, '5 minutes'], [15, '15 minutes']].map(([v, t], i) => `<button type="button" class="chip2${i === 0 ? ' on' : ''}" data-act="lkAfter" data-v="${v}">${t}</button>`).join('')}</div></div>
-<button type="button" class="btn pri block lg" data-act="lockSave">Turn on the lock</button>`, { key: 'lock', label: 'App lock' });
+  lockSetup: async (d) => {
+    const c = Lock.cfg(), changing = !!(d && d.change) || !c, bioOk = await Lock.bioSupported();
+    const after = (c && c.after) || 1;
+    const chips = `<div class="fgrp"><span class="flab">Lock after this long without use</span><div class="chips2">${[[1, '1 min'], [5, '5 min'], [15, '15 min'], [30, '30 min']].map(([v, t]) => `<button type="button" class="chip2${v === after ? ' on' : ''}" data-act="lkAfter" data-v="${v}">${t}</button>`).join('')}</div></div>`;
+    const pinFields = `<label class="fgrp" for="lk1"><span class="flab">${c ? 'New PIN' : 'Choose a 4-digit PIN'}</span><span class="field">${icon('lock')}<input id="lk1" type="password" inputmode="numeric" maxlength="4" pattern="\\d{4}" autocomplete="off" autofocus></span></label>
+<label class="fgrp" for="lk2"><span class="flab">Type it again</span><span class="field">${icon('lock')}<input id="lk2" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></span></label>`;
+    const body = changing
+      ? `${pinFields}${c ? '' : chips}<button type="button" class="btn pri block lg" data-act="lockSave">${c ? 'Save the new PIN' : 'Turn on the lock'}</button>${c ? '<button type="button" class="btn ghost block" style="margin-top:8px" data-act="lockSetup">Back</button>' : ''}`
+      : `<div class="lk-row"><span><b>App lock</b><small>${c.on !== false ? 'On · asks for your PIN' : 'Off · your PIN is kept for next time'}</small></span><button type="button" class="sw-toggle${c.on !== false ? ' on' : ''}" role="switch" aria-checked="${c.on !== false}" aria-label="App lock" data-act="lockToggle"><i></i></button></div>
+${bioOk ? `<div class="lk-row"><span><b>Fingerprint or face</b><small>${c.bio ? 'On · tap the hand on the lock screen any time' : 'Unlock with this phone’s own fingerprint or face check'}</small></span><button type="button" class="sw-toggle${c.bio ? ' on' : ''}" role="switch" aria-checked="${!!c.bio}" aria-label="Fingerprint or face unlock" data-act="lockBio"><i></i></button></div>` : `<p class="fhelp">Fingerprint or face unlock appears here on phones that support it (installed app or a secure browser).</p>`}
+${chips}
+<button type="button" class="btn block" data-act="lockSetup" data-change="1">${icon('key')}Change PIN</button>
+<button type="button" class="btn ghost block" style="margin-top:8px" data-act="lockNow">${icon('lock')}Lock now</button>`;
+    sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('lock')}</span><h3>App lock</h3><p>Asks for a PIN when My Chama has not been used for a while. The PIN stays on this phone only.</p></div>${body}`, { key: 'lock', label: 'App lock' });
   },
-  lkAfter: d => document.querySelectorAll('[data-act="lkAfter"]').forEach(b => b.classList.toggle('on', b.dataset.v === d.v)),
+  lkAfter: d => {
+    document.querySelectorAll('[data-act="lkAfter"]').forEach(b => b.classList.toggle('on', b.dataset.v === d.v));
+    if (Lock.cfg()) { Lock.save({ after: Number(d.v) }); toast('Locks after ' + d.v + (d.v === '1' ? ' minute' : ' minutes') + ' without use', 'ok'); }
+  },
+  lockToggle: () => {
+    const c = Lock.cfg(); if (!c) return actions.lockSetup();
+    if (c.on !== false) return Pop.confirm({ title: 'Turn off the app lock?', text: 'Anyone holding this phone could open My Chama. Your PIN is kept, so you can turn it back on with one tap.', confirmLabel: 'Turn off', danger: true, onYes: () => { Lock.save({ on: false }); actions.lockSetup(); render(); toast('App lock off. Your PIN is kept.', 'info'); } });
+    Lock.save({ on: true }); Lock.lastActive = Date.now(); actions.lockSetup(); render(); toast('App lock on, with your saved PIN', 'ok');
+  },
+  lockBio: async () => {
+    const c = Lock.cfg(); if (!c) return;
+    if (c.bio) { Lock.save({ bio: null }); toast('Fingerprint or face unlock off', 'info'); return actions.lockSetup(); }
+    try { await Lock.bioEnroll(); toast('Fingerprint or face unlock on', 'ok'); }
+    catch (e) { toast(e && e.name === 'NotAllowedError' ? 'Fingerprint or face setup was cancelled' : 'This phone could not set up fingerprint or face unlock'); }
+    actions.lockSetup();
+  },
+  lockNow: () => { if (!Lock.active()) return toast('Turn the app lock on first'); sheet().close(); setTimeout(() => Lock.show(), 250); },
   lockSave: async () => {
-    const a = document.getElementById('lk1').value, b = document.getElementById('lk2').value, after = Number((document.querySelector('[data-act="lkAfter"].on') || { dataset: { v: 1 } }).dataset.v);
+    const a = document.getElementById('lk1').value, b = document.getElementById('lk2').value;
+    const chip = document.querySelector('[data-act="lkAfter"].on'), after = chip ? Number(chip.dataset.v) : ((Lock.cfg() || {}).after || 1);
     if (!/^\d{4}$/.test(a)) return toast('Use exactly 4 numbers');
     if (a !== b) return toast('The two PINs do not match');
     if (/^(\d)\1{3}$|^(0123|1234|2345|3456|4567|5678|6789|9876|4321)$/.test(a)) return toast('Choose a PIN that is harder to guess');
-    ls.set('mca-lock', { hash: await Lock.hash(a), after }); sheet().close(); render(); toast('App lock on', 'ok');
+    const had = !!Lock.cfg();
+    Lock.save({ hash: await Lock.hash(a), after, on: true }); Lock.lastActive = Date.now();
+    render(); toast(had ? 'PIN changed' : 'App lock on', 'ok');
+    if (had) actions.lockSetup(); else sheet().close();
   }
 };
 
@@ -6302,7 +6406,9 @@ document.addEventListener('click', e => {
     return;
   }
   const a = Actions[el.dataset.act]; if (!a) return;
-  e.preventDefault();
+  /* a real link (WhatsApp, a chat thread) must still open: the action runs alongside it */
+  const realLink = el.tagName === 'A' && el.getAttribute('href');
+  if (!realLink) e.preventDefault();
   const fn = typeof a === 'function' ? a : a.run, needsAdmin = typeof a === 'object' && a.admin;
   if (needsAdmin && !Auth.isAdmin()) return toast('Only the treasurer can do that');
   try { fn.call(a, el.dataset); } catch (err) { toast(err.message); }
