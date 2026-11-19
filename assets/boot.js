@@ -2,7 +2,9 @@
 (function () {
   var h = document.documentElement, d = {};
   try { d = JSON.parse(localStorage.getItem('chama:a11y') || '{}') || {}; } catch (e) { d = {}; }
-  var dark = d.theme === 'dark' || ((d.theme === 'auto' || !d.theme) && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  /* dark is the default; "auto" follows the phone; a saved choice always wins */
+  var dark = d.theme === 'dark' || !d.theme || (d.theme === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  if (d.accent && /^(blue|purple|gold|rose|teal)$/.test(d.accent)) h.setAttribute('data-accent', d.accent);
   h.setAttribute('data-mode', dark ? 'dark' : 'light');
   h.setAttribute('data-size', d.size || 'n');
   ['hc', 'cb', 'ft', 'sp', 'ul', 'tg', 'rm'].forEach(function (k) { if (d[k]) h.classList.add(k === 'hc' ? 'hc' : 'a-' + k); });

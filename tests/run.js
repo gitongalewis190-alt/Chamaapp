@@ -35,12 +35,13 @@ async function open(browser, key, opt = {}) {
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) errors.push('console: ' + m.text()); });
   page.on('console', m => { if (/Content Security Policy|Refused to/i.test(m.text())) errors.push('CSP: ' + m.text()); });
-  await page.addInitScript(([mock, onboard, a11y]) => {
+  await page.addInitScript(([mock, onboard, a11y, personal]) => {
     window.__MOCK = mock;
     try { sessionStorage.setItem('mca-splash', '1'); } catch (e) {}
+    if (!personal && !localStorage.getItem('mca-personal-v1')) localStorage.setItem('mca-personal-v1', 'test');
     if (onboard && !localStorage.getItem('mca-onboard')) localStorage.setItem('mca-onboard', JSON.stringify(onboard));
     if (a11y) localStorage.setItem('chama:a11y', JSON.stringify(a11y));
-  }, [opt.mock || sc.mock, sc.onboard, opt.a11y || null]);
+  }, [opt.mock || sc.mock, sc.onboard, opt.a11y || null, !!opt.personal]);
   await page.goto(`http://127.0.0.1:${server.address().port}${sc.url || '/'}`);
   await page.waitForTimeout(opt.wait || 500);
   return { page, ctx, errors };
@@ -384,6 +385,17 @@ const TESTS = {
     ok(await page.isDisabled('#awRoot [data-aw="agree"]'), 'entering needs the agreement ticked');
     await page.check('#awAgree'); await page.click('#awRoot [data-aw="agree"]'); await page.waitForTimeout(400);
     ok(!(await page.locator('#awRoot .aw').count()) && (await calls(page)).some(x => x.kind === 'rpc' && x.name === 'record_awareness'), 'agreeing lets them in and is recorded on the server');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
+  async makeItYours(b) {
+    const { page, ctx, errors } = await open(b, 'none', { personal: true, wait: 900 });
+    ok(await page.evaluate(() => document.documentElement.dataset.mode) === 'dark', 'the app is dark by default');
+    ok(await page.isVisible('.pz'), 'a new person without a Chama is asked to make the app theirs first');
+    await page.click('[data-pz="theme"][data-v="light"]'); await page.click('[data-pz="accent"][data-v="purple"]'); await page.waitForTimeout(150);
+    ok(await page.evaluate(() => document.documentElement.dataset.mode === 'light' && document.documentElement.dataset.accent === 'purple'), 'choices apply at once');
+    await shot(page, '91-make-it-yours');
+    await page.click('[data-pz="done"]'); await page.waitForTimeout(300);
+    ok(!(await page.locator('.pz').count()), 'Continue goes on to create or join a Chama');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
   async leftAndLive(b) {

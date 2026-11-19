@@ -268,7 +268,7 @@ const { $ } = __M_src_lib_dom_js;
 const { setToastLong, toast } = __M_src_ui_toast_js;
 
 const A11y = {
-  key: 'chama:a11y', def: { size: 'n', theme: 'auto', hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
+  key: 'chama:a11y', def: { size: 'n', theme: 'dark', accent: 'green', hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
   load() {
     let o = {}; try { o = JSON.parse(localStorage.getItem(this.key) || '{}') || {}; } catch {}
     if (!o.size && localStorage.getItem('chama:textsize') === 'large') o.size = 'l';
@@ -279,6 +279,7 @@ const A11y = {
     setToastLong(this.d.long);
     const h = document.documentElement, d = this.d, dark = d.theme === 'dark' || (d.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     h.dataset.size = d.size; h.dataset.mode = dark ? 'dark' : 'light'; h.classList.toggle('hc', !!d.hc);
+    if (d.accent && d.accent !== 'green') h.dataset.accent = d.accent; else delete h.dataset.accent;
     document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', dark ? '#090c0b' : '#f3f4f1'));
     ['cb', 'ft', 'sp', 'ul', 'tg', 'rm'].forEach(k => h.classList.toggle('a-' + k, !!d[k]));
     const ra = $('#ra'); if (ra) ra.hidden = !(d.read && 'speechSynthesis' in window);
@@ -2330,7 +2331,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
         : this.authCard();
     }
     else if (st === 'setup') { html = this.setupCard(); setTimeout(() => UserCheck.init(), 0); }
-    else if (st === 'welcome') html = this.welcomeCard();
+    else if (st === 'welcome') html = (() => { try { const P = __M_src_features_guide_js.Personal; if (!P.done()) return shell(P.card(), { top: true, lang: false }); } catch (e) {} return this.welcomeCard(); })();
     else if (st === 'choose') html = this.chooseCard();
     else html = this.card('Something went wrong', `<p class="auth-s">${esc(Session.error || 'We could not reach the server.')}</p><div class="btns col" style="margin-top:24px"><button class="btn pri block" data-act="gateRetry">Try again</button>${Session.user ? '<button class="btn ghost block" data-act="gateSignOut">Sign out</button>' : ''}</div>`, 'lost');
     $('#view').innerHTML = html;
@@ -2617,7 +2618,7 @@ const views = {
       </section>`;
     } else {
       const mine = me ? (tone === 'late' || tone === 'part' || tone === 'due' ? 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' to pay' : tone === 'ahead' ? 'Your own contribution: ' + kes(myAhead) + ' ahead' : tone === 'paid' ? 'Your own contribution is paid' : '') : '';
-      hero = `<section class="hero tn-${me ? tone : 'paid'}" aria-label="Cash on hand">${me ? tag : ''}
+      hero = `<section class="hero tn-${me ? tone : 'brand'}" aria-label="Cash on hand">${me ? tag : ''}
         <div class="hero-l">Cash on hand</div>
         <div class="hero-v">${esc(kes(Domain.cashOnHand(s)))}</div>
         <div class="hero-s">${esc(mine || 'After loans, payouts and expenses')}</div>${bar('Collected in ' + longMonth(cur) + ': ' + kes(got) + ' of ' + kes(exp))}
@@ -3974,7 +3975,7 @@ const views = {
       const sub = r.slice('settings/app'.length).replace(/^\//, '');
       const show = k => !sub || sub === k;
       return `<h1 class="lt">Display and accessibility</h1><p class="lt-sub">Saved on this phone only</p>`
-        + (show('appearance') ? seg('theme', 'Appearance', [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Automatic']]) : '')
+        + (show('appearance') ? seg('theme', 'Appearance', [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Automatic']]) + `<div style="margin-top:12px">${seg('accent', 'Colour', [['green', 'Green'], ['blue', 'Blue'], ['purple', 'Purple'], ['gold', 'Gold'], ['rose', 'Rose'], ['teal', 'Teal']])}</div>` : '')
         + (show('text') ? `<div style="margin-top:12px">${seg('size', 'Text size', [['n', 'Default'], ['l', 'Large'], ['x', 'Largest']])}</div>` : '')
         + (show('seeing') ? grp('Seeing', [sw('hc', 'Stronger contrast', 'Black and white with thicker lines'), sw('cb', 'Symbols with colours', 'Adds ✓ and ✕ so colour is never the only clue'), sw('ft', 'Easy-read lettering', 'A plainer typeface for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')]) : '')
         + (show('hands') ? grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')]) : '')
@@ -6327,6 +6328,51 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target && e.target.id === 'gdQ') { const r = Guide.results(); if (!r.ans && r.tasks[0] && r.tasks[0].tour && /\b(how|show|jinsi)\b/i.test(Guide.q)) Tour.start(r.tasks[0].id); }
 });
 
+/* ---- "Make it yours": before a new person creates or joins a Chama, and once for everyone after this update ---- */
+const PERSONAL_V = 'mca-personal-v1';
+const WHATS_NEW = ['A smart Guide next to the bell: ask questions, find anything, or be shown step by step', 'Home puts the payout first, and your card changes colour with your payment state', 'M-Pesa screenshots are read on your phone, hidden digits and all', 'App lock with fingerprint or face, and a PIN you can switch off without losing it', 'Role changes are offered and accepted; removals come with a reason and notice', 'Several savings goals, edited announcements, member photos, signed loan terms'];
+const Personal = {
+  done() { try { return !!localStorage.getItem(PERSONAL_V); } catch (e) { return true; } },
+  html(existing) {
+    const A = __M_src_core_a11y_js.A11y, d = A.d, money = (() => { try { return localStorage.getItem('mca-hide-money') === 'true'; } catch (e) { return false; } })();
+    const tile = (v, t, sub) => `<button type="button" class="pz-mode${d.theme === v ? ' on' : ''}" data-pz="theme" data-v="${v}" aria-pressed="${d.theme === v}"><span class="pz-prev pz-${v}"><i></i><i></i><i></i></span><b>${t}</b><small>${sub}</small></button>`;
+    const sw = (k, v, t) => `<button type="button" class="pz-sw${(d.accent || 'green') === k ? ' on' : ''}" data-pz="accent" data-v="${k}" aria-label="${t}" aria-pressed="${(d.accent || 'green') === k}" style="--c:${v}"></button>`;
+    return `<div class="pz"><div class="pz-head"><span class="aw-ic">${icon('sparkle')}</span><h2>${existing ? 'Your app has been updated' : 'Make it yours'}</h2><p>${existing ? 'Take a moment to set it up the way you like. You can change these any time in Settings.' : 'Set up how My Chama looks before you start. You can change these any time in Settings.'}</p></div>
+${existing ? `<div class="pz-sec"><h4>What’s new</h4><ul class="aw-list">${WHATS_NEW.map(x => `<li>${icon('check', 's')}${esc(x)}</li>`).join('')}</ul></div>` : ''}
+<div class="pz-sec"><h4>Appearance</h4><div class="pz-modes">${tile('dark', 'Dark', 'Easy on the eyes')}${tile('light', 'Light', 'Bright and clear')}${tile('auto', 'Follow phone', 'Changes with your phone')}</div></div>
+<div class="pz-sec"><h4>Colour</h4><div class="pz-sws">${sw('green', '#0b6b4d', 'Green')}${sw('blue', '#1f5fae', 'Blue')}${sw('purple', '#5b34b8', 'Purple')}${sw('gold', '#8f6213', 'Gold')}${sw('rose', '#b0284f', 'Rose')}${sw('teal', '#0b6f78', 'Teal')}</div></div>
+<div class="pz-sec"><h4>Text size</h4><div class="pz-seg">${[['n', 'Default'], ['l', 'Large'], ['x', 'Largest']].map(([v, t]) => `<button type="button" class="${d.size === v ? 'on' : ''}" data-pz="size" data-v="${v}" aria-pressed="${d.size === v}">${t}</button>`).join('')}</div></div>
+<div class="pz-sec"><h4>Privacy and sound</h4>
+<div class="lk-row"><span><b>Hide amounts when I open the app</b><small>Tap the eye to show them</small></span><button type="button" class="sw-toggle${money ? ' on' : ''}" role="switch" aria-checked="${money}" data-pz="money"><i></i></button></div>
+<div class="lk-row"><span><b>Sounds</b><small>A soft chime when something important succeeds</small></span><button type="button" class="sw-toggle${__M_src_ui_toast_js.Sfx.enabled ? ' on' : ''}" role="switch" aria-checked="${__M_src_ui_toast_js.Sfx.enabled}" data-pz="sfx"><i></i></button></div></div>
+<button type="button" class="btn pri block lg" data-pz="done">${existing ? 'Done' : 'Continue'}</button></div>`;
+  },
+  card() { return `<div class="pz-page">${this.html(false)}</div>`; },
+  check() {
+    if (this.done() || !Session.ready()) return;
+    let root = document.getElementById('awRoot'); if (!root) { root = document.createElement('div'); root.id = 'awRoot'; document.body.appendChild(root); }
+    root.innerHTML = `<div class="aw" role="dialog" aria-modal="true" aria-label="Make it yours"><div class="aw-in"><div class="aw-card">${this.html(true)}</div></div></div>`;
+    document.body.classList.add('aw-on'); this.overlay = true;
+  },
+  repaint() {
+    if (this.overlay) { const c = document.querySelector('#awRoot .aw-card'); if (c) c.innerHTML = this.html(true); return; }
+    try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {}
+  },
+  finish() {
+    try { localStorage.setItem(PERSONAL_V, new Date().toISOString()); } catch (e) {}
+    if (this.overlay) { this.overlay = false; const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on'); toast('All set', 'ok'); return; }
+    try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {}
+  }
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-pz]'); if (!b) return;
+  const A = __M_src_core_a11y_js.A11y, k = b.dataset.pz;
+  if (k === 'theme' || k === 'accent' || k === 'size') { A.d[k] = b.dataset.v; A.save(); return Personal.repaint(); }
+  if (k === 'money') { const on = !(localStorage.getItem('mca-hide-money') === 'true'); try { localStorage.setItem('mca-hide-money', on ? 'true' : 'false'); } catch (err) {} document.documentElement.classList.toggle('hide-money', on); return Personal.repaint(); }
+  if (k === 'sfx') { try { localStorage.setItem('mca-sfx', __M_src_ui_toast_js.Sfx.enabled ? 'off' : 'on'); } catch (err) {} return Personal.repaint(); }
+  if (k === 'done') Personal.finish();
+});
+
 /* ---- "Know your Chama": a walkthrough every member completes once per Chama, before Home. It cannot be skipped. ---- */
 const AWARE_V = 'v1';
 const Aware = {
@@ -6334,11 +6380,11 @@ const Aware = {
   key() { return 'mca-aware:' + Store.chamaId + ':' + ((Session.user && Session.user.id) || '') + ':' + AWARE_V; },
   done() { try { return !!localStorage.getItem(this.key()); } catch (e) { return false; } },
   async check() {
-    if (!Session.ready() || !Store.chamaId || !Session.user || Session.role === 'treasurer' || this.done()) return;
-    const s = Store.get(); if (!s || !s.chama) return;
+    if (!Session.ready() || !Store.chamaId || !Session.user || Session.role === 'treasurer' || this.done()) return Personal.check();
+    const s = Store.get(); if (!s || !s.chama) return Personal.check();
     try {
       const { data, error } = await __M_src_core_backend_js.Backend.sb.from('chama_awareness').select('version').eq('chama_id', Store.chamaId).eq('user_id', Session.user.id).eq('version', AWARE_V).limit(1);
-      if (!error && data && data.length) { try { localStorage.setItem(this.key(), 'server'); } catch (e) {} return; }
+      if (!error && data && data.length) { try { localStorage.setItem(this.key(), 'server'); } catch (e) {} return Personal.check(); }
     } catch (e) { /* table not there yet: the walkthrough still runs and is kept on this phone */ }
     this.i = 0; this.agree = false; this.show();
   },
@@ -6375,6 +6421,7 @@ const Aware = {
     try { await __M_src_core_backend_js.Backend.sb.rpc('record_awareness', { p_cid: Store.chamaId, p_version: AWARE_V }); } catch (e) { /* kept on this phone */ }
     const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on');
     toast('Welcome. Ask the Guide (the sparkle at the top) whenever you need help.', 'ok');
+    setTimeout(() => Personal.check(), 600);
   }
 };
 document.addEventListener('click', e => {
@@ -6392,7 +6439,7 @@ const actions = {
   guideTour: d => Tour.start(d.id)
 };
 
-return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
+return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get Personal() { return Personal; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
 })();
 
 /* ---- src/features/index.js ---- */
