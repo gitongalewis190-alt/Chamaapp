@@ -398,6 +398,23 @@ const Domain = {
     return s.members.filter(m => !(m.left && mk > m.left) && this.outstanding(s, m.id, mk) > 0);
   },
   memberSaved: (s, mid) => sum(s.payments.filter(p => p.memberId === mid), p => p.amount),
+  /* money paid beyond everything owed up to month mk (an advance) */
+  ahead(s, mid, mk = Domain.now()) { return Math.max(0, this.paidThrough(s, mid, '9999-12') - this.dueThrough(s, mid, mk)); },
+  /* the first month from mk on that is not yet fully covered: extra money is recorded there and carries forward */
+  firstUncovered(s, mid, mk = Domain.now()) {
+    let k = mk; for (let i = 0; i < 60; i++, k = addMonths(k, 1)) if (this.paidThrough(s, mid, k) < this.dueThrough(s, mid, k)) return k;
+    return k;
+  },
+  /* the member's state, used to colour their card: late, part, due, paid, ahead, idle */
+  tone(s, mid, mk = Domain.now()) {
+    if (!mid) return 'idle';
+    const st = this.status(s, mid, mk);
+    if (st === 'na' || st === 'future') return 'idle';
+    if (st === 'late') return 'late';
+    if (st === 'partial') return 'part';
+    if (st === 'due') return 'due';
+    return this.ahead(s, mid, mk) > 0 ? 'ahead' : 'paid';
+  },
   /* money is rounded to the cent, so 3,000 at 5% for 2 months is exactly 3,300 and a full repayment clears it */
   loan(l) {
     const r2 = x => Math.round((Number(x) || 0) * 100) / 100;
@@ -2414,6 +2431,18 @@ async function savePayments(list) {
     toast(saved.length === 1 ? 'Payment recorded' : saved.length + ' payments recorded');
   }
 }
+/* shows cash on hand and what is left after the amount being typed, updating with every key */
+const cashMeter = (cash, start) => `<div class="cash-live" id="cashLive" data-cash="${Number(cash) || 0}" aria-live="polite">${cashMeterInner(Number(cash) || 0, Number(start) || 0)}</div>`;
+const cashMeterInner = (cash, amt) => {
+  const kes = __M_src_core_utils_js.kes, left = cash - amt, pct = cash > 0 ? Math.max(0, Math.min(100, Math.round(amt / cash * 100))) : (amt > 0 ? 100 : 0);
+  const st = amt > cash ? 'over' : pct >= 80 ? 'tight' : 'ok';
+  return `<div class="cl-row"><span>Cash on hand</span><b class="num">${esc(kes(cash))}</b></div><div class="cl-bar ${st}"><i style="width:${pct}%"></i></div><div class="cl-row"><span>${st === 'over' ? 'Short by' : 'Left after this'}</span><b class="num cl-${st}">${esc(kes(Math.abs(left)))}</b></div>${st === 'over' ? '<p class="cl-msg">This is more than the Chama has. Lower the amount.</p>' : st === 'tight' ? '<p class="cl-msg">This uses most of the cash on hand.</p>' : ''}`;
+};
+document.addEventListener('input', e => {
+  const box = document.getElementById('cashLive'), t = e.target;
+  if (!box || !t || !/^(amount|principal)$/.test(t.name || '') || !box.closest('#modalRoot') || !t.closest('#modalRoot')) return;
+  box.innerHTML = cashMeterInner(Number(box.dataset.cash) || 0, Number(t.value) || 0);
+});
 const Modal = {
   open({ title, fields = [], body = '', submitLabel = 'Save', onSubmit, danger, hideCancel }) {
     /* confirmations and notices without form fields are centred popups, not sheets */
@@ -2456,7 +2485,7 @@ function confirmBox(text, onYes) {
   __M_src_ui_toast_js.Pop.confirm({ title: 'Are you sure?', text, confirmLabel: 'Continue', danger: true, onYes });
 }
 
-return { get Modal() { return Modal; }, get confirmBox() { return confirmBox; }, get savePayments() { return savePayments; }, };
+return { get Modal() { return Modal; }, get confirmBox() { return confirmBox; }, get savePayments() { return savePayments; }, get cashMeter() { return cashMeter; }, };
 })();
 
 /* ---- src/ui/signature.js ---- */
@@ -2519,24 +2548,26 @@ const views = {
     const meId = s.shared ? s.shared.me : Sess.memberId;
     const me = meId ? s.members.find(m => m.id === meId) : null;
 
-    /* hero: the one number that matters most for this person */
+    /* hero: the one number that matters most for this person, coloured by their own state */
+    const tone = me ? Domain.tone(s, me.id, cur) : 'idle', myBal = me ? Domain.outstanding(s, me.id, cur) : 0, myAhead = me ? Domain.ahead(s, me.id, cur) : 0;
+    const TAG = { late: 'Late', part: 'Part paid', due: 'Due by day ' + s.chama.dueDay, paid: 'Paid up', ahead: 'Paid ahead', idle: me ? 'Nothing due' : 'Not linked' };
+    const tag = `<span class="hero-tag"><i></i>${esc(me ? 'You · ' + TAG[tone] : TAG[tone])}</span>`;
+    const bar = (label) => `<div class="hero-row"><div style="flex:1"><div class="hero-s">${esc(label)}</div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Collected this month"><i style="width:${pct}%"></i></div></div><span class="hero-chip num">${pct}%</span></div>`;
     let hero;
     if (s.shared) {
-      const st = me ? Domain.status(s, me.id, cur) : null, bal = me ? Domain.outstanding(s, me.id, cur) : 0;
-      const head = !me ? 'Not linked yet' : st === 'paid' ? 'Paid up' : st === 'future' || st === 'na' ? 'Nothing due' : kes(bal) + ' due';
-      const sub = !me ? 'Ask your treasurer to link your sign-in to your member record.' : st === 'paid' ? 'Thank you. Your ' + longMonth(cur) + ' contribution is in.' : st === 'late' ? 'Late. It was due by day ' + s.chama.dueDay + '.' : st === 'partial' ? 'Part paid. Due by day ' + s.chama.dueDay + '.' : 'Due by day ' + s.chama.dueDay + ' of ' + longMonth(cur) + '.';
-      hero = `<section class="hero" aria-label="Your month">
+      const head = !me ? 'Not linked yet' : tone === 'paid' ? 'Paid up' : tone === 'ahead' ? kes(myAhead) + ' ahead' : tone === 'idle' ? 'Nothing due' : kes(myBal) + ' due';
+      const sub = !me ? 'Ask your treasurer to link your sign-in to your member record.' : tone === 'paid' ? 'Thank you. Your ' + longMonth(cur) + ' contribution is in.' : tone === 'ahead' ? 'Your ' + longMonth(cur) + ' is paid and the extra covers the coming months.' : tone === 'late' ? 'Late. It was due by day ' + s.chama.dueDay + '. Pay to ' + (s.chama.payTo || 'the treasurer') + '.' : tone === 'part' ? 'Part paid. ' + kes(myBal) + ' still to go.' : 'Due by day ' + s.chama.dueDay + ' of ' + longMonth(cur) + '.';
+      hero = `<section class="hero tn-${tone}" aria-label="Your month">${tag}
         <div class="hero-l">Your ${esc(longMonth(cur))}</div>
         <div class="hero-v">${esc(head)}</div>
-        <div class="hero-s">${esc(sub)}</div>
-        <div class="hero-row"><div style="flex:1"><div class="hero-s">Group collected ${esc(kes(got))} of ${esc(kes(exp))}</div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Group collected this month"><i style="width:${pct}%"></i></div></div><span class="hero-chip num">${pct}%</span></div>
+        <div class="hero-s">${esc(sub)}</div>${bar('Group collected ' + kes(got) + ' of ' + kes(exp))}
       </section>`;
     } else {
-      hero = `<section class="hero" aria-label="Cash on hand">
+      const mine = me ? (tone === 'late' || tone === 'part' || tone === 'due' ? 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' to pay' : tone === 'ahead' ? 'Your own contribution: ' + kes(myAhead) + ' ahead' : tone === 'paid' ? 'Your own contribution is paid' : '') : '';
+      hero = `<section class="hero tn-${me ? tone : 'paid'}" aria-label="Cash on hand">${me ? tag : ''}
         <div class="hero-l">Cash on hand</div>
         <div class="hero-v">${esc(kes(Domain.cashOnHand(s)))}</div>
-        <div class="hero-s">After loans, payouts and expenses</div>
-        <div class="hero-row"><div style="flex:1"><div class="hero-s">Collected in ${esc(longMonth(cur))}: ${esc(kes(got))} of ${esc(kes(exp))}</div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Collected this month"><i style="width:${pct}%"></i></div></div><span class="hero-chip num">${pct}%</span></div>
+        <div class="hero-s">${esc(mine || 'After loans, payouts and expenses')}</div>${bar('Collected in ' + longMonth(cur) + ': ' + kes(got) + ' of ' + kes(exp))}
       </section>`;
     }
 
@@ -2551,27 +2582,34 @@ const views = {
       ? `<div class="stats"><div><span>Saved</span><b>${esc(kes(me ? Domain.memberSaved(s, me.id) : 0))}</b></div><div><span>Your loan</span><b>${esc(kes(me ? Domain.memberLoanBalance(s, me.id) : 0))}</b></div><div><span>Group cash</span><b>${esc(kes(Domain.cashOnHand(s)))}</b></div></div>`
       : `<div class="stats"><div><span>Loans out</span><b>${esc(kes(loansOut))}</b></div><div><span>Unpaid fines</span><b>${esc(kes(finesDue))}</b></div><div><span>Paid up</span><b class="num">${Domain.active(s).length - late.length}/${Domain.active(s).length}</b></div></div>`;
 
-    /* this month: the payout (merry-go-round) and, for the treasurer, who is behind */
-    const rows = [];
+    /* the payout comes first: who receives the pot this month, how much, and whether it was sent */
+    let payout = '';
     if (s.chama.mode !== 'savings' && rec) {
-      const amt = po ? po.amount : exp;
-      const end = po ? '<span class="tag ok">Sent</span>' : (admin ? `<button class="btn sm pri" data-act="markPayout" data-amt="${esc(exp)}">Mark sent</button>` : '<span class="tag">Due</span>');
-      rows.push(`<div class="li has-av">${av(rec, 40)}<div class="li-main"><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b><small>Receives the pot · ${esc(kes(amt))} · turn ${Math.max(1, idx + 1)} of ${s.members.length}</small></div><div class="li-end">${end}</div></div>`);
-      if (po && admin) rows.push(`<div class="li"><div class="li-main"><small>Sent ${esc(kes(po.amount))} on ${esc(po.date)}</small>${sigImg(po.sig, 'Recipient signature')}</div><div class="li-end">${po.sig ? '' : `<button class="btn sm" data-act="signPayout" data-id="${esc(po.id)}">Get signature</button>`}<button class="btn sm bad" data-act="undoPayout" data-id="${esc(po.id)}">Undo</button></div></div>`);
+      const amt = po ? po.amount : exp, nextRec = Domain.recipient(s, addMonths(cur, 1));
+      const dueDate = new Date(Number(cur.slice(0, 4)), Number(cur.slice(5, 7)) - 1, Math.min(28, Number(s.chama.dueDay) || 10) + 1).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+      const status = po ? `<span class="tag ok">${icon('check', 's')}Sent ${esc(po.date)}</span>` : `<span class="tag warn">Not sent yet</span>`;
+      const acts = admin ? (po
+        ? `<div class="po-act">${po.sig ? sigImg(po.sig, 'Recipient signature').replace('<img', '<img class="po-sig"') : `<button class="btn sm" data-act="signPayout" data-id="${esc(po.id)}">${icon('sign', 's')}Get signature</button>`}<button class="btn sm ghost" data-act="undoPayout" data-id="${esc(po.id)}">Undo</button></div>`
+        : `<div class="po-act"><button class="btn pri" data-act="markPayout" data-amt="${esc(exp)}">${icon('check')}Mark the payout sent</button></div>`) : '';
+      payout = `<section class="po-card" aria-label="This month's payout"><div class="po-top">${av(rec, 48)}<div class="po-main"><small>Payout · ${esc(longMonth(cur))}</small><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b></div><div class="po-amt num">${esc(kes(amt))}</div></div>
+<div class="po-meta">${status}<span>Turn ${Math.max(1, idx + 1)} of ${s.members.length}</span>${po ? '' : `<span>${Domain.isOverdue(s, cur) ? 'Collections closed ' + esc(dueDate) : 'Collections close ' + esc(dueDate)}</span>`}${nextRec && nextRec.id !== rec.id ? `<span>Next: ${esc(nextRec.name)}</span>` : ''}</div>${acts}</section>`;
     }
+
+    /* who is behind (treasurer only) */
+    const rows = [];
     if (admin) {
       if (late.length) {
         late.slice(0, 4).forEach(m => {
           const bal = Domain.outstanding(s, m.id, cur);
           const msg = `Hi ${firstName(m.name)}, a friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} contribution balance is ${kes(bal)}.${s.chama.payTo ? ' Pay to: ' + s.chama.payTo + '.' : ''} Thank you!`;
-          rows.push(`<div class="li has-av">${av(m, 40)}<div class="li-main"><b>${esc(m.name)}</b><small class="num">${esc(kes(bal))} behind</small></div><div class="li-end">${m.phone ? `<a class="btn sm tint" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, msg))}" aria-label="Remind ${esc(m.name)} on WhatsApp">${icon('chat')}Remind</a>` : '<small>No phone</small>'}</div></div>`);
+          rows.push(`<div class="li has-av">${av(m, 40)}<div class="li-main"><b>${esc(m.name)}</b><small class="num">${esc(kes(bal))} behind</small></div><div class="li-end">${m.phone ? `<a class="btn sm tint" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, msg))}" aria-label="Remind ${esc(m.name)} on WhatsApp">${icon('chat')}Remind</a>` : `<button type="button" class="btn sm ghost" data-act="editMember" data-id="${esc(m.id)}">Add phone</button>`}</div></div>`);
         });
         if (late.length > 4) rows.push(`<a class="li" href="#/grid"><div class="li-main"><b>${late.length - 4} more behind</b></div>${icon('chev', 'chev')}</a>`);
       } else {
         rows.push(`<div class="li has-ic"><span class="li-ic">${icon('check')}</span><div class="li-main"><b>${Domain.isOverdue(s, cur) ? 'Everyone is paid up' : 'Nobody is late yet'}</b><small>${Domain.isOverdue(s, cur) ? 'Every member has paid for ' + esc(longMonth(cur)) + '.' : 'Contributions are due by day ' + esc(s.chama.dueDay) + '.'}</small></div></div>`);
       }
     }
-    const month = rows.length ? `<section class="sec"><div class="sec-h"><h2>This month</h2>${admin ? '<a href="#/grid">Contributions</a>' : ''}</div><div class="list">${rows.join('')}</div></section>` : '';
+    const month = rows.length ? `<section class="sec"><div class="sec-h"><h2>${late.length ? 'Behind this month' : 'This month'}</h2>${late.length ? '<button type="button" data-act="remindAll">Remind all</button>' : '<a href="#/grid">Contributions</a>'}</div><div class="list">${rows.join('')}</div></section>` : '';
 
     const recent = [...s.payments].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 3);
     const recentHtml = `<section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your recent payments' : 'Recent payments'}</h2>${recent.length ? '<a href="#/grid">See all</a>' : ''}</div><div class="list">${recent.length
@@ -2594,7 +2632,7 @@ const views = {
     </div>` : '';
     const reqs = Sess.role !== 'member' ? __M_src_features_requests_js.Requests.listHtml(true) : '';
     const smart = __M_src_features_smart_js.homeBlocks(s);
-    return `${greet}${reqs}${hero}${qa}${sec}${smart}${group}${stats}${month}${recentHtml}`;
+    return `${greet}${reqs}${payout}${hero}${qa}${sec}${month}${smart}${group}${stats}${recentHtml}`;
   }
 };
 
@@ -2825,17 +2863,23 @@ const actions = {
   pay: { admin: true, run(d) {
     const s = S(), m = s.members.find(x => x.id === d.m); if (!m) return;
     const due = Domain.dueFor(s, m.id), left = Math.max(0, due - Domain.paidIn(s, m.id, d.mo));
-    Modal.open({ title: `${m.name}`, submitLabel: 'Record payment', fields: [
-      { name: 'amount', label: 'Amount (KES)', type: 'number', value: left || due, placeholder: 'e.g. ' + due.toLocaleString('en-KE') },
+    const paidUp = !left, ahead = Domain.ahead(s, m.id);
+    /* extra money goes to the first month after this one that is not yet covered, and carries forward from there */
+    const nextMo = Domain.firstUncovered(s, m.id, addMonths(d.mo, 1));
+    Modal.open({ title: `${m.name}`, submitLabel: paidUp ? 'Record extra' : 'Record payment', fields: [
+      { name: 'kind', label: 'What is this money for?', type: 'select', value: paidUp ? 'ahead' : 'month', options: [['month', `${monthLabel(d.mo)} contribution${left ? ' (' + kes(left) + ' due)' : ''}`], ['ahead', `Extra: pays ahead from ${monthLabel(nextMo)}`]] },
+      { name: 'amount', label: 'Amount (KES)', type: 'number', value: paidUp ? '' : (left || due), placeholder: 'e.g. ' + due.toLocaleString('en-KE') },
       { name: 'code', label: 'M-Pesa code (optional)', placeholder: 'e.g. SJK4L2P9QX' }],
-      body: `<p class="plain">Contribution for <b>${esc(monthLabel(d.mo))}</b>. ${left ? esc(kes(left)) + ' is still due.' : 'This month is already paid. Anything extra counts toward later months.'}</p>`,
+      body: `<div class="pay-sum"><div><span>${esc(monthLabel(d.mo))}</span><b class="num">${paidUp ? 'Paid' : esc(kes(left)) + ' due'}</b></div><div><span>Paid ahead</span><b class="num">${esc(kes(ahead))}</b></div><div><span>Monthly</span><b class="num">${esc(kes(due))}</b></div></div>
+<p class="fhelp">${paidUp ? 'This month is paid. Extra money is kept for the coming months, so they show as paid in turn.' : 'Paying more than is due? Choose Extra, or just enter the bigger amount: the rest carries forward.'}</p>`,
       onSubmit: v => {
         const amount = num(v.amount, 'Amount');
         if (amount > 10000000) throw new Error('That amount is too large. Check the number.');
         const code = (v.code || '').trim().toUpperCase().replace(/\s+/g, '');
         if (code && !/^[A-Z0-9]{6,15}$/.test(code)) throw new Error('An M-Pesa code has 6 to 15 letters and numbers');
         if (code && S().payments.some(p => p.code === code)) throw new Error('That M-Pesa code is already recorded');
-        savePayments([{ memberId: m.id, month: d.mo, amount, code, date: todayISO(), name: m.name }]);
+        const month = v.kind === 'ahead' ? Domain.firstUncovered(S(), m.id, addMonths(d.mo, 1)) : d.mo;
+        savePayments([{ memberId: m.id, month, amount, code, date: todayISO(), name: m.name }]);
       } });
   } },
   payMenu: { admin: true, run(d) {
@@ -2912,6 +2956,7 @@ const actions = {
       <div class="kv"><span>Balance</span><b class="num">${esc(kes(c.balance))}</b></div>
       <div class="kv"><span>About each month</span><b class="num">${esc(kes(c.installment))}</b></div>
       <div class="kv"><span>Issued</span><b>${esc(l.date)}</b></div>
+      ${l.agreement ? `<div class="kv"><span>Terms agreed</span><b>${esc(new Date(l.agreement.at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }))}${sigImg(l.agreement.sig, 'Borrower signature on the terms')}</b></div>` : admin ? `<div class="notice">${icon('alert', 's')}<span>The borrower has not signed the terms yet. <button type="button" class="linkish" data-act="loanAgree" data-id="${esc(l.id)}">Read and sign now</button></span></div>` : ''}
       ${l.sig ? `<div class="kv"><span>Signature</span><b>${sigImg(l.sig, 'Borrower signature')}</b></div>` : ''}
       ${reps.length ? `<h3 style="font-size:.9em;margin:18px 0 4px">Repayments</h3>${reps.map(r => `<div class="kv"><span>${esc(r.date)}</span><b class="num">${esc(kes(r.amount))}</b></div>`).join('')}` : ''}
       ${admin ? `<div class="btns">${c.balance ? `<button type="button" class="btn pri grow" data-act="repay" data-id="${esc(l.id)}">Record repayment</button>` : ''}<button type="button" class="btn grow" data-act="signLoan" data-id="${esc(l.id)}">${icon('sign')}${l.sig ? 'Sign again' : 'Get signature'}</button><button type="button" class="btn grow" data-act="editLoan" data-id="${esc(l.id)}">${icon('pencil')}Edit</button></div>` : ''}` });
@@ -2936,13 +2981,37 @@ const actions = {
       { name: 'principal', label: 'Amount (KES)', type: 'number' },
       { name: 'rate', label: 'Interest (% per month, flat)', type: 'number', value: s.chama.loanRate },
       { name: 'months', label: 'Repay over (months)', type: 'number', value: 3 }],
-      body: `<p class="plain">Cash on hand: <b class="num">${esc(kes(Domain.cashOnHand(s)))}</b>. A loan cannot be more than that.</p><div id="loanAdvice" class="advice" aria-live="polite"></div>`,
+      body: `${__M_src_ui_modal_js.cashMeter(Domain.cashOnHand(s), 0)}<div id="loanAdvice" class="advice" aria-live="polite"></div>`,
       onSubmit: v => {
         const principal = num(v.principal, 'Amount'), rate = num(v.rate, 'Rate', { allowZero: true }), months = Math.round(num(v.months, 'Months'));
         if (rate > 100) throw new Error('Interest above 100% a month is not allowed');
         if (months < 1 || months > 120) throw new Error('Repay over 1 to 120 months');
         if (principal > Domain.cashOnHand(S())) throw new Error('Not enough cash on hand for this loan');
-        Store.commit(st => st.loans.push({ id: uid(), memberId: v.memberId, principal, rate, months, date: todayISO(), repayments: [] })); toast('Loan issued');
+        const id = uid();
+        Store.commit(st => st.loans.push({ id, memberId: v.memberId, principal, rate, months, date: todayISO(), repayments: [] })); toast('Loan issued. Now the borrower reads and signs the terms.', 'ok');
+        setTimeout(() => actions.loanAgree({ id }), 80);
+      } });
+  } },
+  /* the borrower reads what they must bring back and when, ticks that they understand, then signs. Kept with the loan. */
+  loanAgree: { admin: true, run(d) {
+    const s = S(), l = s.loans.find(x => x.id === d.id); if (!l) return;
+    const c = Domain.loan(l), who = Domain.memberName(s, l.memberId), start = new Date(l.date || Date.now());
+    const due = Array.from({ length: l.months }, (_, i) => { const x = new Date(start); x.setMonth(x.getMonth() + i + 1); return x; });
+    const fmt = x => x.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
+    const rows = due.slice(0, 12).map((x, i) => `<div class="kv"><span>Instalment ${i + 1} · by ${esc(fmt(x))}</span><b class="num">${esc(kes(i === due.length - 1 ? Math.round((c.total - c.installment * (due.length - 1)) * 100) / 100 : c.installment))}</b></div>`).join('') + (due.length > 12 ? `<p class="fhelp">and ${due.length - 12} more monthly instalments.</p>` : '');
+    Modal.open({ title: 'Loan terms for ' + who, submitLabel: 'I agree, sign now',
+      body: `<div class="loan-terms"><p class="plain">Please hand the phone to <b>${esc(who)}</b> to read.</p>
+<div class="lt-big"><div><span>Borrowed</span><b class="num">${esc(kes(l.principal))}</b></div><div><span>To pay back</span><b class="num">${esc(kes(c.total))}</b></div></div>
+<div class="kv"><span>Interest</span><b>${esc(String(l.rate))}% a month, flat, for ${esc(String(l.months))} ${l.months === 1 ? 'month' : 'months'}</b></div>${rows}
+<div class="kv"><span>Last day to finish</span><b>${esc(fmt(due[due.length - 1]))}</b></div>
+<p class="fhelp">Late instalments may be fined under the Chama rules. Your savings may be used to recover an unpaid loan if the group agreed to this.</p></div>`,
+      fields: [{ name: 'agree', label: 'I have read these terms. I understand how much I must pay back and by when, and I agree.', type: 'checkbox' }],
+      onSubmit: v => {
+        if (v.agree !== 'on') throw new Error('Tick the box to show you understand and agree');
+        setTimeout(() => Signature.open('Signature of ' + who, sig => {
+          Store.commit(st => { const x = st.loans.find(y => y.id === l.id); if (x) x.agreement = { at: new Date().toISOString(), sig, total: c.total, installment: c.installment, lastDue: due[due.length - 1].toISOString().slice(0, 10) }; });
+          __M_src_ui_toast_js.Pop.alert(who + ' agreed to pay back ' + kes(c.total) + ' by ' + fmt(due[due.length - 1]) + '. The signed terms are kept with the loan.', { title: 'Loan agreement signed', label: 'OK' });
+        }), 80);
       } });
   } },
   repay: { admin: true, run(d) {
@@ -3172,8 +3241,12 @@ const actions = {
   } },
   addFine: { admin: true, run() {
     const s = S(); if (!s.members.length) return toast('Add members first');
-    Modal.open({ title: 'Add fine', submitLabel: 'Add fine', fields: [
-      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s) },
+    /* members who still owe come first, so the usual case is one tap */
+    const cur = Domain.now(), owing = Domain.active(s).map(m => ({ m, bal: Domain.outstanding(s, m.id, cur) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal);
+    const rest = s.members.filter(m => !owing.some(x => x.m.id === m.id));
+    const opts = [...owing.map(x => [x.m.id, `${x.m.name} · ${kes(x.bal)} behind`]), ...rest.map(m => [m.id, m.name + (m.left ? ' · left' : ' · paid up')])];
+    Modal.open({ title: 'Add fine', submitLabel: 'Add fine', body: owing.length ? `<p class="fhelp">${owing.length} ${owing.length === 1 ? 'member owes' : 'members owe'} for ${esc(__M_src_core_utils_js.monthLabel(cur))}. They are listed first.</p>` : `<p class="fhelp">Everyone is paid up for ${esc(__M_src_core_utils_js.monthLabel(cur))}.</p>`, fields: [
+      { name: 'memberId', label: 'Member', type: 'select', options: opts, value: owing.length ? owing[0].m.id : (opts[0] || [])[0] },
       { name: 'amount', label: 'Amount (KES)', type: 'number', value: s.chama.finePerLate || '', placeholder: 'e.g. ' + kes(s.chama.finePerLate) },
       { name: 'reason', label: 'Reason', placeholder: 'e.g. Missed meeting', required: true }],
       onSubmit: v => { const reason = String(v.reason || '').trim(); if (!reason) throw new Error('Give a reason'); const amount = num(v.amount, 'Amount'); Store.commit(st => st.fines.push({ id: uid(), memberId: v.memberId, amount, reason, date: todayISO(), paid: false })); toast('Fine added'); } });
@@ -3205,11 +3278,11 @@ function expenseForm(e) {
     { name: 'title', label: 'What was it for?', value: e?.title, required: true, placeholder: 'e.g. Meeting venue' },
     { name: 'category', label: 'Type', type: 'select', value: e?.category || 'Meeting', options: ['Meeting', 'Welfare', 'Investment', 'Admin', 'Other'].map(x => [x, x]) },
     { name: 'amount', label: 'Amount (KES)', type: 'number', value: e?.amount }],
-    body: e ? `<div class="btns" style="margin-top:0"><button type="button" class="btn bad sm" data-act="delExpense" data-id="${esc(e.id)}">Remove this expense</button></div>` : '',
+    body: __M_src_ui_modal_js.cashMeter(Domain.cashOnHand(S()) + (e ? Number(e.amount) || 0 : 0), e ? e.amount : 0) + (e ? `<div class="btns" style="margin-top:0"><button type="button" class="btn bad sm" data-act="delExpense" data-id="${esc(e.id)}">Remove this expense</button></div>` : ''),
     onSubmit: v => {
       const d = { title: String(v.title || '').trim(), category: v.category, amount: num(v.amount, 'Amount') };
       if (!d.title) throw new Error('Say what the money was for');
-      if (!e && d.amount > Domain.cashOnHand(S())) throw new Error('That is more than the cash on hand');
+      if (d.amount > Domain.cashOnHand(S()) + (e ? Number(e.amount) || 0 : 0)) throw new Error('That is more than the cash on hand');
       Store.commit(s => e ? Object.assign(s.expenses.find(x => x.id === e.id), d) : s.expenses.push({ id: uid(), ...d, date: todayISO() }));
     } });
 }
