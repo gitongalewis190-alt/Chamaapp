@@ -154,5 +154,5 @@ for (const [k, v] of Object.entries(T)) {
   fs.writeFileSync(path.join(out, k + '.html'), v.html);
   subjects += `| ${NAMES[k]} | \`${v.subject}\` | \`${k}.html\` |\n`;
 }
-fs.writeFileSync(path.join(out, 'SUBJECTS.md'), subjects + '\nOptional: the app reads `#otp=…&e=…` links, so “Fill it in for me” signs the person in on the same phone.\n');
+// install steps: HOW_TO_INSTALL.md
 console.log('written', Object.keys(T).length, 'templates');
