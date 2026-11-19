@@ -97,6 +97,8 @@
     close_poll: () => ok(null),
     pin_chama_message: () => ok(null),
     retract_chama_message: () => ok(null),
+    member_register: () => ok([{ name: 'Wanjiku Kamau', email: 'wanjiku@example.com', phone: '0712345678', role: 'treasurer', member_id: 'm1', joined_at: '2026-06-01T00:00:00Z', photo: null }, { name: 'Otieno Odhiambo', email: 'otieno@example.com', phone: '0722000000', role: 'secretary', member_id: 'm2', joined_at: '2026-06-01T00:00:00Z', photo: null }]),
+    submit_feedback: () => ok({ ok: true }),
     verify_invitation: () => ok(M.invitation || { ok: false, code: 'invalid' }),
     accept_invitation: () => ok({ ok: true, chama_id: 'umoja' }),
     decline_invitation: () => ok({ ok: true }),

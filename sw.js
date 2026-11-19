@@ -1,7 +1,7 @@
 /* My Chama service worker. Change V on every release. */
-const V = 'mca-app-v71';
-const SHELL = ['./', './index.html', './manifest.json', './assets/app.css?v=0.14.0', './assets/boot.js?v=0.14.0', './assets/splash.js?v=0.14.0',
-  './assets/languages.js?v=0.14.0', './assets/app.js?v=0.14.0', './vendor/supabase-2.45.4.js', './icons/icon.svg', './icons/logo-192.png',
+const V = 'mca-app-v72';
+const SHELL = ['./', './index.html', './manifest.json', './assets/app.css?v=0.15.0', './assets/boot.js?v=0.15.0', './assets/splash.js?v=0.15.0',
+  './assets/languages.js?v=0.15.0', './assets/app.js?v=0.15.0', './vendor/supabase-2.45.4.js', './icons/icon.svg', './icons/logo-192.png',
   './legal/privacy.html', './legal/terms.html', './legal/legal.css', './assets/fonts/inter-var.woff2', './assets/fonts/jakarta-var.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL).catch(() => {})).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V).map(x => caches.delete(x)))).then(() => self.clients.claim())); });

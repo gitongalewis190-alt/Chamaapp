@@ -1,5 +1,5 @@
 /* =====================================================================
-   My Chama App 0.14.0
+   My Chama App 0.15.0
    Shared visual vocabulary: one monoline icon family (24px grid, 1.7px stroke),
    monoline illustrations for empty states and onboarding, and the app mark.
    ===================================================================== */
@@ -795,6 +795,20 @@ const Invite = {
 };
 Invite.init();
 
+/* "Fill it in for me" in the code email: <app>/#otp=<code>&e=<email>. Read once, removed from the address bar,
+   then the code screen fills itself and checks the code (the same check as typing it). */
+const OtpLink = {
+  take() {
+    try {
+      const m = /^#otp=(\d{4,10})&e=([^&]+)$/.exec(location.hash || '');
+      if (m) { sessionStorage.setItem('mca-otp-link', JSON.stringify({ code: m[1], email: decodeURIComponent(m[2]).trim().toLowerCase() })); history.replaceState(null, '', location.pathname + location.search); }
+      const v = JSON.parse(sessionStorage.getItem('mca-otp-link') || 'null');
+      return v && /^\d{4,10}$/.test(v.code) && /@/.test(v.email) ? v : null;
+    } catch (e) { return null; }
+  },
+  clear() { try { sessionStorage.removeItem('mca-otp-link'); } catch (e) {} }
+};
+
 /* One tab refreshes the session at a time (Web Locks). Without this, two open tabs could spend the same refresh token,
    and Supabase then ends the session everywhere: the app looked signed in while the server had signed it out.
    If a lock is not granted in time (seen on some iPhones), carry on without it rather than hang. */
@@ -883,8 +897,22 @@ const Session = {
       data = {};
       try { __M_src_features_auth_gate_js.Gate.notice = 'Your session ended on this device. Sign in again to continue.'; __M_src_features_auth_gate_js.Gate.mode = 'in'; } catch (e) {}
     }
-    if (data && data.session) { if (!this.user) await this.after(data.session.user); }
-    else { if (oauthMsg) { try { __M_src_features_auth_gate_js.Gate.notice = oauthMsg; } catch (e) {} } this.prepareGoogle(); if (!this.user) this.set('signed-out'); }
+    if (data && data.session) { OtpLink.clear(); try { if (/^#otp=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) {} if (!this.user) await this.after(data.session.user); }
+    else {
+      if (oauthMsg) { try { __M_src_features_auth_gate_js.Gate.notice = oauthMsg; } catch (e) {} }
+      this.prepareGoogle();
+      const link = OtpLink.take();
+      if (link && !this.user) {
+        OtpLink.clear();
+        const G = __M_src_features_auth_gate_js.Gate, O = __M_src_features_auth_gate_js.Otp;
+        G.email = link.email; G.sent = true; G.mode = 'in';
+        try { __M_src_features_auth_gate_js.OB.agree('continue:email-code-link'); } catch (e) {}
+        this.set('signed-out');
+        setTimeout(() => { const inp = document.getElementById('otpIn'); if (!inp) return; O.len = link.code.length; inp.value = link.code; inp.dispatchEvent(new Event('input', { bubbles: true })); }, 400);
+        return;
+      }
+      if (!this.user) this.set('signed-out');
+    }
   },
   /* A saved session can outlive the server's copy (signed out elsewhere, refresh token reused, account changed).
      The database still accepts its token until it expires, so the app looked signed in while the invitation service
@@ -967,6 +995,7 @@ const Session = {
     this.busy = false;
     this.set('ready');
     setTimeout(() => { try { __M_src_features_auth_gate_js.OB.ensureConsent(); } catch (e) {} }, 1200);
+    try { __M_src_features_smart_js.Lock.show(); } catch (e) {}
     try { __M_src_features_notifications_notify_js.Notify.watch(); } catch (e) {}
     try { __M_src_features_chat_index_js.Chat.watch(); } catch (e) {}
     if (Perm.can(m.role, 'members.invite')) { this.loadAccess().catch(() => {}); this.loadInvites().catch(() => {}); }
@@ -1392,7 +1421,7 @@ const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['chat', 'Chat'], [
 
 const SUB = ['fines', 'expenses', 'history', 'reports', 'loans'];
 
-const PAGES = ['settings', 'notifications', 'requests'];
+const PAGES = ['settings', 'notifications', 'requests', 'insights', 'register'];
 
 /* ---------- NAV: liquid tab bar, tap or drag ---------- */
 const NAV_ICON = { profile: ICONS.profile, home: ICONS.home, grid: ICONS.grid, loans: ICONS.loans, chat: ICONS.chat, members: ICONS.members, more: ICONS.more };
@@ -1401,7 +1430,7 @@ const NAV_LABEL = { home: 'Home', grid: 'Payments', chat: 'Chat', loans: 'Loans'
 
 const SETTINGS_NAME = { 'legal/privacy': 'Privacy Policy', 'legal/terms': 'Terms of Use', 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/app': 'Display', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/help': 'Help and support', 'settings/privacy': 'Privacy and data', 'settings/actions': 'People and access', 'settings/about': 'About' };
 
-const PAGE_NAME = { home: 'Home', grid: 'Contributions', chat: 'Chat', requests: 'Join requests', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings', notifications: 'Notifications', 'notifications/settings': 'Notification settings' };
+const PAGE_NAME = { home: 'Home', grid: 'Contributions', chat: 'Chat', requests: 'Join requests', insights: 'Insights', register: 'Member register', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings', notifications: 'Notifications', 'notifications/settings': 'Notification settings' };
 
 const BACK = { notifications: 'home', 'notifications/settings': 'notifications', fines: 'home', expenses: 'home', history: 'home', reports: 'home', profile: 'home', settings: 'home' };
 
@@ -2328,7 +2357,12 @@ const Modal = {
     const first = form.querySelector('input:not([type=checkbox]):not([type=file]),select,textarea'); if (first) setTimeout(() => { try { first.focus({ preventScroll: true }); } catch (e) {} }, 320);
     document.body.style.overflow = 'hidden';
   },
-  close: () => { $('#modalRoot').innerHTML = ''; if (!document.body.classList.contains('menu-open')) document.body.style.overflow = ''; }
+  close: () => {
+    const v = $('#modalRoot .veil'), calm = document.documentElement.classList.contains('a-rm') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!v || calm) $('#modalRoot').innerHTML = '';
+    else { v.classList.add('closing'); setTimeout(() => { if (v.isConnected) v.remove(); }, 240); }
+    if (!document.body.classList.contains('menu-open')) document.body.style.overflow = '';
+  }
 };
 
 function confirmBox(text, onYes) {
@@ -2383,7 +2417,7 @@ const views = {
     const Sess = __M_src_core_session_js.Session, admin = Auth.isAdmin();
     let lang = 'en'; try { lang = __M_src_features_auth_gate_js.OB.lang(); } catch (e) {}
     const today = new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long' });
-    const greet = `<div class="greet"><small>${esc(today)}</small><h1>${esc(greeting(lang))}${Sess.displayName() ? ', ' + esc(Sess.displayName()) : ''}</h1></div>`;
+    const greet = `<div class="greet"><div><small>${esc(today)}</small><h1>${esc(greeting(lang))}${Sess.displayName() ? ', ' + esc(Sess.displayName()) : ''}</h1></div><div class="greet-act"><button type="button" class="hb" data-act="palette" aria-label="Search">${icon('search')}</button><button type="button" class="hb" data-act="moneyToggle" aria-label="${document.documentElement.classList.contains('hide-money') ? 'Show amounts' : 'Hide amounts'}">${icon('eye')}</button></div></div>`;
     if (!s.members.length) {
       return greet + `<div class="card">${s.shared
         ? emptyState('people', 'Nothing to show yet', 'Your treasurer has not added the member list yet. Your records will appear here once they do.')
@@ -2472,7 +2506,8 @@ const views = {
       <button type="button" data-act="chatForm" data-k="announcement" data-th="group"><span class="qa-i">${icon('bell')}</span>Announce</button>
     </div>` : '';
     const reqs = Sess.role !== 'member' ? __M_src_features_requests_js.Requests.listHtml(true) : '';
-    return `${greet}${reqs}${hero}${qa}${sec}${group}${stats}${month}${recentHtml}`;
+    const smart = __M_src_features_smart_js.homeBlocks(s);
+    return `${greet}${reqs}${hero}${qa}${sec}${smart}${group}${stats}${month}${recentHtml}`;
   }
 };
 
@@ -2813,7 +2848,7 @@ const actions = {
       { name: 'principal', label: 'Amount (KES)', type: 'number' },
       { name: 'rate', label: 'Interest (% per month, flat)', type: 'number', value: s.chama.loanRate },
       { name: 'months', label: 'Repay over (months)', type: 'number', value: 3 }],
-      body: `<p class="plain">Cash on hand: <b class="num">${esc(kes(Domain.cashOnHand(s)))}</b>. A loan cannot be more than that.</p>`,
+      body: `<p class="plain">Cash on hand: <b class="num">${esc(kes(Domain.cashOnHand(s)))}</b>. A loan cannot be more than that.</p><div id="loanAdvice" class="advice" aria-live="polite"></div>`,
       onSubmit: v => {
         const principal = num(v.principal, 'Amount'), rate = num(v.rate, 'Rate', { allowZero: true }), months = Math.round(num(v.months, 'Months'));
         if (rate > 100) throw new Error('Interest above 100% a month is not allowed');
@@ -2922,9 +2957,10 @@ const views = {
       const rel = s.shared ? null : Domain.reliability(s, m.id);
       const mine = meId && m.id === meId;
       const sub = s.shared
-        ? (mine ? 'You · saved ' + kes(Domain.memberSaved(s, m.id)) : 'Turn ' + (i + 1))
+        ? (mine ? 'You · saved ' + kes(Domain.memberSaved(s, m.id)) : s.chama.mode === 'savings' ? 'Member' : 'Turn ' + (i + 1))
         : `Saved ${kes(Domain.memberSaved(s, m.id))}${Domain.memberLoanBalance(s, m.id) ? ' · loan ' + kes(Domain.memberLoanBalance(s, m.id)) : ''}${rel != null ? ' · ' + rel + '% on time' : ''}`;
-      const tags = `${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}${m.role && !s.shared ? ` <span class="tag brand">${esc(m.role)}</span>` : ''}`;
+      const stk = s.shared ? 0 : __M_src_features_smart_js.Smart.streak(s, m.id);
+      const tags = `${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}${m.role && !s.shared ? ` <span class="tag brand">${esc(m.role)}</span>` : ''}${stk >= 3 ? ` <span class="streak sm" title="${stk} months paid on time in a row">${stk}</span>` : ''}`;
       const inner = `${av(m, 42)}<span class="li-main"><b>${esc(m.name)}${tags}</b><small class="num">${esc(sub)}</small></span>`;
       return (admin || mine) ? `<button type="button" class="li has-av" data-act="memberMenu" data-id="${esc(m.id)}">${inner}<span class="li-end">${icon('chev', 'chev')}</span></button>` : `<div class="li has-av">${inner}</div>`;
     }).join('');
@@ -2955,6 +2991,9 @@ const actions = {
       ${rel != null ? `<div class="kv"><span>On time (last 6 months)</span><b>${rel}%</b></div>` : ''}
       ${s.chama.mode === 'savings' ? '' : `<div class="kv"><span>Payout turn</span><b>${i + 1} of ${s.members.length}</b></div>`}
       ${m.joined ? `<div class="kv"><span>Joined</span><b>${esc(monthLabel(m.joined))}</b></div>` : ''}
+      ${(() => { const SM = __M_src_features_smart_js.Smart; if (s.shared && !(s.shared.me === m.id)) return ''; const st = SM.streak(s, m.id), h = SM.heat(s, m.id), C = __M_src_features_chat_index_js.Chat, c = (C.contacts || []).find(x => x.member_id === m.id), uidm = c ? c.user_id : (m.id === __M_src_core_session_js.Session.memberId && __M_src_core_session_js.Session.user ? __M_src_core_session_js.Session.user.id : null), at = uidm ? SM.attendance(uidm) : null;
+        return `<div class="heat" aria-label="Last 12 months">${h.map(x => `<i class="h-${x.st}" title="${esc(monthLabel(x.mk))}: ${x.st}"></i>`).join('')}</div><p class="heat-key"><span><i class="h-paid"></i>Paid</span><span><i class="h-partial"></i>Part</span><span><i class="h-late"></i>Late</span><span>${st} month streak</span></p>
+        ${at ? `<div class="kv"><span>Meetings attended</span><b>${at.rate}% of ${at.n}</b></div>` : ''}${admin ? `<div class="kv"><span>Suggested loan limit</span><b class="num">${esc(kes(SM.loanLimit(s, m.id)))}</b></div>` : ''}`; })()}
       ${admin ? `<div class="kv"><span>Phone</span><b>${phone ? `<a href="tel:${esc(String(m.phone).replace(/[^\d+]/g, ''))}">${esc(phone)}</a>` : 'Not added'}</b></div>` : ''}
       <div class="btns">
         <button type="button" class="btn grow" data-act="statement" data-id="${esc(m.id)}">${icon('doc')}Statement</button>
@@ -3191,7 +3230,7 @@ const views = {
       ${msg ? `<span class="tag ${msg[0]}">${esc(msg[1])}</span>` : ''}
     </section>
     ${money}
-    ${m ? `<section class="sec"><div class="sec-h"><h2>My recent payments</h2>${recent.length ? `<button type="button" data-act="statement" data-id="${esc(m.id)}">Statement</button>` : ''}</div><div class="list">${recent.length ? recent.map(p => `<div class="li has-ic"><span class="li-ic t-ok">${icon('check')}</span><div class="li-main"><b>${esc(monthLabel(p.month))}</b><small>${esc(p.date || '')}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`).join('') : '<div class="li empty">No payments recorded yet</div>'}</div></section>` : ''}
+    ${m ? `<section class="sec"><div class="sec-h"><h2>My recent payments</h2>${recent.length ? `<button type="button" data-act="statement" data-id="${esc(m.id)}">Statement</button>` : ''}</div><div class="list">${recent.length ? recent.map(p => `<div class="li has-ic"><span class="li-ic t-ok">${icon('check')}</span><div class="li-main"><b>${esc(monthLabel(p.month))}</b><small>${esc(p.date || '')}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span><button type="button" class="hb sm" data-act="shareReceipt" data-id="${esc(p.id)}" aria-label="Share a receipt">${icon('share', 's')}</button></div></div>`).join('') : '<div class="li empty">No payments recorded yet</div>'}</div></section>` : ''}
     <section class="sec"><div class="sec-h"><h2>My details</h2></div><div class="list">
       ${row('name', 'profile', 'Full name', name)}
       ${row('user', 'tag', 'Username', /^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || ''), 't-ink')}
@@ -3317,13 +3356,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.14.0', released: '2026-11-19',
+  name: 'My Chama App', version: '0.15.0', released: '2026-11-19',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.15.0', 'The app now notices things for you. Treasurers get "Needs you today", a cash forecast, members to watch, suggested loan limits and a check for unusual payments. Everyone gets streaks, a payout countdown, a savings projection and a group goal. Search everything with /, hide amounts in public, lock the app with a PIN, add due dates and meetings to your calendar, share receipts and send feedback. Secretaries get a member register. Code emails can fill themselves in.'],
     ['0.14.0', 'Chat for your Chama: group and private messages, announcements, meetings with replies and an attendance register, minutes, votes, payment requests and statements. Joining with a code now asks the treasurer to approve you, and the Chama is shown before you join. Invites, People and access, your profile and Chama settings were rebuilt so each change is one tap away. Sounds are off unless you turn them on.'],
     ['0.13.0', 'A full redesign. A calmer Home with the one number that matters most to you, quick actions for the treasurer, and a simpler month view. Tap any payment, loan, fine or member to see details and act on it. A new code screen, a new opening mark, and simple line drawings throughout. Dark mode follows your phone. Clear Terms of Use and Privacy Policy pages, which everyone is asked to accept once. Fixes: recording a payment, saving your consent, the language search, and Enter to sign in.'],
     ['0.12.7-dev.1', 'Home, Contributions, Members and Profile use the approved layout: raised cards, money tiles, and a sliding month pill. Reset all data is no longer on Home.'],
@@ -3600,8 +3640,10 @@ const views = {
     if (r === 'settings') return `<h1 class="lt">Settings</h1><p class="lt-sub">${esc(Session.email || '')}</p>`
       + grp('You', [li('profile', 'profile', '', 'My profile', 'Name, photo, phone and password'), `<button type="button" class="li has-ic" data-act="openLang"><span class="li-ic t-info">${icon('globe')}</span><span class="li-main"><b>Language</b></span>${icon('chev', 'chev')}</button>`, li('notifications/settings', 'bell', 't-gold', 'Notifications', 'What you hear about')])
       + grp('Chama', [li('settings/chama', 'gear', 't-ink', 'Chama settings', admin ? 'Name, contribution, due day, fines, loans' : 'See the rules your chama uses'), li('settings/actions', 'members', '', admin ? 'People and access' : 'My access', admin ? 'Invite people, codes, roles and hand-over' : 'Your role and leaving'), li('reports', 'download', 't-info', 'Reports and backup', ''), act('wsSwitch', 'swap', 't-gold', 'Switch or add a Chama', '')])
-      + grp('Display', [li('settings/app', 'text', 't-ink', 'Display and accessibility', 'Dark mode, text size, contrast, motion')])
-      + grp('Support and legal', [li('settings/help', 'help', 't-info', 'Help', 'Guides and troubleshooting'), li('settings/privacy', 'shield', '', 'Privacy and my data', 'Download or delete your data'), li('legal/terms', 'scale', 't-ink', 'Terms of Use', ''), li('legal/privacy', 'doc', 't-ink', 'Privacy Policy', ''), li('settings/about', 'info', 't-ink', 'About', 'Version ' + APP.version)])
+      + grp('Display', [li('settings/app', 'text', 't-ink', 'Display and accessibility', 'Dark mode, text size, contrast, motion, sounds')])
+      + grp('Security and tools', [act('lockSetup', 'lock', 't-ink', 'App lock', (() => { try { return localStorage.getItem('mca-lock') ? 'On · asks for your PIN' : 'Off · ask for a PIN on this phone'; } catch (e) { return ''; } })()), act('moneyToggle', 'eye', 't-info', 'Hide amounts', document.documentElement.classList.contains('hide-money') ? 'On · tap a number to peek' : 'Off · for using the app in public'), act('icsExport', 'clock', 't-gold', 'Add dates to my calendar', 'Due dates and meetings, with reminders'), act('palette', 'search', 't-ink', 'Search', 'People, payments and pages · press / on a keyboard'),
+        ...(admin ? [li('insights', 'chart', '', 'Insights', 'Forecast, members to watch, loan limits')] : []), ...(Session.role && Session.role !== 'member' ? [li('register', 'doc', 't-info', 'Member register', 'Contacts for officers, with export')] : [])])
+      + grp('Support and legal', [li('settings/help', 'help', 't-info', 'Help', 'Guides and troubleshooting'), act('feedback', 'chat', '', 'Send feedback', 'Rate the app, report a problem, suggest an idea'), li('settings/privacy', 'shield', '', 'Privacy and my data', 'Download or delete your data'), li('legal/terms', 'scale', 't-ink', 'Terms of Use', ''), li('legal/privacy', 'doc', 't-ink', 'Privacy Policy', ''), li('settings/about', 'info', 't-ink', 'About', 'Version ' + APP.version)])
       + `<section class="sec"><div class="list">${act('signOutAsk', 'out', 't-bad', 'Sign out', '', 'danger')}</div></section>`;
     if (r.startsWith('settings/app')) {
       const sub = r.slice('settings/app'.length).replace(/^\//, '');
@@ -3885,11 +3927,12 @@ const Notify = {
   },
   viewer() { const me = Me.get(), admin = Auth.isAdmin(); return { admin, memberId: me.memberId || null, key: (admin ? 'treasurer' : 'member') + ':' + (me.memberId || 'none') }; },
   prefs() {
-    let p = {}; try { p = JSON.parse(localStorage.getItem('chama:notif:prefs:' + Store.chamaId) || '{}') || {}; } catch {}
+    let p = {}; try { p = JSON.parse(localStorage.getItem(this.prefKey()) || '{}') || {}; } catch {}
     return { cat: { financial: true, group: true, messages: true, system: true, ...(p.cat || {}) }, preview: p.preview !== false };
   },
-  savePrefs(p) { try { localStorage.setItem('chama:notif:prefs:' + Store.chamaId, JSON.stringify(p)); } catch { toast('Storage full'); } },
-  readKey() { return 'chama:notif:read:' + Store.chamaId + ':' + this.viewer().key; },
+  prefKey() { const u = __M_src_core_session_js.Session.user; return 'chama:notif:prefs:' + Store.chamaId + ':' + (u ? u.id : 'anon'); },
+  savePrefs(p) { try { localStorage.setItem(this.prefKey(), JSON.stringify(p)); } catch { toast('Storage full'); } },
+  readKey() { const u = __M_src_core_session_js.Session.user; return 'chama:notif:read:' + Store.chamaId + ':' + (u ? u.id : '') + ':' + this.viewer().key; },
   readSet() { try { return new Set(JSON.parse(localStorage.getItem(this.readKey()) || '[]')); } catch { return new Set(); } },
   writeSet(set) { try { localStorage.setItem(this.readKey(), JSON.stringify([...set].slice(-800))); } catch { toast('Storage full'); } },
   markRead(ids) {
@@ -4376,7 +4419,7 @@ ${this.locked ? '' : `<button type="button" class="sx-x" data-act="sheetClose" a
     const f = document.querySelector('#modalRoot .sx [autofocus]'); if (f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) {} }, 300);
   },
   isOpen(key) { return !!document.querySelector('#modalRoot .sx') && (!key || this.key === key); },
-  update(html) { const b = document.querySelector('#modalRoot .sx-body'); if (b) b.innerHTML = html; },
+  update(html, back) { const b = document.querySelector('#modalRoot .sx-body'); if (!b) return; const same = b.firstElementChild && b.firstElementChild.className === (b.dataset.k || ''); b.innerHTML = html; if (this._step !== html.slice(0, 120)) { b.classList.remove('sx-in', 'sx-in-back'); void b.offsetWidth; b.classList.add(back ? 'sx-in-back' : 'sx-in'); } this._step = html.slice(0, 120); void same; },
   close() { this.locked = false; this.key = ''; Modal.close(); }
 };
 const ROLE = {
@@ -4798,7 +4841,7 @@ ${canWrite ? `<form class="composer" id="chatForm" data-th="${esc(th)}" autocomp
 ${agenda.length ? `<ol class="mt-ag">${agenda.map(a => `<li>${esc(a)}</li>`).join('')}</ol>` : ''}${m.body ? `<p>${linkify(m.body)}</p>` : ''}
 ${past ? '' : `<div class="rsvp">${[['yes', 'Coming'], ['maybe', 'Maybe'], ['no', 'Not coming']].map(([k, t]) => `<button type="button" class="${my === k ? 'on' : ''}" data-act="msgRespond" data-id="${esc(m.id)}" data-v="${k}">${t}<span class="num">${cnt(k)}</span></button>`).join('')}</div>`}
 ${att ? `<p class="mt-reg">${icon('check', 's')}Register: ${present} present · kept by ${esc(meta.register_by || '')}</p>` : ''}
-${officer ? `<button type="button" class="btn sm tint" data-act="meetRegister" data-id="${esc(m.id)}">${icon('members', 's')}${att ? 'Update register' : 'Take attendance'}</button>` : ''}${by}</article>`;
+<div class="cc-btns">${past ? '' : `<button type="button" class="btn sm" data-act="icsExport">${icon('clock', 's')}Add to calendar</button>`}${officer ? `<button type="button" class="btn sm tint" data-act="meetRegister" data-id="${esc(m.id)}">${icon('members', 's')}${att ? 'Update register' : 'Take attendance'}</button>` : ''}</div>${by}</article>`;
     }
     if (m.kind === 'minutes') {
       const res = String(meta.resolutions || '').split('\n').map(x => x.trim()).filter(Boolean);
@@ -4981,6 +5024,461 @@ document.addEventListener('keydown', e => {
 });
 
 
+/* ---- src/features/smart/index.js ----
+   The app noticing things for people. Pure reads of the Chama document unless stated.
+   Algorithms: risk radar, cash forecast, loan limits, anomaly checks, streaks, projections, attendance.
+   Tools: search (/ or Ctrl+K), keyboard shortcuts, privacy mode, app lock, calendar export, bulk reminders,
+   receipts, member register, feedback, setup checklist, savings goal, pull to refresh. */
+const __M_src_features_smart_js = (function () {
+const { Backend } = __M_src_core_backend_js;
+const { render } = __M_src_core_rerender_js;
+const { Session, Perm } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { Domain } = __M_src_core_domain_js;
+const { Auth } = __M_src_core_auth_js;
+const { esc, kes, monthLabel, addMonths, sum, waLink, uid } = __M_src_core_utils_js;
+const { Reports } = __M_src_lib_reports_js;
+const { av } = __M_src_ui_avatar_js;
+const { toast, Pop } = __M_src_ui_toast_js;
+const R = () => __M_src_features_requests_js, C = () => __M_src_features_chat_index_js.Chat;
+const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+const longMonth = mk => { const [y, m] = mk.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' }); };
+
+/* ================= algorithms ================= */
+const Smart = {
+  /* consecutive months, newest first, in which the member was fully paid up */
+  streak(s, mid) {
+    let mk = Domain.now(); if (Domain.status(s, mid, mk) !== 'paid') mk = addMonths(mk, -1);
+    let n = 0;
+    while (mk >= Domain.joinMonth(s, mid) && n < 60 && Domain.paidThrough(s, mid, mk) >= Domain.dueThrough(s, mid, mk) && Domain.paidIn(s, mid, mk) > 0) { n++; mk = addMonths(mk, -1); }
+    return n;
+  },
+  /* 0..1: how likely this member is to fall behind. Late history, the recent trend, debt against savings, unpaid fines. */
+  risk(s, mid) {
+    const cur = Domain.now(); let late = 0, n = 0, recent = 0;
+    for (let i = 5; i >= 0; i--) {
+      const mk = addMonths(cur, -i); if (!Domain.isOverdue(s, mk) || mk < Domain.joinMonth(s, mid)) continue;
+      n++; const bad = Domain.paidIn(s, mid, mk) < Domain.dueFor(s, mid) && Domain.paidThrough(s, mid, mk) < Domain.dueThrough(s, mid, mk);
+      if (bad) { late++; if (i <= 1) recent++; }
+    }
+    const saved = Domain.memberSaved(s, mid), loan = Domain.memberLoanBalance(s, mid), fines = Domain.memberFinesDue(s, mid);
+    const score = (n ? 0.45 * late / n : 0) + 0.25 * Math.min(1, recent / 2) + 0.2 * Math.min(1, loan / (saved + 1)) + (fines > 0 ? 0.1 : 0);
+    const why = [n && late ? late + ' of ' + n + ' months late' : '', recent ? 'late recently' : '', loan > saved ? 'loan above savings' : '', fines ? kes(fines) + ' unpaid fines' : ''].filter(Boolean);
+    return { score: Math.round(score * 100) / 100, level: score >= 0.5 ? 'high' : score >= 0.25 ? 'watch' : 'low', why };
+  },
+  /* the share of what was expected that actually came in, over the last three closed months */
+  collectionRate(s) {
+    const cur = Domain.now(); let exp = 0, got = 0;
+    for (let i = 1; i <= 3; i++) { const mk = addMonths(cur, -i); s.members.forEach(m => { if (mk >= Domain.joinMonth(s, m.id)) { exp += Domain.dueFor(s, m.id); got += Math.min(Domain.paidIn(s, m.id, mk), Domain.dueFor(s, m.id)); } }); }
+    return exp ? Math.min(1, got / exp) : 1;
+  },
+  /* cash on hand for the next three months: expected contributions at the usual rate, loan instalments due,
+     minus the pot (merry-go-round) and the usual spending */
+  forecast(s) {
+    const rate = this.collectionRate(s), monthly = sum(s.members, m => Domain.dueFor(s, m.id));
+    const cur = Domain.now();
+    const spend = sum(s.expenses.filter(e => String(e.date || '').slice(0, 7) >= addMonths(cur, -3)), e => e.amount) / 3;
+    const loans = s.loans.map(l => ({ l, d: Domain.loan(l) })).filter(x => x.d.balance > 0);
+    let cash = Domain.cashOnHand(s); const out = [];
+    for (let i = 1; i <= 3; i++) {
+      const inflow = monthly * rate, repay = sum(loans, x => Math.min(x.d.installment, Math.max(0, x.d.balance - x.d.installment * (i - 1))));
+      const pot = s.chama.mode === 'savings' ? 0 : monthly * rate;
+      cash = cash + inflow + repay - pot - spend;
+      out.push({ mk: addMonths(cur, i), cash: Math.round(cash), inflow: Math.round(inflow + repay), outflow: Math.round(pot + spend) });
+    }
+    return { rate, out };
+  },
+  /* a suggested ceiling for a new loan: three times savings, scaled by reliability, minus what they owe, never more than half the cash */
+  loanLimit(s, mid) {
+    const rel = Domain.reliability(s, mid), saved = Domain.memberSaved(s, mid);
+    const base = saved * 3 * (rel == null ? 0.6 : Math.max(0.2, rel / 100)) - Domain.memberLoanBalance(s, mid);
+    return Math.max(0, Math.round(Math.min(base, Domain.cashOnHand(s) * 0.5) / 100) * 100);
+  },
+  /* payments that look out of pattern: far above or below the member's usual, the same payment twice, or a far-future month */
+  anomalies(s) {
+    const out = [], cur = Domain.now(), cutoff = addMonths(cur, -2);
+    s.members.forEach(m => {
+      const ps = s.payments.filter(p => p.memberId === m.id), amts = ps.map(p => p.amount).sort((a, b) => a - b), med = amts.length ? amts[Math.floor(amts.length / 2)] : 0;
+      ps.filter(p => p.month >= cutoff).forEach(p => {
+        if (med && amts.length >= 3 && (p.amount > med * 3 || p.amount < med * 0.3)) out.push({ p, m, why: `${kes(p.amount)} is unusual for ${m.name.split(' ')[0]} (usually ${kes(med)})` });
+        if (p.month > addMonths(cur, 2)) out.push({ p, m, why: `Recorded for ${monthLabel(p.month)}, more than two months ahead` });
+      });
+      const seen = {};
+      ps.forEach(p => { const k = p.date + '|' + p.amount + '|' + p.month; if (seen[k] && !p.code) out.push({ p, m, why: `Same amount, month and date as another payment by ${m.name.split(' ')[0]}` }); seen[k] = 1; });
+    });
+    return out.slice(0, 8);
+  },
+  overdueLoans(s) {
+    const today = new Date();
+    return s.loans.map(l => ({ l, d: Domain.loan(l) })).filter(x => x.d.balance > 0 && x.l.date).map(x => {
+      const due = new Date(x.l.date); due.setMonth(due.getMonth() + Number(x.l.months || 1));
+      return { ...x, due, overdue: due < today, soon: due >= today && (due - today) < 14 * 864e5 };
+    }).filter(x => x.overdue || x.soon);
+  },
+  heat(s, mid) {
+    const cur = Domain.now(); const cells = [];
+    for (let i = 11; i >= 0; i--) { const mk = addMonths(cur, -i); cells.push({ mk, st: Domain.status(s, mid, mk) }); }
+    return cells;
+  },
+  /* meetings with a register: how often this person was there */
+  attendance(userId) {
+    const meets = (C().msgs || []).filter(m => m.kind === 'meeting' && m.meta && m.meta.attendance);
+    const seen = meets.filter(m => userId in m.meta.attendance), present = seen.filter(m => m.meta.attendance[userId] === 'present').length;
+    return seen.length ? { rate: Math.round(present / seen.length * 100), n: seen.length } : null;
+  },
+  nextTurn(s, mid) {
+    if (s.chama.mode === 'savings' || !mid) return null;
+    const cur = Domain.now();
+    for (let i = 0; i < 48; i++) { const mk = addMonths(cur, i), r = Domain.recipient(s, mk); if (r && r.id === mid && !s.payouts.some(p => p.month === mk && p.memberId === mid && i === 0)) return { mk, months: i }; }
+    return null;
+  },
+  projection(s, mid) {
+    const cur = Domain.now(); let paid = 0, n = 0;
+    for (let i = 1; i <= 6; i++) { const mk = addMonths(cur, -i); if (mk < Domain.joinMonth(s, mid)) continue; n++; paid += Domain.paidIn(s, mid, mk); }
+    const avg = n ? paid / n : Domain.dueFor(s, mid), left = 12 - new Date().getMonth();
+    return { avg: Math.round(avg), byDec: Math.round(Domain.memberSaved(s, mid) + avg * (left - (Domain.status(s, mid, cur) === 'paid' ? 1 : 0))) };
+  },
+  recap(s) {
+    const d = new Date(); if (d.getDate() > 7 || s.shared) return null;
+    const mk = addMonths(Domain.now(), -1), prev = addMonths(mk, -1);
+    const col = k => sum(s.payments.filter(p => p.month === k), p => p.amount), exp = sum(s.members, m => mk >= Domain.joinMonth(s, m.id) ? Domain.dueFor(s, m.id) : 0);
+    const onTime = s.members.filter(m => mk >= Domain.joinMonth(s, m.id) && Domain.paidThrough(s, m.id, mk) >= Domain.dueThrough(s, m.id, mk)).length, total = s.members.filter(m => mk >= Domain.joinMonth(s, m.id)).length;
+    const top = s.members.map(m => ({ m, n: this.streak(s, m.id) })).sort((a, b) => b.n - a.n)[0];
+    return { mk, got: col(mk), exp, change: col(prev) ? Math.round((col(mk) - col(prev)) / col(prev) * 100) : null, onTime, total, top };
+  }
+};
+
+/* ================= what needs you today ================= */
+const tasks = s => {
+  const out = [], role = Session.role, cur = Domain.now();
+  if (role === 'treasurer' && !s.shared) {
+    const rq = (Session.requests || []).length; if (rq) out.push(['key', 't-warn', rq + (rq === 1 ? ' person wants' : ' people want') + ' to join', 'Approve or decline', 'rqOpen', '']);
+    const late = Domain.lateMembers(s); if (late.length) out.push(['chat', 't-bad', late.length + ' behind for ' + monthLabel(cur), 'Remind them in one go', 'remindAll', '']);
+    const finedNow = new Set(s.fines.filter(f => String(f.date || '').slice(0, 7) === cur && /late/i.test(f.reason || '')).map(f => f.memberId));
+    const unfined = late.filter(m => !finedNow.has(m.id)); if (unfined.length && Number(s.chama.finePerLate) > 0) out.push(['receipt', 't-gold', unfined.length + ' late, no fine yet', kes(s.chama.finePerLate) + ' each, by your rules', 'autoFines', '']);
+    const rec = Domain.recipient(s); if (s.chama.mode !== 'savings' && rec && !s.payouts.some(p => p.month === cur) && new Date().getDate() >= Number(s.chama.dueDay)) out.push(['coins', '', 'Send the pot to ' + rec.name.split(' ')[0], 'This month’s payout is not marked', 'go', '#/home']);
+    const unsigned = s.payouts.filter(p => !p.sig).length; if (unsigned) out.push(['sign', 't-info', unsigned + ' payout' + (unsigned === 1 ? '' : 's') + ' not signed for', 'Ask for a signature', 'go', '#/history']);
+    Smart.overdueLoans(s).slice(0, 2).forEach(x => out.push(['loans', x.overdue ? 't-bad' : 't-warn', Domain.memberName(s, x.l.memberId) + (x.overdue ? '’s loan is overdue' : '’s loan is due soon'), kes(x.d.balance) + ' left · due ' + x.due.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }), 'go', '#/loans']));
+    const unl = (Session.access || []).filter(a => a.status === 'active' && !a.member_id && a.role !== 'treasurer').length; if (unl) out.push(['members', 't-warn', unl + ' not on the member list', 'Their money cannot show', 'go', '#/settings/actions']);
+  }
+  if (role === 'secretary') {
+    const rq = (Session.requests || []).length; if (rq) out.push(['key', 't-warn', rq + ' waiting to join', 'Approve or decline', 'rqOpen', '']);
+    const held = (C().msgs || []).filter(m => m.kind === 'meeting' && m.meta && Date.parse(m.meta.when) < Date.now() && !m.deleted_at);
+    const last = held[held.length - 1];
+    if (last && !last.meta.attendance) out.push(['members', 't-info', 'Take the register', (last.meta.title || 'Meeting') + ' was held', 'meetRegister', last.id]);
+    if (last && !(C().msgs || []).some(m => m.kind === 'minutes' && Date.parse(m.created_at) > Date.parse(last.meta.when))) out.push(['doc', 't-gold', 'Share the minutes', 'For ' + (last.meta.title || 'the last meeting'), 'chatForm', 'minutes']);
+  }
+  const me = Session.user && Session.user.id;
+  (C().msgs || []).filter(m => !m.deleted_at && m.sender !== me).forEach(m => {
+    const mine = C().mine(m.id);
+    if (m.kind === 'payment_request' && (!m.recipient || m.recipient === me) && !mine) out.push(['wallet', 't-warn', 'Payment request: ' + kes(m.meta.amount), m.meta.reason || 'From the treasurer', 'go', '#/chat/' + (m.recipient ? m.sender : 'group')]);
+    if (m.kind === 'meeting' && !mine && Date.parse(m.meta.when) > Date.now()) out.push(['clock', 't-info', 'Are you coming?', (m.meta.title || 'Meeting') + ' · ' + new Date(m.meta.when).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' }), 'go', '#/chat/group']);
+    if (m.kind === 'poll' && !mine && !(m.meta && m.meta.closed)) out.push(['chart', '', 'Vote: ' + String(m.body).slice(0, 50), 'Your voice counts', 'go', '#/chat/group']);
+  });
+  return out.slice(0, 6);
+};
+const taskHtml = s => {
+  const t = tasks(s); if (!t.length) return '';
+  return `<section class="sec"><div class="sec-h"><h2>Needs you today</h2><span class="cnt-b">${t.length}</span></div><div class="list">${t.map(([ic, tone, title, sub, act, arg]) =>
+    act === 'go' ? `<a class="li has-ic" href="${esc(arg)}"><span class="li-ic ${tone}">${icon(ic)}</span><span class="li-main"><b>${esc(title)}</b><small>${esc(sub)}</small></span>${icon('chev', 'chev')}</a>`
+      : `<button type="button" class="li has-ic" data-act="${act}" ${act === 'meetRegister' ? `data-id="${esc(arg)}"` : act === 'chatForm' ? `data-k="${esc(arg)}" data-th="group"` : ''}><span class="li-ic ${tone}">${icon(ic)}</span><span class="li-main"><b>${esc(title)}</b><small>${esc(sub)}</small></span>${icon('chev', 'chev')}</button>`).join('')}</div></section>`;
+};
+
+/* ================= home blocks ================= */
+const homeBlocks = s => {
+  let out = '';
+  const rc = Smart.recap(s);
+  if (rc && rc.exp) out += `<section class="recap"><div class="rc-top"><small>${esc(longMonth(rc.mk))} in review</small><button type="button" class="linkish" data-act="recapHide" data-v="${esc(rc.mk)}" aria-label="Hide">${icon('close', 's')}</button></div>
+<div class="rc-grid"><div><b class="num">${esc(kes(rc.got))}</b><span>collected of ${esc(kes(rc.exp))}</span></div><div><b class="num">${rc.onTime}/${rc.total}</b><span>paid on time</span></div><div><b class="num">${rc.change == null ? '—' : (rc.change >= 0 ? '+' : '') + rc.change + '%'}</b><span>vs the month before</span></div></div>
+${rc.top && rc.top.n >= 3 ? `<p class="rc-star">${icon('sparkle', 's')}${esc(rc.top.m.name)} is on a ${rc.top.n}-month streak</p>` : ''}</section>`;
+  if (ls.get('mca-recap-hide', '') === (rc && rc.mk)) out = '';
+  out += taskHtml(s);
+  if (Session.role === 'treasurer' && !s.shared && !ls.get('mca-setup-done:' + Store.chamaId, false)) {
+    const ws = (Session.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
+    const steps = [['Add your members', s.members.length >= 2, 'addMember', ''], ['Set where members pay', !!s.chama.payTo, 'chamaEdit', 'payTo'], ['Invite people to the app', (Session.access || []).filter(a => a.status === 'active').length > 1, 'inviteSheet', 'code'], ['Record the first payment', s.payments.length > 0, 'go', '#/grid'], ['Call your first meeting', (C().msgs || []).some(m => m.kind === 'meeting'), 'chatForm', 'meeting'], ['Give the Chama a tag', !!ws.display_tag, 'tagEdit', '']];
+    const done = steps.filter(x => x[1]).length;
+    if (done < steps.length) out += `<section class="setup"><div class="su-top"><div><b>Set up ${esc(s.chama.name)}</b><small>${done} of ${steps.length} done</small></div><div class="ring" style="--p:${Math.round(done / steps.length * 100)}"><span class="num">${Math.round(done / steps.length * 100)}%</span></div></div>
+<div class="su-list">${steps.map(([t, ok, act, arg]) => ok ? `<div class="su-i ok">${icon('check', 's')}<span>${esc(t)}</span></div>` : act === 'go' ? `<a class="su-i" href="${esc(arg)}"><i></i><span>${esc(t)}</span>${icon('chev', 's')}</a>` : `<button type="button" class="su-i" data-act="${act}" ${act === 'chamaEdit' ? `data-f="${arg}"` : act === 'chatForm' ? `data-k="${arg}" data-th="group"` : act === 'inviteSheet' ? `data-v="${arg}"` : ''}><i></i><span>${esc(t)}</span>${icon('chev', 's')}</button>`).join('')}</div>
+<button type="button" class="linkish su-x" data-act="setupHide">Hide this</button></section>`;
+  }
+  const g = s.chama.goal;
+  if (g && g.amount > 0) {
+    const have = s.shared ? Number(s.shared.collected || 0) : sum(s.payments, p => p.amount), pc = Math.min(100, Math.round(have / g.amount * 100));
+    const left = g.by ? Math.max(0, Math.ceil((new Date(g.by) - new Date()) / (30.4 * 864e5))) : null;
+    const need = left ? Math.max(0, Math.round((g.amount - have) / left)) : 0;
+    out += `<section class="goal"${Auth.isAdmin() ? ' data-act="goalEdit" role="button" tabindex="0"' : ''}><div class="gl-top"><span>${icon('sparkle', 's')}Goal</span><b class="num">${pc}%</b></div><h3>${esc(g.title || 'Our goal')}</h3>
+<div class="bar"><i style="width:${pc}%"></i></div><p class="mute small">${esc(kes(have))} of ${esc(kes(g.amount))}${left != null ? ` · ${left} months left${need ? ' · about ' + esc(kes(need)) + ' a month' : ''}` : ''}</p></section>`;
+  } else if (Auth.isAdmin() && s.members.length) out += `<button type="button" class="goal-add" data-act="goalEdit">${icon('plus', 's')}Set a savings goal for the group</button>`;
+  const meId = s.shared ? s.shared.me : Session.memberId, me = meId ? s.members.find(m => m.id === meId) : null;
+  if (me) {
+    const nt = Smart.nextTurn(s, me.id), pj = Smart.projection(s, me.id), st = Smart.streak(s, me.id);
+    out += `<div class="me-strip">${nt ? `<div><small>Your turn for the pot</small><b>${nt.months === 0 ? 'This month' : esc(longMonth(nt.mk))}</b><span>${nt.months ? 'in ' + nt.months + (nt.months === 1 ? ' month' : ' months') : 'it’s you'}</span></div>` : ''}
+<div><small>By December</small><b class="num">${esc(kes(pj.byDec))}</b><span>at ${esc(kes(pj.avg))} a month</span></div>
+<div><small>Streak</small><b class="num">${st} ${st === 1 ? 'month' : 'months'}</b><span>${st >= 6 ? 'outstanding' : st >= 3 ? 'keep it going' : 'paid on time'}</span></div></div>`;
+  }
+  if (s.shared && s.chama.payTo) out += `<button type="button" class="payto" data-act="copyPayTo">${icon('wallet', 's')}<span>Pay to <b>${esc(s.chama.payTo)}</b></span><em>Copy</em></button>`;
+  if (Session.role === 'treasurer' && !s.shared && s.members.length >= 2) {
+    const risky = s.members.filter(m => Smart.risk(s, m.id).level !== 'low').length, f = Smart.forecast(s).out[2];
+    out += `<a class="insight-card" href="#/insights"><span class="ic-ic">${icon('chart')}</span><span><b>Insights</b><small>${risky ? risky + ' to watch · ' : ''}cash in 3 months ≈ ${esc(kes(f.cash))}</small></span>${icon('chev', 'chev')}</a>`;
+  }
+  return out;
+};
+
+/* ================= insights page (treasurer) ================= */
+const insights = s => {
+  if (s.shared) return `<div class="card">${emptyState('chart', 'For the treasurer', 'Insights use everyone’s records, so only the treasurer sees them.')}</div>`;
+  const fc = Smart.forecast(s), max = Math.max(1, ...fc.out.map(x => Math.abs(x.cash)), Domain.cashOnHand(s));
+  const risks = s.members.map(m => ({ m, r: Smart.risk(s, m.id) })).filter(x => x.r.level !== 'low').sort((a, b) => b.r.score - a.r.score);
+  const an = Smart.anomalies(s);
+  const streaks = s.members.map(m => ({ m, n: Smart.streak(s, m.id) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 5);
+  const limits = s.members.map(m => ({ m, v: Smart.loanLimit(s, m.id) })).sort((a, b) => b.v - a.v).slice(0, 5);
+  const bar = (label, v, now) => `<div class="fc-col"><div class="fc-bar${v < 0 ? ' neg' : ''}${now ? ' now' : ''}" style="--h:${Math.max(4, Math.round(Math.abs(v) / max * 100))}%"><span class="num">${esc(kes(v).replace('KES ', ''))}</span></div><small>${esc(label)}</small></div>`;
+  return `<h1 class="lt">Insights</h1><p class="lt-sub">What the records say, worked out on this phone</p>
+<section class="card"><h2>Cash forecast</h2><p class="plain">At this Chama’s usual collection rate of <b>${Math.round(fc.rate * 100)}%</b>, with loan instalments coming in${s.chama.mode === 'savings' ? '' : ' and the pot going out'}.</p>
+<div class="fc">${bar('Now', Domain.cashOnHand(s), true)}${fc.out.map(x => bar(monthLabel(x.mk), x.cash)).join('')}</div>
+${fc.out.some(x => x.cash < 0) ? `<p class="notice warn" style="margin-top:12px">${icon('alert', 's')}<span>Cash may run short by ${esc(monthLabel(fc.out.find(x => x.cash < 0).mk))}. Hold back new loans or follow up late payments.</span></p>` : ''}</section>
+<section class="sec"><div class="sec-h"><h2>Members to watch</h2></div>${risks.length ? `<div class="list">${risks.map(({ m, r }) => `<button type="button" class="li has-av" data-act="memberMenu" data-id="${esc(m.id)}">${av(m, 40)}<span class="li-main"><b>${esc(m.name)}</b><small>${esc(r.why.join(' · ') || 'Pattern changing')}</small></span><span class="li-end"><span class="risk r-${r.level}">${r.level === 'high' ? 'High' : 'Watch'}</span></span></button>`).join('')}</div>` : `<div class="card">${emptyState('done', 'Nobody at risk', 'Everyone has a steady record. Nice work.')}</div>`}
+<p class="foot-note">Scored from the last six months: late months (45%), the last two months (25%), loan against savings (20%) and unpaid fines (10%).</p></section>
+${an.length ? `<section class="sec"><div class="sec-h"><h2>Worth a second look</h2></div><div class="list">${an.map(a => `<div class="li has-ic"><span class="li-ic t-warn">${icon('alert')}</span><span class="li-main"><b>${esc(a.why)}</b><small>${esc(a.p.date || '')} · ${esc(monthLabel(a.p.month))}${a.p.code ? ' · ' + esc(a.p.code) : ''}</small></span></div>`).join('')}</div></section>` : ''}
+<section class="sec"><div class="sec-h"><h2>Suggested loan limits</h2></div><div class="list">${limits.map(x => `<div class="li has-av">${av(x.m, 36)}<span class="li-main"><b>${esc(x.m.name)}</b><small>Saved ${esc(kes(Domain.memberSaved(s, x.m.id)))} · ${Domain.reliability(s, x.m.id) ?? '—'}% on time</small></span><span class="li-end"><b class="num">${esc(kes(x.v))}</b></span></div>`).join('')}</div>
+<p class="foot-note">Three times savings, scaled by how reliably they pay, minus what they owe, and never more than half the cash on hand. A guide, not a rule.</p></section>
+${streaks.length ? `<section class="sec"><div class="sec-h"><h2>Longest streaks</h2></div><div class="list">${streaks.map((x, i) => `<div class="li has-av">${av(x.m, 36)}<span class="li-main"><b>${esc(x.m.name)}</b><small>Paid on time ${x.n} months running</small></span><span class="li-end"><span class="streak">${i === 0 ? icon('sparkle', 's') : ''}${x.n}</span></span></div>`).join('')}</div></section>` : ''}`;
+};
+
+/* ================= member register (treasurer, secretary) ================= */
+let regRows = null, regQ = '';
+const register = s => {
+  if (!Session.role || Session.role === 'member') return `<div class="card">${emptyState('people', 'For officers', 'The treasurer and the secretary keep the register.')}</div>`;
+  if (regRows === null) { regRows = []; Backend.sb && Backend.sb.rpc('member_register', { p_cid: Store.chamaId }).then(r => { regRows = r.error ? [] : (r.data || []); render(); }, () => {}); return `<h1 class="lt">Member register</h1>${Skel.page()}`; }
+  const q = regQ.trim().toLowerCase(), rows = regRows.filter(r => !q || [r.name, r.email, r.phone, r.role].join(' ').toLowerCase().includes(q));
+  const tel = p => String(p || '').replace(/[^\d+]/g, '');
+  return `<h1 class="lt">Member register</h1><p class="lt-sub">${regRows.length} people with access · contact details are private to officers</p>
+<div class="nsearch"><label><svg class="mag ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS.search}</svg><span class="vh">Search the register</span><input id="regQ" type="search" placeholder="Name, phone or email" value="${esc(regQ)}" autocomplete="off"></label><button type="button" class="hb" data-act="regExport" aria-label="Download the register">${icon('download')}</button></div>
+<div class="list" style="margin-top:12px">${rows.map(r => `<div class="li has-av reg-li">${R().pav(r.name, r.photo, 42)}<span class="li-main"><b>${esc(r.name)} <span class="rtag r-${esc(r.role)}">${esc(Perm.label(r.role))}</span></b><small>${esc(r.email || '')}${r.phone ? ' · ' + esc(r.phone) : ''}</small><small>Since ${esc(new Date(r.joined_at).toLocaleDateString('en-KE', { month: 'short', year: 'numeric' }))}${r.member_id ? '' : ' · not on the member list'}</small></span>
+<span class="li-end reg-act">${r.phone ? `<a class="hb sm" href="tel:${esc(tel(r.phone))}" aria-label="Call ${esc(r.name)}">${icon('phone', 's')}</a><a class="hb sm" target="_blank" rel="noopener noreferrer" href="${esc(waLink(r.phone, 'Hello ' + r.name.split(' ')[0] + ','))}" aria-label="WhatsApp ${esc(r.name)}">${icon('chat', 's')}</a>` : ''}${r.email ? `<a class="hb sm" href="mailto:${esc(r.email)}" aria-label="Email ${esc(r.name)}">${icon('mail', 's')}</a>` : ''}</span></div>`).join('') || '<div class="li empty">No matches</div>'}</div>`;
+};
+
+/* ================= search ================= */
+const Palette = {
+  open: false, q: '', i: 0,
+  items() {
+    const s = Store.get() || { members: [], payments: [] }, admin = Auth.isAdmin(), off = Session.role && Session.role !== 'member';
+    const pages = [['Home', '#/home', 'home'], ['Payments', '#/grid', 'grid'], ['Chat', '#/chat', 'chat'], ['Members', '#/members', 'members'], ['My profile', '#/profile', 'profile'], ['Loans', '#/loans', 'loans'], ['Fines', '#/fines', 'receipt'], ['Expenses', '#/expenses', 'wallet'], ['Notifications', '#/notifications', 'bell'], ['Meetings, minutes and votes', '#/chat/records', 'doc'], ['Settings', '#/settings', 'gear'], ['Display and accessibility', '#/settings/app', 'text'], ['Privacy and my data', '#/settings/privacy', 'shield'], ['Help', '#/settings/help', 'help'],
+      ...(admin ? [['Insights', '#/insights', 'chart'], ['People and access', '#/settings/actions', 'members'], ['Chama settings', '#/settings/chama', 'gear'], ['History', '#/history', 'clock'], ['Reports and backup', '#/reports', 'download']] : []), ...(off ? [['Member register', '#/register', 'doc'], ['Join requests', '#/requests', 'key']] : [])]
+      .map(([t, h, ic]) => ({ t, sub: 'Page', ic, href: h }));
+    const acts = [...(admin ? [['Record a payment', 'quickPay', 'wallet'], ['New loan', 'addLoan', 'loans'], ['Add a member', 'addMember', 'userPlus'], ['Invite someone', 'inviteSheet', 'key'], ['Remind everyone who is late', 'remindAll', 'chat'], ['Set a savings goal', 'goalEdit', 'sparkle']] : []), ['New message', 'chatNew', 'pencil'], ['Add due dates to my calendar', 'icsExport', 'clock'], ['Send feedback', 'feedback', 'chat'], ['Hide or show amounts', 'moneyToggle', 'eye']]
+      .map(([t, a, ic]) => ({ t, sub: 'Action', ic, act: a }));
+    const mem = (s.members || []).map(m => ({ t: m.name, sub: 'Member' + (m.phone && admin ? ' · ' + m.phone : ''), ic: 'profile', act: 'memberMenu', id: m.id }));
+    const pay = admin ? (s.payments || []).slice(-400).map(p => ({ t: (p.code || 'No code') + ' · ' + kes(p.amount), sub: Domain.memberName(s, p.memberId) + ' · ' + monthLabel(p.month) + ' · ' + (p.date || ''), ic: 'receipt', act: 'memberMenu', id: p.memberId })) : [];
+    return [...acts, ...pages, ...mem, ...pay];
+  },
+  results() {
+    const q = this.q.trim().toLowerCase(); const all = this.items();
+    if (!q) return all.slice(0, 9);
+    const words = q.split(/\s+/);
+    return all.map(x => { const hay = (x.t + ' ' + x.sub).toLowerCase(); const ok = words.every(w => hay.includes(w)); return ok ? { x, sc: (x.t.toLowerCase().startsWith(q) ? 3 : 0) + (x.sub === 'Action' ? 1 : 0) } : null; }).filter(Boolean).sort((a, b) => b.sc - a.sc).slice(0, 12).map(r => r.x);
+  },
+  html() {
+    const r = this.results(); if (this.i >= r.length) this.i = 0;
+    return `<div class="pal-veil" data-pal="x"><div class="pal" role="dialog" aria-modal="true" aria-label="Search"><label class="pal-in">${icon('search')}<input id="palQ" type="search" placeholder="Search people, payments, pages, actions" value="${esc(this.q)}" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></label>
+<div class="pal-list" role="listbox">${r.map((x, i) => `<button type="button" class="pal-i${i === this.i ? ' on' : ''}" role="option" aria-selected="${i === this.i}" data-pal="${i}"><span class="li-ic ${x.sub === 'Action' ? '' : 't-ink'}">${icon(x.ic)}</span><span class="li-main"><b>${esc(x.t)}</b><small>${esc(x.sub)}</small></span></button>`).join('') || '<p class="pal-empty">Nothing found. Try a name, an M-Pesa code or an amount.</p>'}</div>
+<p class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>/</kbd> search anywhere</span></p></div></div>`;
+  },
+  show() { if (!Session.ready()) return; this.open = true; this.q = ''; this.i = 0; document.getElementById('jmRoot').innerHTML = this.html(); setTimeout(() => { const i = document.getElementById('palQ'); if (i) i.focus(); }, 30); },
+  paint() { const root = document.getElementById('jmRoot'), list = root && root.querySelector('.pal-list'); if (!list) return; const tmp = document.createElement('div'); tmp.innerHTML = this.html(); list.replaceWith(tmp.querySelector('.pal-list')); },
+  hide() { this.open = false; const r = document.getElementById('jmRoot'); if (r) r.innerHTML = ''; },
+  go(i) {
+    const x = this.results()[i]; if (!x) return; this.hide();
+    if (x.href) { location.hash = x.href; return; }
+    const a = __M_src_features_index_js.Actions[x.act]; if (!a) return;
+    const fn = typeof a === 'function' ? a : a.run;
+    if (typeof a === 'object' && a.admin && !Auth.isAdmin()) return toast('Only the treasurer can do that');
+    try { fn.call(a, { id: x.id, v: x.act === 'inviteSheet' ? 'code' : '' }); } catch (e) { toast(e.message); }
+  }
+};
+
+/* ================= app lock ================= */
+const Lock = {
+  cfg() { return ls.get('mca-lock', null); },
+  async hash(pin) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('mca|' + ((Session.user && Session.user.id) || '') + '|' + pin)); return Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, '0')).join(''); },
+  entry: '', tries: 0, locked: false,
+  show() {
+    if (!this.cfg() || this.locked) return; this.locked = true; this.entry = '';
+    let root = document.getElementById('lockRoot'); if (!root) { root = document.createElement('div'); root.id = 'lockRoot'; document.body.appendChild(root); }
+    this.paint();
+  },
+  paint(msg) {
+    const root = document.getElementById('lockRoot'); if (!root) return;
+    root.innerHTML = `<div class="lock"><div class="lk-in">${markTile('lg')}<h2>Enter your app PIN</h2><p>${esc(msg || 'My Chama is locked on this phone')}</p>
+<div class="lk-dots${msg ? ' bad' : ''}">${[0, 1, 2, 3].map(i => `<i class="${i < this.entry.length ? 'on' : ''}"></i>`).join('')}</div>
+<div class="lk-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map(k => k === '' ? '<span></span>' : `<button type="button" data-lk="${k}">${k}</button>`).join('')}</div>
+<button type="button" class="linkish" data-lk="forgot">Forgot the PIN? Sign out</button></div></div>`;
+  },
+  async key(k) {
+    if (k === 'forgot') return Pop.confirm({ title: 'Sign out to reset the PIN?', text: 'You can sign in again with your password and set a new PIN.', confirmLabel: 'Sign out', danger: true, onYes: () => { try { localStorage.removeItem('mca-lock'); } catch (e) {} __M_src_features_index_js.Actions.signOutApp(); } });
+    if (k === '⌫') { this.entry = this.entry.slice(0, -1); return this.paint(); }
+    if (this.entry.length >= 4) return;
+    this.entry += k; this.paint();
+    if (this.entry.length === 4) {
+      const ok = (await this.hash(this.entry)) === this.cfg().hash;
+      if (ok) { this.locked = false; this.tries = 0; const r = document.getElementById('lockRoot'); if (r) r.innerHTML = ''; return; }
+      this.tries++; this.entry = '';
+      if (this.tries >= 5) { try { localStorage.removeItem('mca-lock'); } catch (e) {} return __M_src_features_index_js.Actions.signOutApp(); }
+      this.paint('Wrong PIN. ' + (5 - this.tries) + ' tries left before you are signed out.');
+    }
+  },
+  hiddenAt: 0
+};
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-lk]'); if (b) Lock.key(b.dataset.lk); });
+document.addEventListener('keydown', e => { if (!Lock.locked) return; if (/^\d$/.test(e.key)) Lock.key(e.key); else if (e.key === 'Backspace') Lock.key('⌫'); });
+document.addEventListener('visibilitychange', () => {
+  const c = Lock.cfg(); if (!c) return;
+  if (document.hidden) Lock.hiddenAt = Date.now();
+  else if (Lock.hiddenAt && Date.now() - Lock.hiddenAt > (c.after || 1) * 60000 && Session.ready()) Lock.show();
+});
+
+/* ================= views and actions ================= */
+const views = { insights, register };
+const sheet = () => R().Sheet;
+const actions = {
+  palette: () => Palette.show(),
+  recapHide: d => { ls.set('mca-recap-hide', d.v); render(); },
+  setupHide: () => { ls.set('mca-setup-done:' + Store.chamaId, true); render(); },
+  copyPayTo: () => { const s = Store.get(); if (!s || !s.chama.payTo) return; (navigator.clipboard ? navigator.clipboard.writeText(s.chama.payTo) : Promise.reject()).then(() => toast('Copied: ' + s.chama.payTo, 'ok'), () => toast(s.chama.payTo, 'info')); },
+  moneyToggle: () => { const on = !document.documentElement.classList.contains('hide-money'); document.documentElement.classList.toggle('hide-money', on); ls.set('mca-hide-money', on); toast(on ? 'Amounts hidden. Tap the eye to show them.' : 'Amounts shown', 'info'); render(); },
+  remindAll: { admin: true, run() {
+    const s = Store.get(), cur = Domain.now(), late = Domain.lateMembers(s);
+    if (!late.length) return toast('Nobody is behind', 'ok');
+    const msg = m => `Hi ${m.name.split(' ')[0]}, a friendly reminder from ${s.chama.name}: your ${monthLabel(cur)} balance is ${kes(Domain.outstanding(s, m.id, cur))}.${s.chama.payTo ? ' Pay to ' + s.chama.payTo + '.' : ''} Thank you!`;
+    const group = `${s.chama.name}: ${monthLabel(cur)} contributions were due by day ${s.chama.dueDay}. ${late.length} of us are still to pay. ${s.chama.payTo ? 'Pay to ' + s.chama.payTo + '. ' : ''}Thank you all!`;
+    sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('chat')}</span><h3>Remind ${late.length} ${late.length === 1 ? 'member' : 'members'}</h3><p>Each opens WhatsApp with a friendly message you can edit. Phones are needed.</p></div>
+<div class="list sx-list">${late.map(m => `<div class="li has-av">${av(m, 38)}<span class="li-main"><b>${esc(m.name)}</b><small class="num">${esc(kes(Domain.outstanding(s, m.id, cur)))} behind</small></span><span class="li-end">${m.phone ? `<a class="btn sm tint" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, msg(m)))}" data-act="remindDone">${icon('chat', 's')}Send</a>` : '<span class="mute small">No phone</span>'}</span></div>`).join('')}</div>
+<button type="button" class="btn block lg" data-act="remindGroup" data-t="${esc(group)}">${icon('copy')}Copy one message for the group</button>
+<button type="button" class="btn pri block" style="margin-top:10px" data-act="remindChat" data-t="${esc(group)}">${icon('chat')}Post it in the Chama chat</button>`, { key: 'remind', label: 'Remind' });
+  } },
+  remindDone: () => {},
+  remindGroup: d => { (navigator.clipboard ? navigator.clipboard.writeText(d.t) : Promise.reject()).then(() => toast('Copied. Paste it in your WhatsApp group.', 'ok'), () => toast(d.t, 'info')); },
+  remindChat: async d => { const ok = await C().send('group', 'announcement', d.t, { title: 'Contribution reminder', pin: false }); if (ok) { sheet().close(); toast('Posted in the chat', 'ok'); } },
+  shareReceipt: async d => {
+    const s = Store.get(), p = s && s.payments.find(x => x.id === d.id); if (!p) return;
+    const text = `${s.chama.name}: payment receipt\n${Domain.memberName(s, p.memberId)}\n${kes(p.amount)} for ${monthLabel(p.month)}\nPaid ${p.date || ''}${p.code ? '\nM-Pesa ' + p.code : ''}\nTotal saved: ${kes(Domain.memberSaved(s, p.memberId))}`;
+    if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { return; } }
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
+  },
+  icsExport: () => {
+    const s = Store.get(); if (!s) return;
+    const pad = n => String(n).padStart(2, '0'), stamp = d => d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + '00Z';
+    const now = new Date(), first = new Date(now.getFullYear(), now.getMonth() + (now.getDate() > s.chama.dueDay ? 1 : 0), Number(s.chama.dueDay) || 10);
+    const day = d => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+    const clean = t => String(t || '').replace(/[\\;,]/g, m => '\\' + m).replace(/\n/g, '\\n');
+    const ev = [`BEGIN:VEVENT\r\nUID:due-${Store.chamaId}@mychama\r\nDTSTAMP:${stamp(now)}\r\nDTSTART;VALUE=DATE:${day(first)}\r\nRRULE:FREQ=MONTHLY;COUNT=12\r\nSUMMARY:${clean(s.chama.name + ' contribution due')}\r\nDESCRIPTION:${clean(kes(s.chama.monthly) + ' per share' + (s.chama.payTo ? '. Pay to ' + s.chama.payTo : ''))}\r\nBEGIN:VALARM\r\nTRIGGER:-P2D\r\nACTION:DISPLAY\r\nDESCRIPTION:Contribution due in 2 days\r\nEND:VALARM\r\nEND:VEVENT`];
+    (C().msgs || []).filter(m => m.kind === 'meeting' && !m.deleted_at && m.meta && Date.parse(m.meta.when) > Date.now()).forEach(m => {
+      const st = new Date(m.meta.when), en = new Date(st.getTime() + 2 * 3600e3);
+      ev.push(`BEGIN:VEVENT\r\nUID:${m.id}@mychama\r\nDTSTAMP:${stamp(now)}\r\nDTSTART:${stamp(st)}\r\nDTEND:${stamp(en)}\r\nSUMMARY:${clean(s.chama.name + ': ' + (m.meta.title || 'Meeting'))}\r\nLOCATION:${clean(m.meta.place || '')}\r\nDESCRIPTION:${clean(m.meta.agenda || '')}\r\nBEGIN:VALARM\r\nTRIGGER:-PT2H\r\nACTION:DISPLAY\r\nDESCRIPTION:Meeting in 2 hours\r\nEND:VALARM\r\nEND:VEVENT`);
+    });
+    Reports.download(s.chama.name + '-calendar.ics', `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//My Chama//EN\r\nCALSCALE:GREGORIAN\r\n${ev.join('\r\n')}\r\nEND:VCALENDAR\r\n`, 'text/calendar');
+    toast('Calendar file ready. Open it to add the dates.', 'ok');
+  },
+  regExport: () => {
+    const q = Reports.cell, rows = [['Name', 'Role', 'Email', 'Phone', 'Since', 'On member list'], ...(regRows || []).map(r => [r.name, Perm.label(r.role), r.email, r.phone || '', String(r.joined_at || '').slice(0, 10), r.member_id ? 'Yes' : 'No'])];
+    Reports.download((Store.get().chama.name || 'chama') + '-register.csv', '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+  },
+  goalEdit: { admin: true, run() {
+    const g = (Store.get().chama.goal) || {};
+    sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('sparkle')}</span><h3>Savings goal</h3><p>Give the group something to aim for. Everyone sees the progress on Home.</p></div>
+<label class="fgrp" for="gTitle"><span class="flab">What for</span><span class="field">${icon('tag')}<input id="gTitle" maxlength="60" placeholder="e.g. Land in Kitengela" value="${esc(g.title || '')}" autofocus></span></label>
+<label class="fgrp" for="gAmt"><span class="flab">Amount (KES)</span><span class="field">${icon('coins')}<input id="gAmt" type="number" inputmode="numeric" value="${esc(g.amount || '')}"></span></label>
+<label class="fgrp" for="gBy"><span class="flab">By</span><span class="field">${icon('clock')}<input id="gBy" type="month" value="${esc(g.by || '')}"></span></label>
+<button type="button" class="btn pri block lg" data-act="goalSave">Save goal</button>${g.amount ? '<button type="button" class="btn ghost block" data-act="goalClear">Remove the goal</button>' : ''}`, { key: 'goal', label: 'Savings goal' });
+  } },
+  goalSave: { admin: true, run() {
+    const t = (document.getElementById('gTitle').value || '').trim().slice(0, 60), a = Number(document.getElementById('gAmt').value), by = document.getElementById('gBy').value;
+    if (!(a > 0)) throw new Error('Enter the amount');
+    Store.commit(s => { s.chama.goal = { title: t || 'Our goal', amount: Math.round(a), by: /^\d{4}-\d{2}$/.test(by) ? by : '' }; }); sheet().close(); toast('Goal saved', 'ok');
+  } },
+  goalClear: { admin: true, run() { Store.commit(s => { delete s.chama.goal; }); sheet().close(); toast('Goal removed', 'info'); } },
+  feedback: () => {
+    sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('chat')}</span><h3>How is My Chama for you?</h3><p>Goes straight to the people who build the app. We read every one.</p></div>
+<div class="stars" role="radiogroup" aria-label="Rating">${[1, 2, 3, 4, 5].map(n => `<button type="button" role="radio" aria-checked="false" data-act="fbStar" data-v="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div>
+<div class="fgrp"><span class="flab">About</span><div class="chips2">${[['idea', 'An idea'], ['problem', 'A problem'], ['praise', 'Something I like'], ['other', 'Other']].map(([k, t], i) => `<button type="button" class="chip2${i === 0 ? ' on' : ''}" data-act="fbCat" data-v="${k}">${t}</button>`).join('')}</div></div>
+<label class="fgrp" for="fbMsg"><span class="field area"><textarea id="fbMsg" rows="4" maxlength="2000" placeholder="Tell us more (optional)"></textarea></span></label>
+<button type="button" class="btn pri block lg" data-act="fbSend">Send feedback</button><p class="fhelp" style="text-align:center">Sent with your role and app version, not your Chama’s records.</p>`, { key: 'fb', label: 'Feedback' });
+  },
+  fbStar: d => { document.querySelectorAll('.stars button').forEach(b => { const on = Number(b.dataset.v) <= Number(d.v); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(b.dataset.v === d.v)); }); document.querySelector('.stars').dataset.v = d.v; },
+  fbCat: d => { document.querySelectorAll('[data-act="fbCat"]').forEach(b => b.classList.toggle('on', b.dataset.v === d.v)); },
+  fbSend: async () => {
+    const rating = Number((document.querySelector('.stars') || {}).dataset ? document.querySelector('.stars').dataset.v || 0 : 0), cat = (document.querySelector('[data-act="fbCat"].on') || {}).dataset, msg = (document.getElementById('fbMsg') || {}).value || '';
+    if (!rating && !msg.trim()) return toast('Pick a rating or write a few words');
+    const { error } = await Backend.sb.rpc('submit_feedback', { p_rating: rating, p_category: cat ? cat.v : 'other', p_message: msg, p_cid: Store.chamaId || null, p_app_version: __M_src_content_app_info_js.APP.version, p_context: { route: location.hash.slice(0, 40), w: innerWidth, standalone: matchMedia('(display-mode: standalone)').matches } });
+    if (error) return toast(rpcMessage(error));
+    sheet().close(); toast('Thank you. Your feedback was sent.', 'ok');
+  },
+  lockSetup: () => {
+    if (Lock.cfg()) return Pop.confirm({ title: 'Turn off the app lock?', text: 'Anyone holding this phone could open My Chama.', confirmLabel: 'Turn off', danger: true, onYes: () => { try { localStorage.removeItem('mca-lock'); } catch (e) {} render(); toast('App lock off', 'info'); } });
+    sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('lock')}</span><h3>Lock My Chama</h3><p>Ask for a 4-digit PIN when the app has been away for a while. The PIN stays on this phone only.</p></div>
+<label class="fgrp" for="lk1"><span class="flab">New PIN</span><span class="field">${icon('lock')}<input id="lk1" type="password" inputmode="numeric" maxlength="4" pattern="\\d{4}" autocomplete="off" autofocus></span></label>
+<label class="fgrp" for="lk2"><span class="flab">Type it again</span><span class="field">${icon('lock')}<input id="lk2" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></span></label>
+<div class="fgrp"><span class="flab">Lock after</span><div class="chips2">${[[1, '1 minute'], [5, '5 minutes'], [15, '15 minutes']].map(([v, t], i) => `<button type="button" class="chip2${i === 0 ? ' on' : ''}" data-act="lkAfter" data-v="${v}">${t}</button>`).join('')}</div></div>
+<button type="button" class="btn pri block lg" data-act="lockSave">Turn on the lock</button>`, { key: 'lock', label: 'App lock' });
+  },
+  lkAfter: d => document.querySelectorAll('[data-act="lkAfter"]').forEach(b => b.classList.toggle('on', b.dataset.v === d.v)),
+  lockSave: async () => {
+    const a = document.getElementById('lk1').value, b = document.getElementById('lk2').value, after = Number((document.querySelector('[data-act="lkAfter"].on') || { dataset: { v: 1 } }).dataset.v);
+    if (!/^\d{4}$/.test(a)) return toast('Use exactly 4 numbers');
+    if (a !== b) return toast('The two PINs do not match');
+    if (/^(\d)\1{3}$|^(0123|1234|2345|3456|4567|5678|6789|9876|4321)$/.test(a)) return toast('Choose a PIN that is harder to guess');
+    ls.set('mca-lock', { hash: await Lock.hash(a), after }); sheet().close(); render(); toast('App lock on', 'ok');
+  }
+};
+
+return { get views() { return views; }, get actions() { return actions; }, get Smart() { return Smart; }, get homeBlocks() { return homeBlocks; }, get Palette() { return Palette; }, get Lock() { return Lock; }, get regReset() { return () => { regRows = null; }; }, get setRegQ() { return v => { regQ = v; render(); }; } };
+})();
+
+/* search: open with /, Ctrl+K or Cmd+K; arrows move; Enter opens */
+document.addEventListener('keydown', e => {
+  const P = __M_src_features_smart_js.Palette, t = e.target, typing = t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+  if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing && !P.open)) { e.preventDefault(); return P.open ? P.hide() : P.show(); }
+  if (!P.open) {
+    /* g then a letter jumps between tabs on a computer */
+    if (typing || e.metaKey || e.ctrlKey || e.altKey || !__M_src_core_session_js.Session.ready() || document.querySelector('#modalRoot .veil')) return;
+    if (e.key === 'g') { P._g = Date.now(); return; }
+    if (P._g && Date.now() - P._g < 1200) { const to = { h: '#/home', p: '#/grid', c: '#/chat', m: '#/members', s: '#/settings', n: '#/notifications', l: '#/loans', i: '#/insights' }[e.key]; P._g = 0; if (to) { e.preventDefault(); location.hash = to; } }
+    return;
+  }
+  const n = P.results().length;
+  if (e.key === 'Escape') { e.preventDefault(); P.hide(); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); P.i = (P.i + (e.key === 'ArrowDown' ? 1 : -1) + n) % Math.max(1, n); P.paint(); }
+  else if (e.key === 'Enter') { e.preventDefault(); P.go(P.i); }
+});
+document.addEventListener('input', e => {
+  if (e.target && e.target.id === 'palQ') { const P = __M_src_features_smart_js.Palette; P.q = e.target.value; P.i = 0; P.paint(); }
+  if (e.target && e.target.id === 'regQ') __M_src_features_smart_js.setRegQ(e.target.value);   /* the redraw keeps the focused box */
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-pal]'); if (!b) return;
+  const P = __M_src_features_smart_js.Palette;
+  if (b.dataset.pal === 'x') { if (e.target === b) P.hide(); return; }
+  P.go(Number(b.dataset.pal));
+});
+/* pull down at the top of a page to fetch the latest records, messages and notifications */
+(() => {
+  let y0 = null, pulled = 0;
+  const bar = () => { let b = document.getElementById('ptr'); if (!b) { b = document.createElement('div'); b.id = 'ptr'; b.innerHTML = '<span class="spin" aria-hidden="true"></span>'; document.body.appendChild(b); } return b; };
+  addEventListener('touchstart', e => { y0 = window.scrollY <= 0 && __M_src_core_session_js.Session.ready() && !document.querySelector('#modalRoot .veil, .pal-veil, #lockRoot .lock') ? e.touches[0].clientY : null; pulled = 0; }, { passive: true });
+  addEventListener('touchmove', e => { if (y0 == null) return; pulled = Math.max(0, e.touches[0].clientY - y0); const b = bar(); b.style.setProperty('--y', Math.min(90, pulled * 0.5) + 'px'); b.classList.toggle('ready', pulled > 110); b.classList.add('show'); }, { passive: true });
+  addEventListener('touchend', async () => {
+    if (y0 == null) return; y0 = null; const b = bar();
+    if (pulled > 110) {
+      b.classList.add('busy');
+      try { await Promise.all([__M_src_core_store_js.Store.reload(), __M_src_features_chat_index_js.Chat.load(), __M_src_features_notifications_notify_js.Notify.loadServer(), __M_src_core_session_js.Session.loadRequests()]); __M_src_ui_toast_js.toast('Up to date', 'ok'); } catch (e) { __M_src_ui_toast_js.toast('Could not refresh. Check your connection.'); }
+      __M_src_features_smart_js.regReset(); __M_src_core_rerender_js.render();
+    }
+    b.classList.remove('show', 'ready', 'busy'); b.style.removeProperty('--y');
+  });
+})();
+try { if (localStorage.getItem('mca-hide-money') === 'true') document.documentElement.classList.add('hide-money'); } catch (e) {}
+
+
 /* ---- src/features/index.js ---- */
 const __M_src_features_index_js = (function () {
 const homeFeature = __M_src_features_home_index_js;
@@ -5000,11 +5498,12 @@ const accountFeature = __M_src_features_account_deletion_js;
 const shellFeature = __M_src_features_shell_index_js;
 const requestsFeature = __M_src_features_requests_js;
 const chatFeature = __M_src_features_chat_index_js;
+const smartFeature = __M_src_features_smart_js;
 /* Feature registry. Each feature folder exports `views` (pages it draws) and/or `actions` (things that change data).
    This file merges them into one table, and stops at start-up if two features claim the same name.
    To add a feature: create its folder, then add one import line and one entry in FEATURE_LIST below. */
 
-const FEATURE_LIST = [homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature, requestsFeature, chatFeature];
+const FEATURE_LIST = [homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature, requestsFeature, chatFeature, smartFeature];
 
 function merge(kind) {
   const out = Object.create(null);
@@ -5596,7 +6095,19 @@ function renderPage() {
   document.title = (home ? chamaName : pageName) + ' · My Chama';
   if (pt) { pt.hidden = home; pt.innerHTML = `<small>${esc(chamaName)}</small><b>${esc(pageName)}</b>`; if (changed) restart(pt, 'enter'); }
   if (changed && !home && viewEl) { try { window.scrollTo(0, 0); } catch (e) {} }
-  if (changed && viewEl) restart(viewEl, 'pg');
+  if (changed && viewEl) {
+    /* slide like an app: deeper pages come in from the right, going back from the left, tabs toward the tab tapped */
+    const depth = x => !x || x === 'home' ? 0 : ROUTES.some(t => t[0] === x) ? 1 : /^(settings|notifications|chat|legal)\/.+\//.test(x) ? 4 : /\//.test(x) ? 3 : 2;
+    const tabIx = x => ROUTES.findIndex(t => t[0] === x);
+    let dir = 'pg-fwd';
+    if (prev != null) {
+      const a = depth(prev), b = depth(r);
+      if (b < a) dir = 'pg-back';
+      else if (a === b && a <= 1) dir = (r === 'home' ? 0 : tabIx(r)) < (prev === 'home' ? 0 : tabIx(prev)) ? 'pg-back' : 'pg-fwd';
+    } else dir = 'pg';
+    viewEl.classList.remove('pg', 'pg-fwd', 'pg-back'); void viewEl.offsetWidth; viewEl.classList.add(dir);
+    if (pt) { pt.classList.remove('t-fwd', 't-back'); void pt.offsetWidth; pt.classList.add(dir === 'pg-back' ? 't-back' : 't-fwd'); }
+  }
   Nav.sync(r);
   paintNavAvatar();
   const meD = Me.get() || {}, mmD = meD.memberId && s.members ? s.members.find(x => x.id === meD.memberId) : null;
@@ -5813,3 +6324,17 @@ return { };
 
 /* ---- entry ---- */
 
+
+/* loan advisor: while the treasurer types a new loan, show what this member can likely carry */
+document.addEventListener('change', e => { if (e.target && e.target.name === 'memberId' && document.getElementById('loanAdvice')) loanAdvice(); });
+document.addEventListener('input', e => { if (e.target && (e.target.name === 'principal' || e.target.name === 'months' || e.target.name === 'rate') && document.getElementById('loanAdvice')) loanAdvice(); });
+function loanAdvice() {
+  const box = document.getElementById('loanAdvice'), f = box && box.closest('form'); if (!f) return;
+  const s = __M_src_core_store_js.Store.get(), D = __M_src_core_domain_js.Domain, SM = __M_src_features_smart_js.Smart, k = __M_src_core_utils_js.kes, e = __M_src_core_utils_js.esc;
+  const mid = (f.querySelector('[name=memberId]') || {}).value, amt = Number((f.querySelector('[name=principal]') || {}).value) || 0, rate = Number((f.querySelector('[name=rate]') || {}).value) || 0, months = Math.max(1, Number((f.querySelector('[name=months]') || {}).value) || 1);
+  if (!mid) { box.innerHTML = ''; return; }
+  const lim = SM.loanLimit(s, mid), r = SM.risk(s, mid), rel = D.reliability(s, mid), total = amt * (1 + rate / 100 * months), inst = total / months;
+  const over = amt > lim && amt > 0;
+  box.className = 'advice' + (over || r.level === 'high' ? ' warn' : '');
+  box.innerHTML = `<b>Suggested limit ${e(k(lim))}</b><span>Saved ${e(k(D.memberSaved(s, mid)))} · ${rel == null ? 'no history yet' : rel + '% on time'} · owes ${e(k(D.memberLoanBalance(s, mid)))}${r.level !== 'low' ? ' · ' + (r.level === 'high' ? 'high risk' : 'worth watching') : ''}</span>${amt ? `<span>Repays ${e(k(total))} in total, about ${e(k(inst))} a month${over ? '. This is above the suggested limit.' : '.'}</span>` : ''}`;
+}

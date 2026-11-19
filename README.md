@@ -2,7 +2,7 @@
 
 A savings-group app for chamas (groups that save together and lend to each other). It runs as a phone-first web app (PWA), with a Supabase backend and email from Brevo.
 
-**Current version:** 0.14.0. Chat (group and private, with treasurer and secretary tools), join approvals, server notifications, consent by continuing (policy `2026-11-19-v4`), session fixes, Inter and Plus Jakarta Sans, rebuilt invite, People and access, Profile and Chama settings. Migration 019 applied live; migration 020 waits for approval. Service worker cache `mca-app-v71`. See `RELEASE_NOTES_0.14.0.md`.
+**Current version:** 0.15.0. Insights and smart tasks, search, privacy mode, app lock, goals, register, feedback, redesigned emails (`supabase/email-templates`), sliding motion everywhere. See `RELEASE_NOTES_0.15.0.md` and `RELEASE_NOTES_0.14.0.md`. Migrations 019 and 021 applied live; 020 waits for approval.
 **Last updated:** 2026-11-19
 **Owner:** Lewis Gitonga
 **Live site:** https://chama-livid.vercel.app (Vercel, deploys from branch `main`)

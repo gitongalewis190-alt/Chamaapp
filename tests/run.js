@@ -119,7 +119,7 @@ const TESTS = {
     const t = await text(page);
     await shot(page, '11-home-treasurer');
     ok(/Cash on hand/i.test(t) && /This month/i.test(t), 'home shows hero and this month');
-    ok((await page.locator('#view .card, #view .list, #view .hero, #view .stats').count()) <= 6, 'home is compact (6 blocks or fewer)');
+    ok((await page.locator('#view > .list, #view > .hero, #view > .stats, #view > section').count()) <= 12, 'home stays focused');
     ok(!(await page.locator('.otp, .welcome').count()), 'no leftover overlay');
     await page.click('#nav a[data-k="grid"]'); await page.waitForTimeout(500);
     await shot(page, '12-contributions');
@@ -293,6 +293,46 @@ const TESTS = {
     ok(!(await m.page.locator('.cp-tools').count()), 'a member has no officer tools');
     ok(!m.errors.length, 'no page errors ' + m.errors.join(' | '));
     await m.ctx.close();
+  },
+  async smart(b) {
+    const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400 });
+    const t = await text(page);
+    ok(/Needs you today/i.test(t) && /behind for/i.test(t), 'Home lists what needs the treasurer today');
+    ok(/Insights/.test(t), 'Home links to insights');
+    await page.goto(page.url().split('#')[0] + '#/insights'); await page.waitForTimeout(500);
+    await shot(page, '70-insights');
+    const it = await text(page);
+    ok(/Cash forecast/i.test(it) && /Suggested loan limits/i.test(it), 'insights shows forecast and loan limits');
+    await page.goto(page.url().split('#')[0] + '#/home'); await page.waitForTimeout(300);
+    await page.keyboard.press('/'); await page.waitForTimeout(250);
+    ok(await page.isVisible('.pal'), 'slash opens search');
+    await page.keyboard.type('SJK100'); await page.waitForTimeout(200);
+    ok((await page.locator('.pal-i').count()) > 0 && /SJK100/.test(await page.textContent('.pal-list')), 'search finds payments by M-Pesa code');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+    await shot(page, '71-home-smart');
+    await page.click('[data-act="moneyToggle"] >> nth=0'); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => document.documentElement.classList.contains('hide-money')), 'amounts can be hidden');
+    await page.click('[data-act="moneyToggle"] >> nth=0'); await page.waitForTimeout(200);
+    await page.goto(page.url().split('#')[0] + '#/register'); await page.waitForTimeout(500);
+    ok(/Otieno Odhiambo/.test(await text(page)) && /0722000000/.test(await text(page)), 'officers see the member register with contacts');
+    await page.goto(page.url().split('#')[0] + '#/settings'); await page.waitForTimeout(300);
+    await page.click('[data-act="lockSetup"]'); await page.waitForTimeout(300);
+    await page.fill('#lk1', '2580'); await page.fill('#lk2', '2580'); await page.click('[data-act="lockSave"]'); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => !!JSON.parse(localStorage.getItem('mca-lock') || 'null')), 'app lock is set with a hashed PIN');
+    await page.evaluate(() => __M_src_features_smart_js.Lock.show()); await page.waitForTimeout(200);
+    await shot(page, '72-lock');
+    for (const k of '2580') { await page.click(`[data-lk="${k}"]`); }
+    await page.waitForTimeout(400);
+    ok(!(await page.locator('#lockRoot .lock').count()), 'the right PIN unlocks');
+    await page.click('[data-act="feedback"]'); await page.waitForTimeout(300);
+    await page.click('[data-act="fbStar"][data-v="5"]'); await page.click('[data-act="fbSend"]'); await page.waitForTimeout(400);
+    ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'submit_feedback' && x.args.p_rating === 5), 'feedback is sent');
+    await page.goto(page.url().split('#')[0] + '#/home'); await page.waitForTimeout(300);
+    await page.click('[data-act="addLoan"]'); await page.waitForTimeout(400);
+    await page.selectOption('#modalRoot select[name="memberId"]', 'm2'); await page.fill('#modalRoot input[name="principal"]', '50000'); await page.waitForTimeout(200);
+    ok(/Suggested limit/.test(await page.textContent('#loanAdvice')) && /above the suggested limit/.test(await page.textContent('#loanAdvice')), 'the loan form advises a limit');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
   },
   async deadSession(b) {
     const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, mock: { ...scenarios.treasurer.mock, sessionDead: true } });
