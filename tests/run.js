@@ -389,13 +389,22 @@ const TESTS = {
   },
   async makeItYours(b) {
     const { page, ctx, errors } = await open(b, 'none', { personal: true, wait: 900 });
-    ok(await page.evaluate(() => document.documentElement.dataset.mode) === 'dark', 'the app is dark by default');
+    ok(await page.evaluate(() => document.documentElement.dataset.mode) === 'light', 'the app follows the phone until the person chooses (light phone here)');
     ok(await page.isVisible('.pz'), 'a new person without a Chama is asked to make the app theirs first');
     await page.click('[data-pz="theme"][data-v="light"]'); await page.click('[data-pz="accent"][data-v="purple"]'); await page.waitForTimeout(150);
     ok(await page.evaluate(() => document.documentElement.dataset.mode === 'light' && document.documentElement.dataset.accent === 'purple'), 'choices apply at once');
     await shot(page, '91-make-it-yours');
     await page.click('[data-pz="done"]'); await page.waitForTimeout(300);
     ok(!(await page.locator('.pz').count()), 'Continue goes on to create or join a Chama');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
+  async pdfReports(b) {
+    const { page, ctx, errors } = await open(b, 'treasurer');
+    const r = await page.evaluate(() => { const s = __M_src_core_store_js.Store.get(), D = __M_src_lib_reports_js.Doc; return { c: D.chamaReport(s), m: D.memberStatement(s, s.members[1]) }; });
+    ok(/Collections by month/.test(r.c) && /Otieno Odhiambo/.test(r.c) && /Cash on hand/.test(r.c), 'the Chama PDF report has collections, members and cash');
+    ok(/Statement for Otieno Odhiambo/.test(r.m) && /Month by month/.test(r.m) && /Loans/.test(r.m), 'the member PDF statement has months, payments and loans');
+    await page.goto(page.url().split('#')[0] + '#/reports'); await page.waitForTimeout(300);
+    ok(await page.isVisible('[data-act="pdfChama"]'), 'Reports offers the PDF report');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
   async leftAndLive(b) {

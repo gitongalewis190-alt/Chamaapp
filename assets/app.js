@@ -268,7 +268,7 @@ const { $ } = __M_src_lib_dom_js;
 const { setToastLong, toast } = __M_src_ui_toast_js;
 
 const A11y = {
-  key: 'chama:a11y', def: { size: 'n', theme: 'dark', accent: 'green', hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
+  key: 'chama:a11y', def: { size: 'n', theme: 'auto', accent: 'green', hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
   load() {
     let o = {}; try { o = JSON.parse(localStorage.getItem(this.key) || '{}') || {}; } catch {}
     if (!o.size && localStorage.getItem('chama:textsize') === 'large') o.size = 'l';
@@ -3218,7 +3218,78 @@ const Reports = {
   }
 };
 
-return { get Reports() { return Reports; }, };
+/* ---- PDF documents: a branded, readable page in the app's colours, saved with the phone's "Save as PDF" ---- */
+const Doc = {
+  e: v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
+  /* the accent the person chose, in its print-safe shade (the dark-mode shades are too light for paper) */
+  brand() { const a = document.documentElement.dataset.accent || 'green'; return { c: ({ green: '#0b6b4d', blue: '#1f5fae', purple: '#5b34b8', gold: '#8f6213', rose: '#b0284f', teal: '#0b6f78' })[a] || '#0b6b4d' }; },
+  table(head, rows, opts = {}) {
+    if (!rows.length) return `<p class="none">${Doc.e(opts.empty || 'Nothing recorded.')}</p>`;
+    return `<table><thead><tr>${head.map((h, i) => `<th${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${Doc.e(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${c && c.html ? c.html : Doc.e(c)}</td>`).join('')}</tr>`).join('')}</tbody>${opts.foot ? `<tfoot><tr>${opts.foot.map((c, i) => `<td${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${Doc.e(c)}</td>`).join('')}</tr></tfoot>` : ''}</table>`;
+  },
+  html(title, sub, chamaName, body) {
+    const { c } = this.brand(), when = new Date().toLocaleString('en-KE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${Doc.e(title)}</title><style>
+@page { size: A4; margin: 16mm 14mm 18mm; }
+* { box-sizing: border-box; } body { margin: 0; font: 10.5pt/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #12231f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.top { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid ${c}; padding-bottom: 10px; margin-bottom: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; } .mark { width: 34px; height: 34px; border-radius: 10px; background: ${c}; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 13pt; }
+.brand b { font-size: 13pt; } .brand small, .meta { color: #5c6a64; font-size: 8.5pt; display: block; } .meta { text-align: right; }
+h1 { font-size: 19pt; margin: 0 0 2px; letter-spacing: -.01em; } .sub { color: #5c6a64; margin: 0 0 16px; }
+h2 { font-size: 12pt; color: ${c}; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #e3e7e4; break-after: avoid; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .card { border: 1px solid #e3e7e4; border-radius: 10px; padding: 9px 10px; break-inside: avoid; }
+.card span { display: block; font-size: 8pt; color: #5c6a64; text-transform: uppercase; letter-spacing: .04em; } .card b { font-size: 13pt; }
+.card.hl { background: ${c}; border-color: ${c}; color: #fff; } .card.hl span { color: rgba(255,255,255,.8); }
+table { width: 100%; border-collapse: collapse; font-size: 9.5pt; } th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; color: #5c6a64; border-bottom: 1.5px solid #cfd6d2; padding: 6px 6px; }
+td { padding: 6px; border-bottom: 1px solid #edf0ee; vertical-align: top; } tr { break-inside: avoid; } .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tfoot td { font-weight: 700; border-top: 1.5px solid #cfd6d2; border-bottom: 0; } .none { color: #5c6a64; font-style: italic; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 8pt; font-weight: 700; } .ok { background: #e1f3e8; color: #17824f; } .late { background: #fbe6e3; color: #b42318; } .part { background: #fbf0dc; color: #8f5a0b; } .ahead { background: #ece6fa; color: #5b34b8; }
+.note { margin-top: 22px; padding: 10px 12px; border-radius: 10px; background: #f3f5f4; color: #3b4a44; font-size: 9pt; }
+.foot { margin-top: 26px; color: #8a958f; font-size: 8pt; border-top: 1px solid #e3e7e4; padding-top: 8px; display: flex; justify-content: space-between; }
+</style></head><body><div class="top"><div class="brand"><span class="mark">${Doc.e(String(chamaName || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span><div><b>${Doc.e(chamaName)}</b><small>My Chama</small></div></div><div class="meta">Prepared ${Doc.e(when)}</div></div>
+<h1>${Doc.e(title)}</h1><p class="sub">${Doc.e(sub)}</p>${body}
+<div class="foot"><span>Figures come from the records in My Chama at the time shown above.</span><span>${Doc.e(chamaName)}</span></div></body></html>`;
+  },
+  /* print a document through a hidden frame: phones offer "Save as PDF", computers a PDF printer */
+  print(html, name) {
+    const f = document.createElement('iframe'); f.setAttribute('aria-hidden', 'true'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(f);
+    const d = f.contentDocument; d.open(); d.write(html); d.close();
+    const go = () => { try { f.contentWindow.document.title = name || 'My Chama'; f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { const w = window.open('', '_blank'); if (w) { w.document.write(html); w.document.close(); w.print(); } } setTimeout(() => f.remove(), 60000); };
+    setTimeout(go, 250);
+  },
+  memberStatement(s, m) {
+    const cur = Domain.now(), U = __M_src_core_utils_js, pays = s.payments.filter(p => p.memberId === m.id).sort((a, b) => a.month.localeCompare(b.month) || String(a.date).localeCompare(String(b.date)));
+    const loans = s.loans.filter(l => l.memberId === m.id), fines = s.fines.filter(f => f.memberId === m.id), outs = s.payouts.filter(p => p.memberId === m.id);
+    const owe = Domain.outstanding(s, m.id, cur), ahead = Domain.ahead(s, m.id, cur), st = Domain.tone(s, m.id, cur);
+    const stTag = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Paid ahead'], idle: ['ok', 'Nothing due'] }[st] || ['ok', ''];
+    const months = []; { let k = Domain.joinMonth(s, m.id); for (let i = 0; i < 36 && k <= cur; i++, k = U.addMonths(k, 1)) months.push(k); }
+    const body = `<div class="cards"><div class="card hl"><span>Total saved</span><b>${Doc.e(kes(Domain.memberSaved(s, m.id)))}</b></div><div class="card"><span>${owe ? 'Owing now' : 'Paid ahead'}</span><b>${Doc.e(kes(owe || ahead))}</b></div><div class="card"><span>Loan balance</span><b>${Doc.e(kes(Domain.memberLoanBalance(s, m.id)))}</b></div><div class="card"><span>Unpaid fines</span><b>${Doc.e(kes(Domain.memberFinesDue(s, m.id)))}</b></div></div>
+<h2>Month by month</h2>${Doc.table(['Month', 'Due', 'Paid', 'Status'], months.slice(-24).map(k => { const t = Domain.status(s, m.id, k), map = { paid: ['ok', 'Paid'], late: ['late', 'Not paid'], partial: ['part', 'Part paid'], due: ['part', 'Due'], na: ['ok', '—'], future: ['ok', '—'] }[t]; return [monthLabel(k), kes(Domain.dueFor(s, m.id, k)), kes(Domain.paidIn(s, m.id, k)), { html: `<span class="tag ${map[0]}">${map[1]}</span>` }]; }), { num: [1, 2] })}
+<h2>Payments</h2>${Doc.table(['Date', 'For month', 'M-Pesa code', 'Amount'], pays.map(p => [p.date || '', monthLabel(p.month), p.code || '—', kes(p.amount)]), { num: [3], foot: pays.length ? ['', '', 'Total', kes(sum(pays, p => p.amount))] : null })}
+<h2>Loans</h2>${Doc.table(['Issued', 'Borrowed', 'Interest', 'To repay', 'Repaid', 'Balance'], loans.map(l => { const c = Domain.loan(l); return [l.date || '', kes(l.principal), l.rate + '% × ' + l.months + ' mo', kes(c.total), kes(c.paid), kes(c.balance)]; }), { num: [1, 3, 4, 5], empty: 'No loans.' })}
+<h2>Fines</h2>${Doc.table(['Date', 'Reason', 'Amount', 'Status'], fines.map(f => [f.date || '', f.reason || '', kes(f.amount), { html: `<span class="tag ${f.paid ? 'ok' : 'late'}">${f.paid ? 'Paid' : 'Unpaid'}</span>` }]), { num: [2], empty: 'No fines.' })}
+${outs.length ? `<h2>Payouts received</h2>${Doc.table(['Month', 'Date', 'Amount'], outs.map(p => [monthLabel(p.month), p.date || '', kes(p.amount)]), { num: [2] })}` : ''}
+<div class="note">Status for ${Doc.e(monthLabel(cur))}: <span class="tag ${stTag[0]}">${Doc.e(stTag[1])}</span>. Contributions are due by day ${Doc.e(s.chama.dueDay)} of each month${s.chama.payTo ? ', paid to ' + Doc.e(s.chama.payTo) : ''}. If anything here looks wrong, tell the treasurer: every change is kept in the Chama's history.</div>`;
+    return this.html('Statement for ' + m.name, (m.shares || 1) > 1 ? m.shares + ' shares · joined ' + monthLabel(Domain.joinMonth(s, m.id)) : 'Joined ' + monthLabel(Domain.joinMonth(s, m.id)), s.chama.name, body);
+  },
+  chamaReport(s) {
+    const cur = Domain.now(), U = __M_src_core_utils_js, active = s.members.filter(m => !m.left);
+    const months = Array.from({ length: 12 }, (_, i) => U.addMonths(cur, i - 11)).filter(k => k >= (s.chama.startMonth || '0000'));
+    const inn = sum(s.payments, p => p.amount), loansOut = sum(s.loans, l => Domain.loan(l).balance);
+    const body = `<div class="cards"><div class="card hl"><span>Cash on hand</span><b>${Doc.e(kes(Domain.cashOnHand(s)))}</b></div><div class="card"><span>All contributions</span><b>${Doc.e(kes(inn))}</b></div><div class="card"><span>Loans out</span><b>${Doc.e(kes(loansOut))}</b></div><div class="card"><span>Members</span><b>${active.length}</b></div></div>
+<h2>Collections by month</h2>${Doc.table(['Month', 'Expected', 'Collected', 'Share', 'Paid up'], months.map(k => { const exp = sum(s.members.filter(m => Domain.joinMonth(s, m.id) <= k), m => Domain.dueFor(s, m.id, k)), got = sum(s.payments.filter(p => p.month === k), p => p.amount), up = s.members.filter(m => !(m.left && k > m.left) && Domain.joinMonth(s, m.id) <= k && Domain.status(s, m.id, k) === 'paid').length; return [monthLabel(k), kes(exp), kes(got), exp ? Math.round(got / exp * 100) + '%' : '—', String(up)]; }), { num: [1, 2, 3, 4] })}
+<h2>Members</h2>${Doc.table(['Member', 'Shares', 'Saved', 'Owing now', 'Loan balance', 'Status'], s.members.map(m => { const t = Domain.tone(s, m.id, cur), map = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Ahead'], idle: ['ok', m.left ? 'Left' : '—'] }[t]; return [m.name, String(m.shares || 1), kes(Domain.memberSaved(s, m.id)), kes(Domain.outstanding(s, m.id, cur)), kes(Domain.memberLoanBalance(s, m.id)), { html: `<span class="tag ${map[0]}">${map[1]}</span>` }]; }), { num: [1, 2, 3, 4], foot: ['Total', '', kes(inn), kes(sum(s.members, m => Domain.outstanding(s, m.id, cur))), kes(loansOut), ''] })}
+<h2>Loans</h2>${Doc.table(['Member', 'Issued', 'Borrowed', 'To repay', 'Balance', 'Terms signed'], s.loans.map(l => { const c = Domain.loan(l); return [Domain.memberName(s, l.memberId), l.date || '', kes(l.principal), kes(c.total), kes(c.balance), l.agreement ? 'Yes' : 'No']; }), { num: [2, 3, 4], empty: 'No loans.' })}
+<h2>Payouts</h2>${Doc.table(['Month', 'Member', 'Date', 'Amount', 'Signed'], s.payouts.slice().sort((a, b) => a.month.localeCompare(b.month)).map(p => [monthLabel(p.month), Domain.memberName(s, p.memberId), p.date || '', kes(p.amount), p.sig ? 'Yes' : 'No']), { num: [3], empty: 'No payouts yet.' })}
+<h2>Expenses</h2>${Doc.table(['Date', 'For', 'Type', 'Amount'], s.expenses.map(x => [x.date || '', x.title || '', x.category || '', kes(x.amount)]), { num: [3], empty: 'No expenses.', foot: s.expenses.length ? ['', '', 'Total', kes(sum(s.expenses, x => x.amount))] : null })}
+<h2>Fines</h2>${Doc.table(['Date', 'Member', 'Reason', 'Amount', 'Status'], s.fines.map(f => [f.date || '', Domain.memberName(s, f.memberId), f.reason || '', kes(f.amount), f.paid ? 'Paid' : 'Unpaid']), { num: [3], empty: 'No fines.' })}
+<div class="note">Cash on hand = contributions + fines paid + loan repayments − loans given − payouts − expenses. This report contains members' personal data: share it only with the Chama's officials.</div>`;
+    return this.html(s.chama.name + ' report', monthLabel(months[0] || cur) + ' to ' + monthLabel(cur) + ' · ' + (s.chama.mode === 'savings' ? 'Savings' : 'Merry-go-round') + ' · ' + kes(s.chama.monthly) + ' a share each month', s.chama.name, body);
+  }
+};
+
+return { get Reports() { return Reports; }, get Doc() { return Doc; }, };
 })();
 
 /* ---- src/features/members/index.js ---- */
@@ -3328,7 +3399,7 @@ const actions = {
     Modal.open({ title: 'Statement', body: `<p class="plain" style="text-align:center;margin-bottom:6px"><b>${esc(m.name)}</b></p>
       <div class="stats" style="margin:8px 0 14px"><div><span>Saved</span><b>${esc(kes(Domain.memberSaved(s, m.id)))}</b></div><div><span>Loan</span><b>${esc(kes(Domain.memberLoanBalance(s, m.id)))}</b></div><div><span>Fines</span><b>${esc(kes(Domain.memberFinesDue(s, m.id)))}</b></div></div>
       ${rows.slice(0, 12).map(p => `<div class="kv"><span>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''}</span><b class="num">${esc(kes(p.amount))}</b></div>`).join('') || '<p class="plain">No payments yet.</p>'}
-      ${m.phone && !s.shared ? `<div class="btns"><a class="btn pri block" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, Reports.statement(s, m)))}">${icon('chat')}Send on WhatsApp</a></div>` : ''}` });
+      <div class="btns">${m.phone && !s.shared ? `<a class="btn pri grow" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, Reports.statement(s, m)))}">${icon('chat')}WhatsApp</a>` : ''}<button type="button" class="btn grow" data-act="${s.shared ? 'pdfMine' : 'pdfMember'}" data-id="${esc(m.id)}">${icon('doc')}PDF</button></div>` });
   },
   delMember: { admin: true, run: d => { if (Domain.memberLoanBalance(S(), d.id) > 0 || Domain.memberFinesDue(S(), d.id) > 0) throw new Error('Settle their loan and fines before removing them'); Modal.close(); confirmBox('Remove this member? Their past payments stay in the records.', () => Store.commit(s => { s.members = s.members.filter(m => m.id !== d.id); })); } },
 };
@@ -3494,6 +3565,8 @@ const views = {
         <a class="li has-ic" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=${encodeURIComponent(Reports.summary(s))}"><span class="li-ic">${icon('chat')}</span><span class="li-main"><b>Share a summary on WhatsApp</b><small>Cash, loans${s.shared ? '' : ' and who is behind'}, as one message for your group</small></span>${icon('chev', 'chev')}</a>
         ${admin ? `<button type="button" class="li has-ic" data-act="exportCsv"><span class="li-ic t-info">${icon('download')}</span><span class="li-main"><b>Payments spreadsheet</b><small>Every payment as a CSV file for Excel or Sheets</small></span>${icon('chev', 'chev')}</button>
         <button type="button" class="li has-ic" data-act="exportJson"><span class="li-ic t-gold">${icon('download')}</span><span class="li-main"><b>Full backup</b><small>Everything in this Chama, as one file. Keep it somewhere safe and private</small></span>${icon('chev', 'chev')}</button>` : ''}
+        ${(s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId) ? `<button type="button" class="li has-ic" data-act="pdfMine"><span class="li-ic t-bad">${icon('doc')}</span><span class="li-main"><b>My statement (PDF)</b><small>Your contributions, loans and fines, ready to save or print</small></span>${icon('chev', 'chev')}</button>` : ''}
+        ${admin ? `<button type="button" class="li has-ic" data-act="pdfChama"><span class="li-ic t-bad">${icon('doc')}</span><span class="li-main"><b>Chama report (PDF)</b><small>Collections, members, loans, payouts, expenses and fines, in the app’s colours</small></span>${icon('chev', 'chev')}</button>` : ''}
         <a class="li has-ic" href="#/members"><span class="li-ic t-ink">${icon('doc')}</span><span class="li-main"><b>Member statements</b><small>${admin ? 'Open a member for their statement' : 'Open your name in Members'}</small></span>${icon('chev', 'chev')}</a>
       </div>
       ${admin ? '<p class="foot-note">Backups contain members’ personal data. Store them securely and do not share them outside the chama’s officials.</p>' : ''}`;
@@ -3501,6 +3574,14 @@ const views = {
 };
 
 const actions = {
+  pdfMine() {
+    const s = S(), id = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId, m = id ? s.members.find(x => x.id === id) : null;
+    if (!m) return __M_src_ui_toast_js.toast('Your sign-in is not linked to a member yet');
+    __M_src_lib_reports_js.Doc.print(__M_src_lib_reports_js.Doc.memberStatement(s, m), 'Statement - ' + m.name);
+    __M_src_ui_toast_js.toast('Choose “Save as PDF” to keep it', 'info');
+  },
+  pdfMember: { admin: true, run(d) { const s = S(), m = s.members.find(x => x.id === d.id); if (!m) return; __M_src_lib_reports_js.Doc.print(__M_src_lib_reports_js.Doc.memberStatement(s, m), 'Statement - ' + m.name); } },
+  pdfChama: { admin: true, run() { const s = S(); __M_src_lib_reports_js.Doc.print(__M_src_lib_reports_js.Doc.chamaReport(s), s.chama.name + ' report'); __M_src_ui_toast_js.toast('Choose “Save as PDF” to keep it', 'info'); } },
   exportCsv: { admin: true, run() {
     const s = S(), q = Reports.cell;
     const rows = [['Date', 'Member', 'Month', 'Amount', 'M-Pesa code'], ...s.payments.map(p => [p.date, Domain.memberName(s, p.memberId), p.month, p.amount, p.code])];
@@ -3656,7 +3737,12 @@ const actions = {
       __M_src_features_requests_js.Sheet.close(); toast('Password changed', 'ok'); render();
     } catch (e) { toast(e.message); if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = 'Change password'; } }
   },
-  exportMe() {
+  exportMe(d) {
+    if (!d || !d.fmt) return __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('download')}</span><h3>Download my data</h3><p>Choose how you want it.</p></div>
+<div class="list sx-list"><button type="button" class="li has-ic" data-act="exportMe" data-fmt="pdf"><span class="li-ic t-bad">${icon('doc')}</span><span class="li-main"><b>PDF document</b><small>Easy to read and print, in the app’s colours</small></span>${icon('chev', 'chev')}</button>
+<button type="button" class="li has-ic" data-act="exportMe" data-fmt="json"><span class="li-ic t-info">${icon('download')}</span><span class="li-main"><b>Data file (JSON)</b><small>Everything, for moving to another app</small></span>${icon('chev', 'chev')}</button></div>`, { key: 'export', label: 'Download my data' });
+    __M_src_features_requests_js.Sheet.close();
+    if (d.fmt === 'pdf') return __M_src_features_index_js.Actions.pdfMine();
     const s = S(), me = Me.get(), m = s ? s.members.find(x => x.id === me.memberId) : null;
     const prof = Session.readProfile ? Session.readProfile() : {};
     const { photo: _p, ...profile } = prof || {};
@@ -3975,7 +4061,7 @@ const views = {
       const sub = r.slice('settings/app'.length).replace(/^\//, '');
       const show = k => !sub || sub === k;
       return `<h1 class="lt">Display and accessibility</h1><p class="lt-sub">Saved on this phone only</p>`
-        + (show('appearance') ? seg('theme', 'Appearance', [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Automatic']]) + `<div style="margin-top:12px">${seg('accent', 'Colour', [['green', 'Green'], ['blue', 'Blue'], ['purple', 'Purple'], ['gold', 'Gold'], ['rose', 'Rose'], ['teal', 'Teal']])}</div>` : '')
+        + (show('appearance') ? seg('theme', 'Appearance', [['auto', 'Follow phone'], ['light', 'Light'], ['dark', 'Dark']]) + `<div style="margin-top:12px">${seg('accent', 'Colour', [['green', 'Green'], ['blue', 'Blue'], ['purple', 'Purple'], ['gold', 'Gold'], ['rose', 'Rose'], ['teal', 'Teal']])}</div>` : '')
         + (show('text') ? `<div style="margin-top:12px">${seg('size', 'Text size', [['n', 'Default'], ['l', 'Large'], ['x', 'Largest']])}</div>` : '')
         + (show('seeing') ? grp('Seeing', [sw('hc', 'Stronger contrast', 'Black and white with thicker lines'), sw('cb', 'Symbols with colours', 'Adds ✓ and ✕ so colour is never the only clue'), sw('ft', 'Easy-read lettering', 'A plainer typeface for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')]) : '')
         + (show('hands') ? grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')]) : '')
@@ -6339,7 +6425,7 @@ const Personal = {
     const sw = (k, v, t) => `<button type="button" class="pz-sw${(d.accent || 'green') === k ? ' on' : ''}" data-pz="accent" data-v="${k}" aria-label="${t}" aria-pressed="${(d.accent || 'green') === k}" style="--c:${v}"></button>`;
     return `<div class="pz"><div class="pz-head"><span class="aw-ic">${icon('sparkle')}</span><h2>${existing ? 'Your app has been updated' : 'Make it yours'}</h2><p>${existing ? 'Take a moment to set it up the way you like. You can change these any time in Settings.' : 'Set up how My Chama looks before you start. You can change these any time in Settings.'}</p></div>
 ${existing ? `<div class="pz-sec"><h4>What’s new</h4><ul class="aw-list">${WHATS_NEW.map(x => `<li>${icon('check', 's')}${esc(x)}</li>`).join('')}</ul></div>` : ''}
-<div class="pz-sec"><h4>Appearance</h4><div class="pz-modes">${tile('dark', 'Dark', 'Easy on the eyes')}${tile('light', 'Light', 'Bright and clear')}${tile('auto', 'Follow phone', 'Changes with your phone')}</div></div>
+<div class="pz-sec"><h4>Appearance</h4><div class="pz-modes">${tile('auto', 'Follow phone', 'Changes with your phone')}${tile('light', 'Light', 'Bright and clear')}${tile('dark', 'Dark', 'Easy on the eyes')}</div></div>
 <div class="pz-sec"><h4>Colour</h4><div class="pz-sws">${sw('green', '#0b6b4d', 'Green')}${sw('blue', '#1f5fae', 'Blue')}${sw('purple', '#5b34b8', 'Purple')}${sw('gold', '#8f6213', 'Gold')}${sw('rose', '#b0284f', 'Rose')}${sw('teal', '#0b6f78', 'Teal')}</div></div>
 <div class="pz-sec"><h4>Text size</h4><div class="pz-seg">${[['n', 'Default'], ['l', 'Large'], ['x', 'Largest']].map(([v, t]) => `<button type="button" class="${d.size === v ? 'on' : ''}" data-pz="size" data-v="${v}" aria-pressed="${d.size === v}">${t}</button>`).join('')}</div></div>
 <div class="pz-sec"><h4>Privacy and sound</h4>
