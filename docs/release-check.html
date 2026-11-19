@@ -75,7 +75,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 <div class="wrap">
   <header class="top">
     <h1>Chama Release Check</h1>
-    <p class="lede">Version 0.16.2 on <code>chama-livid.vercel.app</code>. Work down the list on your phone with the live app open. Mark each check Pass, Fail or Skip and say what you saw. Failed checks collect in Needs fix, which you can copy to Claude. Your marks are saved here, so Claude can read them too.</p>
+    <p class="lede">Version 0.17.0 on <code>chama-livid.vercel.app</code>. New checks for this round are in the first section; checks marked Retest were fixed, so try them again. Work down the list on your phone with the live app open. Mark each check Pass, Fail or Skip and say what you saw. Failed checks collect in Needs fix, which you can copy to Claude. Your marks are saved here, so Claude can read them too.</p>
   </header>
 
   <div class="bar" id="bar">
@@ -111,6 +111,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 <script>
 /* Each check: id, area, title, steps, what you should see, and tags: db (done in the Supabase dashboard) or sql (needs the database update first). */
 const AREAS = [
+  ['new017', 'New in 0.17.0', 'Run S11 first. Then try these on the live app (close and reopen it so it shows 0.17.0).'],
   ['supabase', 'Supabase', 'Done in the Supabase dashboard, project My Chama (sgfvjsxmchohawhqraii). Claude could not reach the database from its session, so nothing below has been run yet. Do S1 first: many app checks depend on it.'],
   ['version', 'Version and update', 'Open the live app on your phone.'],
   ['signin', 'Sign-in and password', 'Use a real account you control. Sign out first.'],
@@ -127,6 +128,18 @@ const AREAS = [
   ['ux', 'Feel and finish', '']
 ];
 const CHECKS = [
+  ['S11', 'new017', 'Run the 0.17 database update', ['SQL Editor → New query → paste <code>supabase/RUN_026.sql</code> → Run'], 'Success, and the check at the end shows ok = true on every row.', ['db']],
+  ['S12', 'new017', 'Find where the code email is copied', ['Brevo → Transactional → Logs: open one "is your My Chama code" email and read the To column', 'Brevo → Settings: look for a BCC address', 'Supabase → Authentication → Emails → SMTP settings, and Authentication → Auth Hooks'], 'Each code email is addressed to one person and there is no BCC or hook copying it. Note what you find.', ['db']],
+  ['A6', 'new017', 'Forgot password opens the reset screen (Retest A2)', ['Sign out → Sign in → Forgot password → your email', 'Type the code from the email'], '"Choose a new password" appears, also for an account that has used Google before.', []],
+  ['A7', 'new017', 'Someone else\'s code link does not sign you in', ['On a phone that did NOT ask for a code, open "Fill it in for me" from another person\'s code email'], 'Nobody is signed in. A message says who the link was for and asks them to use their own code.', []],
+  ['B1', 'new017', 'About you, one question at a time', ['Create a new account, or Settings → Privacy and my data → About you'], 'Name, phone, birthday (decade → year → month → day in big taps) and gender, each with "Why we ask". Skip works.', []],
+  ['B2', 'new017', 'Simple view', ['Pick a birth year before 1966 in About you, or Settings → Display → Simple view'], 'Bigger letters and buttons; Home shows the card, payout, actions and lists without the extra panels.', []],
+  ['B3', 'new017', 'Chama photo', ['Treasurer: Settings → Chama settings → the camera on the Chama tile → choose a photo', 'Open the Chama chooser; tap the photo'], 'The photo shows in the chooser (tap opens it large), on the Chama page and on a PDF statement. Members cannot change it.', ['sql']],
+  ['B4', 'new017', 'Borrower signs on their own phone (Retest M5)', ['Treasurer: New loan → Issue → Send to their phone', 'Borrower: open the app → Loan terms to sign → tick → sign'], 'The treasurer is told, and the loan shows the signed terms.', ['sql']],
+  ['B5', 'new017', 'M-Pesa import (Retest P1)', ['Payments → Import from M-Pesa → Screenshots → add two'], 'Two big choices, thumbnails of your screenshots, a result on each one, then the matches. Opening a recorded payment shows the M-Pesa message.', []],
+  ['B6', 'new017', 'Removal waits for notice (Retest R5)', ['Treasurer: a person → Remove access → Stopped contributing → reason'], 'They are NOT removed at once: they get notice and can reply. If the server is updating, the app says nothing was changed.', ['sql']],
+  ['B7', 'new017', 'Welcome walkthrough does not flicker', ['Open the Chama as a member who has not seen Know your Chama', 'Tap Next and Back'], 'It covers Home at once and each step changes smoothly, with nothing flashing behind it.', []],
+  ['B8', 'new017', 'New Guide mark', ['Look at the button next to the bell'], 'A speech bubble with a compass needle; no four-point star anywhere.', []],
   ['S1', 'supabase', 'Run the database update', ['Open SQL Editor → New query', 'Paste all of <code>supabase/RUN_THIS_IN_SQL_EDITOR.sql</code> from the repo', 'Run'], 'Success. No error. If there is an error, nothing changed: copy the error into the note.', ['db']],
   ['S2', 'supabase', 'Run the after-update checks', ['New query → paste <code>supabase/AFTER_UPDATE_CHECKS.sql</code> → Run'], 'In the first result every row shows ok = true. Note any row that says false.', ['db']],
   ['S3', 'supabase', 'Shared inbox check (the "same code for everyone" report)', ['Look at the last result of S2'], 'If rows appear, those sample accounts share one inbox. That explains everyone getting the same code. Paste the row count in the note.', ['db']],
