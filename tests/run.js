@@ -69,7 +69,7 @@ const TESTS = {
     ok(!st.agreedAt, 'nothing is recorded before the person continues');
     await page.click('[data-gm="in"]'); await page.waitForTimeout(200);
     st = await page.evaluate(() => JSON.parse(localStorage.getItem('mca-onboard')));
-    ok(st.policy === '2026-11-18-v3' && !!st.agreedAt && st.method === 'continue:sign-in' && 'tz' in st, 'continuing records version, time, method and time zone');
+    ok(st.policy === '2026-11-19-v4' && !!st.agreedAt && st.method === 'continue:sign-in' && 'tz' in st, 'continuing records version, time, method and time zone');
     ok(await page.evaluate(() => localStorage.getItem('mca-sfx') !== 'on' && !__M_src_ui_toast_js.Sfx.enabled), 'sounds are off by default');
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();

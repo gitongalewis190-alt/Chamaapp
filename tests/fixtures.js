@@ -30,7 +30,7 @@ function chama() {
 }
 
 const user = (id, email, extra) => ({ id, email, identities: [], app_metadata: {}, user_metadata: {}, ...(extra || {}) });
-const ONBOARDED = { lang: 'en', chosen: 'en', tipsDone: true, policy: '2026-11-18-v3', agreedAt: '2026-11-18T10:00:00Z', serverSynced: '2026-11-18-v3' };
+const ONBOARDED = { lang: 'en', chosen: 'en', tipsDone: true, policy: '2026-11-19-v4', agreedAt: '2026-11-18T10:00:00Z', serverSynced: '2026-11-19-v4' };
 
 const scenarios = {
   signedOut: { onboard: ONBOARDED, mock: {} },

@@ -1,5 +1,5 @@
 /* =====================================================================
-   My Chama App 0.13.0
+   My Chama App 0.14.0
    Shared visual vocabulary: one monoline icon family (24px grid, 1.7px stroke),
    monoline illustrations for empty states and onboarding, and the app mark.
    ===================================================================== */
@@ -1567,7 +1567,7 @@ document.addEventListener('keydown', e => {
 const gateSaved = () => { try { return JSON.parse(sessionStorage.getItem('mca-gate')) || {}; } catch (e) { return {}; } };
 /* ---- first run, before sign-in: language, a short tour, then the privacy policy and terms ----
    A new policy version asks everyone to read and accept again (Data Protection Act 2019, s. 32 consent). */
-const OB_POLICY_VERSION = '2026-11-18-v3';
+const OB_POLICY_VERSION = '2026-11-19-v4';
 const OB_KEY = 'mca-onboard';
 const LEGAL = { privacy: 'legal/privacy.html', terms: 'legal/terms.html' };
 const OB_T = {
@@ -1685,7 +1685,7 @@ const OB = {
     if (st.policy === OB_POLICY_VERSION && st.agreedAt) return this.syncConsent();
     if (this._asked) return; this._asked = true;
     __M_src_ui_toast_js.Pop.confirm({ title: 'We updated our terms',
-      html: `<p>We made the Terms of Use and Privacy Policy clearer. Nothing about who can see your money has changed.</p><p class="legal-mini">By continuing you agree to the <a href="${LEGAL.terms}" target="_blank" rel="noopener">Terms of Use</a> and the <a href="${LEGAL.privacy}" target="_blank" rel="noopener">Privacy Policy</a>.</p>`,
+      html: `<p>We added group chat, meetings and minutes, and approval for new members, and explained them in the Terms of Use and Privacy Policy. Nothing about who can see your money has changed.</p><p class="legal-mini">By continuing you agree to the <a href="${LEGAL.terms}" target="_blank" rel="noopener">Terms of Use</a> and the <a href="${LEGAL.privacy}" target="_blank" rel="noopener">Privacy Policy</a>.</p>`,
       confirmLabel: 'Continue', hideCancel: true, onYes: () => this.agree('continue:updated-terms') });
   },
   write(p) { try { localStorage.setItem(OB_KEY, JSON.stringify(Object.assign(this.read(), p))); } catch (e) { toast('Storage is full. Free some space and try again'); } },
@@ -2916,7 +2916,7 @@ const views = {
   members(s) {
     const admin = Auth.isAdmin(), meId = s.shared ? s.shared.me : null;
     const head = `<h1 class="lt">Members</h1><p class="lt-sub">${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}${s.chama.mode === 'savings' ? '' : ' · listed in payout order'}</p>`;
-    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri grow" data-act="addMember">${icon('userPlus')}Add a name</button><button type="button" class="btn tint grow" data-act="inviteSheet" data-v="code">${icon('key')}Invite to the app</button></div>` : '';
+    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri grow" data-act="addMember">${icon('userPlus')}Add a name</button><button type="button" class="btn tint grow" data-act="inviteSheet" data-v="code">${icon('key')}Invite</button></div>` : '';
     if (!s.members.length) return head + btn + joinedCard(s) + `<div class="card" style="margin-top:14px">${s.shared ? emptyState('people', 'No member list yet', 'Your treasurer has not shared the member list yet.') : emptyState('people', 'No members yet', 'Add the people in your chama. You can invite them to sign in afterwards.')}</div>`;
     const rows = s.members.map((m, i) => {
       const rel = s.shared ? null : Domain.reliability(s, m.id);
@@ -3317,13 +3317,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.13.0', released: '2026-11-18',
+  name: 'My Chama App', version: '0.14.0', released: '2026-11-19',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.14.0', 'Chat for your Chama: group and private messages, announcements, meetings with replies and an attendance register, minutes, votes, payment requests and statements. Joining with a code now asks the treasurer to approve you, and the Chama is shown before you join. Invites, People and access, your profile and Chama settings were rebuilt so each change is one tap away. Sounds are off unless you turn them on.'],
     ['0.13.0', 'A full redesign. A calmer Home with the one number that matters most to you, quick actions for the treasurer, and a simpler month view. Tap any payment, loan, fine or member to see details and act on it. A new code screen, a new opening mark, and simple line drawings throughout. Dark mode follows your phone. Clear Terms of Use and Privacy Policy pages, which everyone is asked to accept once. Fixes: recording a payment, saving your consent, the language search, and Enter to sign in.'],
     ['0.12.7-dev.1', 'Home, Contributions, Members and Profile use the approved layout: raised cards, money tiles, and a sliding month pill. Reset all data is no longer on Home.'],
     ['0.12.5-dev.1', 'Continue with Google signs you in, or creates your account if you are new.'],
@@ -4708,7 +4709,6 @@ const Chat = {
       else { this.unread[th] = (this.unread[th] || 0) + 1; if (!/^#\/chat/.test(location.hash)) toast((row.sender_name || 'Someone') + ': ' + (row.body || TOOLS[row.kind] && TOOLS[row.kind].t || 'New message').slice(0, 80), 'info', { label: 'Open', run: () => { location.hash = '#/chat/' + th; } }); }
     }
     this.paintBadge(); render();
-    if (open) this.scrollEnd(true);
   },
   markRead(th) {
     if (!this.unread[th]) return;
@@ -4728,7 +4728,7 @@ const Chat = {
   inbox(s) {
     if (!this.loaded) { this.load().catch(() => {}); return `<h1 class="lt">Chat</h1>${Skel.page()}`; }
     const threads = {};
-    this.msgs.forEach(m => { if (m.deleted_at && !m.body) {} const t = this.thread(m); threads[t] = m; });
+    this.msgs.forEach(m => { threads[this.thread(m)] = m; });
     const row = (th, title, sub, avatar, last) => `<a class="li has-av ch-row${this.unread[th] ? ' unread' : ''}" href="#/chat/${esc(th)}">${avatar}<span class="li-main"><span class="ch-top"><b>${esc(title)}</b>${last ? `<time>${esc(short(last.created_at))}</time>` : ''}</span><span class="ch-sub"><small>${sub}</small>${this.unread[th] ? `<span class="ch-n">${this.unread[th]}</span>` : ''}</span></span></a>`;
     const preview = m => !m ? 'Say hello to the group' : m.deleted_at ? 'Message removed' : esc((m.sender === this.me() ? 'You: ' : (m.sender_name || '').split(' ')[0] + ': ') + (m.kind === 'text' ? m.body : (TOOLS[m.kind] ? TOOLS[m.kind].t : '') + (m.body ? ' · ' + m.body : ''))).slice(0, 140);
     const name = (s.chama && s.chama.name) || 'Chama';
@@ -4771,7 +4771,9 @@ ${Session.role === 'member' ? '<p class="foot-note">The group sees group message
     const tools = this.tools(th);
     const canWrite = th === 'group' || (c && c.can_message);
     const pinned = th === 'group' ? this.msgs.filter(m => m.pinned && !m.recipient && !m.deleted_at).slice(-1)[0] : null;
-    this.scrollEnd(false);
+    /* follow the conversation only when it is opened or grows, never while someone reads older messages */
+    const seen = (this._seen = this._seen || {}), key = th + ':' + list.length;
+    if (seen.th !== th || seen.key !== key) { const first = seen.th !== th; seen.th = th; seen.key = key; this.scrollEnd(!first); }
     return `<div class="ch-thread"><div class="ch-bar">${th === 'group' ? `<span class="av grp" style="--n:40px">${icon('members')}</span>` : R().pav(title, c && c.photo, 40)}<div><b>${esc(title)}</b><small>${esc(sub)}</small></div></div>
 ${pinned ? `<button type="button" class="pin-card" data-act="chatJump" data-id="${esc(pinned.id)}">${icon('bell', 's')}<span><b>Pinned</b>${esc((pinned.body || '').slice(0, 120))}</span></button>` : ''}
 <div class="ch-msgs" id="chMsgs">${body || `<div class="ch-empty">${art('group')}<p>${th === 'group' ? 'Nothing here yet. Say hello to everyone.' : 'Start a private conversation.'}</p></div>`}<span id="chatEnd"></span></div>
