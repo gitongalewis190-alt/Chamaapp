@@ -162,6 +162,7 @@ header#top.scrolled { border-bottom-color: var(--line); }
 /* ---------- main view ---------- */
 main#view { max-width: var(--maxw); margin: 0 auto; padding: 6px 16px 0; outline: none; }
 main#view.pg { animation: pageIn var(--t-slow) var(--ease-out); }
+#view.quiet *:not(.spin):not(.live-dot):not(.sk):not(.jn-orbit > span) { animation: none !important; }
 @keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -1491,3 +1492,19 @@ img.av { cursor: zoom-in; }
 .choice .chev { width: 16px; height: 16px; color: var(--ink-3); flex: none; }
 .li.gone { opacity: .62; }
 .sx-note b { color: var(--ink); }
+
+/* declined requests, notices, warnings: hard to miss, calm to read */
+.decl-card { display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 14px 12px; margin: 14px 0; border-radius: 18px; background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 28%, transparent); color: var(--ink); }
+.decl-card .decl-ic { flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--bad); color: #fff; }
+.decl-card .decl-ic .ic { width: 20px; height: 20px; }
+.decl-card .decl-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.decl-card .decl-t small { color: var(--ink-2); font-size: .86em; line-height: 1.45; }
+.decl-card > .btn { flex: none; align-self: center; }
+.ho-warn { display: flex; gap: 12px; padding: 14px; border-radius: 16px; background: var(--warn-soft, var(--surface-2)); margin-bottom: 14px; }
+.ho-warn > .ic { flex: none; width: 24px; height: 24px; color: var(--warn); }
+.ho-warn ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink-2); font-size: .9em; line-height: 1.5; }
+.role-offer { padding: 14px; border-radius: 16px; background: var(--surface-2); margin-bottom: 14px; }
+.role-offer ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink-2); line-height: 1.55; }
+.role-note { margin-top: 10px; font-style: italic; color: var(--ink-2); }
+#modalRoot textarea { width: 100%; min-height: 84px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; resize: vertical; margin-top: 6px; }
+#modalRoot textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }

@@ -1026,6 +1026,8 @@ const Session = {
     try { __M_src_features_chat_index_js.Chat.watch(); } catch (e) {}
     if (Perm.can(m.role, 'members.invite')) { this.loadAccess().catch(() => {}); this.loadInvites().catch(() => {}); }
     if (m.role !== 'member') this.loadRequests().then(r => { if (r.length) { render(); try { __M_src_features_requests_js.Requests.prompt(); } catch (e) {} } }).catch(() => {});
+    try { __M_src_features_requests_js.Requests.watch(); } catch (e) {}
+    setTimeout(() => { try { __M_src_features_requests_js.Roles.check(); } catch (e) {} }, 1500);
     Store.startSync().catch(() => {}).then(() => this.loadMemberPics().catch(() => {}));
   },
   switchTo(id) {
@@ -1040,8 +1042,24 @@ const Session = {
   pending: [],
   async loadMyRequests() {
     try { const { data, error } = await Backend.sb.rpc('my_join_requests'); this.pending = error ? [] : (data || []); } catch (e) { this.pending = []; }
+    /* names are remembered here because a declined person can no longer read the Chama itself */
+    try { const names = JSON.parse(localStorage.getItem('mca-req-names') || '{}'); this.pending.forEach(r => { if (r.chama_id && r.chama_name) names[r.chama_id] = r.chama_name; }); localStorage.setItem('mca-req-names', JSON.stringify(names)); } catch (e) {}
+    await this.loadDeclined();
     return this.pending;
   },
+  /* the person's own declined requests (their own rows are readable to them), so a decline is never just a passing toast */
+  declined: [],
+  async loadDeclined() {
+    if (!Backend.sb || !this.user) { this.declined = []; return []; }
+    try {
+      const since = new Date(Date.now() - 180 * 864e5).toISOString();
+      const { data, error } = await Backend.sb.from('chama_join_requests').select('id,chama_id,role,status,decided_at,requested_at').eq('user_id', this.user.id).eq('status', 'declined').gte('requested_at', since).order('decided_at', { ascending: false }).limit(20);
+      let names = {}; try { names = JSON.parse(localStorage.getItem('mca-req-names') || '{}'); } catch (e) {}
+      this.declined = error ? [] : (data || []).map(r => ({ ...r, chama_name: names[r.chama_id] || null }));
+    } catch (e) { this.declined = []; }
+    return this.declined;
+  },
+  declinedFor(cid) { return (this.declined || []).find(r => r.chama_id === cid) || null; },
   async cancelRequest(cid) {
     const { error } = await Backend.sb.rpc('cancel_join_request', { p_cid: cid });
     if (error) throw new Error(rpcMessage(error));
@@ -2111,7 +2129,9 @@ ${formErr}
         : p.pending ? `<div class="jn-wait">${icon('clock', 's')}<span>Your request is waiting for approval.</span></div><button type="button" class="btn ghost block" data-act="jnCancel" data-id="${esc(p.chama_id)}">Cancel my request</button>`
         : `<button type="button" class="btn pri block" data-act="jnRequest"${busy ? ' disabled aria-busy="true"' : ''}>${busy ? '<span class="spin" aria-hidden="true"></span><span>Sending request…</span>' : `<span>Ask to join ${esc(p.chama_name || '')}</span>`}</button>
 <p class="fhelp jn-c">${esc(p.treasurer_name || 'The treasurer')} approves every new person. Nothing changes until they do.</p>`;
-      const err = this.joinMsg ? `<p class="notice" role="alert">${icon('alert', 's')}<span>${esc(this.joinMsg)}</span></p>` : '';
+      const before = !p.already_member && !p.pending && Session.declinedFor(p.chama_id);
+      const err = (this.joinMsg ? `<p class="notice" role="alert">${icon('alert', 's')}<span>${esc(this.joinMsg)}</span></p>` : '')
+        + (before ? `<div class="decl-card" role="note"><span class="decl-ic">${icon('alert')}</span><div class="decl-t"><b>You asked to join before and were declined</b><small>${esc(new Date(before.decided_at || before.requested_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }))}. You can ask again, but it helps to speak with the treasurer first.</small></div></div>` : '');
       return shell(`<div class="jn jn-pv">
 <div class="jn-hero"><span class="jn-tile lg">${mono(p.chama_name)}</span>
 <span class="jn-found">${icon('check', 's')}Code accepted</span>
@@ -2146,10 +2166,21 @@ ${err}<div class="jn-act">${state}
     if (A.pending) return `<div class="card warn" style="margin-top:22px"><h2>Account deletion scheduled</h2><p class="plain">Your account will be erased on ${esc(A.pending.purgeAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }))}. Restore it to keep it.</p><div class="btns"><button type="button" class="btn pri" data-act="gateRestore">Restore my account</button></div></div>`;
     return `<p class="legal-mini" style="margin-top:22px"><a href="${LEGAL.privacy}" target="_blank" rel="noopener">Privacy Policy</a> · <button type="button" class="linkish" data-act="deleteAccount">Delete my account</button></p>`;
   },
+  /* a decline is shown once as a dialog, then stays as a card in the hub until the person taps Got it */
+  announceDeclined(r) {
+    if (!r) return; this._declShown = this._declShown || {}; if (this._declShown[r.id]) return; this._declShown[r.id] = true;
+    __M_src_ui_toast_js.Pop.alert('Only the treasurer can explain why. If you think it is a mistake, talk to them before asking again.', { title: 'Your request to join ' + (r.chama_name || 'the Chama') + ' was declined', label: 'OK' });
+  },
+  declinedHtml() {
+    let hidden = []; try { hidden = JSON.parse(localStorage.getItem('mca-declined-seen') || '[]'); } catch (e) {}
+    const list = (Session.declined || []).filter(r => !hidden.includes(r.id)); if (!list.length) return '';
+    const when = d => d ? new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    return list.slice(0, 3).map(r => `<div class="decl-card" role="alert"><span class="decl-ic">${icon('alert')}</span><div class="decl-t"><b>Your request to join ${esc(r.chama_name || 'a Chama')} was declined</b><small>${esc(when(r.decided_at))}. Only the treasurer can explain why. If you think it is a mistake, talk to them before asking again.</small></div><button type="button" class="btn sm ghost" data-act="declSeen" data-id="${esc(r.id)}">Got it</button></div>`).join('');
+  },
   pendingHtml() {
-    const list = Session.pending || []; if (!list.length) return '';
+    const list = Session.pending || []; if (!list.length) return this.declinedHtml();
     const ago = d => { const m = Math.max(1, Math.round((Date.now() - new Date(d).getTime()) / 60000)); return m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
-    return `<div class="sec-h" style="margin-top:26px"><h3>Waiting for approval</h3></div><div class="list pend">${list.map(r => `<div class="li has-ic"><span class="pk-av">${esc(this.pkInitials(r.chama_name))}</span><span class="li-main"><b>${esc(r.chama_name || 'Chama')}</b><small>${esc(this.roleInfo(r.role).t)} · asked ${esc(ago(r.requested_at))}${r.treasurer_name ? ' · ' + esc(r.treasurer_name) + ' decides' : ''}</small></span><span class="li-end"><span class="live-dot" aria-hidden="true"></span><button type="button" class="btn sm ghost" data-act="jnCancel" data-id="${esc(r.chama_id)}">Cancel</button></span></div>`).join('')}</div>`;
+    return this.declinedHtml() + `<div class="sec-h" style="margin-top:26px"><h3>Waiting for approval</h3></div><div class="list pend">${list.map(r => `<div class="li has-ic"><span class="pk-av">${esc(this.pkInitials(r.chama_name))}</span><span class="li-main"><b>${esc(r.chama_name || 'Chama')}</b><small>${esc(this.roleInfo(r.role).t)} · asked ${esc(ago(r.requested_at))}${r.treasurer_name ? ' · ' + esc(r.treasurer_name) + ' decides' : ''}</small></span><span class="li-end"><span class="live-dot" aria-hidden="true"></span><button type="button" class="btn sm ghost" data-act="jnCancel" data-id="${esc(r.chama_id)}">Cancel</button></span></div>`).join('')}</div>`;
   },
   welcomeCard() { return this.hubPage(true); },
   chooseCard() { return this.hubPage(false); },
@@ -2248,7 +2279,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
       try { this._pendChan = Backend.sb.channel('jr-' + Session.user.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chama_join_requests', filter: 'user_id=eq.' + Session.user.id }, p => {
         if (!p.new) return;
         if (p.new.status === 'approved') { flashNext('dialog:You were approved. Welcome to the Chama.'); Session.switchTo(p.new.chama_id); }
-        else if (p.new.status === 'declined') { Session.loadMyRequests().then(() => { this.paint(); toast('Your request to join was declined', 'info'); }); }
+        else if (p.new.status === 'declined') { Session.loadMyRequests().then(() => { this.paint(); this.announceDeclined(Session.declinedFor(p.new.chama_id)); }); }
       }).subscribe(); } catch (e) { /* the timer below still checks */ }
     }
     if ((st === 'welcome' || st === 'choose') && (Session.pending || []).length) {
@@ -2260,7 +2291,10 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
           const hit = (data || []).find(w => before.includes(w.chama_id));
           if (hit) { clearInterval(this._pendTimer); flashNext('dialog:' + 'You were approved. Welcome to ' + (hit.chama_name || 'the Chama') + '.'); Session.switchTo(hit.chama_id); return; }
           await Session.loadMyRequests();
-          if ((Session.pending || []).length !== before.length) this.paint();
+          if ((Session.pending || []).length !== before.length) {
+            this.paint();
+            before.filter(id => !(Session.pending || []).some(x => x.chama_id === id)).forEach(id => this.announceDeclined(Session.declinedFor(id)));
+          }
         } catch (e) { /* offline: try again next time */ }
       }, 12000);
     }
@@ -2390,8 +2424,9 @@ const Modal = {
       const v = esc(x.value ?? '');
       let input;
       if (x.type === 'select') input = `<select name="${x.name}">${x.options.map(([val, lab]) => `<option value="${esc(val)}" ${val == x.value ? 'selected' : ''}>${esc(lab)}</option>`).join('')}</select>`;
+      else if (x.type === 'textarea') input = `<textarea name="${x.name}" rows="${x.rows || 3}" maxlength="${x.max || 600}" placeholder="${esc(x.placeholder || '')}" ${x.required ? 'required' : ''}>${v}</textarea>`;
       else input = `<input name="${x.name}" type="${x.type || 'text'}" value="${v}" ${x.required ? 'required' : ''} ${x.min != null ? `min="${x.min}"` : ''} ${x.type === 'number' ? 'step="any" inputmode="decimal"' : ''} placeholder="${esc(x.placeholder || '')}" autocomplete="off">`;
-      return `<label>${esc(x.label)}${input}</label>`;
+      return `<label>${esc(x.label)}${input}${x.help ? `<small class="fhelp">${esc(x.help)}</small>` : ''}</label>`;
     }).join('');
     $('#modalRoot').innerHTML = `<div class="veil" data-act="closeModal"><form class="sheet" role="dialog" aria-modal="true">
       <div class="mhead"><button type="button" class="xbtn" data-act="closeModal" aria-label="Close">&times;</button><h3>${esc(title)}</h3><span class="xsp" aria-hidden="true"></span></div>${body}${f}
@@ -3731,7 +3766,7 @@ const views = {
       <section class="sec" style="margin-top:0"><div class="sec-h"><h2>Basics</h2></div><div class="list">${row('name', 'pencil', 't-ink', 'Name', c.name)}${row('mode', 'swap', 't-gold', 'Type', c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round')}${c.mode === 'savings' ? '' : row('startMonth', 'clock', 't-info', 'First payout month', c.startMonth ? monthLabelLong(c.startMonth) : 'Not set')}</div></section>
       <section class="sec"><div class="sec-h"><h2>Money rules</h2></div><div class="list">${row('monthly', 'coins', '', 'Monthly contribution per share', kes(c.monthly))}${row('dueDay', 'clock', 't-info', 'Due by', 'Day ' + c.dueDay + ' of the month')}${row('finePerLate', 'receipt', 't-bad', 'Late fine', kes(c.finePerLate))}${row('loanRate', 'loans', 't-gold', 'Loan interest', c.loanRate + '% a month, flat')}${row('payTo', 'wallet', 't-ink', 'Members pay to', c.payTo || 'Not set')}</div></section>
       ${admin ? `<section class="sec"><div class="list"><button type="button" class="li has-ic" data-act="undo"><span class="li-ic t-ink">${icon('undo')}</span><span class="li-main"><b>Undo last change</b></span>${icon('chev', 'chev')}</button></div></section>` : ''}
-      <section class="sec"><div class="list"><button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
+      <section class="sec"><div class="list">${Session.role === 'secretary' ? `<button type="button" class="li has-ic" data-act="stepDown"><span class="li-ic t-warn">${icon('undo')}</span><span class="li-main"><b>Step down as secretary</b><small>Stay in the Chama as a member. A reason is needed.</small></span>${icon('chev', 'chev')}</button>` : ''}<button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
     }
     if (r === 'settings/data') return `<h1 class="lt">Data and storage</h1><div class="card"><h2>Where records are kept</h2>
       <p class="plain">Every change is saved on this phone first, then sent to the chama’s secure cloud database when you are online. ${CONFIG.supabase ? '' : 'The cloud is not set up in this app.'}</p>
@@ -3771,7 +3806,7 @@ const views = {
     const label = a => a.status === 'active' ? 'signed in' : a.status === 'removed' ? 'access removed' : 'waiting to sign in';
     if (!admin) return `<h1 class="lt">My access</h1>${__M_src_features_requests_js.Requests.listHtml()}<div class="card"><div class="kv"><span>Role</span><b>${esc(Perm.label(Session.role))}</b></div><div class="kv"><span>Signed in as</span><b>${esc(Session.email)}</b></div><div class="kv"><span>Member record</span><b>${Session.memberId ? 'Linked' : 'Not linked'}</b></div></div>
       <p class="foot-note">You see your own money and the group totals. Your treasurer controls who can sign in.</p>
-      <section class="sec"><div class="list"><button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
+      <section class="sec"><div class="list">${Session.role === 'secretary' ? `<button type="button" class="li has-ic" data-act="stepDown"><span class="li-ic t-warn">${icon('undo')}</span><span class="li-main"><b>Step down as secretary</b><small>Stay in the Chama as a member. A reason is needed.</small></span>${icon('chev', 'chev')}</button>` : ''}<button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
     return '';
   },
 };
@@ -3827,7 +3862,33 @@ const actions = {
     if (!/^[A-Z0-9]{4}$/.test(t)) return toast('A tag is exactly 4 letters or numbers');
     try { const tag = await Session.saveTag(t); __M_src_features_requests_js.Sheet.close(); toast('Chama tag saved: ' + tag, 'ok'); } catch (e) { toast(e.message); }
   },
-  revoke: async d => { __M_src_ui_toast_js.Pop.confirm({ title: 'Remove access?', text: d.e + ' will no longer be able to open this Chama. Their records are kept.', confirmLabel: 'Remove', danger: true, onYes: async () => { try { await Session.revoke(d.e); } catch (e) { toast(e.message); } } }); },
+  /* removing someone is a serious step: a reason they will read, a category, and by default a notice period they can answer */
+  revoke: async d => {
+    const R = __M_src_features_requests_js;
+    Modal.open({ title: 'Remove access?', submitLabel: 'Continue', danger: true,
+      body: `<div class="ho-warn">${icon('shield')}<div><b>Before you remove someone</b><ul><li>Their payments, loans and history stay in the books.</li><li>They are told the reason you write below.</li><li>Unless they asked to leave, they get a few days’ notice to reply, and you can still change your mind.</li><li>Removals are recorded with your name.</li></ul></div></div>`,
+      fields: [{ name: 'cat', label: 'Why', type: 'select', options: [['', 'Choose one…'], ...R.REMOVE_WHY], value: '' },
+        { name: 'why', label: 'Explain in your own words', type: 'textarea', required: true, placeholder: 'e.g. No contribution since January and no reply to three reminders.' },
+        { name: 'days', label: 'Notice before access ends', type: 'select', options: [['3', '3 days (suggested)'], ['7', '7 days'], ['14', '14 days']], value: '3', help: 'Ignored when they asked to leave, for a duplicate account or a security risk: those end at once.' }],
+      onSubmit: v => {
+        if (!v.cat) throw new Error('Choose why');
+        const why = String(v.why || '').trim(); if (why.length < 15) throw new Error('Explain the reason in a sentence (at least 15 characters)');
+        setTimeout(async () => {
+          const { data, error } = await Backend.sb.rpc('remove_with_reason', { p_cid: Store.chamaId, p_email: d.e, p_category: v.cat, p_reason: why, p_notice_days: Number(v.days) || 3 });
+          if (error && /Could not find the function|PGRST202|schema cache/i.test(error.message || '')) { try { await Session.revoke(d.e); } catch (e) { toast(e.message); } return; }
+          if (error) return toast(rpcMessage(error));
+          await Session.loadAccess(); await R.Roles.load().catch(() => {}); render(); R.Sheet.close();
+          if (data && data.removed) toast('Access removed. They were told why. Their records are kept.', 'ok');
+          else __M_src_ui_toast_js.Pop.alert('They have been told the reason and can reply. Their access ends after the notice period: you will see a Finish button on People and access. You can withdraw the notice before then.', { title: 'Notice given', label: 'OK', calm: true });
+        }, 0);
+      } });
+  },
+  roleAnswer: d => __M_src_features_requests_js.Roles.answer(d.id, d.v === 'yes'),
+  offerCancel: async d => { const { error } = await Backend.sb.rpc('cancel_role_offer', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await __M_src_features_requests_js.Roles.load(); render(); toast('Offer withdrawn', 'info'); },
+  noticeCancel: d => __M_src_ui_toast_js.Pop.confirm({ title: 'Withdraw the notice?', text: 'They keep their access and are told the notice was withdrawn.', confirmLabel: 'Withdraw', onYes: async () => { const { error } = await Backend.sb.rpc('cancel_removal_notice', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await __M_src_features_requests_js.Roles.load(); render(); toast('Notice withdrawn. They were told.', 'ok'); } }),
+  noticeFinish: d => __M_src_ui_toast_js.Pop.confirm({ title: 'End their access now?', text: 'The notice period is over. Their records stay in the books.', confirmLabel: 'End access', danger: true, onYes: async () => { const { error } = await Backend.sb.rpc('finish_removal', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await Session.loadAccess(); await __M_src_features_requests_js.Roles.load(); render(); toast('Access ended. Their records are kept.', 'ok'); } }),
+  noticeReply: d => Modal.open({ title: 'Reply to the treasurer', submitLabel: 'Send reply', fields: [{ name: 'r', label: 'Your reply', type: 'textarea', required: true, placeholder: 'e.g. I lost my job in March. I can pay the arrears by June.' }],
+    onSubmit: v => { const r = String(v.r || '').trim(); if (r.length < 5) throw new Error('Write a short reply'); setTimeout(async () => { const { error } = await Backend.sb.rpc('reply_removal_notice', { p_id: d.id, p_reply: r }); if (error) return toast(rpcMessage(error)); await __M_src_features_requests_js.Roles.load(); render(); toast('Reply sent to the treasurer', 'ok'); }, 0); } }),
   loadAccess: () => Session.loadAccess(),
   resendInvite: async d => {
     try {
@@ -3923,6 +3984,14 @@ const NOTE_TYPES = {
   role_changed:          { cat: 'group', icon: 'shield', tone: 'group', label: 'Your role', high: true, mandatory: true },
   role_changed_all:      { cat: 'group', icon: 'users', tone: 'group', label: 'Roles' },
   ownership:             { cat: 'group', icon: 'shield', tone: 'warn', label: 'New treasurer', high: true },
+  role_offer:            { cat: 'group', icon: 'key', tone: 'warn', label: 'Role offered to you', high: true, mandatory: true },
+  role_offer_declined:   { cat: 'group', icon: 'users', tone: 'warn', label: 'Role declined', high: true },
+  removal_notice:        { cat: 'group', icon: 'alert', tone: 'danger', label: 'Access notice', high: true, mandatory: true },
+  removal_notice_officers: { cat: 'group', icon: 'users', tone: 'warn', label: 'Access notice' },
+  removal_reply:         { cat: 'group', icon: 'chat', tone: 'warn', label: 'Reply to notice', high: true },
+  removal_cancelled:     { cat: 'group', icon: 'shield', tone: 'financial', label: 'Notice withdrawn', high: true },
+  access_removed_reason: { cat: 'group', icon: 'alert', tone: 'danger', label: 'Access removed', high: true, mandatory: true },
+  member_left_reason:    { cat: 'group', icon: 'users', tone: 'warn', label: 'Reason for leaving' },
   payment_claimed:       { cat: 'financial', icon: 'wallet', tone: 'warn', label: 'Says they paid', high: true },
   message_announcement:  { cat: 'messages', icon: 'bell', tone: 'group', label: 'Announcement', high: true },
   message_meeting:       { cat: 'messages', icon: 'doc', tone: 'group', label: 'Meeting', high: true },
@@ -3968,6 +4037,7 @@ const Notify = {
       toast(top.title, 'info', top.link && /^#\/[\w/-]*$/.test(top.link) ? { label: 'View', run: () => { location.hash = top.link; } } : null);
       if (fresh.some(n => n.kind === 'join_request')) { try { __M_src_features_requests_js.Requests.refresh(true); } catch (e) {} }
       if (fresh.some(n => /^(role_changed|access_removed|ownership)$/.test(n.kind))) { try { __M_src_core_session_js.Session.refreshRole(); } catch (e) {} }
+      if (fresh.some(n => /^(role_offer|role_offer_declined|removal_|access_removed_reason)/.test(n.kind))) { try { __M_src_features_requests_js.Roles.check(); } catch (e) {} }
       /* someone changed the books, the people or the list: fetch the latest without a reload */
       try { Store.reload().catch(() => {}); } catch (e) {}
       try { __M_src_core_session_js.Session.loadAccess().catch(() => {}); __M_src_core_session_js.Session.loadMemberPics().catch(() => {}); } catch (e) {}
@@ -4356,7 +4426,8 @@ const actions = {
   jnFinish: async () => { Gate.sub = null; Gate.joinPreview = null; Gate.joinDone = null; Gate.draft.link = ''; await Session.loadMyRequests(); Gate.paint(); },
   jnOpen: d => Session.switchTo(d.id),
   jnCancel: d => __M_src_ui_toast_js.Pop.confirm({ title: 'Cancel your request?', text: 'The treasurer will no longer see it. You can ask again with a valid code.', confirmLabel: 'Cancel request', cancelLabel: 'Keep it', danger: true,
-    onYes: async () => { try { await Session.cancelRequest(d.id); Gate.joinDone = null; if (Gate.joinPreview) Gate.joinPreview = { ...Gate.joinPreview, pending: false }; toast('Request cancelled'); Gate.paint(); } catch (e) { toast(e.message); } } }),
+    onYes: async () => { try { await Session.cancelRequest(d.id); Gate.sub = null; Gate.joinDone = null; Gate.joinPreview = null; Gate.joinMsg = ''; Gate.draft.link = ''; Gate.paint(); __M_src_ui_toast_js.Pop.alert('The treasurer can no longer approve it. To join later, ask them for a new code.', { title: 'Request cancelled', label: 'OK', calm: true }); } catch (e) { toast(e.message); } } }),
+  declSeen: d => { try { const k = 'mca-declined-seen', v = JSON.parse(localStorage.getItem(k) || '[]'); if (!v.includes(d.id)) v.push(d.id); localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} Gate.paint(); },
   jnPaste: async () => {
     try {
       const t = await navigator.clipboard.readText();
@@ -4375,13 +4446,26 @@ const actions = {
   },
   pkPick: (d) => { if (!d || !d.id) return; Gate.picked = d.id; Gate.paint(); },
   pkOpen: () => { if (Gate.picked) Gate.openChama(Gate.picked); },
+  stepDown: () => {
+    if (Session.role !== 'secretary') return toast(Session.role === 'treasurer' ? 'A treasurer hands the books to someone else instead' : 'You are a member');
+    Modal.open({ title: 'Step down as secretary?', submitLabel: 'Step down', danger: true,
+      body: '<p class="plain">You become a member and stay in the Chama. The treasurer and members are told, with your reason.</p>',
+      fields: [{ name: 'why', label: 'Your reason', type: 'textarea', required: true, placeholder: 'e.g. I start a new job and will not have time for meetings.' }],
+      onSubmit: v => { const why = String(v.why || '').trim(); if (why.length < 10) throw new Error('Write your reason (at least 10 characters)'); setTimeout(async () => {
+        const { error } = await Backend.sb.rpc('step_down', { p_cid: Session.cid(), p_reason: why });
+        if (error) return toast(/Could not find the function|PGRST202|schema cache/i.test(error.message || '') ? 'Stepping down needs a server update. Ask the treasurer to change your role meanwhile.' : error.message);
+        await Session.refreshRole(); __M_src_ui_toast_js.Pop.alert('You are now a member. Thank you for serving.', { title: 'You stepped down', label: 'OK', calm: true });
+      }, 0); } });
+  },
   leaveChama: () => {
     if (Session.role === 'treasurer') { toast('You are the treasurer. Hand the Chama to someone else first, or stay as co-treasurer.'); location.hash = '#/settings/actions'; return; }
     Modal.open({ title: 'Leave this Chama?', submitLabel: 'Leave Chama', danger: true,
       body: '<p class="plain">You will stop seeing this Chama. Your past payments and loans stay in its records, because they belong to the group. A treasurer can invite you back.</p>',
-      onSubmit: () => { setTimeout(async () => {
+      fields: [{ name: 'why', label: 'Why are you leaving?', type: 'textarea', required: true, placeholder: 'e.g. I am moving abroad and cannot keep contributing.', help: 'Shared with the treasurer and secretary only.' }],
+      onSubmit: v => { const why = String(v.why || '').trim(); if (why.length < 10) throw new Error('Write your reason (at least 10 characters)'); setTimeout(async () => {
         const cid = Session.cid();
-        const { error } = await Backend.sb.rpc('leave_chama', { cid });
+        let { error } = await Backend.sb.rpc('leave_chama_with_reason', { p_cid: cid, p_reason: why });
+        if (error && /Could not find the function|PGRST202|schema cache/i.test(error.message || '')) ({ error } = await Backend.sb.rpc('leave_chama', { cid }));
         if (error) return toast(error.message);
         toast('You left the Chama');
         const rest = (Session.workspaces || []).filter(w => w.chama_id !== cid);
@@ -4390,16 +4474,25 @@ const actions = {
       }, 0); } });
   },
   handover: d => {
-    Modal.open({ title: 'Hand over the Chama', submitLabel: 'Hand over',
-      body: `<p class="plain">Make <b>${esc(d.e)}</b> the treasurer.</p>`,
-      fields: [{ name: 'mode', label: 'After handing over', type: 'select', options: [['step_down', 'Step down to Member'], ['stay', 'Stay on as co-treasurer']], value: 'step_down' }],
-      onSubmit: v => { setTimeout(async () => {
-        const { error } = await Backend.sb.rpc('transfer_ownership', { cid: Session.cid(), p_email: d.e, p_stay_as_treasurer: v.mode === 'stay' });
-        if (error) return toast(error.message);
-        toast('Treasurer updated');
-        Session.role = v.mode === 'stay' ? 'treasurer' : 'member';
-        Session.loadAccess().catch(() => {}); render();
-      }, 0); } });
+    const R = __M_src_features_requests_js.Roles;
+    const a = (Session.access || []).find(x => x.email === d.e) || { email: d.e }, s = Store.get() || { members: [] };
+    const m = a.member_id ? s.members.find(x => x.id === a.member_id) : null, name = (m && m.name) || String(d.e).split('@')[0], first = name.split(' ')[0];
+    Modal.open({ title: 'Make ' + first + ' the treasurer?', submitLabel: 'Send the offer', danger: true,
+      body: `<div class="ho-warn">${icon('shield')}<div><b>This hands over the whole Chama</b><ul><li>${esc(first)} will see and change every record.</li><li>There is one treasurer: when ${esc(first)} accepts, <b>you become a member</b>.</li><li>Every member is told about the change.</li><li>Nothing happens until ${esc(first)} accepts.</li></ul></div></div>`,
+      fields: [{ name: 'who', label: 'Type ' + first + ' to confirm', placeholder: first, required: true }, { name: 'pw', label: 'Your password', type: 'password', required: true, help: 'Asked so that nobody holding your phone can give the Chama away.' }],
+      onSubmit: v => {
+        if (String(v.who || '').trim().toLowerCase() !== first.toLowerCase()) throw new Error('Type ' + first + ' exactly, to show you mean this person');
+        if (!v.pw) throw new Error('Enter your password');
+        setTimeout(async () => {
+          try {
+            await R.verifyTreasurer(v.pw);
+            const r = await R.offer(d.e, 'treasurer', null);
+            await Session.loadAccess().catch(() => {}); await R.load().catch(() => {}); render();
+            if (r && r.legacy) toast(first + ' is now the treasurer. Everyone has been told.', 'ok');
+            else __M_src_ui_toast_js.Pop.alert(first + ' has been asked to take over the books. You stay treasurer until they accept.', { title: 'Offer sent', label: 'OK', calm: true });
+          } catch (e) { toast(e.message); }
+        }, 0);
+      } });
   },
   gateReset: () => { Gate.sent = false; Gate.sending = false; Otp.hold = false; Otp.busy = false; Session.verifying = false; render(); },
   gateCancel: () => {
@@ -4582,8 +4675,35 @@ ${this.role !== 'treasurer' || true ? `<label class="fgrp" for="invRecord"><span
 
 /* ---------------- Join requests: the treasurer must answer ---------------- */
 const Requests = {
-  i: 0, pick: {}, busy: false,
-  async refresh(prompt) { await Session.loadRequests(); render(); if (prompt) this.prompt(); },
+  i: 0, pick: {}, busy: false, timer: null,
+  /* compares before and after: a request that disappeared without this phone deciding it was cancelled (or decided elsewhere) */
+  async refresh(prompt) {
+    const before = (Session.requests || []).slice();
+    await Session.loadRequests();
+    const now = Session.requests || [];
+    const gone = before.filter(r => !now.some(x => x.id === r.id) && !this.decided[r.id]);
+    const added = now.filter(r => !before.some(x => x.id === r.id));
+    if (gone.length) this.gone(gone);
+    render();
+    if (prompt || added.length) this.prompt();
+    else if (Sheet.isOpen('requests')) this.prompt();
+  },
+  decided: {},
+  gone(list) {
+    const wasOpen = Sheet.isOpen('requests');
+    list.forEach(r => delete this.pick[r.id]);
+    if (this.i >= (Session.requests || []).length) this.i = 0;
+    const names = list.map(r => r.name || r.email).join(', ');
+    if (wasOpen && !(Session.requests || []).length) Sheet.close();
+    __M_src_ui_toast_js.Pop.alert(list.length === 1 ? 'They cancelled the request themselves, or another officer already answered it. Nothing was changed.' : 'These requests were cancelled, or answered by another officer. Nothing was changed.', { title: (list.length === 1 ? names + ' withdrew their request' : list.length + ' requests were withdrawn'), label: 'OK', calm: true });
+  },
+  /* officers: keep the list fresh even if a live event is missed, and when coming back to the app */
+  watch() {
+    clearInterval(this.timer);
+    if (!Session.role || Session.role === 'member') return;
+    this.timer = setInterval(() => { if (!document.hidden && Session.ready() && Session.role && Session.role !== 'member') this.refresh(false).catch(() => {}); }, 20000);
+    if (!this._vis) { this._vis = true; document.addEventListener('visibilitychange', () => { if (!document.hidden && Session.ready() && Session.role && Session.role !== 'member') this.refresh(false).catch(() => {}); }); }
+  },
   prompt() {
     const list = Session.requests || [];
     if (!list.length) { if (Sheet.isOpen('requests')) Sheet.close(); return; }
@@ -4616,10 +4736,16 @@ ${n > 1 ? `<button type="button" class="btn ghost block sm" data-act="rqNext">Lo
     const nm = document.getElementById('rqName'); if (nm) st.name = nm.value.trim();
     this.busy = true; Sheet.update(this.html());
     try {
+      this.decided[id] = true;
       await Session.decideRequest(id, approve, { role: st.role, record: st.record, name: st.name });
-      toast(approve ? (r.name || 'They') + ' is in' : 'Request declined', approve ? 'ok' : 'info');
+      toast(approve ? (r.name || 'They') + ' is in' : 'Request declined. They will see it clearly when they next open the app.', approve ? 'ok' : 'info');
       try { if (approve) __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
-    } catch (e) { toast(e.message); }
+    } catch (e) {
+      if (/already handled/i.test(e.message || '')) {
+        await Session.loadRequests();
+        __M_src_ui_toast_js.Pop.alert('They cancelled it, or another officer answered it first. Nothing was changed.', { title: (r.name || 'This person') + '’s request is no longer open', label: 'OK', calm: true });
+      } else { delete this.decided[id]; toast(e.message); }
+    }
     this.busy = false; delete this.pick[id];
     this.prompt(); render();
   },
@@ -4650,6 +4776,86 @@ ${a.role !== 'treasurer' ? `<button type="button" class="li has-ic" data-act="ha
   }
 };
 
+/* ---------------- Fair roles: offers, reasons, notices (server: migration 023; older servers fall back) ---------------- */
+const missingFn = e => /Could not find the function|does not exist|PGRST202|schema cache/i.test((e && (e.message || e.code)) || '');
+const REMOVE_WHY = [['stopped_contributing', 'Stopped contributing for a long time'], ['broke_rules', 'Broke the Chama rules after warnings'], ['asked_to_leave', 'They asked to leave (removes now)'], ['duplicate', 'A duplicate or wrong account (removes now)'], ['security', 'A security risk, such as a lost phone (removes now)'], ['other', 'Something else']];
+const Roles = {
+  offers: [], notices: [], myNotice: null, myOffers: [],
+  /* the treasurer re-types their password before handing over the books: the strongest check the app can do */
+  async verifyTreasurer(pw) {
+    const r = await Session.passwordSignIn(Session.email, pw);
+    if (r && r.error) throw new Error(/password is not right/i.test(r.error) ? 'Your password is not right' : r.error);
+  },
+  async offer(email, role, note) {
+    const { data, error } = await Backend.sb.rpc('offer_role', { p_cid: Store.chamaId, p_email: email, p_role: role, p_note: note || null });
+    if (error && missingFn(error)) return this.legacy(email, role);
+    if (error) throw new Error(rpcMessage(error));
+    return data || {};
+  },
+  /* servers without 023: apply directly, and still keep one secretary / one treasurer */
+  async legacy(email, role) {
+    if (role === 'treasurer') {
+      const { error } = await Backend.sb.rpc('transfer_ownership', { cid: Store.chamaId, p_email: email, p_stay_as_treasurer: false });
+      if (error) throw new Error(rpcMessage(error));
+      Session.role = 'member'; return { applied: true, legacy: true };
+    }
+    if (role === 'secretary') for (const a of (Session.access || []).filter(x => x.status === 'active' && x.role === 'secretary' && x.email !== email)) {
+      await Backend.sb.rpc('set_member_role', { cid: Store.chamaId, p_email: a.email, p_role: 'member' });
+    }
+    const { error } = await Backend.sb.rpc('set_member_role', { cid: Store.chamaId, p_email: email, p_role: role });
+    if (error) throw new Error(rpcMessage(error));
+    return { applied: true, legacy: true };
+  },
+  async load() {
+    if (!Backend.sb || !Store.chamaId) return;
+    if (Session.role === 'treasurer') {
+      const [o, n] = await Promise.all([Backend.sb.rpc('list_role_offers', { p_cid: Store.chamaId }), Backend.sb.rpc('list_removal_notices', { p_cid: Store.chamaId })]);
+      this.offers = o.error ? [] : (o.data || []); this.notices = n.error ? [] : (n.data || []);
+    } else if (Session.role === 'secretary') {
+      const n = await Backend.sb.rpc('list_removal_notices', { p_cid: Store.chamaId }); this.notices = n.error ? [] : (n.data || []);
+    }
+    const [mo, mn] = await Promise.all([Backend.sb.rpc('my_role_offers', { p_cid: Store.chamaId }), Backend.sb.rpc('my_removal_notice', { p_cid: Store.chamaId })]);
+    this.myOffers = mo.error ? [] : (mo.data || []);
+    this.myNotice = mn.error ? null : ((mn.data || [])[0] || null);
+  },
+  /* the person offered a role must answer before carrying on */
+  async check() {
+    try { await this.load(); } catch (e) { return; }
+    render();
+    const o = this.myOffers[0]; if (!o) return;
+    if (Sheet.isOpen() && !Sheet.isOpen('roleOffer')) return setTimeout(() => this.check(), 5000);
+    const t = o.to_role === 'treasurer';
+    Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('key')}</span><h3>Become ${esc(ROLE[o.to_role].t)}?</h3><p>${esc(o.offered_by_name || 'The treasurer')} asked you.</p></div>
+<div class="role-offer"><p><b>What changes if you accept</b></p><ul>${t ? '<li>You keep the books: you record money, approve people and run the Chama.</li><li>' + esc(o.offered_by_name || 'The current treasurer') + ' becomes a member. There is one treasurer at a time.</li><li>Everyone in the Chama is told.</li>' : '<li>You keep the member register, call meetings, take minutes and run polls.</li><li>You do not see other members’ money.</li><li>Any current secretary becomes a member. There is one secretary at a time.</li>'}</ul>${o.note ? `<p class="role-note">“${esc(o.note)}”</p>` : ''}</div>
+<label class="fgrp" for="roAns"><span class="flab">A note back (optional)</span><span class="field"><input id="roAns" maxlength="300" placeholder="e.g. Happy to help"></span></label>
+<div class="rq-act"><button type="button" class="btn bad-soft" data-act="roleAnswer" data-id="${esc(o.id)}" data-v="no">Decline</button><button type="button" class="btn pri grow" data-act="roleAnswer" data-id="${esc(o.id)}" data-v="yes">Accept</button></div>`, { key: 'roleOffer', lock: true, label: 'Role offer' });
+  },
+  async answer(id, yes) {
+    const ans = (document.getElementById('roAns') || {}).value || '';
+    const { data, error } = await Backend.sb.rpc('respond_role_offer', { p_id: id, p_accept: yes, p_answer: ans || null });
+    Sheet.close();
+    if (error) { toast(rpcMessage(error)); return this.check(); }
+    if (yes) { Pop.alert(data && data.role === 'treasurer' ? 'You now keep the books. Everyone in the Chama has been told.' : 'You are now the secretary. Your new tools are in the menu.', { title: 'Role accepted', label: 'OK' }); await Session.refreshRole(); }
+    else toast('You declined. The treasurer has been told.', 'info');
+    this.check();
+  },
+  banner() {
+    const n = this.myNotice; if (!n) return '';
+    const d = new Date(n.effective_at).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' });
+    return `<div class="decl-card" role="alert"><span class="decl-ic">${icon('alert')}</span><div class="decl-t"><b>Your access ends on ${esc(d)}</b><small>Reason from the treasurer: ${esc(n.reason)}${n.reply ? '<br>Your reply was sent.' : ''}</small></div>${n.reply ? '' : `<button type="button" class="btn sm" data-act="noticeReply" data-id="${esc(n.id)}">Reply</button>`}</div>`;
+  },
+  officerHtml() {
+    const rows = [
+      ...this.offers.map(o => `<div class="li has-ic"><span class="li-ic t-gold">${icon('key')}</span><span class="li-main"><b>${esc(o.name)}</b><small>Offered ${esc(ROLE[o.to_role].t)} · waiting for their answer</small></span><span class="li-end"><button type="button" class="btn sm ghost" data-act="offerCancel" data-id="${esc(o.id)}">Withdraw</button></span></div>`),
+      ...this.notices.map(n => { const due = new Date(n.effective_at) <= new Date(); return `<div class="li has-ic"><span class="li-ic t-bad">${icon('alert')}</span><span class="li-main"><b>${esc(n.name)}</b><small>${due ? 'Notice ended' : 'Access ends ' + esc(new Date(n.effective_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }))} · ${esc(n.reason)}${n.reply ? ' · They replied: “' + esc(n.reply) + '”' : ''}</small></span>${Session.role === 'treasurer' ? `<span class="li-end">${due ? `<button type="button" class="btn sm bad-soft" data-act="noticeFinish" data-id="${esc(n.id)}">Finish</button>` : ''}<button type="button" class="btn sm ghost" data-act="noticeCancel" data-id="${esc(n.id)}">Withdraw</button></span>` : ''}</div>`; })
+    ];
+    const act = (Session.access || []).filter(a => a.status === 'active');
+    const two = ['treasurer', 'secretary'].filter(r => act.filter(a => a.role === r).length > 1);
+    const warn = two.length ? `<div class="decl-card"><span class="decl-ic">${icon('alert')}</span><div class="decl-t"><b>This Chama has more than one ${esc(two.map(r => ROLE[r].t.toLowerCase()).join(' and '))}</b><small>There should be one of each. Open a person below and choose Member for the extra one.</small></div></div>` : '';
+    return warn + (rows.length ? `<section class="sec"><div class="sec-h"><h2>Waiting</h2></div><div class="list">${rows.join('')}</div></section>` : '');
+  }
+};
+
 /* ---------------- People and access (treasurer) ---------------- */
 const accessView = s => {
   const me = String(Session.email || '').toLowerCase();
@@ -4673,6 +4879,7 @@ const accessView = s => {
 <div class="invite-hero"><div><b>Bring someone in</b><span>A code for WhatsApp or SMS, or an email link.</span></div>
 <div class="ih-btns"><button type="button" class="ih-b" data-act="inviteSheet" data-v="code">${icon('key')}<span>Share a code</span></button><button type="button" class="ih-b" data-act="inviteSheet" data-v="email">${icon('mail')}<span>Send an email</span></button></div></div>
 ${Requests.listHtml()}
+${Roles.officerHtml()}
 <section class="sec"><div class="sec-h"><h2>People</h2><button type="button" data-act="loadAccess">Refresh</button></div><div class="list">${people || '<div class="li empty">Only you so far</div>'}</div>
 ${active.some(a => !a.member_id && a.role !== 'treasurer') ? '<p class="foot-note"><span class="dot-warn"></span> Not on the member list yet. Tap them to add them.</p>' : ''}</section>
 ${open ? `<section class="sec"><div class="sec-h"><h2>Open invitations</h2></div><div class="list">${open}</div></section>` : ''}
@@ -4683,7 +4890,7 @@ const views = {
   requests(s) {
     if (!Session.role || Session.role === 'member') return `<div class="card">${emptyState('people', 'Nothing to approve', 'Only the treasurer and secretary approve new people.')}</div>`;
     const list = Requests.listHtml(true);
-    setTimeout(() => Requests.refresh(false), 0);
+    if (Date.now() - (Requests.lastView || 0) > 15000) { Requests.lastView = Date.now(); setTimeout(() => Requests.refresh(false).catch(() => {}), 0); }
     return `<h1 class="lt">Join requests</h1><p class="lt-sub">People who used an invite code</p>${list || `<div class="card">${emptyState('done', 'All caught up', 'Nobody is waiting to join.')}</div>`}`;
   }
 };
@@ -4715,12 +4922,18 @@ const actions = {
   personOpen: d => Person.open(d.e),
   personRole: d => {
     const a = (Session.access || []).find(x => x.email === d.e); if (!a || a.role === d.v) return;
-    Pop.confirm({ title: 'Make them ' + ROLE[d.v].t + '?', text: d.v === 'treasurer' ? 'They will see and change every record, like you.' : d.v === 'secretary' ? 'They will keep the member register, call meetings, share minutes and run polls. They will not see other members’ money.' : 'They will see their own money and the group totals only.', confirmLabel: 'Change role',
-      onYes: async () => {
-        const { error } = await Backend.sb.rpc('set_member_role', { cid: Store.chamaId, p_email: d.e, p_role: d.v });
-        if (error) return toast(rpcMessage(error));
-        toast('Role changed. They have been told.', 'ok'); await Session.loadAccess(); Person.open(d.e);
-      } });
+    const s = Store.get() || { members: [] }, m = a.member_id ? s.members.find(x => x.id === a.member_id) : null, name = (m && m.name) || a.email.split('@')[0];
+    const done = async (r, msg) => { await Session.loadAccess(); await Roles.load().catch(() => {}); render(); if (r && r.applied) toast(msg || 'Role changed. They have been told.', 'ok'); else Pop.alert(name + ' has been asked. Nothing changes until they accept. You will be told their answer.', { title: 'Offer sent', label: 'OK', calm: true }); Person.open(d.e); };
+    if (d.v === 'member') return Modal.open({ title: 'Make ' + name.split(' ')[0] + ' a member?', submitLabel: 'Change role', danger: true,
+      body: `<p class="plain">They stop being ${esc(ROLE[a.role].t)} at once. Tell them why: they will see exactly what you write.</p>`,
+      fields: [{ name: 'why', label: 'Reason', type: 'textarea', placeholder: 'e.g. We agreed at the March meeting to rotate the secretary role.', required: true }],
+      onSubmit: v => { const why = String(v.why || '').trim(); if (why.length < 10) throw new Error('Write a short reason (at least 10 characters)'); setTimeout(async () => { try { done(await Roles.offer(d.e, 'member', why)); } catch (e) { toast(e.message); } }, 0); } });
+    if (d.v === 'secretary') {
+      const cur = (Session.access || []).filter(x => x.status === 'active' && x.role === 'secretary' && x.email !== d.e);
+      return Pop.confirm({ title: 'Offer the secretary role?', text: name + ' will be asked to accept. ' + (cur.length ? 'When they accept, the current secretary becomes a member: there is one secretary at a time.' : 'They keep the register, call meetings and take minutes, without seeing other members’ money.'), confirmLabel: 'Send the offer',
+        onYes: async () => { try { done(await Roles.offer(d.e, 'secretary')); } catch (e) { toast(e.message); } } });
+    }
+    return __M_src_features_index_js.Actions.handover({ e: d.e });
   },
   personLink: async d => {
     const sel = document.getElementById('personRec');
@@ -4734,7 +4947,7 @@ const actions = {
   }
 };
 
-return { get views() { return views; }, get actions() { return actions; }, get Sheet() { return Sheet; }, get Requests() { return Requests; }, get Inv() { return Inv; }, get accessView() { return accessView; }, get pav() { return pav; }, get ROLE() { return ROLE; } };
+return { get views() { return views; }, get actions() { return actions; }, get Sheet() { return Sheet; }, get Requests() { return Requests; }, get Roles() { return Roles; }, get REMOVE_WHY() { return REMOVE_WHY; }, get Inv() { return Inv; }, get accessView() { return accessView; }, get pav() { return pav; }, get ROLE() { return ROLE; } };
 })();
 
 document.addEventListener('change', e => {
@@ -6218,7 +6431,8 @@ function paintNavAvatar() {
   const nm = meA.name || (mmA && mmA.name) || '', photo = Session.photoFor(mmA) || meA.photo;
   const ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
   const ok = typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo);
-  box.innerHTML = ok ? `<img src="${photo}" alt="">` : `<span>${esc(ini)}</span>`;
+  const next = ok ? `<img src="${photo}" alt="">` : `<span>${esc(ini)}</span>`;
+  if (box._html !== next) { box.innerHTML = next; box._html = next; }   /* rewriting the same picture made the tab blink */
 }
 
 function renderPage() {
@@ -6274,7 +6488,7 @@ function renderPage() {
   let html = '';
   try {
     Account.load();
-    html = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('chat/') ? __M_src_features_chat_index_js.Chat.threadView(s, r.slice(5)) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r));
+    html = Account.banner() + (r === 'home' ? (() => { try { return __M_src_features_requests_js.Roles.banner(); } catch (e) { return ''; } })() : '') + (Views[r] ? Views[r](s) : r.startsWith('chat/') ? __M_src_features_chat_index_js.Chat.threadView(s, r.slice(5)) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r));
   } catch (e) {
     console.error(e);
     html = '<div class="card">' + emptyState('lost', 'This page could not open', 'Your records are safe. Go back, or close the app and open it again.', '<a class="btn pri" href="#/home">Go to Home</a>') + '</div>';
@@ -6284,6 +6498,8 @@ function renderPage() {
     const ae = document.activeElement;
     const keep = ae && ae.id && viewEl.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.type !== 'file';
     const keepId = keep ? ae.id : '', keepVal = keep ? ae.value : '';
+    /* same page, new numbers: swap the content without replaying entrance animations (that was the blinking) */
+    viewEl.classList.toggle('quiet', !changed);
     viewEl.innerHTML = html;
     painted = html;
     if (y) window.scrollTo(0, y);
