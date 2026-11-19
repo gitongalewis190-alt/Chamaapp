@@ -2426,8 +2426,11 @@ async function savePayments(list) {
     toast(err && err.message && !/fetch|network|Failed/i.test(err.message) ? err.message : 'Payment not saved. Check your connection and try again.');
   }
   if (saved.length) {
-    Store.commit(st => saved.forEach(p => st.payments.push({ id: uid(), memberId: p.memberId, month: p.month, amount: p.amount, code: p.code || '', date: p.date })));
-    saved.forEach(p => { if (p.learn) Matcher.learn(p.learn.m, p.learn.t); });
+    /* the payments and the names learned from them are saved together, so a confirmed sender is recognised next time */
+    Store.commit(st => saved.forEach(p => {
+      st.payments.push({ id: uid(), memberId: p.memberId, month: p.month, amount: p.amount, code: p.code || '', date: p.date });
+      if (p.learn) { const mm = st.members.find(x => x.id === p.memberId); if (mm) Matcher.learn(mm, p.learn.t); }
+    }));
     toast(saved.length === 1 ? 'Payment recorded' : saved.length + ' payments recorded');
   }
 }
@@ -2698,25 +2701,35 @@ return { get Matcher() { return Matcher; }, };
 /* ---- src/lib/mpesa.js ---- */
 const __M_src_lib_mpesa_js = (function () {
 
-/* Reads M-Pesa confirmation text (typed, pasted, or OCR'd from a screenshot) */
+/* Reads M-Pesa confirmation text (typed, pasted, or read from a screenshot). Only money RECEIVED is taken.
+   Handles personal ("You have received Ksh… from NAME 0712***678 on …") and till / paybill ("Ksh… received from NAME 2547******78 …")
+   messages, masked phone numbers, and the small mistakes OCR makes (Ksh1.000,00, KSh, missing spaces). */
 const Mpesa = {
-  amount(raw) { let n = String(raw).replace(/,/g, ''); const p = n.split('.'); if (p.length > 2) n = p.slice(0, -1).join('') + '.' + p[p.length - 1]; return parseFloat(n); },
+  amount(raw) { let n = String(raw).replace(/\s/g, ''); if (/^\d{1,3}(\.\d{3})+,\d{2}$/.test(n)) n = n.replace(/\./g, '').replace(',', '.'); n = n.replace(/,/g, ''); const p = n.split('.'); if (p.length > 2) n = p.slice(0, -1).join('') + '.' + p[p.length - 1]; return parseFloat(n); },
+  PHONE: /(?:\+?254|0)\s?[17][\d\s*xX•#.]{5,12}\d/,
+  clean(raw) {
+    return String(raw || '').replace(/[   ]/g, ' ').replace(/[“”]/g, '"').replace(/\bK\s?sh(?:s)?\b\.?/gi, 'Ksh').replace(/Ksh\s*\.?\s*/g, 'Ksh')
+      .replace(/C[o0]nf[il1]rmed/gi, 'Confirmed').replace(/rece[il1]ved/gi, 'received').replace(/\s+/g, ' ');
+  },
   parse(raw) {
-    const t = String(raw).replace(/\s+/g, ' '), re = /\b([A-Z0-9]{10}) Confirmed/gi, hits = [], seen = new Set(), out = [];
+    const t = this.clean(raw), re = /\b([A-Z0-9]{10})\s*[.,]?\s*Confirmed/gi, hits = [], seen = new Set(), out = [];
     let m; while ((m = re.exec(t))) hits.push({ code: m[1].toUpperCase(), at: m.index });
     hits.forEach((h, k) => {
       const seg = t.slice(h.at, k + 1 < hits.length ? hits[k + 1].at : undefined);
-      if (!/received/i.test(seg) || seen.has(h.code)) return;
-      const a = seg.match(/(?:Ksh|Kshs|KES)\.?\s?([\d,.]+\d)/i); if (!a) return;
-      const f = seg.match(/from\s+(.+?)\s+on\s+\d{1,2}\/\d{1,2}\/\d{2,4}/i), who = f ? f[1] : '';
-      const ph = who.match(/(?:\+?254|0)\s?[17][\d\s*xX]{5,10}\d/), phone = ph ? ph[0].replace(/\s/g, '') : '';
-      const name = who.replace(ph ? ph[0] : '', '').replace(/[-:,.]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!/received/i.test(seg) || /\b(sent to|paid to|withdraw|transferred to|bought)\b/i.test(seg.split(/received/i)[0]) || seen.has(h.code)) return;
+      const a = seg.match(/Ksh\s?([\d][\d,.\s]*\d)/i); if (!a) return;
+      const amount = this.amount(a[1]); if (!(amount > 0)) return;
+      const f = seg.match(/from\s+(.+?)(?:\s+on\s+\d{1,2}\/\d{1,2}\/\d{2,4}|\s*\.?\s*New\s+M-?PESA|\s+at\s+\d|\.\s|$)/i), who = f ? f[1] : '';
+      const ph = who.match(this.PHONE), phone = ph ? ph[0].replace(/[\s.]/g, '').replace(/[•#xX]/g, '*') : '';
+      const name = who.replace(ph ? ph[0] : '', '').replace(/[-:,.]/g, ' ').replace(/\b(account|acc|a\/c)\b.*$/i, '').replace(/\s+/g, ' ').trim();
       const d = seg.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); let date = '';
-      if (d) date = `${d[3].length === 2 ? '20' + d[3] : d[3]}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`;
-      seen.add(h.code); out.push({ code: h.code, amount: this.amount(a[1]), name, phone, date });
+      if (d) { const y = d[3].length === 2 ? '20' + d[3] : d[3]; date = `${y}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`; if (isNaN(Date.parse(date))) date = ''; }
+      seen.add(h.code); out.push({ code: h.code, amount, name, phone, date, masked: /\*/.test(phone) });
     });
     return out;
-  }
+  },
+  /* "0712***678" -> "07•• ••• 678" style for display */
+  showPhone(p) { return String(p || '').replace(/\*+/g, m => '•'.repeat(Math.min(m.length, 6))); }
 };
 
 return { get Mpesa() { return Mpesa; }, };
@@ -2735,44 +2748,93 @@ const { toast } = __M_src_ui_toast_js;
 
 const Import = {
   lib: src => new Promise((ok, no) => { const el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = no; document.head.appendChild(el); }),
-  async shrink(file) {
-    const bmp = await createImageBitmap(file), k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  /* screenshots are scaled so text is ~30px high, turned grey, stretched in contrast and, for dark-mode screenshots, inverted */
+  async prepare(file) {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(2.2, Math.max(1, 1400 / bmp.width)) * Math.min(1, 2600 / Math.max(bmp.width, bmp.height));
     const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); return c;
+    const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingQuality = 'high'; x.drawImage(bmp, 0, 0, c.width, c.height);
+    const img = x.getImageData(0, 0, c.width, c.height), d = img.data; let lo = 255, hi = 0, total = 0;
+    for (let i = 0; i < d.length; i += 4) { const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; d[i] = g; total += g; if (g < lo) lo = g; if (g > hi) hi = g; }
+    const dark = total / (d.length / 4) < 128, span = Math.max(1, hi - lo);
+    for (let i = 0; i < d.length; i += 4) { let g = (d[i] - lo) * 255 / span; if (dark) g = 255 - g; g = g < 150 ? Math.max(0, g - 40) : Math.min(255, g + 30); d[i] = d[i + 1] = d[i + 2] = g; }
+    x.putImageData(img, 0, 0); return c;
   },
-  async ocr(file) {
-    if (!window.Tesseract) await this.lib('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
-    return (await Tesseract.recognize(await this.shrink(file), 'eng')).data.text;
+  async worker() {
+    if (this._w) return this._w;
+    if (!window.Tesseract) await this.lib('vendor/tesseract/tesseract.min.js');
+    const base = new URL('vendor/tesseract/', location.href).href;
+    this._w = await Tesseract.createWorker('eng', 1, { workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang', gzip: true });
+    await this._w.setParameters({ preserve_interword_spaces: '1', user_defined_dpi: '300' });
+    return this._w;
+  },
+  async ocr(file, onStep) {
+    if (onStep) onStep('Getting the reader ready (first time only)…');
+    const w = await this.worker();
+    if (onStep) onStep('Reading the text…');
+    return (await w.recognize(await this.prepare(file))).data.text;
+  },
+  progress(msg, i, n) {
+    const el = document.getElementById('impProg'); if (!el) return;
+    el.hidden = false; el.querySelector('span').textContent = msg; el.querySelector('i').style.width = Math.round((i / Math.max(1, n)) * 100) + '%';
   },
   async run(text, files) {
     try {
-      let all = text;
-      for (let i = 0; i < files.length; i++) { toast(`Reading screenshot ${i + 1} of ${files.length}`); try { all += '\n' + await this.ocr(files[i]); } catch { toast('Could not read screenshot ' + (i + 1) + '. Try pasting the text.'); } }
+      let all = text || '', failed = 0;
+      if (files.length) Modal.open({ title: 'Reading screenshots', body: `<div class="imp-prog" id="impProg"><span>Starting…</span><div class="cl-bar"><i style="width:4%"></i></div><p class="fhelp">Everything is read on this phone. Nothing is sent anywhere.</p></div>`, hideCancel: true });
+      for (let i = 0; i < files.length; i++) {
+        try { all += '\n' + await this.ocr(files[i], m => this.progress(`Screenshot ${i + 1} of ${files.length}: ${m}`, i + 0.5, files.length)); }
+        catch (e) { failed++; console.warn('OCR failed', e); }
+        this.progress(`Read ${i + 1} of ${files.length}`, i + 1, files.length);
+      }
+      if (files.length) Modal.close();
       const txs = Mpesa.parse(all);
-      if (!txs.length) return toast('No incoming payments found. Try pasting the message text.');
+      if (!txs.length) return __M_src_ui_toast_js.Pop.alert(failed ? 'The screenshot could not be read. Paste the message text instead: long-press the SMS, copy, and paste it here.' : 'No money received was found. Only messages that say "received" are imported. Payments you sent are ignored.', { title: 'No payments found', label: 'OK' });
+      if (failed) toast(failed + ' screenshot' + (failed > 1 ? 's' : '') + ' could not be read', 'info');
       this.review(txs);
-    } catch (e) { toast(e.message); }
+    } catch (e) { Modal.close(); toast(e.message); }
   },
   defaultMonth(s, mid) {
     const cur = Domain.now();
     for (let i = 5; i >= 0; i--) { const mk = addMonths(cur, -i); if ((mk === cur || s.payments.some(p => p.month === mk)) && Domain.outstanding(s, mid, mk) > 0 && mk >= Domain.joinMonth(s, mid)) return mk; }
     return cur;
   },
+  /* why we think this payment belongs to this member, in plain words */
+  why(m, t) {
+    if (!m) return 'No member matches the name or number';
+    const bits = [];
+    if (t.name && (m.aliases || []).includes(Matcher.key(t.name))) bits.push('paid under this name before');
+    const ph = Matcher.phone(m.phone, t.phone);
+    if (ph === 1) bits.push('same phone number'); else if (ph > 0) { const d = Matcher.loc(t.phone).replace(/\*+/g, ' ').trim().split(' '); bits.push('phone ' + (d[0] ? 'starts ' + d[0] : '') + (d[0] && d[1] ? ', ' : '') + (d[1] ? 'ends ' + d[1] : '')); }
+    else if (t.phone && !m.phone) bits.push('no phone saved for ' + m.name.split(' ')[0]);
+    const nm = Matcher.name(m, t); if (nm >= 0.9) bits.push('name matches'); else if (nm > 0.3) bits.push('name partly matches');
+    return bits.join(' · ') || 'weak match';
+  },
   review(txs) {
-    const s = S(), cur = Domain.now(), months = Array.from({ length: 6 }, (_, i) => addMonths(cur, i - 5));
+    const s = S(), cur = Domain.now(), months = Array.from({ length: 8 }, (_, i) => addMonths(cur, i - 6));
+    let sure = 0, check = 0, dup = 0, none = 0;
     const rows = txs.map((t, i) => {
-      const r = Matcher.rank(s, t), top = r[0], sure = top && top.sc >= 0.8 && !(r[1] && r[1].sc > top.sc - 0.15);
+      const r = Matcher.rank(s, t), top = r[0], ok = top && top.sc >= 0.8 && !(r[1] && r[1].sc > top.sc - 0.15);
       t.memberId = top && top.sc >= 0.4 ? top.m.id : ''; t.dup = s.payments.some(p => p.code && p.code === t.code);
-      const mo = t.memberId ? Import.defaultMonth(s, t.memberId) : cur;
-      return `<div class="mrow"><input type="checkbox" name="inc_${i}" aria-label="Include ${esc(t.code)}" ${t.dup ? 'disabled' : 'checked'}>
-        <div class="grow"><b class="num">${esc(kes(t.amount))}</b> <span class="tag ${t.dup ? 'bad' : sure ? 'ok' : 'warn'}">${t.dup ? 'Already recorded' : sure ? 'Matched' : t.memberId ? 'Please check' : 'No match'}</span>
-        <div class="mute small">${esc(t.code)} \u00b7 ${esc(t.name || 'no name')} ${esc(t.phone)}</div>
-        <select name="m_${i}" aria-label="Member for ${esc(t.code)}"><option value="">Choose member</option>${s.members.map(m => `<option value="${esc(m.id)}" ${m.id === t.memberId ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
-        <select name="mo_${i}" aria-label="Month for ${esc(t.code)}">${months.map(k => `<option value="${k}" ${k === mo ? 'selected' : ''}>${monthLabel(k)}</option>`).join('')}</select></div></div>`;
+      const st = t.dup ? 'dup' : ok ? 'sure' : t.memberId ? 'check' : 'none';
+      ({ dup: () => dup++, sure: () => sure++, check: () => check++, none: () => none++ })[st]();
+      const mo = t.memberId ? Import.defaultMonth(s, t.memberId) : cur, m = t.memberId ? s.members.find(x => x.id === t.memberId) : null;
+      const pctv = top ? Math.round(Math.min(1, top.sc) * 100) : 0;
+      const ordered = [...r.map(x => x.m), ...s.members.filter(x => !r.some(y => y.m.id === x.id))];
+      return `<div class="imp-card st-${st}">
+<label class="imp-inc"><input type="checkbox" name="inc_${i}" aria-label="Include ${esc(t.code)}" ${t.dup ? 'disabled' : st === 'none' ? '' : 'checked'}></label>
+<div class="imp-body"><div class="imp-top"><b class="num">${esc(kes(t.amount))}</b><span class="tag ${st === 'dup' ? 'bad' : st === 'sure' ? 'ok' : 'warn'}">${st === 'dup' ? 'Already recorded' : st === 'sure' ? 'Matched' : st === 'check' ? 'Please check' : 'No match'}</span></div>
+<div class="imp-from">${esc(t.name || 'No name in message')}${t.phone ? ` · <span class="num">${esc(Mpesa.showPhone(t.phone))}</span>` : ''}</div>
+<div class="imp-meta"><span class="num">${esc(t.code)}</span>${t.date ? `<span>${esc(t.date)}</span>` : ''}</div>
+${t.dup ? '' : `<div class="imp-why"><span class="imp-conf"><i style="width:${pctv}%"></i></span>${esc(Import.why(m, t))}</div>
+<div class="imp-pick"><select name="m_${i}" aria-label="Member for ${esc(t.code)}"><option value="">Choose member…</option>${ordered.map(x => `<option value="${esc(x.id)}" ${x.id === t.memberId ? 'selected' : ''}>${esc(x.name)}${x.phone ? ' · …' + esc(String(x.phone).slice(-3)) : ''}</option>`).join('')}</select>
+<select name="mo_${i}" aria-label="Month for ${esc(t.code)}">${months.map(k => `<option value="${k}" ${k === mo ? 'selected' : ''}>${monthLabel(k)}</option>`).join('')}</select></div>`}</div></div>`;
     }).join('');
-    Modal.open({ title: `${txs.length} payment${txs.length > 1 ? 's' : ''} found`, submitLabel: 'Record payments', body: '<p class="plain">Check each member and month. Ticked payments are recorded.</p>' + rows, onSubmit: v => {
+    const sumHtml = `<div class="imp-sum"><div><b>${sure}</b><span>Matched</span></div><div><b>${check}</b><span>To check</span></div><div><b>${none}</b><span>No match</span></div><div><b>${dup}</b><span>Already in</span></div></div>
+<p class="fhelp">M-Pesa hides part of each phone number, so matches use the digits that show and the name. Check every “Please check”. Once you confirm a match, the app remembers that name for next time.</p>`;
+    Modal.open({ title: `${txs.length} payment${txs.length > 1 ? 's' : ''} found`, submitLabel: 'Record ticked payments', body: sumHtml + `<div class="imp-list">${rows}</div>`, onSubmit: v => {
       const picks = txs.map((t, i) => ({ t, i })).filter(x => v['inc_' + x.i] != null);
-      if (!picks.length) throw new Error('Nothing selected');
+      if (!picks.length) throw new Error('Nothing is ticked');
       picks.forEach(({ t, i }) => { if (!v['m_' + i]) throw new Error('Choose a member for ' + t.code); });
       savePayments(picks.map(({ t, i }) => { const m = S().members.find(x => x.id === v['m_' + i]); return { memberId: m.id, month: v['mo_' + i], amount: t.amount, code: t.code, date: t.date || todayISO(), name: m.name, learn: { m, t } }; }));
     } });
@@ -2899,9 +2961,13 @@ const actions = {
   } },
   importPay: { admin: true, run() {
     if (!S().members.length) return toast('Add members first');
-    Modal.open({ title: 'Import M-Pesa payments', submitLabel: 'Read payments',
-      body: '<p class="plain">Paste the confirmation messages, or add screenshots. Nothing is recorded until you check each match.</p><label>Messages<textarea name="text" rows="5" placeholder="SJK4L2P9QX Confirmed. Ksh2,000.00 received from…"></textarea></label><label>Screenshots<input type="file" name="shots" accept="image/*" multiple></label><p class="fhelp">Screenshots are read on this phone. They are not uploaded.</p>',
-      onSubmit: v => { const files = [...$('#modalRoot input[type=file]').files]; if (!(v.text || '').trim() && !files.length) throw new Error('Paste a message or add a screenshot'); if (files.length > 10) throw new Error('Add up to 10 screenshots at a time'); Import.run(v.text || '', files); } });
+    Modal.open({ title: 'Import M-Pesa payments', submitLabel: 'Find payments',
+      body: `<div class="imp-how"><div><b>1</b><span>Copy the M-Pesa messages, or take screenshots of them</span></div><div><b>2</b><span>Paste or add them below</span></div><div><b>3</b><span>Check each match, then record</span></div></div>
+<label>Paste messages<textarea name="text" rows="5" placeholder="SJK4L2P9QX Confirmed. You have received Ksh2,000.00 from GRACE NJERI 0712***678 on 3/11/26 at 9:14 AM…"></textarea></label>
+<label class="imp-drop">${icon('camera')}<span><b>Add screenshots</b><small>Up to 10. Read on this phone; nothing is uploaded.</small></span><input type="file" name="shots" accept="image/*" multiple></label>
+<p class="fhelp">Only money you <b>received</b> is imported. Hidden digits (0712•••678) are fine: the app matches by the digits that show and the name, and you confirm each one.</p>`,
+      onSubmit: v => { const files = [...$('#modalRoot input[type=file]').files]; if (!(v.text || '').trim() && !files.length) throw new Error('Paste a message or add a screenshot'); if (files.length > 10) throw new Error('Add up to 10 screenshots at a time'); setTimeout(() => Import.run(v.text || '', files), 50); } });
+    const inp = $('#modalRoot input[type=file]'); if (inp) inp.addEventListener('change', () => { const sp = inp.closest('.imp-drop').querySelector('small'); sp.textContent = inp.files.length ? inp.files.length + ' screenshot' + (inp.files.length > 1 ? 's' : '') + ' added' : 'Up to 10. Read on this phone; nothing is uploaded.'; });
   } },
   cgMonth: { run(d) { cgMonth = d.mo; render(); } },
 };

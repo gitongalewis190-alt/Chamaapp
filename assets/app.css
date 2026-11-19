@@ -1557,3 +1557,36 @@ img.av { cursor: zoom-in; }
 .loan-terms .lt-big b { font: 750 1.2em/1.1 var(--font-display); }
 #modalRoot label:has(> input[type=checkbox]) { display: flex; flex-direction: row-reverse; justify-content: flex-end; align-items: flex-start; gap: 10px; font-weight: 600; line-height: 1.45; }
 #modalRoot label > input[type=checkbox] { width: 22px; height: 22px; flex: none; margin-top: 2px; accent-color: var(--brand); }
+
+/* M-Pesa import */
+.imp-how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.imp-how > div { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; background: var(--surface-2); font-size: .8em; color: var(--ink-2); line-height: 1.35; }
+.imp-how b { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--brand); color: #fff; font-size: .9em; }
+.imp-drop { display: flex !important; align-items: center; gap: 12px; padding: 14px; border: 1.5px dashed var(--line-2); border-radius: 16px; cursor: pointer; margin-top: 10px; }
+.imp-drop > .ic { width: 26px; height: 26px; color: var(--brand); flex: none; }
+.imp-drop span { display: flex; flex-direction: column; gap: 2px; }
+.imp-drop small { color: var(--ink-3); font-weight: 400; }
+.imp-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.imp-drop:focus-within { border-color: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+.imp-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+.imp-sum > div { text-align: center; padding: 10px 4px; border-radius: 14px; background: var(--surface-2); }
+.imp-sum b { display: block; font: 750 1.3em/1 var(--font-display); }
+.imp-sum span { font-size: .72em; color: var(--ink-3); }
+.imp-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.imp-card { display: flex; gap: 10px; padding: 12px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
+.imp-card.st-sure { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.imp-card.st-check { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+.imp-card.st-dup { opacity: .6; }
+.imp-inc input { width: 22px; height: 22px; accent-color: var(--brand); margin-top: 2px; }
+.imp-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.imp-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.imp-top b { font: 750 1.15em/1.1 var(--font-display); }
+.imp-from { font-weight: 600; overflow-wrap: anywhere; }
+.imp-meta { display: flex; gap: 10px; font-size: .8em; color: var(--ink-3); }
+.imp-why { display: flex; align-items: center; gap: 8px; font-size: .8em; color: var(--ink-2); }
+.imp-conf { flex: none; width: 46px; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.imp-conf i { display: block; height: 100%; background: var(--brand); }
+.imp-pick { display: grid; grid-template-columns: 1.4fr 1fr; gap: 6px; margin-top: 4px; }
+.imp-pick select { min-width: 0; }
+.imp-prog { display: flex; flex-direction: column; gap: 10px; padding: 6px 0 4px; }
+.imp-prog > span { font-weight: 600; }
