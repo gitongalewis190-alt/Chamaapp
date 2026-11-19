@@ -58,7 +58,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 .check h3 { font: 650 1em/1.35 var(--body); margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .check h3 .id { font: 600 .74em ui-monospace, Menlo, monospace; color: var(--ink-3); }
 .tag { font: 700 .68em var(--body); text-transform: uppercase; letter-spacing: .05em; padding: 2px 7px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); }
-.tag.db { background: var(--db-soft); color: var(--db); } .tag.sql { background: var(--skip-soft); color: var(--skip); }
+.tag.db { background: var(--db-soft); color: var(--db); } .tag.crit { background: var(--fail-soft); color: var(--fail); } .tag.sql { background: var(--skip-soft); color: var(--skip); }
 .steps { margin: 0; padding-left: 20px; color: var(--ink-2); font-size: .93em; display: flex; flex-direction: column; gap: 2px; }
 .expect { font-size: .9em; color: var(--ink); background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
 .expect b { color: var(--ink-3); font-size: .78em; text-transform: uppercase; letter-spacing: .05em; margin-right: 6px; }
@@ -75,7 +75,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 <div class="wrap">
   <header class="top">
     <h1>Chama Release Check</h1>
-    <p class="lede">Version 0.18.2 on <code>chama-livid.vercel.app</code>. New checks for this round are in the first section; checks marked Retest were fixed, so try them again. Work down the list on your phone with the live app open. Mark each check Pass, Fail or Skip and say what you saw. Failed checks collect in Needs fix, which you can copy to Claude. Your marks are saved here, so Claude can read them too.</p>
+    <p class="lede">Final check for everything shipped from 0.16 to 0.18.2. Start with Supabase, then the checks marked Critical: money, security, roles and the update every member sees. Mark Pass, Fail or Skip and say what you saw; failures collect in Needs fix. Your marks save here, so Claude can read them.</p>
   </header>
 
   <div class="bar" id="bar">
@@ -85,6 +85,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
       <button type="button" class="chip" data-f="all" aria-pressed="true">All</button>
       <button type="button" class="chip" data-f="todo" aria-pressed="false">Not tested</button>
       <button type="button" class="chip" data-f="fail" aria-pressed="false">Failed</button>
+      <button type="button" class="chip" data-f="crit" aria-pressed="false">Critical only</button>
       <button type="button" class="chip" data-f="db" aria-pressed="false">Supabase only</button>
       <span class="save" id="save" aria-live="polite">Loading saved marks…</span>
     </div>
@@ -111,96 +112,65 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 <script>
 /* Each check: id, area, title, steps, what you should see, and tags: db (done in the Supabase dashboard) or sql (needs the database update first). */
 const AREAS = [
-  ['new017', 'New in 0.17 and 0.18', 'Run S11 first. Then try these on the live app (close and reopen it so it shows 0.18.0).'],
-  ['supabase', 'Supabase', 'Done in the Supabase dashboard, project My Chama (sgfvjsxmchohawhqraii). Claude could not reach the database from its session, so nothing below has been run yet. Do S1 first: many app checks depend on it.'],
-  ['version', 'Version and update', 'Open the live app on your phone.'],
-  ['signin', 'Sign-in and password', 'Use a real account you control. Sign out first.'],
-  ['lock', 'App lock', 'Settings → App lock.'],
-  ['home', 'Home card and payout', 'Use at least two accounts in different states (one paid, one not).'],
-  ['money', 'Money', 'As treasurer, in the test Chama.'],
-  ['mpesa', 'M-Pesa import', 'Have two or three real M-Pesa messages or screenshots ready, including one with hidden digits.'],
-  ['roles', 'Roles and removals', 'Needs the database update (S1). Use three accounts: treasurer, secretary, member.'],
-  ['join', 'Join requests', 'One treasurer phone and one phone that joins with a code.'],
-  ['chat', 'Chat and announcements', ''],
-  ['guide', 'Guide and search', 'The sparkle next to the bell.'],
-  ['onboard', 'New people and invitations', 'Use a fresh email for new-account checks.'],
-  ['reports', 'Reports and PDF', ''],
-  ['ux', 'Feel and finish', '']
+  ['sb', 'Supabase: do this first', 'Project My Chama (sgfvjsxmchohawhqraii), not "The lees app". Claude\'s connector was signed in to the other account, so none of the database work has been run by Claude. One file holds all of it: supabase/APPLY_ALL_PENDING.sql. Your next agent can follow docs/SUPABASE_FOR_NEXT_AGENT.md.'],
+  ['sec', 'Sign-in and safety', 'Critical. Use real accounts and real inboxes.'],
+  ['money', 'Money records', 'Critical. Check the figures against your own records.'],
+  ['people', 'Roles, joining and removal', 'Critical. Needs F-S1. Use three accounts: treasurer, secretary, member.'],
+  ['upd', 'The update every member sees', 'Critical. Use an existing account that has not opened 0.18 yet.'],
+  ['phone', 'On a real phone', 'Claude could only test these in a desktop browser.'],
+  ['more', 'Also worth a look', 'Lower risk, and covered by automated tests. Check them when you have time.']
 ];
 const CHECKS = [
-  ['S11', 'new017', 'Run the database update (026 + 027)', ['SQL Editor → New query → paste <code>supabase/RUN_THIS_NEXT.sql</code> → Run'], 'Success, and the check at the end shows ok = true on every row.', ['db']],
-  ['E1', 'new017', 'Everyone checks their details once', ['Open the app with an existing account'], '"My Chama has been updated", then name, phone, birth year and gender. It cannot be put off; known answers are filled in.', []],
-  ['E2', 'new017', 'The app matches the age', ['Use an account with a birth year before 1966 (60+), and one before 1951 (75+)'], '60+: Simple view, larger text, bigger buttons, a "Need help?" tile. 75+: the largest text. A message explains it.', []],
-  ['E3', 'new017', 'Choose the standard app', ['Settings → Display → Use the standard app', 'Close and reopen the app'], 'The normal app comes back and stays, even after reopening.', []],
-  ['E4', 'new017', 'One phone number in every Chama', ['Join a Chama with a code using an account that has a phone', 'Treasurer: open that member'], 'The member entry shows their phone without anyone typing it. Changing the phone in About you updates it.', ['sql']],
-  ['S12', 'new017', 'Find where the code email is copied', ['Brevo → Transactional → Logs: open one "is your My Chama code" email and read the To column', 'Brevo → Settings: look for a BCC address', 'Supabase → Authentication → Emails → SMTP settings, and Authentication → Auth Hooks'], 'Each code email is addressed to one person and there is no BCC or hook copying it. Note what you find.', ['db']],
-  ['A6', 'new017', 'Forgot password opens the reset screen (Retest A2)', ['Sign out → Sign in → Forgot password → your email', 'Type the code from the email'], '"Choose a new password" appears, also for an account that has used Google before.', []],
-  ['A7', 'new017', 'Someone else\'s code link does not sign you in', ['On a phone that did NOT ask for a code, open "Fill it in for me" from another person\'s code email'], 'Nobody is signed in. A message says who the link was for and asks them to use their own code.', []],
-  ['B1', 'new017', 'About you, one question at a time', ['Create a new account, or Settings → Privacy and my data → About you'], 'Name, phone, birthday (decade → year → month → day in big taps) and gender, each with "Why we ask". Skip works.', []],
-  ['B2', 'new017', 'Simple view', ['Pick a birth year before 1966 in About you, or Settings → Display → Simple view'], 'Bigger letters and buttons; Home shows the card, payout, actions and lists without the extra panels.', []],
-  ['B3', 'new017', 'Chama photo', ['Treasurer: Settings → Chama settings → the camera on the Chama tile → choose a photo', 'Open the Chama chooser; tap the photo'], 'The photo shows in the chooser (tap opens it large), on the Chama page and on a PDF statement. Members cannot change it.', ['sql']],
-  ['B4', 'new017', 'Borrower signs on their own phone (Retest M5)', ['Treasurer: New loan → Issue → Send to their phone', 'Borrower: open the app → Loan terms to sign → tick → sign'], 'The treasurer is told, and the loan shows the signed terms.', ['sql']],
-  ['B5', 'new017', 'M-Pesa import (Retest P1)', ['Payments → Import from M-Pesa → Screenshots → add two'], 'Two big choices, thumbnails of your screenshots, a result on each one, then the matches. Opening a recorded payment shows the M-Pesa message.', []],
-  ['B6', 'new017', 'Removal waits for notice (Retest R5)', ['Treasurer: a person → Remove access → Stopped contributing → reason'], 'They are NOT removed at once: they get notice and can reply. If the server is updating, the app says nothing was changed.', ['sql']],
-  ['B7', 'new017', 'Welcome walkthrough does not flicker', ['Open the Chama as a member who has not seen Know your Chama', 'Tap Next and Back'], 'It covers Home at once and each step changes smoothly, with nothing flashing behind it.', []],
-  ['B8', 'new017', 'New Guide mark', ['Look at the button next to the bell, then open the Guide', 'Change the colour in Settings, Display'], 'A winking face with an OK hand around one eye. The hand takes the app colour you choose, in light and dark.', []],
-  ['S1', 'supabase', 'Run the database update', ['Open SQL Editor → New query', 'Paste all of <code>supabase/RUN_THIS_IN_SQL_EDITOR.sql</code> from the repo', 'Run'], 'Success. No error. If there is an error, nothing changed: copy the error into the note.', ['db']],
-  ['S2', 'supabase', 'Run the after-update checks', ['New query → paste <code>supabase/AFTER_UPDATE_CHECKS.sql</code> → Run'], 'In the first result every row shows ok = true. Note any row that says false.', ['db']],
-  ['S3', 'supabase', 'Shared inbox check (the "same code for everyone" report)', ['Look at the last result of S2'], 'If rows appear, those sample accounts share one inbox. That explains everyone getting the same code. Paste the row count in the note.', ['db']],
-  ['S4', 'supabase', 'Security Advisor', ['Advisors → Security Advisor → Refresh'], 'No errors. Note every warning by name.', ['db']],
-  ['S5', 'supabase', 'Performance Advisor', ['Advisors → Performance Advisor → Refresh'], 'No errors. Note any warning about the new tables.', ['db']],
-  ['S6', 'supabase', 'Leaked-password protection', ['Authentication → Sign In / Providers → Email → Password security'], 'Leaked password protection is switched on.', ['db']],
-  ['S7', 'supabase', 'Site URL and redirects', ['Authentication → URL Configuration'], 'Site URL is https://chama-livid.vercel.app and it is also in Redirect URLs.', ['db']],
-  ['S8', 'supabase', 'Code email template', ['Authentication → Emails → Templates → Magic link'], 'The body shows {{ .Token }} and the "Fill it in for me" link to #otp=. Subject: "{{ .Token }} is your My Chama code".', ['db']],
-  ['S9', 'supabase', 'Invitation email secrets', ['Edge Functions → send-invitation → Secrets'], 'BREVO_API_KEY, BREVO_SENDER_EMAIL and the app URL are set; the function shows a recent deploy.', ['db']],
-  ['S10', 'supabase', 'Backups', ['Database → Backups'], 'Point-in-time recovery is on, or daily backups are listed.', ['db']],
-  ['V1', 'version', 'The new version loads', ['Open the app', 'Settings → About'], 'Version 0.16.2. If you see an older one, close the app fully and open it again.', []],
-  ['V2', 'version', 'Update panel for existing users', ['Open the app once after the update'], '"Your app has been updated" with What\'s new, theme, colour, text size. Done closes it, and it does not come back.', []],
-  ['A1', 'signin', 'Google is below the main buttons', ['Sign out', 'Look at the start screen'], 'Sign in, then Create an account, then "or", then Continue with Google.', []],
-  ['A2', 'signin', 'Forgot password shows the reset screen', ['Sign in → Forgot password', 'Enter your email', 'Open the email on your phone and tap "Fill it in for me" (it may open a new tab)'], '"Choose a new password" appears, with "Keep my current password" under it.', []],
-  ['A3', 'signin', 'Old password refused after reset', ['Finish A2 with a new password', 'Sign out', 'Sign in with the old password, then the new one'], 'The old password is refused, the new one works.', []],
-  ['A4', 'signin', 'Only you got the code', ['During A2, check the inboxes of the other sample accounts'], 'Nobody else received a code. If they did, see S3.', []],
-  ['A5', 'signin', 'Password box keeps what you typed', ['Type a wrong password with Show turned on', 'Tap Sign in'], 'An error shows, the password stays, and it stays visible.', []],
-  ['L1', 'lock', 'No flicker while typing the PIN', ['Turn on the lock', 'Lock now', 'Type the PIN slowly'], 'The lock screen stays solid. Nothing behind it shows through.', []],
-  ['L2', 'lock', 'Turning off keeps the PIN', ['Turn the lock off, then on again'], 'It turns on with your saved PIN and does not ask for a new one.', []],
-  ['L3', 'lock', 'Lock after inactivity', ['Choose 1 minute', 'Leave the app open untouched for over a minute'], 'The lock screen appears by itself.', []],
-  ['L4', 'lock', 'Fingerprint or face', ['Turn on Fingerprint or face (installed app on Android, or Safari on iPhone)', 'Lock now', 'Tap the hand button'], 'The phone asks for your fingerprint or face, and that unlocks the app. Note your phone model.', []],
-  ['H1', 'home', 'Card first, payout under it', ['Open Home'], 'Your coloured card is at the top. The payout is attached under it, with the next turns in a row.', []],
-  ['H2', 'home', 'Card colour matches your state', ['Check accounts in different states'], 'Late red, part paid amber, due soon silver, paid green, paid ahead purple, your payout month or a 6-month streak gold. Note any card in the wrong colour and why.', []],
-  ['H3', 'home', 'The card is live', ['Watch the card for 15 seconds'], 'The line under the amount changes every few seconds, the Live dot pulses, and the colour moves gently.', []],
-  ['H4', 'home', 'Amount counts up on a change', ['On one phone stay on Home', 'On another, record a payment for that member'], 'The amount counts to the new value without a reload.', []],
-  ['H5', 'home', 'No blinking', ['Stay on Home and Payments for a minute'], 'The page does not flash or replay its animations.', []],
-  ['M1', 'money', 'Pay extra (pays ahead)', ['Payments → tap a member who is paid', 'Choose "Extra: pays ahead", enter an amount'], 'It records. The member\'s next months show as paid, and their card turns purple.', []],
-  ['M2', 'money', 'WhatsApp reminders open', ['Home → Behind this month → Remind all → Send'], 'WhatsApp opens with the right amount for that person, and the button changes to Sent.', []],
-  ['M3', 'money', 'Fines list people who owe first', ['Fines → Add fine'], 'People who owe are at the top of the list, with the amount they owe.', []],
-  ['M4', 'money', 'Expense shows cash left as you type', ['Expenses → Add expense', 'Type an amount larger than cash on hand'], 'The bar turns red, says "Short by", and saving is refused.', []],
-  ['M5', 'money', 'Loan terms are signed', ['Home → New loan → Issue loan'], 'Terms show the instalments and last date. The borrower must tick the box, then sign. The loan then shows "Terms agreed".', []],
-  ['P1', 'mpesa', 'Screenshot import works', ['Payments → Import from M-Pesa', 'Add one or two screenshots → Find payments'], 'A progress bar shows, then each payment with its amount, code and sender.', []],
-  ['P2', 'mpesa', 'Hidden digits are matched', ['Use a message like 0712***678'], 'The right member is chosen, with a reason such as "phone starts 712, ends 678 · name matches".', []],
-  ['P3', 'mpesa', 'Money sent is ignored', ['Include a "sent to" message'], 'Only money received is listed.', []],
-  ['R1', 'roles', 'Offer the secretary role', ['Treasurer: People and access → a member → Secretary → Send the offer', 'Member: open the app'], 'The member gets "Become Secretary?" and can Accept or Decline. After Accept there is only one secretary.', ['sql']],
-  ['R2', 'roles', 'Hand over treasurer safely', ['Treasurer: a person → Make treasurer', 'Type their name and your password'], 'An offer is sent. When they accept, you become a member and everyone is told.', ['sql']],
-  ['R3', 'roles', 'Moving someone down needs a reason', ['Treasurer: a secretary → Member'], 'You must write a reason, and they see it.', ['sql']],
-  ['R4', 'roles', 'Stepping down and leaving need a reason', ['Secretary: Chama settings → Step down', 'Member: Leave this Chama'], 'Both ask for a reason of at least 10 characters. The officers see it.', ['sql']],
-  ['R5', 'roles', 'Removal with notice', ['Treasurer: a person → Remove access → choose "Stopped contributing", write a reason'], 'They get a notice with the reason and can Reply. You see it under Waiting, with Withdraw and later Finish.', ['sql']],
-  ['J1', 'join', 'Approval banner appears live', ['Joiner: enter a code → Ask to join', 'Treasurer: keep the app open'], 'The "Needs your answer" sheet opens within 20 seconds without a reload.', []],
-  ['J2', 'join', 'Cancelling closes the treasurer\'s sheet', ['Joiner: Cancel my request while the treasurer sees it'], 'The treasurer sees "… withdrew their request" and the sheet closes. The joiner goes back to the start, not one step back.', []],
-  ['J3', 'join', 'Declined is clear and remembered', ['Treasurer: Decline', 'Joiner: later, enter a code for the same Chama'], 'The joiner sees a dialog, then a card that stays. Using the code again shows "You asked before and were declined".', []],
-  ['C1', 'chat', 'New message opens the chat', ['Chat → New message → pick a person'], 'Their conversation opens, ready to type.', []],
-  ['C2', 'chat', 'Edit a pinned announcement', ['Tap a pinned announcement → Edit'], 'You can change it, and it shows "edited".', ['sql']],
-  ['G1', 'guide', 'Guide answers from your records', ['Tap the sparkle by the bell', 'Ask "who has not paid" or "what do I owe"'], 'A real answer with names or amounts from your Chama.', []],
-  ['G2', 'guide', 'Show me walks you through', ['Ask "how do I record a payment" → Show me'], 'A highlighted button with a card saying what to tap. Tapping it moves to the next step.', []],
-  ['G3', 'guide', 'Menu search', ['Open the menu (top left)', 'Tap the search box under your profile'], 'The Guide opens.', []],
-  ['N1', 'onboard', 'Invitation goes straight to the right screen', ['Send an email invitation to an address with an account, then to one without', 'Open each link'], 'With an account: sign-in with the email filled. Without: the code is sent and the code screen opens.', ['sql']],
-  ['N2', 'onboard', 'Username check', ['New account → setup screen → type a username'], 'A green tick when free, a reason when taken, and suggestions from your name.', ['sql']],
-  ['N3', 'onboard', 'Know your Chama', ['A member who has not seen it opens the Chama'], 'The walkthrough of money, payout turn, people, rules and privacy. It cannot be skipped, and agreeing lets them in.', []],
-  ['N4', 'onboard', 'Make it yours for a new account', ['Create a new account with no Chama'], 'Theme, colour, text size before create or join. The app follows the phone until you choose.', []],
-  ['D1', 'reports', 'My statement PDF', ['Reports → My statement (PDF) → Save as PDF'], 'A clean document in the app\'s colours with months, payments, loans and fines. Note how it worked on your phone.', []],
-  ['D2', 'reports', 'Chama report PDF', ['Treasurer: Reports → Chama report (PDF)'], 'Collections, members, loans, payouts, expenses and fines, with correct totals.', []],
-  ['X1', 'ux', 'Swipe down closes panels', ['Open any panel from the bottom (for example Add fine)', 'Drag it down'], 'It follows your finger and closes. Approval sheets do not close this way.', []],
-  ['X2', 'ux', 'Change payout turn', ['Members → a person → Change payout turn → pick a turn'], 'A confirmation shows who receives when. The order changes for everyone.', []],
-  ['X3', 'ux', 'Several savings goals', ['Home → Add another goal'], 'Two goals show. The new one starts from this month.', []],
-  ['X4', 'ux', 'Member photo and phone', ['Add member → add a photo and phone'], 'The photo shows in the list and in the payout line.', []]
+  ['F-S1', 'sb', 'Run the database update', ['SQL Editor → New query → paste all of <code>supabase/APPLY_ALL_PENDING.sql</code> → Run', 'Or ask your next agent to follow <code>docs/SUPABASE_FOR_NEXT_AGENT.md</code>'], 'It finishes without an error, and every row of the first check says ok = true. Paste any false row or error into the note.', ['db', 'crit']],
+  ['F-S2', 'sb', 'Find who copies the code email', ['Brevo → Transactional → Logs: open one "is your My Chama code" email and read the To', 'Brevo → Settings: any BCC address?', 'Supabase → Authentication → Emails → SMTP, and Authentication → Auth Hooks'], 'Each code email goes to one address, with no BCC or hook copying it. Note what you found: this is why other members got your code.', ['db', 'crit']],
+  ['F-S3', 'sb', 'Security Advisor after the update', ['Advisors → Security Advisor → Refresh'], 'No errors. Note any warning that names chama_role_offers, chama_removal_notices, retired_usernames or chama_awareness.', ['db', 'crit']],
+  ['F-S4', 'sb', 'Decide on backups', ['Database → Backups'], 'Either the Pro plan (7 days of backups), or you download Reports → Full backup every week. Note which.', ['db']],
+
+  ['F-A1', 'sec', 'Forgot password opens the reset screen', ['Sign out → Sign in → Forgot password → your email', 'Type the code from the email', 'Set a new password, sign out, try the old one, then the new one'], '"Choose a new password" appears (not your Chama). The old password is refused, the new one works.', ['crit']],
+  ['F-A2', 'sec', 'Same, for an account that has used Google', ['Use an account that once signed in with Google', 'Forgot password → code'], 'It still asks for a new password. (This was the cause of your A2 failure.)', ['crit']],
+  ['F-A3', 'sec', 'Someone else\'s code link does nothing', ['On a phone that did not ask for a code, open "Fill it in for me" from another person\'s code email'], 'Nobody is signed in. It says who the link was for and asks them to use their own code.', ['crit']],
+  ['F-A4', 'sec', 'Only you get your code', ['After F-S2 is sorted, ask for a code and check the other members\' inboxes'], 'Only your inbox gets it.', ['crit']],
+  ['F-A5', 'sec', 'App lock still protects the phone', ['Settings → App lock → set a PIN, lock after 1 minute', 'Wait, then type a wrong PIN 5 times'], 'It locks after the wait, does not flicker, and 5 wrong PINs sign you out.', ['crit']],
+  ['F-A6', 'sec', 'A session ended elsewhere signs out cleanly', ['Sign in on two phones', 'On one, change your password'], 'The other phone goes to sign-in with a message saying why, not a broken screen.', []],
+
+  ['F-M1', 'money', 'Card colour matches each member\'s real state', ['Look at Home on accounts that are late, part paid, not yet due, paid, paid ahead, and in their payout month'], 'Red, amber, silver, green, purple, gold. Note any card in the wrong colour, with the member and what they paid.', ['crit']],
+  ['F-M2', 'money', 'Pay extra fills the coming months', ['Payments → a member who is paid → "Extra: pays ahead" → an amount of two months'], 'The next two months show Paid, and that member\'s card turns purple. Cash on hand goes up by that amount.', ['crit']],
+  ['F-M3', 'money', 'Real M-Pesa screenshots', ['Payments → Import from M-Pesa → Screenshots → add 3 real ones (one in dark mode, one with hidden digits)'], 'Each thumbnail shows its result. Amounts, codes and members are right. Note any wrong one.', ['crit']],
+  ['F-M4', 'money', 'Someone who paid from another phone', ['Import a message from a member who paid with a relative\'s number'], 'They are suggested with "Please check" and "a different phone than the one saved", not left out.', ['crit']],
+  ['F-M5', 'money', 'The M-Pesa message is kept', ['Open a payment you just imported'], 'It shows who sent it, the masked number and the original message.', ['crit']],
+  ['F-M6', 'money', 'Loan terms signed on the borrower\'s phone', ['Treasurer: New loan → Issue → Send to their phone', 'Borrower: Loan terms to sign → tick → sign'], 'The treasurer is told, and the loan shows the signed terms. Needs F-S1.', ['sql', 'crit']],
+  ['F-M7', 'money', 'Cash on hand still adds up', ['After F-M2 and F-M3, compute: money in minus loans, payouts and expenses'], 'It equals Cash on hand on Home and in the PDF report.', ['crit']],
+
+  ['F-P1', 'people', 'Offer the secretary role', ['Treasurer: People and access → a member → Secretary', 'Member: Accept'], 'There is only one secretary afterwards. Declining tells the treasurer.', ['sql', 'crit']],
+  ['F-P2', 'people', 'Hand over the treasurer role', ['Treasurer: a person → Make treasurer → type their name and your password', 'They accept'], 'You become a member, everyone is told, and nothing happened before they accepted.', ['sql', 'crit']],
+  ['F-P3', 'people', 'Removal gives notice (your R5)', ['Treasurer: a person → Remove access → Stopped contributing → a reason', 'The person replies', 'Withdraw it, then do it again and Finish after the notice'], 'They are never removed at once. They see the reason and can reply.', ['sql', 'crit']],
+  ['F-P4', 'people', 'Join requests behave', ['Joiner: code → Ask to join', 'Joiner cancels once; asks again; treasurer declines once; asks again; treasurer approves'], 'The treasurer\'s sheet appears within 20 seconds, closes with a message when cancelled, the decline stays visible, and approval lets them in without a reload.', ['crit']],
+  ['F-P5', 'people', 'One phone number in every Chama', ['A person with a phone in About you joins with a code', 'Treasurer: open that member', 'The person changes their phone in About you'], 'The member entry shows their phone, then the new one. Needs F-S1.', ['sql', 'crit']],
+  ['F-P6', 'people', 'Stepping down and leaving need a reason', ['Secretary: Step down', 'Member: Leave this Chama'], 'Both ask for a reason; the officers see it.', ['sql']],
+
+  ['F-U1', 'upd', 'Every member checks their details once', ['Open the app with an existing account'], '"My Chama has been updated", then name, phone, birth year and gender. It cannot be put off; known answers are filled in.', ['crit']],
+  ['F-U2', 'upd', 'The app matches the age', ['An account born before 1966 (60+), and one before 1951 (75+)'], '60+: Simple view, larger text, bigger buttons, "Need help?" on Home. 75+: the largest text. A message explains it.', ['crit']],
+  ['F-U3', 'upd', 'The standard app stays chosen', ['Settings → Display → Use the standard app', 'Close the app fully, open it again'], 'The normal app stays.', ['crit']],
+  ['F-U4', 'upd', 'New member walkthrough', ['A member who has not seen it opens the Chama'], 'Know your Chama covers Home at once, steps change smoothly, rules show, and agreeing lets them in.', ['crit']],
+  ['F-U5', 'upd', 'Removing your details', ['Settings → Privacy and my data → Remove birthday, gender and phone'], 'They are removed; About you shows them empty. Needs F-S1 for the server part.', ['sql']],
+
+  ['F-R1', 'phone', 'The installed app updates', ['Open the installed app; close it fully; open again', 'Settings → About'], 'Version 0.18.2.', ['crit']],
+  ['F-R2', 'phone', 'Fingerprint or face unlock', ['Settings → App lock → Fingerprint or face → Lock now → tap the hand'], 'The phone asks for your fingerprint or face and it unlocks. Note the phone model.', ['crit']],
+  ['F-R3', 'phone', 'Save a PDF', ['Reports → My statement (PDF), then Chama report (PDF) → Save as PDF'], 'Both save, in the app\'s colours with the Chama photo. Note the phone and browser if it fails.', []],
+  ['F-R4', 'phone', 'Swipe down closes panels', ['Open Add fine, drag it down'], 'It follows the finger and closes. Approval sheets do not close this way.', []],
+  ['F-R5', 'phone', 'Simple view on a small phone', ['Turn on Simple view and use Home, Payments and Chat'], 'Nothing is cut off; buttons are easy to hit.', []],
+
+  ['F-X1', 'more', 'Guide answers and walks you through', ['Tap the face next to the bell → "who has not paid" → "how do I record a payment" → Show me'], 'Real answers, and the tour waits for each tap.', []],
+  ['F-X2', 'more', 'Guide icon follows the colour', ['Settings → Display → change the colour'], 'The hand on the Guide icon takes the new colour.', []],
+  ['F-X3', 'more', 'Chama photo', ['Treasurer: Chama settings → camera on the tile', 'Open the chooser and tap the photo'], 'It shows in the chooser, the Chama page and PDFs; members cannot change it.', ['sql']],
+  ['F-X4', 'more', 'Edit a pinned announcement', ['Tap it → Edit'], 'It changes and shows "edited".', ['sql']],
+  ['F-X5', 'more', 'Invitation link routing', ['Email invitation to an address with an account, and one without'], 'With: sign-in, email filled. Without: the code is sent at once.', ['sql']],
+  ['F-X6', 'more', 'Username check', ['New account → setup → type a username'], 'Green tick when free, a reason when taken, suggestions from the name.', ['sql']],
+  ['F-X7', 'more', 'Make it yours (new account)', ['Create an account with no Chama'], 'Theme, colour and text size before create or join.', []],
+  ['F-X8', 'more', 'Payout turn, goals, member photo', ['Members → Change payout turn', 'Home → Add another goal', 'Add member with a photo and phone'], 'Each works as labelled.', []],
+  ['F-X9', 'more', 'WhatsApp and new messages', ['Home → Remind all → Send', 'Chat → New message → a person'], 'WhatsApp opens with the amount; the chat opens ready to type.', []],
+  ['F-X10', 'more', 'Group rules', ['Treasurer: Home setup list or Guide → Write the Chama rules'], 'The rules show to new members in the walkthrough.', []],
+  ['F-X11', 'more', 'Legal details', ['Settings → About, Privacy and my data'], 'Operator name, privacy contact and retention years are filled in (still placeholders until you send them).', []]
 ].map(([id, area, title, steps, expect, tags]) => ({ id, area, title, steps, expect, tags }));
 
 const state = { r: {}, fb: '', filter: 'all' };
@@ -209,7 +179,7 @@ const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 function render() {
-  const shown = CHECKS.filter(c => state.filter === 'all' ? true : state.filter === 'todo' ? !(state.r[c.id] && state.r[c.id].status) : state.filter === 'fail' ? (state.r[c.id] || {}).status === 'fail' : c.tags.includes('db'));
+  const shown = CHECKS.filter(c => state.filter === 'all' ? true : state.filter === 'todo' ? !(state.r[c.id] && state.r[c.id].status) : state.filter === 'fail' ? (state.r[c.id] || {}).status === 'fail' : state.filter === 'crit' ? c.tags.includes('crit') : c.tags.includes('db'));
   $('#areas').innerHTML = AREAS.map(([key, name, intro]) => {
     const list = shown.filter(c => c.area === key); if (!list.length) return '';
     const done = CHECKS.filter(c => c.area === key && (state.r[c.id] || {}).status).length, all = CHECKS.filter(c => c.area === key).length;
@@ -219,7 +189,7 @@ function render() {
 }
 function card(c) {
   const r = state.r[c.id] || {}, st = r.status || '';
-  const tags = (c.tags.includes('db') ? '<span class="tag db">Supabase</span>' : '') + (c.tags.includes('sql') ? '<span class="tag sql">Needs database update</span>' : '');
+  const tags = (c.tags.includes('crit') ? '<span class="tag crit">Critical</span>' : '') + (c.tags.includes('db') ? '<span class="tag db">Supabase</span>' : '') + (c.tags.includes('sql') ? '<span class="tag sql">Needs database update</span>' : '');
   return `<article class="check st-${st}" id="c-${c.id}"><h3><span class="id">${c.id}</span>${esc(c.title)} ${tags}</h3>
 <ol class="steps">${c.steps.map(s => `<li>${s}</li>`).join('')}</ol>
 <div class="expect"><b>You should see</b>${esc(c.expect)}</div>
@@ -238,7 +208,7 @@ function summary() {
 function fixText() {
   const fails = CHECKS.filter(c => (state.r[c.id] || {}).status === 'fail');
   const skipped = CHECKS.filter(c => (state.r[c.id] || {}).status === 'skip');
-  return ['Chama Release Check (0.16.2): needs fix', ...fails.map(c => `- ${c.id} ${c.title}: ${(state.r[c.id].note || 'no note').trim()}`), fails.length ? '' : '- Nothing failed.',
+  return ['Chama Release Check (0.18.2 final): needs fix', ...fails.map(c => `- ${c.id} ${c.title}: ${(state.r[c.id].note || 'no note').trim()}`), fails.length ? '' : '- Nothing failed.',
     skipped.length ? 'Skipped: ' + skipped.map(c => c.id).join(', ') : '', state.fb.trim() ? 'Feedback: ' + state.fb.trim() : ''].filter(Boolean).join('\n');
 }
 function saved(t) { $('#save').textContent = t; }

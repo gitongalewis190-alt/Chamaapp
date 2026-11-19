@@ -7,15 +7,10 @@ features stay off until they run.
 Project: My Chama, Supabase ref `sgfvjsxmchohawhqraii` (NOT "The lees app"). Owner approved running SQL in this request.
 Repo: `gitongalewis190-alt/Chamaapp`. Live: https://chama-livid.vercel.app (Vercel deploys `main`).
 
-## 0a. Status at 0.17.0
-The owner applied 023-025 (release check S1/S2 passed). Migrations 026 and 027 (`supabase/RUN_THIS_NEXT.sql`, one transaction) are written and parse-checked, NOT yet applied. 027 copies each person's profile phone into their member entry in every Chama (triggers on chama_members and profiles, plus a backfill).
-After it runs: About you saves date of birth and gender on the server, Chama photos show in the chooser, loan terms can be signed on the borrower's phone.
-The code email reaching many inboxes is outside the app: check Brevo transactional logs and BCC, Supabase SMTP and Auth Hooks.
-
-## 0. Fastest path for the owner
-`supabase/RUN_THIS_IN_SQL_EDITOR.sql` contains 023 + 024 + 025 as ONE transaction (all or nothing), checked with Postgres's own
-parser (libpg_query 18). Paste it into Supabase → SQL Editor and run. Then run `supabase/AFTER_UPDATE_CHECKS.sql`: every row
-should be `ok = true`. If the owner already did this, skip section 1.
+## 0. Read docs/SUPABASE_FOR_NEXT_AGENT.md first
+Release 0.18.2 is live. Every database change is in ONE file: `supabase/APPLY_ALL_PENDING.sql` (023-027, safe to re-run).
+The owner ran 023-025; 026 and 027 are not applied yet. The last session's Supabase connector was signed in to the wrong
+account ("The lees app" only), which is why it could never run SQL.
 
 ## 1. Apply the migrations, in order, each tested first
 
