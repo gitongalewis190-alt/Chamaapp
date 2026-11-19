@@ -35,13 +35,14 @@ async function open(browser, key, opt = {}) {
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) errors.push('console: ' + m.text()); });
   page.on('console', m => { if (/Content Security Policy|Refused to/i.test(m.text())) errors.push('CSP: ' + m.text()); });
-  await page.addInitScript(([mock, onboard, a11y, personal]) => {
+  await page.addInitScript(([mock, onboard, a11y, personal, about]) => {
     window.__MOCK = mock;
     try { sessionStorage.setItem('mca-splash', '1'); } catch (e) {}
     if (!personal && !localStorage.getItem('mca-personal-v1')) localStorage.setItem('mca-personal-v1', 'test');
+    if (!about) ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9', 'u-new'].forEach(id => { if (!localStorage.getItem('mca-about-v1:' + id)) localStorage.setItem('mca-about-v1:' + id, 'done'); });
     if (onboard && !localStorage.getItem('mca-onboard')) localStorage.setItem('mca-onboard', JSON.stringify(onboard));
     if (a11y) localStorage.setItem('chama:a11y', JSON.stringify(a11y));
-  }, [opt.mock || sc.mock, sc.onboard, opt.a11y || null, !!opt.personal]);
+  }, [opt.mock || sc.mock, sc.onboard, opt.a11y || null, !!opt.personal, !!opt.about]);
   await page.goto(`http://127.0.0.1:${server.address().port}${sc.url || '/'}`);
   await page.waitForTimeout(opt.wait || 500);
   return { page, ctx, errors };
@@ -481,6 +482,21 @@ const TESTS = {
     ok(await page.locator('#view .hero[class*="tn-"] .hero-live').count() === 1, 'the card shows its tier and a live marker');
     const first = await page.textContent('#view .hero-tick'); await page.waitForTimeout(4800);
     ok((await page.textContent('#view .hero-tick')) !== first, 'the live line moves on to the next fact by itself');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
+  async aboutYou(b) {
+    const { page, ctx, errors } = await open(b, 'member', { about: true, wait: 2200 });
+    ok(await page.isVisible('.ab-q') && /your name/i.test(await page.textContent('.ab-q')), 'About you starts with the name, one question at a time');
+    await page.click('[data-ab="next"]'); await page.waitForTimeout(150);
+    await page.fill('#abPhone', '0712345678'); await page.click('[data-ab="next"]'); await page.waitForTimeout(150);
+    await page.click('[data-ab="why"]'); await page.waitForTimeout(100);
+    ok(/over 60/i.test(await page.textContent('.ab-whytext')), 'Why we ask explains how the age is used');
+    await page.click('[data-ab="decade"][data-v="1950"]'); await page.click('[data-ab="year"][data-v="1958"]'); await page.click('[data-ab="month"][data-v="3"]'); await page.click('[data-ab="day"][data-v="12"]'); await page.waitForTimeout(100);
+    ok(/12 March 1958/.test(await page.textContent('.ab-sum')), 'the date of birth is picked in big taps, without typing');
+    await shot(page, '92-about-dob');
+    await page.click('[data-ab="next"]'); await page.click('[data-ab="gender"][data-v="female"]'); await page.click('[data-ab="save"]'); await page.waitForTimeout(600);
+    ok(await page.evaluate(() => document.documentElement.classList.contains('a-simple')), 'someone over 60 gets Simple view');
+    ok((await calls(page)).some(x => x.kind === 'rpc' && (x.name === 'set_my_details' || x.name === 'set_my_profile')), 'the answers are saved');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
   async leftAndLive(b) {

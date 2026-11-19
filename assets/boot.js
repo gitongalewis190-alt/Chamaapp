@@ -7,7 +7,7 @@
   if (d.accent && /^(blue|purple|gold|rose|teal)$/.test(d.accent)) h.setAttribute('data-accent', d.accent);
   h.setAttribute('data-mode', dark ? 'dark' : 'light');
   h.setAttribute('data-size', d.size || 'n');
-  ['hc', 'cb', 'ft', 'sp', 'ul', 'tg', 'rm'].forEach(function (k) { if (d[k]) h.classList.add(k === 'hc' ? 'hc' : 'a-' + k); });
+  ['hc', 'cb', 'ft', 'sp', 'ul', 'tg', 'rm', 'simple'].forEach(function (k) { if (d[k]) h.classList.add(k === 'hc' ? 'hc' : 'a-' + k); });
   try { var lang = localStorage.getItem('chama.lang'); if (lang && /^[a-z]{2,3}$/.test(lang)) h.lang = lang; } catch (e) {}
   /* an old email links to /#privacy: send it to the policy page */
   if (location.hash === '#privacy') location.replace('legal/privacy.html');

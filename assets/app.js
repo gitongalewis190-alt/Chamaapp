@@ -53,7 +53,8 @@ const ICONS = {
   copy: '<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/>',
   sign: '<path d="M3.5 18c2.5 0 3.5-6 5.5-6s1 4 3 4 2-3 3.5-3 1.5 2 5 2"/><path d="M3.5 21h17"/>',
   tag: '<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.5 1.5 0 0 1 0 2.1l-6.3 6.3a1.5 1.5 0 0 1-2.1 0z"/><circle cx="8" cy="8" r="1.4"/>',
-  sparkle: '<path d="M12 3.5c.6 4.3 2.5 6.4 6.8 7.2-4.3.8-6.2 2.9-6.8 7.3-.6-4.4-2.5-6.5-6.8-7.3 4.3-.8 6.2-2.9 6.8-7.2z"/>',
+  sparkle: '<path d="M12 20.5v-7.5"/><path d="M12 13c0-4.2 3-6.8 7.2-6.8 0 4.2-3 6.8-7.2 6.8z"/><path d="M12 15.8c0-3.1-2.3-5.3-5.7-5.3 0 3.1 2.3 5.3 5.7 5.3z"/>',
+  guide: '<path d="M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v8a2.5 2.5 0 0 1-2.5 2.5h-5.2L8.5 21v-3.5H6A2.5 2.5 0 0 1 3.5 15V7A2.5 2.5 0 0 1 6 4.5z"/><path d="M14.6 8.4l-1.5 4.1-4.1 1.5 1.5-4.1z"/>',
   up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
   more: '<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>',
   speaker: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/>',
@@ -268,7 +269,7 @@ const { $ } = __M_src_lib_dom_js;
 const { setToastLong, toast } = __M_src_ui_toast_js;
 
 const A11y = {
-  key: 'chama:a11y', def: { size: 'n', theme: 'auto', accent: 'green', hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
+  key: 'chama:a11y', def: { size: 'n', theme: 'auto', accent: 'green', simple: 0, hc: 0, cb: 0, ft: 0, sp: 0, ul: 0, tg: 0, rm: 0, long: 0, read: 0 }, d: {},
   load() {
     let o = {}; try { o = JSON.parse(localStorage.getItem(this.key) || '{}') || {}; } catch {}
     if (!o.size && localStorage.getItem('chama:textsize') === 'large') o.size = 'l';
@@ -281,7 +282,7 @@ const A11y = {
     h.dataset.size = d.size; h.dataset.mode = dark ? 'dark' : 'light'; h.classList.toggle('hc', !!d.hc);
     if (d.accent && d.accent !== 'green') h.dataset.accent = d.accent; else delete h.dataset.accent;
     document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', dark ? '#090c0b' : '#f3f4f1'));
-    ['cb', 'ft', 'sp', 'ul', 'tg', 'rm'].forEach(k => h.classList.toggle('a-' + k, !!d[k]));
+    ['cb', 'ft', 'sp', 'ul', 'tg', 'rm', 'simple'].forEach(k => h.classList.toggle('a-' + k, !!d[k]));
     const ra = $('#ra'); if (ra) ra.hidden = !(d.read && 'speechSynthesis' in window);
   },
   refocus(sel) { const e = document.querySelector(sel); if (e) e.focus(); }
@@ -1081,7 +1082,7 @@ const Session = {
     if (m.role !== 'member') this.loadRequests().then(r => { if (r.length) { render(); try { __M_src_features_requests_js.Requests.prompt(); } catch (e) {} } }).catch(() => {});
     try { __M_src_features_requests_js.Requests.watch(); } catch (e) {}
     setTimeout(() => { try { __M_src_features_requests_js.Roles.check(); } catch (e) {} }, 1500);
-    setTimeout(() => { try { __M_src_features_guide_js.Aware.check(); } catch (e) {} }, 700);
+    setTimeout(() => { try { __M_src_features_guide_js.Aware.check(); } catch (e) {} }, 0);
     Store.startSync().catch(() => {}).then(() => this.loadMemberPics().catch(() => {}));
   },
   switchTo(id) {
@@ -2366,7 +2367,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
         : this.authCard();
     }
     else if (st === 'setup') { html = this.setupCard(); setTimeout(() => UserCheck.init(), 0); }
-    else if (st === 'welcome') html = (() => { try { const P = __M_src_features_guide_js.Personal; if (!P.done()) return shell(P.card(), { top: true, lang: false }); } catch (e) {} return this.welcomeCard(); })();
+    else if (st === 'welcome') html = (() => { try { const F = __M_src_features_guide_js; if (!F.About.done()) return shell(F.About.card(), { top: true, lang: false }); if (!F.Personal.done()) return shell(F.Personal.card(), { top: true, lang: false }); } catch (e) {} return this.welcomeCard(); })();
     else if (st === 'choose') html = this.chooseCard();
     else html = this.card('Something went wrong', `<p class="auth-s">${esc(Session.error || 'We could not reach the server.')}</p><div class="btns col" style="margin-top:24px"><button class="btn pri block" data-act="gateRetry">Try again</button>${Session.user ? '<button class="btn ghost block" data-act="gateSignOut">Sign out</button>' : ''}</div>`, 'lost');
     $('#view').innerHTML = html;
@@ -2764,7 +2765,7 @@ ${(() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 &&
     const reqs = Sess.role !== 'member' ? __M_src_features_requests_js.Requests.listHtml(true) : '';
     const smart = __M_src_features_smart_js.homeBlocks(s);
     /* order: who you are this month, then the pot, then what to do, then what needs attention, then the record */
-    return `${greet}<div class="home-top">${hero}${payout}</div>${qa}${sec}${reqs}${month}${smart}${group}${stats}${recentHtml}`;
+    return `${greet}<div class="home-top">${hero}${payout}</div>${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
   }
 };
 
@@ -4145,6 +4146,7 @@ const views = {
         + (show('appearance') ? seg('theme', 'Appearance', [['auto', 'Follow phone'], ['light', 'Light'], ['dark', 'Dark']]) + `<div style="margin-top:12px">${seg('accent', 'Colour', [['green', 'Green'], ['blue', 'Blue'], ['purple', 'Purple'], ['gold', 'Gold'], ['rose', 'Rose'], ['teal', 'Teal']])}</div>` : '')
         + (show('text') ? `<div style="margin-top:12px">${seg('size', 'Text size', [['n', 'Default'], ['l', 'Large'], ['x', 'Largest']])}</div>` : '')
         + (show('seeing') ? grp('Seeing', [sw('hc', 'Stronger contrast', 'Black and white with thicker lines'), sw('cb', 'Symbols with colours', 'Adds ✓ and ✕ so colour is never the only clue'), sw('ft', 'Easy-read lettering', 'A plainer typeface for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')]) : '')
+        + (!sub ? grp('Easier to use', [sw('simple', 'Simple view', 'Bigger letters and buttons, fewer things on each screen. Good for anyone who finds the app busy.')]) : '')
         + (show('hands') ? grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')]) : '')
         + (!sub ? grp('Sound', [`<div class="li"><span class="li-main"><b>Sounds</b><small>A soft chime when something important succeeds, such as a confirmed code. Never on every tap.</small></span><button type="button" class="sw" role="switch" aria-checked="${__M_src_ui_toast_js.Sfx.enabled}" aria-label="Sounds" data-act="sfxToggle"></button></div>`]) : '')
         + (show('reading') ? grp('Reading and messages', [sw('long', 'Keep messages longer', 'Small messages stay on screen for 14 seconds'), sw('read', 'Read-aloud button', 'Shows a button that reads the page out loud')]) : '')
@@ -4184,6 +4186,8 @@ const views = {
       <div class="list">${PRIVACY.map(x => `<div class="li"><div class="li-main"><b>${esc(x[0])}</b><small style="white-space:normal">${esc(x[1])}</small></div></div>`).join('')}</div>
       <section class="sec"><div class="sec-h"><h2>Your choices</h2></div><div class="list">
         ${act('exportMe', 'download', '', 'Download my data', 'A copy of your details and your records in this Chama')}
+        ${act('aboutEdit', 'profile', 't-info', 'About you', 'Change your name, phone, date of birth or gender')}
+        ${act('aboutClear', 'trash', 't-bad', 'Remove my date of birth, gender and phone', 'Deleted from our servers. Your name stays so your Chama knows who you are.')}
         ${li('profile', 'pencil', 't-info', 'Correct my details', 'Name, username, phone and contact email')}
         ${li('legal/privacy', 'doc', 't-ink', 'Read the Privacy Policy', '')}
         ${li('legal/terms', 'scale', 't-ink', 'Read the Terms of Use', '')}
@@ -4302,6 +4306,17 @@ const actions = {
     toast('Invitation cancelled', 'info'); await Session.loadInvites();
   },
   chamaEdit: { admin: true, run: d => chamaEditSheet(d.f) },
+  rulesEdit: { admin: true, run: () => chamaEditSheet('rules') },
+  aboutEdit: () => { try { localStorage.removeItem('mca-about-v1:' + ((Session.user && Session.user.id) || '')); } catch (e) {} __M_src_features_guide_js.About.check(); },
+  aboutClear: () => __M_src_ui_toast_js.Pop.confirm({ title: 'Remove these details?', text: 'Your date of birth, gender and phone number are deleted. Simple view stays as it is.', confirmLabel: 'Remove', danger: true,
+    onYes: async () => {
+      const uid = (Session.user && Session.user.id) || '';
+      try { localStorage.removeItem('mca-about-v1:data:' + uid); } catch (e) {}
+      const { error } = await Backend.sb.rpc('clear_my_details', { p_what: ['phone', 'birth_date', 'gender'] });
+      if (error && !/Could not find the function|PGRST202|schema cache/i.test(error.message || '')) return toast(error.message);
+      if (error) { const r = await Backend.sb.rpc('set_my_profile', { p_full_name: null, p_phone: '', p_username: null }); if (r.error) return toast('Removed from this phone. The server part needs the latest update.'); }
+      toast('Removed', 'ok');
+    } }),
   chamaSave: { admin: true, run(d) {
     const raw = String(($('#chV') || {}).value || '').trim(), f = d.f; let val;
     if (f === 'name') { val = raw.replace(/\s+/g, ' '); if (val.length < 2 || val.length > 80) throw new Error('Chama name must be 2 to 80 characters'); }
@@ -5922,7 +5937,7 @@ ${rc.top && rc.top.n >= 3 ? `<p class="rc-star">${icon('sparkle', 's')}${esc(rc.
   out += taskHtml(s);
   if (Session.role === 'treasurer' && !s.shared && !ls.get('mca-setup-done:' + Store.chamaId, false)) {
     const ws = (Session.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
-    const steps = [['Add your members', s.members.length >= 2, 'addMember', ''], ['Set where members pay', !!s.chama.payTo, 'chamaEdit', 'payTo'], ['Invite people to the app', (Session.access || []).filter(a => a.status === 'active').length > 1, 'inviteSheet', 'code'], ['Record the first payment', s.payments.length > 0, 'go', '#/grid'], ['Call your first meeting', (C().msgs || []).some(m => m.kind === 'meeting'), 'chatForm', 'meeting'], ['Give the Chama a tag', !!ws.display_tag, 'tagEdit', '']];
+    const steps = [['Add your members', s.members.length >= 2, 'addMember', ''], ['Set where members pay', !!s.chama.payTo, 'chamaEdit', 'payTo'], ['Write the group rules', !!String(s.chama.rules || '').trim(), 'chamaEdit', 'rules'], ['Invite people to the app', (Session.access || []).filter(a => a.status === 'active').length > 1, 'inviteSheet', 'code'], ['Record the first payment', s.payments.length > 0, 'go', '#/grid'], ['Call your first meeting', (C().msgs || []).some(m => m.kind === 'meeting'), 'chatForm', 'meeting'], ['Give the Chama a tag', !!ws.display_tag, 'tagEdit', '']];
     const done = steps.filter(x => x[1]).length;
     if (done < steps.length) out += `<section class="setup"><div class="su-top"><div><b>Set up ${esc(s.chama.name)}</b><small>${done} of ${steps.length} done</small></div><div class="ring" style="--p:${Math.round(done / steps.length * 100)}"><span class="num">${Math.round(done / steps.length * 100)}%</span></div></div>
 <div class="su-list">${steps.map(([t, ok, act, arg]) => ok ? `<div class="su-i ok">${icon('check', 's')}<span>${esc(t)}</span></div>` : act === 'go' ? `<a class="su-i" href="${esc(arg)}"><i></i><span>${esc(t)}</span>${icon('chev', 's')}</a>` : `<button type="button" class="su-i" data-act="${act}" ${act === 'chamaEdit' ? `data-f="${arg}"` : act === 'chatForm' ? `data-k="${arg}" data-th="group"` : act === 'inviteSheet' ? `data-v="${arg}"` : ''}><i></i><span>${esc(t)}</span>${icon('chev', 's')}</button>`).join('')}</div>
@@ -6373,6 +6388,9 @@ const TASKS = [
     { go: '#/profile', sel: '[data-act="pickPhoto"]', text: 'Tap the camera to choose a photo.', click: true }] },
   { id: 'leave', t: 'Leave the Chama', k: 'leave', tour: [
     { go: '#/settings/chama', sel: '[data-act="leaveChama"]', text: 'Leaving is here. You will be asked for your reason. Your past records stay with the group.' }] },
+  { id: 'rules', t: 'Write the Chama rules', k: 'rule rules write chama', admin: true, act: 'rulesEdit', tour: [
+    { go: '#/settings/chama', sel: '[data-act="chamaEdit"][data-f="rules"]', text: 'Tap Group rules. New members read them before they enter.', click: true },
+    { sel: '#chV', text: 'Write one rule per line, for example how late fines and loans work.' }] },
   { id: 'aware', t: 'How this Chama works (rules, money, people)', k: 'rule member how works chama payment payout', act: 'awareShow' },
   { id: 'report', t: 'Download a report', k: 'report', tour: [
     { go: '#/reports', sel: '#view .card, #view .sec', text: 'Choose a report or a full backup here.' }] }
@@ -6417,11 +6435,11 @@ const Guide = {
   },
   html() {
     const r = this.results(), sugg = Auth.isAdmin() ? ['Who has not paid?', 'How do I record a payment?', 'Cash on hand', 'How do I import M-Pesa?'] : ['What do I owe?', 'When is my turn?', 'How do I message the treasurer?', 'How do I lock the app?'];
-    const task = t => `<div class="gd-task"><span class="li-ic">${icon('sparkle')}</span><b>${esc(t.t)}</b><span class="gd-btns">${t.tour ? `<button type="button" class="btn sm tint" data-gd="tour" data-id="${t.id}">Show me</button>` : ''}${t.act ? `<button type="button" class="btn sm" data-gd="do" data-id="${t.id}">Do it</button>` : ''}</span></div>`;
-    const ans = r.ans ? `<div class="gd-ans"><small>${icon('sparkle', 's')}Answer from your records</small><b>${esc(r.ans.title)}</b>${r.ans.text ? `<p>${esc(r.ans.text).replace(/\n/g, '<br>')}</p>` : ''}${r.ans.task ? `<button type="button" class="btn sm tint" data-gd="tour" data-id="${r.ans.task}">Show me what to do</button>` : ''}</div>` : '';
+    const task = t => `<div class="gd-task"><span class="li-ic">${icon('guide')}</span><b>${esc(t.t)}</b><span class="gd-btns">${t.tour ? `<button type="button" class="btn sm tint" data-gd="tour" data-id="${t.id}">Show me</button>` : ''}${t.act ? `<button type="button" class="btn sm" data-gd="do" data-id="${t.id}">Do it</button>` : ''}</span></div>`;
+    const ans = r.ans ? `<div class="gd-ans"><small>${icon('guide', 's')}Answer from your records</small><b>${esc(r.ans.title)}</b>${r.ans.text ? `<p>${esc(r.ans.text).replace(/\n/g, '<br>')}</p>` : ''}${r.ans.task ? `<button type="button" class="btn sm tint" data-gd="tour" data-id="${r.ans.task}">Show me what to do</button>` : ''}</div>` : '';
     const empty = this.q && !r.ans && !r.tasks.length && !r.items.length && !r.arts.length;
     return `<div class="gd-veil" data-gd="x"><div class="gd" role="dialog" aria-modal="true" aria-label="Guide">
-<div class="gd-head"><span class="gd-mark">${icon('sparkle')}</span><div><b>Guide</b><small>Ask anything, find anything, or learn how</small></div><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
+<div class="gd-head"><span class="gd-mark">${icon('guide')}</span><div><b>Guide</b><small>Ask anything, find anything, or learn how</small></div><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
 <label class="pal-in gd-in">${icon('search')}<input id="gdQ" type="search" placeholder="e.g. How do I give a loan?" value="${esc(this.q)}" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>
 <div class="gd-body" id="gdBody">${this.q ? '' : `<div class="gd-sugg">${sugg.map(x => `<button type="button" data-gd="ask" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`}
 ${ans}
@@ -6499,6 +6517,119 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target && e.target.id === 'gdQ') { const r = Guide.results(); if (!r.ans && r.tasks[0] && r.tasks[0].tour && /\b(how|show|jinsi)\b/i.test(Guide.q)) Tour.start(r.tasks[0].id); }
 });
 
+/* ---- "About you": name, phone, date of birth, gender. One question at a time, big buttons, every answer optional
+   except the name, a plain "why", and removable later. Age 60+ turns on Simple view (bigger, fewer things). ---- */
+const ABOUT_V = 'mca-about-v1';
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const About = {
+  st: null, why: false, overlay: false, server: true,
+  key() { return ABOUT_V + ':' + ((Session.user && Session.user.id) || ''); },
+  done() { try { const v = localStorage.getItem(this.key()); return !!v && (v === 'done' || Date.now() < Number(v)); } catch (e) { return true; } },
+  start() {
+    const acct = Session.account || {}, prof = (Session.readProfile && Session.readProfile()) || {};
+    let local = {}; try { local = JSON.parse(localStorage.getItem(ABOUT_V + ':data:' + ((Session.user && Session.user.id) || '')) || '{}') || {}; } catch (e) {}
+    const b = String(local.birth_date || '').split('-');
+    this.st = { step: 0, sub: 'decade', name: acct.full_name || prof.name || '', phone: prof.phone || local.phone || '', y: Number(b[0]) || null, m: Number(b[1]) || null, d: Number(b[2]) || null, decade: b[0] ? Math.floor(Number(b[0]) / 10) * 10 : null, gender: local.gender || '' };
+    this.why = false;
+  },
+  age() { const s = this.st; if (!s || !s.y) return null; const now = new Date(); let a = now.getFullYear() - s.y; if (s.m && (now.getMonth() + 1 < s.m || (now.getMonth() + 1 === s.m && s.d && now.getDate() < s.d))) a--; return a; },
+  WHY: {
+    name: 'Your name shows to the people in your Chama, on receipts and on statements, so they know the money is yours.',
+    phone: 'Your phone number lets the treasurer remind you on WhatsApp, matches your M-Pesa payments to you, and will be used for SMS reminders. Only the treasurer and secretary of your Chama see it.',
+    dob: 'Your age helps the app suit you: people over 60 get bigger text and fewer things on each screen. It will also help with loan limits and age-based groups that are being built. Nobody else in your Chama sees your date of birth. You can remove it any time in Settings, Privacy and my data.',
+    gender: 'It helps groups such as women’s or youth Chamas, and helps us improve the app for everyone. It is never shown to other members. “Prefer not to say” is a full answer. You can remove it any time.'
+  },
+  html() {
+    const s = this.st, steps = ['name', 'phone', 'dob', 'gender'], k = steps[s.step], yr = new Date().getFullYear();
+    const dots = `<div class="ab-dots" aria-hidden="true">${steps.map((_, i) => `<i class="${i < s.step ? 'done' : i === s.step ? 'on' : ''}"></i>`).join('')}</div>`;
+    const why = `<button type="button" class="ab-why" data-ab="why" aria-expanded="${this.why}">${icon('help', 's')}Why we ask</button>${this.why ? `<p class="ab-whytext">${esc(this.WHY[k])}</p>` : ''}`;
+    let q = '', body = '', ok = true;
+    if (k === 'name') { q = 'What is your name?'; body = `<input id="abName" class="ab-input" autocomplete="name" autocapitalize="words" maxlength="80" value="${esc(s.name)}" placeholder="e.g. Grace Wanjiru">`; ok = s.name.trim().length >= 2; }
+    if (k === 'phone') { q = 'What is your phone number?'; body = `<input id="abPhone" class="ab-input" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" value="${esc(s.phone)}" placeholder="0712 345 678"><p class="ab-hint">The number you use for M-Pesa.</p>`; ok = !s.phone || /^(\+?254|0)[17]\d{8}$/.test(s.phone.replace(/[\s-]/g, '')); }
+    if (k === 'dob') {
+      q = 'When were you born?';
+      const sum = s.y ? `<div class="ab-sum"><b>${s.d ? s.d + ' ' : ''}${s.m ? MONTHS[s.m - 1] + ' ' : ''}${s.y}</b>${this.age() != null ? `<span>${this.age()} years</span>` : ''}</div>` : '';
+      if (s.sub === 'decade') body = `<p class="ab-hint">First, the years you were born in.</p><div class="ab-grid g3">${[1940, 1950, 1960, 1970, 1980, 1990, 2000].filter(x => x <= yr - 13).map(x => `<button type="button" class="ab-opt${s.decade === x ? ' on' : ''}" data-ab="decade" data-v="${x}">${x}s</button>`).join('')}<button type="button" class="ab-opt" data-ab="decade" data-v="1930">Before 1940</button></div>`;
+      else if (s.sub === 'year') body = `<p class="ab-hint">Now the year.</p><div class="ab-grid g5">${Array.from({ length: 10 }, (_, i) => s.decade + i).filter(x => x <= yr - 13).map(x => `<button type="button" class="ab-opt${s.y === x ? ' on' : ''}" data-ab="year" data-v="${x}">${x}</button>`).join('')}</div><button type="button" class="ab-back" data-ab="sub" data-v="decade">Other years</button>`;
+      else if (s.sub === 'month') body = `<p class="ab-hint">The month.</p><div class="ab-grid g3">${MONTHS.map((x, i) => `<button type="button" class="ab-opt${s.m === i + 1 ? ' on' : ''}" data-ab="month" data-v="${i + 1}">${x.slice(0, 3)}</button>`).join('')}</div><button type="button" class="ab-back" data-ab="sub" data-v="year">Change the year</button>`;
+      else body = `<p class="ab-hint">And the day. If you are not sure, tap Next.</p><div class="ab-grid g7">${Array.from({ length: new Date(s.y, s.m, 0).getDate() }, (_, i) => `<button type="button" class="ab-opt sm${s.d === i + 1 ? ' on' : ''}" data-ab="day" data-v="${i + 1}">${i + 1}</button>`).join('')}</div><button type="button" class="ab-back" data-ab="sub" data-v="month">Change the month</button>`;
+      body = sum + body;
+    }
+    if (k === 'gender') { q = 'What is your gender?'; body = `<div class="ab-grid g1">${[['female', 'Female'], ['male', 'Male'], ['other', 'Other'], ['prefer_not', 'Prefer not to say']].map(([v, t]) => `<button type="button" class="ab-opt wide${s.gender === v ? ' on' : ''}" data-ab="gender" data-v="${v}">${t}</button>`).join('')}</div>`; }
+    const last = s.step === steps.length - 1;
+    return `<div class="ab"><div class="ab-top">${dots}<small>${s.step + 1} of 4</small></div><h2 class="ab-q">${esc(q)}</h2>${why}<div class="ab-body">${body}</div>
+<div class="ab-nav">${s.step > 0 ? '<button type="button" class="btn ghost" data-ab="prev">Back</button>' : '<span></span>'}<button type="button" class="btn pri lg" data-ab="${last ? 'save' : 'next'}"${ok ? '' : ' disabled'}>${last ? 'Finish' : 'Next'}</button></div>
+${k !== 'name' ? `<button type="button" class="ab-skip" data-ab="${last ? 'save' : 'skip'}">${last ? 'Skip and finish' : 'Skip this question'}</button>` : `<button type="button" class="ab-skip" data-ab="later">Not now, remind me later</button>`}</div>`;
+  },
+  card() { if (!this.st) this.start(); return `<div class="pz-page">${this.html()}</div>`; },
+  check() {
+    if (this.done() || !Session.ready()) return Personal.check();
+    this.start();
+    let root = document.getElementById('awRoot'); if (!root) { root = document.createElement('div'); root.id = 'awRoot'; document.body.appendChild(root); }
+    root.innerHTML = `<div class="aw" role="dialog" aria-modal="true" aria-label="About you"><div class="aw-in"><div class="aw-card ab-card">${this.html()}</div></div></div>`;
+    document.body.classList.add('aw-on'); this.overlay = true;
+  },
+  repaint() {
+    if (this.overlay) { const c = document.querySelector('#awRoot .ab-card'); if (c) c.innerHTML = this.html(); }
+    else { try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {} }
+    const f = document.querySelector('#abName, #abPhone'); if (f && document.activeElement !== f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) {} }, 60);
+  },
+  close(mark) {
+    try { localStorage.setItem(this.key(), mark); } catch (e) {}
+    if (this.overlay) { this.overlay = false; const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on'); setTimeout(() => Personal.check(), 300); }
+    else { try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {} }
+  },
+  async save() {
+    const s = this.st, B = __M_src_core_backend_js.Backend, uid = (Session.user && Session.user.id) || '';
+    const dob = s.y ? `${s.y}-${String(s.m || 1).padStart(2, '0')}-${String(s.d || 1).padStart(2, '0')}` : null;
+    const phone = s.phone.replace(/[\s-]/g, '') || null;
+    let saved = false;
+    try {
+      const { error } = await B.sb.rpc('set_my_details', { p_full_name: s.name.trim() || null, p_phone: phone, p_birth_date: dob, p_gender: s.gender || null });
+      if (!error) saved = true;
+      else if (/Could not find the function|PGRST202|schema cache/i.test(error.message || '')) {
+        /* server not updated yet: name and phone go to the profile, the rest stays on this phone until it is */
+        const r = await B.sb.rpc('set_my_profile', { p_full_name: s.name.trim() || null, p_phone: phone, p_username: null });
+        saved = !r.error;
+      } else return toast(rpcMessage(error));
+    } catch (e) { return toast('Could not save. Check your internet and try again.'); }
+    try { localStorage.setItem(ABOUT_V + ':data:' + uid, JSON.stringify({ birth_date: dob, gender: s.gender || null, phone })); } catch (e) {}
+    try { const p = Session.readProfile ? Session.readProfile() : null; if (p && Session.writeProfile) Session.writeProfile({ ...p, name: s.name.trim() || p.name, phone: phone || p.phone }); } catch (e) {}
+    const age = this.age(), A = __M_src_core_a11y_js.A11y;
+    if (age != null && age >= 60 && !A.d.simple) {
+      A.d.simple = 1; if (A.d.size === 'n') A.d.size = 'l'; A.save();
+      __M_src_ui_toast_js.Pop.alert('We made the app simpler for you: bigger letters and fewer things on each screen. You can change this in Settings, Display.', { title: 'Simple view is on', label: 'OK' });
+    }
+    if (saved) toast('Saved. Thank you.', 'ok');
+    this.close('done');
+  }
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-ab]'); if (!b || !About.st) return;
+  const s = About.st, k = b.dataset.ab, v = b.dataset.v;
+  const n1 = document.getElementById('abName'); if (n1) s.name = n1.value;
+  const p1 = document.getElementById('abPhone'); if (p1) s.phone = p1.value;
+  if (k === 'why') { About.why = !About.why; return About.repaint(); }
+  if (k === 'next' || k === 'skip') {
+    if (k === 'skip') { if (s.step === 1) s.phone = ''; if (s.step === 2) { s.y = s.m = s.d = null; s.decade = null; } }
+    s.step = Math.min(3, s.step + 1); About.why = false; if (s.step === 2) s.sub = s.y ? (s.m ? 'day' : 'month') : 'decade'; return About.repaint();
+  }
+  if (k === 'prev') { s.step = Math.max(0, s.step - 1); About.why = false; return About.repaint(); }
+  if (k === 'decade') { s.decade = Number(v); s.sub = Number(v) === 1930 ? 'year' : 'year'; return About.repaint(); }
+  if (k === 'year') { s.y = Number(v); s.m = s.m || null; s.sub = 'month'; return About.repaint(); }
+  if (k === 'month') { s.m = Number(v); if (s.d && s.d > new Date(s.y, s.m, 0).getDate()) s.d = null; s.sub = 'day'; return About.repaint(); }
+  if (k === 'day') { s.d = Number(v); return About.repaint(); }
+  if (k === 'sub') { s.sub = v; return About.repaint(); }
+  if (k === 'gender') { s.gender = v; return About.repaint(); }
+  if (k === 'save') return About.save();
+  if (k === 'later') return About.close(String(Date.now() + 3 * 864e5));
+});
+document.addEventListener('input', e => {
+  if (!About.st || !e.target) return;
+  if (e.target.id === 'abName') { About.st.name = e.target.value; const b = document.querySelector('[data-ab="next"]'); if (b) b.disabled = e.target.value.trim().length < 2; }
+  if (e.target.id === 'abPhone') { About.st.phone = e.target.value; const b = document.querySelector('[data-ab="next"]'); if (b) b.disabled = !!e.target.value && !/^(\+?254|0)[17]\d{8}$/.test(e.target.value.replace(/[\s-]/g, '')); }
+});
+
 /* ---- "Make it yours": before a new person creates or joins a Chama, and once for everyone after this update ---- */
 const PERSONAL_V = 'mca-personal-v1';
 const WHATS_NEW = ['A smart Guide next to the bell: ask questions, find anything, or be shown step by step', 'Home leads with your card, which changes colour with your payments, and the payout line right under it', 'M-Pesa screenshots are read on your phone, hidden digits and all', 'App lock with fingerprint or face, and a PIN you can switch off without losing it', 'Role changes are offered and accepted; removals come with a reason and notice', 'Several savings goals, edited announcements, member photos, signed loan terms'];
@@ -6551,13 +6682,18 @@ const Aware = {
   key() { return 'mca-aware:' + Store.chamaId + ':' + ((Session.user && Session.user.id) || '') + ':' + AWARE_V; },
   done() { try { return !!localStorage.getItem(this.key()); } catch (e) { return false; } },
   async check() {
-    if (!Session.ready() || !Store.chamaId || !Session.user || Session.role === 'treasurer' || this.done()) return Personal.check();
-    const s = Store.get(); if (!s || !s.chama) return Personal.check();
+    if (!Session.ready() || !Store.chamaId || !Session.user || Session.role === 'treasurer' || this.done()) return About.check();
+    const s = Store.get(); if (!s || !s.chama) return About.check();
+    /* cover Home at once, so it does not show for a moment and then jump; the server may then say it was already done */
+    this.i = 0; this.agree = false; this.show();
     try {
       const { data, error } = await __M_src_core_backend_js.Backend.sb.from('chama_awareness').select('version').eq('chama_id', Store.chamaId).eq('user_id', Session.user.id).eq('version', AWARE_V).limit(1);
-      if (!error && data && data.length) { try { localStorage.setItem(this.key(), 'server'); } catch (e) {} return Personal.check(); }
+      if (!error && data && data.length) {
+        try { localStorage.setItem(this.key(), 'server'); } catch (e) {}
+        const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on');
+        return About.check();
+      }
     } catch (e) { /* table not there yet: the walkthrough still runs and is kept on this phone */ }
-    this.i = 0; this.agree = false; this.show();
   },
   slides(s) {
     const c = s.chama || {}, U = __M_src_core_utils_js, cur = Domain.now(), meId = s.shared ? s.shared.me : Session.memberId, me = meId ? (s.members || []).find(m => m.id === meId) : null;
@@ -6580,10 +6716,13 @@ const Aware = {
     const s = Store.get(); if (!s) return;
     let root = document.getElementById('awRoot'); if (!root) { root = document.createElement('div'); root.id = 'awRoot'; document.body.appendChild(root); }
     const sl = this.slides(s), x = sl[this.i], n = sl.length;
-    root.innerHTML = `<div class="aw" role="dialog" aria-modal="true" aria-labelledby="awT"><div class="aw-in">
-<div class="aw-dots" aria-hidden="true">${sl.map((_, k) => `<i class="${k < this.i ? 'done' : k === this.i ? 'on' : ''}"></i>`).join('')}</div>
-<div class="aw-card" key="${this.i}"><span class="aw-ic">${icon(x.ic)}</span><small>${this.i + 1} of ${n}</small><h2 id="awT">${esc(x.t)}</h2><div class="aw-b">${x.b}</div></div>
-<div class="aw-nav">${this.i > 0 ? '<button type="button" class="btn ghost" data-aw="back">Back</button>' : '<span></span>'}<button type="button" class="btn pri" data-aw="${x.last ? 'agree' : 'next'}"${x.last && !this.agree ? ' disabled' : ''}>${x.last ? 'I agree, take me in' : 'Next'}</button></div></div></div>`;
+    /* the backdrop is built once; each step only swaps the card, so nothing behind it flashes through */
+    const inner = `<div class="aw-dots" aria-hidden="true">${sl.map((_, k) => `<i class="${k < this.i ? 'done' : k === this.i ? 'on' : ''}"></i>`).join('')}</div>
+<div class="aw-card ${this.dir === 'back' ? 'from-left' : ''}"><span class="aw-ic">${icon(x.ic)}</span><small>${this.i + 1} of ${n}</small><h2 id="awT">${esc(x.t)}</h2><div class="aw-b">${x.b}</div></div>
+<div class="aw-nav">${this.i > 0 ? '<button type="button" class="btn ghost" data-aw="back">Back</button>' : '<span></span>'}<button type="button" class="btn pri" data-aw="${x.last ? 'agree' : 'next'}"${x.last && !this.agree ? ' disabled' : ''}>${x.last ? 'I agree, take me in' : 'Next'}</button></div>`;
+    const box = root.querySelector('.aw .aw-in');
+    if (box) { box.innerHTML = inner; const a = root.querySelector('.aw'); if (a) a.scrollTop = 0; }
+    else root.innerHTML = `<div class="aw" role="dialog" aria-modal="true" aria-labelledby="awT"><div class="aw-in">${inner}</div></div>`;
     document.body.classList.add('aw-on');
     const f = root.querySelector('[data-aw="next"],[data-aw="agree"]'); if (f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) {} }, 60);
   },
@@ -6592,14 +6731,14 @@ const Aware = {
     try { await __M_src_core_backend_js.Backend.sb.rpc('record_awareness', { p_cid: Store.chamaId, p_version: AWARE_V }); } catch (e) { /* kept on this phone */ }
     const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on');
     toast('Welcome. Ask the Guide (the sparkle at the top) whenever you need help.', 'ok');
-    setTimeout(() => Personal.check(), 600);
+    setTimeout(() => About.check(), 600);
   }
 };
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('[data-aw]'); if (!b) return;
   const k = b.dataset.aw, n = Aware.slides(Store.get() || { chama: {}, members: [] }).length;
-  if (k === 'next') { Aware.i = Math.min(n - 1, Aware.i + 1); Aware.show(); }
-  else if (k === 'back') { Aware.i = Math.max(0, Aware.i - 1); Aware.show(); }
+  if (k === 'next') { Aware.dir = 'next'; Aware.i = Math.min(n - 1, Aware.i + 1); Aware.show(); }
+  else if (k === 'back') { Aware.dir = 'back'; Aware.i = Math.max(0, Aware.i - 1); Aware.show(); }
   else if (k === 'agree' && Aware.agree) Aware.finish();
 });
 document.addEventListener('change', e => { if (e.target && e.target.id === 'awAgree') { Aware.agree = e.target.checked; const b = document.querySelector('[data-aw="agree"]'); if (b) b.disabled = !Aware.agree; } });
@@ -6610,7 +6749,7 @@ const actions = {
   guideTour: d => Tour.start(d.id)
 };
 
-return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get Personal() { return Personal; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
+return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get Personal() { return Personal; }, get About() { return About; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
 })();
 
 /* ---- src/features/index.js ---- */
