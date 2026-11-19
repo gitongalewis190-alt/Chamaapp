@@ -418,6 +418,39 @@ const TESTS = {
     ok(!/Choose a new password/i.test(await text(page)), 'keeping the current password goes on into the app');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
+  async heroTiers(b) {
+    const { page, ctx, errors } = await open(b, 'treasurer');
+    const t = await page.evaluate(() => {
+      const D = __M_src_core_domain_js.Domain, U = __M_src_core_utils_js, cur = D.now(), m = k => U.addMonths(cur, k);
+      const pays = (id, from, to, amt = 1000) => { const out = []; for (let k = from; k <= to; k++) out.push({ id: id + k, memberId: id, month: m(k), amount: amt }); return out; };
+      const chama = (o = {}) => ({ chama: { monthly: 1000, dueDay: 10, startMonth: m(-5), mode: 'rotation', ...o }, members: [{ id: 'a', name: 'A', joined: m(-5) }, { id: 'b', name: 'B', joined: m(-2) }, { id: 'c', name: 'C', joined: m(-5) }], payments: [], loans: [], fines: [], payouts: [], expenses: [] });
+      const st = (o, id, p) => { const s = chama(o); s.payments = p; return D.tone(s, id); };
+      const overdue = new Date().getDate() > 10;
+      return {
+        late: overdue ? st({}, 'a', []) : 'late',
+        part: st({}, 'a', [...pays('a', -5, -1), { id: 'p', memberId: 'a', month: cur, amount: 500 }]),
+        due: st({ dueDay: 28 }, 'b', pays('b', -2, -1)),
+        paid: st({}, 'b', pays('b', -2, 0)),
+        ahead: st({}, 'b', pays('b', -2, 1)),
+        goldPayout: st({}, 'c', pays('c', -5, 0)),
+        goldStreak: st({}, 'a', pays('a', -5, 0)),
+        idle: (() => { const s = chama(); s.members[0].left = m(-1); return D.tone(s, 'a'); })()
+      };
+    });
+    ok(t.late === 'late', 'late (red): due day passed, nothing paid');
+    ok(t.part === 'part', 'part paid (amber): some paid, balance left');
+    ok(t.due === 'due', 'due soon (silver): month open, due day not passed');
+    ok(t.paid === 'paid', 'paid up (green)');
+    ok(t.ahead === 'ahead', 'paid ahead (purple): extra covers coming months');
+    ok(t.goldPayout === 'gold', 'gold: paid and it is their payout month');
+    ok(t.goldStreak === 'gold', 'gold: six months on time in a row');
+    ok(t.idle === 'idle', 'graphite: nothing due after leaving');
+    await page.goto(page.url().split('#')[0] + '#/home'); await page.waitForTimeout(400);
+    ok(await page.locator('#view .hero[class*="tn-"] .hero-live').count() === 1, 'the card shows its tier and a live marker');
+    const first = await page.textContent('#view .hero-tick'); await page.waitForTimeout(4800);
+    ok((await page.textContent('#view .hero-tick')) !== first, 'the live line moves on to the next fact by itself');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
   async leftAndLive(b) {
     const data = require('./fixtures').chama(); data.members[7].left = data.members[0].joined;   // Baraka left in the first month
     const notes = [{ id: 'n-old', kind: 'join_approved', title: 'Welcome to Umoja Savings', body: '', link: '#/home', priority: 'important', created_at: new Date().toISOString(), read_at: null, data: {} }];

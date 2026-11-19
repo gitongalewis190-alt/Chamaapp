@@ -66,7 +66,7 @@ email link opening in a new tab, and any email-code sign-in on an account with a
 - Live realtime: role offers and removal notices arrive through notifications (also polled), not tested against the live database.
 
 ## 5. How to test locally
-- `NODE_PATH=$(npm root -g) node tests/run.js` → 162 scenarios passed at 0.16.0.
+- `NODE_PATH=$(npm root -g) node tests/run.js` → 173 scenarios passed at 0.16.1.
 - Lint: `npx eslint@8.57.0 --no-eslintrc -c <config with no-undef> --global Tesseract,supabase assets/app.js assets/boot.js sw.js` → clean.
 - OCR was verified end to end with real Tesseract on light and dark SMS screenshots under the production CSP.
 

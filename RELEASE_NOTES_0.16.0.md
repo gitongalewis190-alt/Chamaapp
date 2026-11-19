@@ -31,3 +31,20 @@
 ## Security
 - CSP no longer allows cdn.jsdelivr.net or tessdata hosts.
 - Removal, role and leaving reasons are written to the audit log (023).
+
+# 0.16.1 (same day): the Home card
+
+| Tier | Colour | When |
+|---|---|---|
+| Late | Red (soft pulsing glow) | The due day has passed and money is still owed |
+| Part paid | Amber | Something was paid this month, but not all |
+| Due soon | Silver | The month is open, nothing paid yet, the due day has not passed |
+| Paid up | Green | This month is paid |
+| Paid ahead | Purple | Paid, with extra that already covers coming months |
+| Gold | Gold with sparkle | Paid and it is your payout month, or 6+ months on time in a row with no unpaid fines |
+| Nothing due | Graphite | Not joined yet, or left |
+| Treasurer (no member entry) | Your accent colour | Cash on hand |
+
+Checked in that order. The card breathes (slow colour drift and a light sweep), shows a Live marker, counts up when its figure
+changes, and rotates a live line: days to the due date or days late, how long extra money covers you, your streak, your
+last payment, fines and loan, group progress and the next payout. Everything stops moving with Less movement turned on.

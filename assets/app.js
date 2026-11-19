@@ -406,15 +406,35 @@ const Domain = {
     let k = mk; for (let i = 0; i < 60; i++, k = addMonths(k, 1)) if (this.paidThrough(s, mid, k) < this.dueThrough(s, mid, k)) return k;
     return k;
   },
-  /* the member's state, used to colour their card: late, part, due, paid, ahead, idle */
+  /* months in a row, counting back from the last closed month, that were fully paid by their due day */
+  streak(s, mid) {
+    let n = 0, mk = this.isOverdue(s, this.now()) ? this.now() : addMonths(this.now(), -1);
+    for (let i = 0; i < 60; i++, mk = addMonths(mk, -1)) {
+      if (mk < this.joinMonth(s, mid)) break;
+      if (this.paidThrough(s, mid, mk) >= this.dueThrough(s, mid, mk)) n++; else break;
+    }
+    return n;
+  },
+  /* the member's tier, which colours their card on Home. Checked in this order:
+     late   red       the due day has passed and money is still owed
+     part   amber     something was paid this month, but not all of it
+     due    silver    the month is open, nothing paid yet, the due day has not passed
+     gold   gold      paid, and it is their payout month, or 6+ months on time in a row with no unpaid fines
+     ahead  purple    paid, with extra that already covers coming months
+     paid   green     this month is paid
+     idle   graphite  nothing is due (not joined yet, or left) */
   tone(s, mid, mk = Domain.now()) {
     if (!mid) return 'idle';
     const st = this.status(s, mid, mk);
     if (st === 'na' || st === 'future') return 'idle';
     if (st === 'late') return 'late';
-    if (st === 'partial') return 'part';
+    if (st === 'partial') return this.isOverdue(s, mk) && this.paidIn(s, mid, mk) === 0 ? 'late' : 'part';
     if (st === 'due') return 'due';
-    return this.ahead(s, mid, mk) > 0 ? 'ahead' : 'paid';
+    const r = this.recipient(s, mk);
+    if (r && r.id === mid) return 'gold';
+    if (this.ahead(s, mid, mk) > 0) return 'ahead';
+    if (this.streak(s, mid) >= 6 && !this.memberFinesDue(s, mid)) return 'gold';
+    return 'paid';
   },
   /* money is rounded to the cent, so 3,000 at 5% for 2 months is exactly 3,300 and a full repayment clears it */
   loan(l) {
@@ -2579,6 +2599,32 @@ const { Modal, confirmBox } = __M_src_ui_modal_js;
 const { Signature, sigImg } = __M_src_ui_signature_js;
 const { toast } = __M_src_ui_toast_js;
 
+/* the card's figure counts from what was shown before to the new value, only when it changes */
+const heroLast = {};
+function heroCount() {
+  /* keep the breathing in phase with the clock, so a repaint continues it instead of restarting it */
+  const card = document.querySelector('#view .hero'); if (card) { const t = (Date.now() / 1000) % 28; card.style.animationDelay = card.classList.contains('tn-late') ? `-${t}s, -${t % 3.2}s` : `-${t}s`; }
+  const el = document.querySelector('#view .hero-v[data-to]'); if (!el) return;
+  const to = Number(el.dataset.to) || 0, k = el.dataset.k, from = heroLast[k], pre = el.dataset.pre || '', post = el.dataset.post || '';
+  heroLast[k] = to;
+  if (from == null || from === to || document.documentElement.classList.contains('a-rm') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const t0 = performance.now(), dur = 900;
+  el.classList.add('counting');
+  const step = now => { const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3), v = Math.round(from + (to - from) * e); if (!el.isConnected) return; el.textContent = pre + v.toLocaleString('en-KE') + post; if (p < 1) requestAnimationFrame(step); else el.classList.remove('counting'); };
+  requestAnimationFrame(step);
+}
+/* the live line on the card: one fact at a time, every few seconds, without repainting the page */
+setInterval(() => {
+  if (document.hidden) return;
+  const box = document.querySelector('#view .hero-tick'); if (!box) return;
+  let items = []; try { items = JSON.parse(box.dataset.items || '[]'); } catch (e) {}
+  if (items.length < 2) return;
+  const cur = box.querySelector('span:not(.out)'), i = ((Number(box.dataset.i) || 0) + 1) % items.length; box.dataset.i = i;
+  const next = document.createElement('span'); next.textContent = items[i]; next.className = 'in';
+  if (cur) { cur.className = 'out'; setTimeout(() => cur.remove(), 380); }
+  box.appendChild(next);
+}, 4200);
+
 const longMonth = mk => { const [y, m] = mk.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'long' }); };
 const firstName = n => String(n || '').trim().split(/\s+/)[0] || '';
 
@@ -2602,28 +2648,43 @@ const views = {
     const meId = s.shared ? s.shared.me : Sess.memberId;
     const me = meId ? s.members.find(m => m.id === meId) : null;
 
-    /* hero: the one number that matters most for this person, coloured by their own state */
+    /* hero: the one number that matters most for this person. Its tier (colour) follows their own payment state,
+       the main figure counts up when it changes, and a live line rotates through what is true right now. */
     const tone = me ? Domain.tone(s, me.id, cur) : 'idle', myBal = me ? Domain.outstanding(s, me.id, cur) : 0, myAhead = me ? Domain.ahead(s, me.id, cur) : 0;
-    const TAG = { late: 'Late', part: 'Part paid', due: 'Due by day ' + s.chama.dueDay, paid: 'Paid up', ahead: 'Paid ahead', idle: me ? 'Nothing due' : 'Not linked' };
-    const tag = `<span class="hero-tag"><i></i>${esc(me ? 'You · ' + TAG[tone] : TAG[tone])}</span>`;
-    const bar = (label) => `<div class="hero-row"><div style="flex:1"><div class="hero-s">${esc(label)}</div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Collected this month"><i style="width:${pct}%"></i></div></div><span class="hero-chip num">${pct}%</span></div>`;
+    const dueD = Math.min(28, Number(s.chama.dueDay) || 10), dom = new Date().getDate(), daysTo = dueD - dom;
+    const streak = me ? Domain.streak(s, me.id) : 0, payoutMine = !!(me && rec && rec.id === me.id), nextRec = Domain.recipient(s, addMonths(cur, 1));
+    const TIER = { late: ['Late', 'alert'], part: ['Part paid', 'clock'], due: ['Due soon', 'clock'], paid: ['Paid up', 'check'], ahead: ['Paid ahead', 'up'], gold: [payoutMine ? 'Your payout month' : streak + '-month streak', 'sparkle'], idle: [me ? 'Nothing due' : 'Not linked', 'info'] };
+    const lastMine = me ? [...s.payments].filter(p => p.memberId === me.id).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0] : null;
+    const ago = d => { const n = Math.round((Date.now() - Date.parse(d)) / 864e5); return isNaN(n) ? '' : n <= 0 ? 'today' : n === 1 ? 'yesterday' : n + ' days ago'; };
+    const live = [];
+    if (me) {
+      if (tone === 'late') live.push((Domain.isOverdue(s, cur) && dom > dueD ? 'Late by ' + (dom - dueD) + (dom - dueD === 1 ? ' day' : ' days') : 'Behind from earlier months') + (s.chama.finePerLate ? ' · fine ' + kes(s.chama.finePerLate) : ''));
+      else if (tone === 'due' || tone === 'part') live.push(daysTo > 1 ? 'Due in ' + daysTo + ' days · by day ' + dueD : daysTo === 1 ? 'Due tomorrow' : 'Due today');
+      if (tone === 'ahead') { const until = addMonths(Domain.firstUncovered(s, me.id, cur), -1); live.push('Covered until ' + longMonth(until) + ' ' + until.slice(0, 4)); }
+      if (payoutMine) live.push('You receive about ' + kes(po ? po.amount : exp) + (po ? ' · sent' : ' this month'));
+      if (streak >= 2) live.push(streak + ' months on time in a row');
+      if (lastMine) live.push('Last payment ' + kes(lastMine.amount) + (lastMine.date ? ' · ' + ago(lastMine.date) : ''));
+      const fd = Domain.memberFinesDue(s, me.id), lb = Domain.memberLoanBalance(s, me.id);
+      if (fd) live.push('Unpaid fines ' + kes(fd));
+      if (lb) live.push('Loan balance ' + kes(lb));
+    }
+    live.push('Group: ' + pct + '% of ' + kes(exp) + ' collected');
+    if (rec && s.chama.mode !== 'savings' && !payoutMine) live.push((po ? 'Pot sent to ' : 'This month’s pot: ') + rec.name.split(' ')[0] + (nextRec && nextRec.id !== rec.id ? ' · next ' + nextRec.name.split(' ')[0] : ''));
+    if (!s.shared) { live.push((Domain.active(s).length - late.length) + ' of ' + Domain.active(s).length + ' paid up'); if (exp - got > 0) live.push(kes(exp - got) + ' still to collect'); }
+    const tick = `<div class="hero-tick" aria-live="off" data-items="${esc(JSON.stringify(live))}"><span>${esc(live[0] || '')}</span></div>`;
+    const top = (label, ic) => `<div class="hero-top"><span class="hero-tag">${icon(ic, 's')}${esc(label)}</span><span class="hero-live" title="Updates on its own"><i></i>Live</span></div>`;
+    const bar = label => `<div class="hero-row"><div style="flex:1"><div class="hero-s">${esc(label)}</div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Collected this month"><i style="width:${pct}%"></i></div></div><span class="hero-chip num">${pct}%</span></div>`;
+    const big = (n, pre, post, key) => `<div class="hero-v" data-to="${Math.round(Number(n) || 0)}" data-pre="${esc(pre)}" data-post="${esc(post)}" data-k="${esc(key)}">${esc(pre + Math.round(Number(n) || 0).toLocaleString('en-KE') + post)}</div>`;
     let hero;
     if (s.shared) {
-      const head = !me ? 'Not linked yet' : tone === 'paid' ? 'Paid up' : tone === 'ahead' ? kes(myAhead) + ' ahead' : tone === 'idle' ? 'Nothing due' : kes(myBal) + ' due';
-      const sub = !me ? 'Ask your treasurer to link your sign-in to your member record.' : tone === 'paid' ? 'Thank you. Your ' + longMonth(cur) + ' contribution is in.' : tone === 'ahead' ? 'Your ' + longMonth(cur) + ' is paid and the extra covers the coming months.' : tone === 'late' ? 'Late. It was due by day ' + s.chama.dueDay + '. Pay to ' + (s.chama.payTo || 'the treasurer') + '.' : tone === 'part' ? 'Part paid. ' + kes(myBal) + ' still to go.' : 'Due by day ' + s.chama.dueDay + ' of ' + longMonth(cur) + '.';
-      hero = `<section class="hero tn-${tone}" aria-label="Your month">${tag}
-        <div class="hero-l">Your ${esc(longMonth(cur))}</div>
-        <div class="hero-v">${esc(head)}</div>
-        <div class="hero-s">${esc(sub)}</div>${bar('Group collected ' + kes(got) + ' of ' + kes(exp))}
-      </section>`;
+      const value = !me ? '<div class="hero-v">Not linked yet</div>' : tone === 'ahead' ? big(myAhead, 'KES ', ' ahead', 'ahead') : (tone === 'late' || tone === 'part' || tone === 'due') ? big(myBal, 'KES ', ' due', 'due') : `<div class="hero-v">${esc(tone === 'idle' ? 'Nothing due' : 'Paid up')}</div>`;
+      const sub = !me ? 'Ask your treasurer to link your sign-in to your member record.' : { late: 'It was due by day ' + dueD + '. Pay to ' + (s.chama.payTo || 'the treasurer') + ' as soon as you can.', part: kes(myBal) + ' still to go for ' + longMonth(cur) + '.', due: 'Due by day ' + dueD + ' of ' + longMonth(cur) + (s.chama.payTo ? '. Pay to ' + s.chama.payTo : '') + '.', paid: 'Thank you. Your ' + longMonth(cur) + ' contribution is in.', ahead: 'Your ' + longMonth(cur) + ' is paid and the extra covers the coming months.', gold: payoutMine ? 'It is your turn to receive the pot this month.' : 'Paid on time ' + streak + ' months in a row. Thank you.', idle: 'Nothing is due from you this month.' }[tone];
+      hero = `<section class="hero tn-${tone}" aria-label="Your month">${top(TIER[tone][0], TIER[tone][1])}<div class="hero-l">Your ${esc(longMonth(cur))}</div>${value}<div class="hero-s">${esc(sub)}</div>${tick}${bar('Group collected ' + kes(got) + ' of ' + kes(exp))}</section>`;
     } else {
-      const mine = me ? (tone === 'late' || tone === 'part' || tone === 'due' ? 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' to pay' : tone === 'ahead' ? 'Your own contribution: ' + kes(myAhead) + ' ahead' : tone === 'paid' ? 'Your own contribution is paid' : '') : '';
-      hero = `<section class="hero tn-${me ? tone : 'brand'}" aria-label="Cash on hand">${me ? tag : ''}
-        <div class="hero-l">Cash on hand</div>
-        <div class="hero-v">${esc(kes(Domain.cashOnHand(s)))}</div>
-        <div class="hero-s">${esc(mine || 'After loans, payouts and expenses')}</div>${bar('Collected in ' + longMonth(cur) + ': ' + kes(got) + ' of ' + kes(exp))}
-      </section>`;
+      const mine = me ? ({ late: 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' late', part: 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' to go', due: 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' due', ahead: 'Your own contribution: ' + kes(myAhead) + ' ahead', gold: payoutMine ? 'Your own payout month' : 'Your own streak: ' + streak + ' months', paid: 'Your own contribution is paid', idle: '' })[tone] : '';
+      hero = `<section class="hero tn-${me ? tone : 'brand'}" aria-label="Cash on hand">${me ? top('You · ' + TIER[tone][0], TIER[tone][1]) : top('Treasurer', 'wallet')}<div class="hero-l">Cash on hand</div>${big(Domain.cashOnHand(s), 'KES ', '', 'cash')}<div class="hero-s">${esc(mine || 'After loans, payouts and expenses')}</div>${tick}${bar('Collected in ' + longMonth(cur) + ': ' + kes(got) + ' of ' + kes(exp))}</section>`;
     }
+    setTimeout(heroCount, 0);
 
     const qa = admin ? `<div class="qa" role="group" aria-label="Quick actions">
       <button type="button" data-act="quickPay"><span class="qa-i">${icon('wallet')}</span>Record payment</button>
@@ -3243,7 +3304,7 @@ h2 { font-size: 12pt; color: ${c}; margin: 22px 0 8px; padding-bottom: 4px; bord
 table { width: 100%; border-collapse: collapse; font-size: 9.5pt; } th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; color: #5c6a64; border-bottom: 1.5px solid #cfd6d2; padding: 6px 6px; }
 td { padding: 6px; border-bottom: 1px solid #edf0ee; vertical-align: top; } tr { break-inside: avoid; } .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tfoot td { font-weight: 700; border-top: 1.5px solid #cfd6d2; border-bottom: 0; } .none { color: #5c6a64; font-style: italic; }
-.tag { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 8pt; font-weight: 700; } .ok { background: #e1f3e8; color: #17824f; } .late { background: #fbe6e3; color: #b42318; } .part { background: #fbf0dc; color: #8f5a0b; } .ahead { background: #ece6fa; color: #5b34b8; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 8pt; font-weight: 700; } .ok { background: #e1f3e8; color: #17824f; } .late { background: #fbe6e3; color: #b42318; } .part { background: #fbf0dc; color: #8f5a0b; } .ahead { background: #ece6fa; color: #5b34b8; } .gold { background: #fbf1d0; color: #7a5410; }
 .note { margin-top: 22px; padding: 10px 12px; border-radius: 10px; background: #f3f5f4; color: #3b4a44; font-size: 9pt; }
 .foot { margin-top: 26px; color: #8a958f; font-size: 8pt; border-top: 1px solid #e3e7e4; padding-top: 8px; display: flex; justify-content: space-between; }
 </style></head><body><div class="top"><div class="brand"><span class="mark">${Doc.e(String(chamaName || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span><div><b>${Doc.e(chamaName)}</b><small>My Chama</small></div></div><div class="meta">Prepared ${Doc.e(when)}</div></div>
@@ -3262,7 +3323,7 @@ tfoot td { font-weight: 700; border-top: 1.5px solid #cfd6d2; border-bottom: 0; 
     const cur = Domain.now(), U = __M_src_core_utils_js, pays = s.payments.filter(p => p.memberId === m.id).sort((a, b) => a.month.localeCompare(b.month) || String(a.date).localeCompare(String(b.date)));
     const loans = s.loans.filter(l => l.memberId === m.id), fines = s.fines.filter(f => f.memberId === m.id), outs = s.payouts.filter(p => p.memberId === m.id);
     const owe = Domain.outstanding(s, m.id, cur), ahead = Domain.ahead(s, m.id, cur), st = Domain.tone(s, m.id, cur);
-    const stTag = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Paid ahead'], idle: ['ok', 'Nothing due'] }[st] || ['ok', ''];
+    const stTag = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Paid ahead'], gold: ['gold', 'Gold standing'], idle: ['ok', 'Nothing due'] }[st] || ['ok', ''];
     const months = []; { let k = Domain.joinMonth(s, m.id); for (let i = 0; i < 36 && k <= cur; i++, k = U.addMonths(k, 1)) months.push(k); }
     const body = `<div class="cards"><div class="card hl"><span>Total saved</span><b>${Doc.e(kes(Domain.memberSaved(s, m.id)))}</b></div><div class="card"><span>${owe ? 'Owing now' : 'Paid ahead'}</span><b>${Doc.e(kes(owe || ahead))}</b></div><div class="card"><span>Loan balance</span><b>${Doc.e(kes(Domain.memberLoanBalance(s, m.id)))}</b></div><div class="card"><span>Unpaid fines</span><b>${Doc.e(kes(Domain.memberFinesDue(s, m.id)))}</b></div></div>
 <h2>Month by month</h2>${Doc.table(['Month', 'Due', 'Paid', 'Status'], months.slice(-24).map(k => { const t = Domain.status(s, m.id, k), map = { paid: ['ok', 'Paid'], late: ['late', 'Not paid'], partial: ['part', 'Part paid'], due: ['part', 'Due'], na: ['ok', '—'], future: ['ok', '—'] }[t]; return [monthLabel(k), kes(Domain.dueFor(s, m.id, k)), kes(Domain.paidIn(s, m.id, k)), { html: `<span class="tag ${map[0]}">${map[1]}</span>` }]; }), { num: [1, 2] })}
@@ -3279,7 +3340,7 @@ ${outs.length ? `<h2>Payouts received</h2>${Doc.table(['Month', 'Date', 'Amount'
     const inn = sum(s.payments, p => p.amount), loansOut = sum(s.loans, l => Domain.loan(l).balance);
     const body = `<div class="cards"><div class="card hl"><span>Cash on hand</span><b>${Doc.e(kes(Domain.cashOnHand(s)))}</b></div><div class="card"><span>All contributions</span><b>${Doc.e(kes(inn))}</b></div><div class="card"><span>Loans out</span><b>${Doc.e(kes(loansOut))}</b></div><div class="card"><span>Members</span><b>${active.length}</b></div></div>
 <h2>Collections by month</h2>${Doc.table(['Month', 'Expected', 'Collected', 'Share', 'Paid up'], months.map(k => { const exp = sum(s.members.filter(m => Domain.joinMonth(s, m.id) <= k), m => Domain.dueFor(s, m.id, k)), got = sum(s.payments.filter(p => p.month === k), p => p.amount), up = s.members.filter(m => !(m.left && k > m.left) && Domain.joinMonth(s, m.id) <= k && Domain.status(s, m.id, k) === 'paid').length; return [monthLabel(k), kes(exp), kes(got), exp ? Math.round(got / exp * 100) + '%' : '—', String(up)]; }), { num: [1, 2, 3, 4] })}
-<h2>Members</h2>${Doc.table(['Member', 'Shares', 'Saved', 'Owing now', 'Loan balance', 'Status'], s.members.map(m => { const t = Domain.tone(s, m.id, cur), map = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Ahead'], idle: ['ok', m.left ? 'Left' : '—'] }[t]; return [m.name, String(m.shares || 1), kes(Domain.memberSaved(s, m.id)), kes(Domain.outstanding(s, m.id, cur)), kes(Domain.memberLoanBalance(s, m.id)), { html: `<span class="tag ${map[0]}">${map[1]}</span>` }]; }), { num: [1, 2, 3, 4], foot: ['Total', '', kes(inn), kes(sum(s.members, m => Domain.outstanding(s, m.id, cur))), kes(loansOut), ''] })}
+<h2>Members</h2>${Doc.table(['Member', 'Shares', 'Saved', 'Owing now', 'Loan balance', 'Status'], s.members.map(m => { const t = Domain.tone(s, m.id, cur), map = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Ahead'], gold: ['gold', 'Gold'], idle: ['ok', m.left ? 'Left' : '—'] }[t] || ['ok', '—']; return [m.name, String(m.shares || 1), kes(Domain.memberSaved(s, m.id)), kes(Domain.outstanding(s, m.id, cur)), kes(Domain.memberLoanBalance(s, m.id)), { html: `<span class="tag ${map[0]}">${map[1]}</span>` }]; }), { num: [1, 2, 3, 4], foot: ['Total', '', kes(inn), kes(sum(s.members, m => Domain.outstanding(s, m.id, cur))), kes(loansOut), ''] })}
 <h2>Loans</h2>${Doc.table(['Member', 'Issued', 'Borrowed', 'To repay', 'Balance', 'Terms signed'], s.loans.map(l => { const c = Domain.loan(l); return [Domain.memberName(s, l.memberId), l.date || '', kes(l.principal), kes(c.total), kes(c.balance), l.agreement ? 'Yes' : 'No']; }), { num: [2, 3, 4], empty: 'No loans.' })}
 <h2>Payouts</h2>${Doc.table(['Month', 'Member', 'Date', 'Amount', 'Signed'], s.payouts.slice().sort((a, b) => a.month.localeCompare(b.month)).map(p => [monthLabel(p.month), Domain.memberName(s, p.memberId), p.date || '', kes(p.amount), p.sig ? 'Yes' : 'No']), { num: [3], empty: 'No payouts yet.' })}
 <h2>Expenses</h2>${Doc.table(['Date', 'For', 'Type', 'Amount'], s.expenses.map(x => [x.date || '', x.title || '', x.category || '', kes(x.amount)]), { num: [3], empty: 'No expenses.', foot: s.expenses.length ? ['', '', 'Total', kes(sum(s.expenses, x => x.amount))] : null })}
@@ -3767,13 +3828,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.16.0', released: '2026-11-19',
+  name: 'My Chama App', version: '0.16.1', released: '2026-11-19',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.16.1', 'Your card on Home now has tiers that follow your payments: red when late, amber when part paid, silver when due soon, green when paid, purple when paid ahead, and gold in your payout month or after six months on time in a row. It moves gently, counts up when your figure changes, and a live line shows what is true right now: days to the due date, your streak, the next payout and more.'],
     ['0.16.0', 'A smart Guide next to the bell answers questions and walks you through tasks. Home puts the payout first and your card changes colour with your payment state. M-Pesa screenshots are read reliably, hidden digits and all. Fair roles: offers you accept, reasons for stepping down and removals, notice before access ends. App lock with fingerprint or face. Several savings goals, edited announcements, member photos, signed loan terms, PDF statements and reports, and a walkthrough of each Chama for new members.'],
     ['0.15.1', 'Fixed a sign-in loop after being approved. Changes now arrive live, without reloading. Leaving and rejoining keeps your old entry, and people who left are no longer asked to pay. One clear "Add a member" button. One password box with a show button. Tap a photo to see it large.'],
     ['0.15.0', 'The app now notices things for you. Treasurers get "Needs you today", a cash forecast, members to watch, suggested loan limits and a check for unusual payments. Everyone gets streaks, a payout countdown, a savings projection and a group goal. Search everything with /, hide amounts in public, lock the app with a PIN, add due dates and meetings to your calendar, share receipts and send feedback. Secretaries get a member register. Code emails can fill themselves in.'],

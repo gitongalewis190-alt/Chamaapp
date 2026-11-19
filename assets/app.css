@@ -162,7 +162,7 @@ header#top.scrolled { border-bottom-color: var(--line); }
 /* ---------- main view ---------- */
 main#view { max-width: var(--maxw); margin: 0 auto; padding: 6px 16px 0; outline: none; }
 main#view.pg { animation: pageIn var(--t-slow) var(--ease-out); }
-#view.quiet *:not(.spin):not(.live-dot):not(.sk):not(.jn-orbit > span) { animation: none !important; }
+#view.quiet *:not(.spin):not(.live-dot):not(.sk):not(.jn-orbit > span):not(.hero):not(.hero-live > i):not(.hero-tick > span) { animation: none !important; }
 @keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -1750,3 +1750,46 @@ html[data-accent="teal"] .hero.tn-brand { background: radial-gradient(120% 140% 
 .pz-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; border-radius: 14px; background: var(--surface-2); }
 .pz-seg button { padding: 10px; border-radius: 10px; border: 0; background: transparent; color: var(--ink-2); font-weight: 600; }
 .pz-seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+
+/* ---------- Home card tiers (v2): the colour is the member's state; the card breathes and its line updates live ----------
+   late red · part amber · due silver · paid green · ahead purple · gold gold · idle graphite · brand (treasurer, accent) */
+.hero { background-size: 180% 180%; animation: heroBreath 14s ease-in-out infinite alternate; isolation: isolate; }
+@keyframes heroBreath { from { background-position: 100% 0%; } to { background-position: 40% 70%; } }
+.hero::before { inset: 0; width: auto; height: auto; transform: none; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.22) 48%, rgba(255,255,255,.06) 54%, transparent 64%) -120% 0 / 60% 100% no-repeat; animation: heroSheen 7s ease-in-out infinite; z-index: 0; }
+@keyframes heroSheen { 0%, 62% { background-position: -120% 0; } 100% { background-position: 260% 0; } }
+.hero.tn-late { background: radial-gradient(130% 150% at 100% 0%, #ff6b57 0%, #c62a1c 38%, #7a130b 72%, #3f0703 100%); background-size: 180% 180%; box-shadow: 0 18px 40px -16px rgba(198, 42, 28, .75), 0 0 0 1px rgba(255, 120, 100, .25) inset; animation: heroBreath 14s ease-in-out infinite alternate, heroAlarm 3.2s ease-in-out infinite; }
+@keyframes heroAlarm { 50% { box-shadow: 0 18px 46px -12px rgba(230, 60, 40, .9), 0 0 0 1px rgba(255, 140, 120, .45) inset; } }
+.hero.tn-part { background: radial-gradient(130% 150% at 100% 0%, #ffc04d 0%, #d4870e 40%, #8a4f06 75%, #4a2803 100%); background-size: 180% 180%; box-shadow: 0 18px 40px -16px rgba(200, 120, 10, .7); }
+.hero.tn-due { background: radial-gradient(130% 150% at 100% 0%, #e6ebee 0%, #a9b3ba 26%, #6c7780 58%, #3a4249 100%); background-size: 180% 180%; box-shadow: 0 18px 40px -16px rgba(60, 70, 78, .65), 0 0 0 1px rgba(255,255,255,.25) inset; }
+.hero.tn-due .hero-l, .hero.tn-due .hero-s { opacity: .9; }
+.hero.tn-paid { background: radial-gradient(130% 150% at 100% 0%, #2fcf8f 0%, #0f8a5f 40%, #075238 75%, #032b1d 100%); background-size: 180% 180%; }
+.hero.tn-ahead { background: radial-gradient(130% 150% at 100% 0%, #b48cff 0%, #7442d8 40%, #401c96 75%, #1e0a52 100%); background-size: 180% 180%; box-shadow: 0 18px 40px -16px rgba(100, 50, 200, .75); }
+.hero.tn-gold { color: #2a1a00; background: radial-gradient(130% 150% at 100% 0%, #fff1b8 0%, #f2c94c 26%, #c8922a 58%, #7a5410 100%); background-size: 180% 180%; box-shadow: 0 18px 44px -14px rgba(200, 146, 42, .8), 0 0 0 1px rgba(255, 240, 180, .55) inset; }
+.hero.tn-gold::after { opacity: .32; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120' fill='%23fff8dc'%3E%3Cpath d='M20 14l1.6 4.4L26 20l-4.4 1.6L20 26l-1.6-4.4L14 20l4.4-1.6z'/%3E%3Cpath d='M86 40l1 2.8 2.8 1-2.8 1L86 47.6l-1-2.8-2.8-1 2.8-1z'/%3E%3Cpath d='M60 92l1.3 3.5 3.5 1.3-3.5 1.3L60 101.6l-1.3-3.5-3.5-1.3 3.5-1.3z'/%3E%3C/svg%3E") 0 0 / 120px 120px, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220' fill='none' stroke='white' stroke-width='1'%3E%3Ccircle cx='190' cy='30' r='40'/%3E%3Ccircle cx='190' cy='30' r='70'/%3E%3Ccircle cx='190' cy='30' r='100'/%3E%3C/svg%3E") right top / 260px no-repeat; animation: goldTwinkle 4s ease-in-out infinite; }
+@keyframes goldTwinkle { 50% { opacity: .5; } }
+.hero.tn-gold .hero-tag, .hero.tn-gold .hero-chip, .hero.tn-gold .hero-live { background: rgba(60, 35, 0, .14); }
+.hero.tn-gold .bar { background: rgba(60, 35, 0, .18); } .hero.tn-gold .bar i { background: #3d2600; }
+.hero.tn-gold .hero-tag i, .hero.tn-gold .hero-live i { background: #3d2600; }
+.hero.tn-idle { background: radial-gradient(130% 150% at 100% 0%, #7d8a86 0%, #4a5552 45%, #232b29 100%); background-size: 180% 180%; }
+html[data-mode="dark"] .hero.tn-due { background: radial-gradient(130% 150% at 100% 0%, #b9c2c8 0%, #7c868e 30%, #4a535a 62%, #22282d 100%); background-size: 180% 180%; }
+html[data-mode="dark"] .hero.tn-gold { background: radial-gradient(130% 150% at 100% 0%, #ffe9a0 0%, #e0b443 28%, #a8771c 60%, #5c3e08 100%); background-size: 180% 180%; }
+html[data-mode="dark"] .hero.tn-paid { background: radial-gradient(130% 150% at 100% 0%, #25b07a 0%, #0c6e4c 42%, #053d2a 78%, #021d14 100%); background-size: 180% 180%; }
+html[data-mode="dark"] .hero.tn-late { background: radial-gradient(130% 150% at 100% 0%, #e2513f 0%, #a51f14 40%, #5e0e07 75%, #2c0402 100%); background-size: 180% 180%; }
+html[data-mode="dark"] .hero.tn-ahead { background: radial-gradient(130% 150% at 100% 0%, #9a72f0 0%, #5e33c0 40%, #321580 75%, #160842 100%); background-size: 180% 180%; }
+html[data-mode="dark"] .hero.tn-part { background: radial-gradient(130% 150% at 100% 0%, #e8a93c 0%, #b06f0a 42%, #6b3c04 78%, #351d02 100%); background-size: 180% 180%; }
+.hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.hero-top .hero-tag { margin-bottom: 0; gap: 6px; padding: 5px 11px 5px 9px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.hero-top .hero-tag .ic { width: 15px; height: 15px; }
+.hero-live { display: inline-flex; align-items: center; gap: 6px; font-size: .7em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 4px 9px; border-radius: 99px; background: rgba(255,255,255,.14); }
+.hero-live i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: liveDot 1.8s ease-in-out infinite; }
+@keyframes liveDot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+.hero-v.counting { text-shadow: 0 0 18px rgba(255,255,255,.45); }
+.hero-tick { position: relative; height: 1.5em; margin-top: 10px; overflow: hidden; font-size: .88em; font-weight: 600; }
+.hero-tick span { position: absolute; inset: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 14px; }
+.hero-tick span::before { content: ""; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .75; }
+.hero-tick span.in { animation: tickIn .38s var(--ease-out) both; }
+.hero-tick span.out { animation: tickOut .38s var(--ease) both; }
+@keyframes tickIn { from { opacity: 0; transform: translateY(70%); } to { opacity: 1; transform: none; } }
+@keyframes tickOut { to { opacity: 0; transform: translateY(-70%); } }
+@media (prefers-reduced-motion: reduce) { .hero, .hero::before, .hero::after, .hero-live i, .hero-tick span { animation: none !important; } }
+html.a-rm .hero, html.a-rm .hero::before, html.a-rm .hero::after, html.a-rm .hero-live i, html.a-rm .hero-tick span { animation: none !important; }
