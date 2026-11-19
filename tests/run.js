@@ -407,10 +407,42 @@ const TESTS = {
     ok(await page.isVisible('[data-act="pdfChama"]'), 'Reports offers the PDF report');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
+  async resetTyped(b) {
+    /* Forgot password, then the code typed by hand on the same phone */
+    const sc = require('./fixtures').scenarios.signedOut;
+    const { page, ctx, errors } = await open(b, 'signedOut', { mock: { ...sc.mock, otpOk: '12345678' } });
+    await page.click('[data-gm="in"]'); await page.waitForTimeout(150);
+    await page.click('[data-gm="forgot"]'); await page.waitForTimeout(150);
+    await page.fill('#gateEmail', 'wanjiku@example.com'); await page.click('[data-act="gateSend"]'); await page.waitForTimeout(1500);
+    await page.fill('#otpIn', '12345678'); await page.waitForTimeout(3500);
+    ok(/new password/i.test(await text(page)), 'forgot password, code typed: the reset screen opens, not the Chama');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
+  async resetGoogleLinked(b) {
+    /* the account also has Google linked (it signed in with Google before): a forgot-password code still opens the reset screen */
+    const sc = require('./fixtures').scenarios.signedOut;
+    const { page, ctx, errors } = await open(b, 'signedOut', { mock: { ...sc.mock, otpOk: '12345678', otpIdentities: [{ provider: 'email' }, { provider: 'google' }] } });
+    await page.click('[data-gm="in"]'); await page.waitForTimeout(150);
+    await page.click('[data-gm="forgot"]'); await page.waitForTimeout(150);
+    await page.fill('#gateEmail', 'wanjiku@example.com'); await page.click('[data-act="gateSend"]'); await page.waitForTimeout(1500);
+    await page.fill('#otpIn', '12345678'); await page.waitForTimeout(3500);
+    ok(/new password/i.test(await text(page)), 'an account with Google linked still gets the reset screen after a forgot-password code');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
+  async foreignLink(b) {
+    /* someone else's code link, opened on a phone that never asked for it: it must not sign anyone in */
+    const sc = require('./fixtures').scenarios.signedOut;
+    const { page, ctx, errors } = await open(b, 'signedOut', { mock: { ...sc.mock, otpOk: '12345678' }, wait: 1200 });
+    await page.goto(page.url().split('#')[0] + '#otp=12345678&e=' + encodeURIComponent('brilliance@example.com')); await page.reload(); await page.waitForTimeout(2500);
+    ok(!(await calls(page)).some(x => x.kind === 'verify'), 'a code link asked for on another phone is never used to sign in');
+    ok(/asked for on another phone/i.test(await text(page)) && /b•••@example\.com/.test(await text(page)), 'it says who the link is for and what to do');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
   async resetFromLink(b) {
     /* the email's "Fill it in for me" link opens in a fresh tab: no forgot-password flag in that tab */
     const sc = require('./fixtures').scenarios.signedOut;
     const { page, ctx, errors } = await open(b, 'signedOut', { mock: { ...sc.mock, otpOk: '12345678' }, wait: 2600 });
+    await page.evaluate(() => localStorage.setItem('mca-otp-req', JSON.stringify({ 'wanjiku@example.com': Date.now() })));
     await page.goto(page.url().split('#')[0] + '#otp=12345678&e=' + encodeURIComponent('wanjiku@example.com')); await page.reload(); await page.waitForTimeout(3500);
     const t = await text(page);
     ok(/new password/i.test(t) && await page.isVisible('[data-act="gateKeepPw"]'), 'a code sign-in on an account with a password opens the reset screen, even in a new tab');

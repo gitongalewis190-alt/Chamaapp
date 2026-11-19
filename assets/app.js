@@ -775,6 +775,11 @@ const RESET_KEY = 'mca-reset';
 const markReset = email => { try { localStorage.setItem(RESET_KEY, JSON.stringify({ e: String(email || '').trim().toLowerCase(), t: Date.now() })); } catch (e) {} };
 const resetPending = email => { try { const v = JSON.parse(localStorage.getItem(RESET_KEY) || 'null'); return !!(v && v.e && v.e === String(email || '').trim().toLowerCase() && Date.now() - v.t < 30 * 60000); } catch (e) { return false; } };
 const clearReset = () => { try { localStorage.removeItem(RESET_KEY); } catch (e) {} };
+/* a code link only signs in on the phone that asked for a code for that email, within 30 minutes.
+   A link forwarded to (or opened by) anyone else never signs them in as that person. */
+const OTP_REQ = 'mca-otp-req';
+const markCodeAsked = email => { try { const v = JSON.parse(localStorage.getItem(OTP_REQ) || '{}') || {}; v[String(email || '').trim().toLowerCase()] = Date.now(); Object.keys(v).forEach(k => { if (Date.now() - v[k] > 30 * 60000) delete v[k]; }); localStorage.setItem(OTP_REQ, JSON.stringify(v)); } catch (e) {} };
+const codeAskedHere = email => { try { const v = JSON.parse(localStorage.getItem(OTP_REQ) || '{}') || {}, t = v[String(email || '').trim().toLowerCase()]; return !!t && Date.now() - t < 30 * 60000; } catch (e) { return false; } };
 const { esc } = __M_src_core_utils_js;
 const { Policy } = __M_src_core_policy_js;
 const { CONFIG } = __M_src_config_js;
@@ -874,6 +879,8 @@ const Session = {
   status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, viaCode: false, resetOffered: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null, memberPics: {},
   ready() { return this.status === 'ready' || this.status === 'demo'; },
   markReset(email) { markReset(email); },
+  markCodeAsked(email) { markCodeAsked(email); },
+  codeAskedHere(email) { return codeAskedHere(email); },
   /* the person signed in with an email code but wants to keep the password they already have */
   async keepPassword() { clearIntent(); clearReset(); this.resetOffered = false; this.viaCode = false; this.account = null; this.busy = false; await this.after(this.user); },
   canWrite() { return Perm.can(this.role, 'finance.record'); },
@@ -961,6 +968,15 @@ const Session = {
       if (oauthMsg) { try { __M_src_features_auth_gate_js.Gate.notice = oauthMsg; } catch (e) {} }
       this.prepareGoogle();
       const link = OtpLink.take();
+      if (link && !this.user && !codeAskedHere(link.email)) {
+        OtpLink.clear();
+        const G = __M_src_features_auth_gate_js.Gate;
+        const hint = link.email.replace(/^(.)[^@]*(@.*)$/, '$1•••$2');
+        G.mode = 'in'; G.sent = false; G.email = '';
+        G.notice = 'This sign-in link is for ' + hint + ' and was asked for on another phone or browser, so it was not used. If it is yours, type the code in the app where you asked for it, or ask for a new code here.';
+        this.set('signed-out');
+        return;
+      }
       if (link && !this.user) {
         OtpLink.clear();
         const G = __M_src_features_auth_gate_js.Gate, O = __M_src_features_auth_gate_js.Otp;
@@ -1000,12 +1016,11 @@ const Session = {
       catch (e) { throw new Error('Your account could not be checked. Make sure the database steps are finished, then try again.'); }
       this.account = acct;
       const google = this.usesGoogle(user);
-      if (google && intentIs('forgot')) { clearIntent(); clearReset(); }
       const canEnter = !!(acct.has_password || google);
-      /* an email code only signs in an account that has a password when the person asked to reset it
-         (or chose Create account with an email that already has one): either way, offer a new password */
+      /* signing in with an emailed code means the person asked to reset (or to create an account that already exists):
+         always offer a new password, also when the account has Google linked. Google sign-in itself never asks. */
       const viaCode = this.viaCode; this.viaCode = false;
-      const wantsReset = !google && (intentIs('forgot') || resetPending(this.email) || (viaCode && acct.has_password));
+      const wantsReset = (viaCode || !google) && (intentIs('forgot') || resetPending(this.email) || (viaCode && (acct.has_password || google)));
       if (wantsReset) this.resetOffered = true;
       if (!acct.has_profile || !canEnter || acct.needs_username || wantsReset) { this.setupMode = acct.has_profile && canEnter && !acct.needs_username ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
       if (Invite.token && Invite.info && Invite.info.ok) { this.role = null; this.memberId = null; this.busy = false; this.set('invite'); return; }
@@ -4257,7 +4272,8 @@ const actions = {
         const why = String(v.why || '').trim(); if (why.length < 15) throw new Error('Explain the reason in a sentence (at least 15 characters)');
         setTimeout(async () => {
           const { data, error } = await Backend.sb.rpc('remove_with_reason', { p_cid: Store.chamaId, p_email: d.e, p_category: v.cat, p_reason: why, p_notice_days: Number(v.days) || 3 });
-          if (error && /Could not find the function|PGRST202|schema cache/i.test(error.message || '')) { try { await Session.revoke(d.e); } catch (e) { toast(e.message); } return; }
+          /* never fall back to removing at once: that is harsher than what was asked */
+          if (error && /Could not find the function|PGRST202|schema cache/i.test(error.message || '')) return __M_src_ui_toast_js.Pop.alert('The server is still taking in its latest update. Nothing was changed. Wait a minute, then try again.', { title: 'Not removed yet', label: 'OK' });
           if (error) return toast(rpcMessage(error));
           await Session.loadAccess(); await R.Roles.load().catch(() => {}); render(); R.Sheet.close();
           if (data && data.removed) toast('Access removed. They were told why. Their records are kept.', 'ok');
@@ -4684,6 +4700,7 @@ const gateSendCode = async (email, btn) => {
   const typed = Gate.mode === 'up' ? (Gate.email || email) : email;
   try { sessionStorage.setItem('mca-intent', Gate.mode); } catch (e) {}
   if (Gate.mode === 'forgot') Session.markReset(email);
+  Session.markCodeAsked(email);
   Gate.email = typed; Gate.notice = ''; Gate.sending = true; if (btn) btn.disabled = true; Gate.paint();
   const t0 = Date.now();
   const { error } = await Backend.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: Gate.mode === 'up' } });
@@ -4849,7 +4866,7 @@ const actions = {
       onSubmit: v => { const why = String(v.why || '').trim(); if (why.length < 10) throw new Error('Write your reason (at least 10 characters)'); setTimeout(async () => {
         const cid = Session.cid();
         let { error } = await Backend.sb.rpc('leave_chama_with_reason', { p_cid: cid, p_reason: why });
-        if (error && /Could not find the function|PGRST202|schema cache/i.test(error.message || '')) ({ error } = await Backend.sb.rpc('leave_chama', { cid }));
+        if (error && /Could not find the function|PGRST202|schema cache/i.test(error.message || '')) return toast('The server is still taking in its latest update. Nothing was changed. Wait a minute, then try again.');
         if (error) return toast(error.message);
         toast('You left the Chama');
         const rest = (Session.workspaces || []).filter(w => w.chama_id !== cid);
@@ -4887,6 +4904,7 @@ const actions = {
   gateResend: async () => {
     if (!Gate.email || !Backend.sb) return toast('Use a different email and start again');
     const b = document.getElementById('otpResend'); if (b) b.disabled = true;
+    Session.markCodeAsked(Gate.email);
     const { error } = await Backend.sb.auth.signInWithOtp({ email: Gate.email, options: { shouldCreateUser: Gate.mode === 'up' } });
     if (error && !(Gate.mode === 'forgot' && /signups? not allowed|not found/i.test(error.message))) { if (b) b.disabled = false; return Otp.msg(/seconds|wait|rate/i.test(error.message) ? 'Please wait a minute before asking for another code.' : plainOtpError(error.message)); }
     Otp.reset(); Otp.start(); Otp.msg('A new code is on its way.');
@@ -5186,7 +5204,8 @@ const Roles = {
   },
   async offer(email, role, note) {
     const { data, error } = await Backend.sb.rpc('offer_role', { p_cid: Store.chamaId, p_email: email, p_role: role, p_note: note || null });
-    if (error && missingFn(error)) return this.legacy(email, role);
+    /* no silent fallback to an immediate change: the person must be asked */
+    if (error && missingFn(error)) throw new Error('The server is still taking in its latest update. Nothing was changed. Wait a minute, then try again.');
     if (error) throw new Error(rpcMessage(error));
     return data || {};
   },

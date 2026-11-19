@@ -494,3 +494,6 @@ where exists (select 1 from information_schema.tables where table_schema = 'supa
 on conflict do nothing;
 
 commit;
+
+-- make the API see the new functions at once (otherwise the app may say 'not ready' for a minute)
+notify pgrst, 'reload schema';

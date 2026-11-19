@@ -159,7 +159,7 @@
           verifyOtp: a => {
             calls.push({ kind: 'verify', token: a.token });
             if (a.token !== db.otpOk) return later({ data: null, error: { message: 'Token has expired or is invalid' } }, 100);
-            db.session = { access_token: 'x', refresh_token: 'y', user: { id: 'u-new', email: a.email, identities: [], app_metadata: {}, user_metadata: {} } };
+            db.session = { access_token: 'x', refresh_token: 'y', user: { id: 'u-new', email: a.email, identities: M.otpIdentities || [], app_metadata: M.otpIdentities ? { provider: 'email', providers: ['email', 'google'] } : {}, user_metadata: {} } };
             setTimeout(() => fire('SIGNED_IN', db.session), 0);
             return later({ data: { session: db.session }, error: null }, 100);
           },
