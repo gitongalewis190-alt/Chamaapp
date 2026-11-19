@@ -3937,7 +3937,7 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.18.0', released: '2026-11-20',
+  name: 'My Chama App', version: '0.18.1', released: '2026-11-20',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
@@ -6730,7 +6730,7 @@ const About = {
     try {
       const r = await __M_src_core_backend_js.Backend.sb.rpc('get_my_details'); if (r.error || !r.data || !r.data.birth_date) return;
       localStorage.setItem('mca-about:data:' + this.uid(), JSON.stringify({ birth_date: r.data.birth_date, gender: r.data.gender, phone: r.data.phone }));
-      if (Adapt.apply(Adapt.age())) { try { render(); } catch (e) {} }
+      if (Adapt.apply(Adapt.age())) { try { __M_src_core_rerender_js.render(); } catch (e) {} }
     } catch (e) { /* stays as it is */ }
   },
   async check() {
