@@ -515,6 +515,25 @@ const TESTS = {
     ok(c && c.args.p_loan === 'l9' && /^data:image\/png;base64,/.test(c.args.p_sig) && c.args.p_total === 3900, 'signing on their own phone sends the signature and the agreed total to the treasurer');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
+  async mpesaImport(b) {
+    const { page, ctx, errors } = await open(b, 'treasurer');
+    await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(300);
+    await page.click('[data-act="importPay"] >> nth=0'); await page.waitForTimeout(400);
+    ok(await page.isVisible('.im-tile[for="imFiles"]') && await page.isVisible('[data-im="paste"]'), 'import starts with two big choices: screenshots or paste');
+    await shot(page, '93-import-start');
+    await page.click('[data-im="paste"]'); await page.waitForTimeout(250);
+    await page.fill('#imText', 'SKZ1A2B3C4 Confirmed. You have received Ksh2,000.00 from OTIENO ODHIAMBO 0722***000 on 3/11/26 at 9:14 AM. New M-PESA balance is Ksh14,250.00.');
+    await page.click('[data-im="go"]'); await page.waitForTimeout(900);
+    ok(/1 payment found/.test(await page.textContent('#modalRoot')), 'pasted messages are read and matched');
+    await page.click('#modalRoot form .actions .btn.pri'); await page.waitForTimeout(800);
+    const p = await page.evaluate(() => __M_src_core_store_js.Store.get().payments.find(x => x.code === 'SKZ1A2B3C4'));
+    ok(p && p.from === 'OTIENO ODHIAMBO' && /0722\*+000/.test(p.fromPhone) && /Confirmed/.test(p.sms), 'the payment keeps who sent it, the masked number and the message');
+    await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(400);
+    ok(/from OTIENO|M-Pesa message kept/i.test(await page.textContent('[data-act="payMenu"] >> nth=0')), 'the newly recorded payment is first in Recent payments, with its details');
+    await page.click('[data-act="payMenu"] >> nth=0'); await page.waitForTimeout(300);
+    ok(/The M-Pesa message/.test(await page.textContent('#modalRoot')), 'opening the payment shows the original message');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
   async leftAndLive(b) {
     const data = require('./fixtures').chama(); data.members[7].left = data.members[0].joined;   // Baraka left in the first month
     const notes = [{ id: 'n-old', kind: 'join_approved', title: 'Welcome to Umoja Savings', body: '', link: '#/home', priority: 'important', created_at: new Date().toISOString(), read_at: null, data: {} }];

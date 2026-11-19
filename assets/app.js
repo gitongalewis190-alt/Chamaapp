@@ -2525,7 +2525,8 @@ async function savePayments(list) {
   if (saved.length) {
     /* the payments and the names learned from them are saved together, so a confirmed sender is recognised next time */
     Store.commit(st => saved.forEach(p => {
-      st.payments.push({ id: uid(), memberId: p.memberId, month: p.month, amount: p.amount, code: p.code || '', date: p.date });
+      st.payments.push({ id: uid(), memberId: p.memberId, month: p.month, amount: p.amount, code: p.code || '', date: p.date, at: Date.now(),
+        ...(p.from ? { from: String(p.from).slice(0, 80) } : {}), ...(p.phone ? { fromPhone: String(p.phone).slice(0, 16) } : {}), ...(p.sms ? { sms: String(p.sms).slice(0, 360), via: 'mpesa' } : {}) });
       if (p.learn) { const mm = st.members.find(x => x.id === p.memberId); if (mm) Matcher.learn(mm, p.learn.t); }
     }));
     toast(saved.length === 1 ? 'Payment recorded: ' + __M_src_core_utils_js.kes(saved[0].amount) + (saved[0].name ? ' from ' + saved[0].name : '') : saved.length + ' payments recorded', 'ok');
@@ -2755,7 +2756,7 @@ ${(() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 &&
     }
     const month = rows.length ? `<section class="sec"><div class="sec-h"><h2>${late.length ? 'Behind this month' : 'This month'}</h2>${late.length ? '<button type="button" data-act="remindAll">Remind all</button>' : '<a href="#/grid">Contributions</a>'}</div><div class="list">${rows.join('')}</div></section>` : '';
 
-    const recent = [...s.payments].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 3);
+    const recent = [...s.payments].sort((a, b) => (b.at || Date.parse(b.date) || 0) - (a.at || Date.parse(a.date) || 0)).slice(0, 3);
     const recentHtml = `<section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your recent payments' : 'Recent payments'}</h2>${recent.length ? '<a href="#/grid">See all</a>' : ''}</div><div class="list">${recent.length
       ? recent.map(p => { const m = s.members.find(x => x.id === p.memberId); return s.shared
           ? `<div class="li has-ic"><span class="li-ic">${icon('check')}</span><div class="li-main"><b>${esc(longMonth(p.month))}</b><small>${esc(p.date)}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`
@@ -2829,7 +2830,9 @@ const Matcher = {
     if (tx.name && (m.aliases || []).includes(this.key(tx.name))) return 1;
     const full = tx.phone && !/[*xX]/.test(tx.phone);
     if (full && (m.phones || []).includes(this.loc(tx.phone))) return 1;
-    const ph = this.phone(m.phone, tx.phone); if (ph === 1) return 1; if (ph < 0) return 0;
+    const ph = this.phone(m.phone, tx.phone); if (ph === 1) return 1;
+    /* a different number lowers confidence but does not rule the member out: people often pay from a relative's phone */
+    if (ph < 0) { const nm = this.name(m, tx); return nm >= 0.9 ? 0.6 : nm >= 0.6 ? 0.45 : 0; }
     return 1 - (1 - ph) * (1 - this.name(m, tx));
   },
   rank(s, tx) { return s.members.map(m => ({ m, sc: this.score(m, tx) })).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc); },
@@ -2869,7 +2872,7 @@ const Mpesa = {
       const name = who.replace(ph ? ph[0] : '', '').replace(/[-:,.]/g, ' ').replace(/\b(account|acc|a\/c)\b.*$/i, '').replace(/\s+/g, ' ').trim();
       const d = seg.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); let date = '';
       if (d) { const y = d[3].length === 2 ? '20' + d[3] : d[3]; date = `${y}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`; if (isNaN(Date.parse(date))) date = ''; }
-      seen.add(h.code); out.push({ code: h.code, amount, name, phone, date, masked: /\*/.test(phone) });
+      seen.add(h.code); out.push({ code: h.code, amount, name, phone, date, masked: /\*/.test(phone), sms: seg.trim().slice(0, 360) });
     });
     return out;
   },
@@ -2894,7 +2897,7 @@ const { toast } = __M_src_ui_toast_js;
 const Import = {
   lib: src => new Promise((ok, no) => { const el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = no; document.head.appendChild(el); }),
   /* screenshots are scaled so text is ~30px high, turned grey, stretched in contrast and, for dark-mode screenshots, inverted */
-  async prepare(file) {
+  async prepare(file, mode) {
     const bmp = await createImageBitmap(file);
     const k = Math.min(2.2, Math.max(1, 1400 / bmp.width)) * Math.min(1, 2600 / Math.max(bmp.width, bmp.height));
     const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
@@ -2902,7 +2905,7 @@ const Import = {
     const img = x.getImageData(0, 0, c.width, c.height), d = img.data; let lo = 255, hi = 0, total = 0;
     for (let i = 0; i < d.length; i += 4) { const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; d[i] = g; total += g; if (g < lo) lo = g; if (g > hi) hi = g; }
     const dark = total / (d.length / 4) < 128, span = Math.max(1, hi - lo);
-    for (let i = 0; i < d.length; i += 4) { let g = (d[i] - lo) * 255 / span; if (dark) g = 255 - g; g = g < 150 ? Math.max(0, g - 40) : Math.min(255, g + 30); d[i] = d[i + 1] = d[i + 2] = g; }
+    for (let i = 0; i < d.length; i += 4) { let g = (d[i] - lo) * 255 / span; if (dark) g = 255 - g; g = mode === 'bw' ? (g < 165 ? 0 : 255) : g < 150 ? Math.max(0, g - 40) : Math.min(255, g + 30); d[i] = d[i + 1] = d[i + 2] = g; }
     x.putImageData(img, 0, 0); return c;
   },
   async worker() {
@@ -2913,11 +2916,48 @@ const Import = {
     await this._w.setParameters({ preserve_interword_spaces: '1', user_defined_dpi: '300' });
     return this._w;
   },
-  async ocr(file, onStep) {
-    if (onStep) onStep('Getting the reader ready (first time only)…');
+  async ocr(file, onStep, mode) {
+    if (onStep && !this._w) onStep('getting the reader ready (first time only)…');
     const w = await this.worker();
-    if (onStep) onStep('Reading the text…');
-    return (await w.recognize(await this.prepare(file))).data.text;
+    if (onStep) onStep('reading…');
+    return (await w.recognize(await this.prepare(file, mode))).data.text;
+  },
+  ui: null,
+  /* the start: two big choices; what was added shows as thumbnails right away */
+  sheet() {
+    const u = this.ui, R = __M_src_features_requests_js, n = u.files.length, t = u.text.trim();
+    const shots = n ? `<div class="im-shots">${u.files.map((f, i) => `<figure class="im-shot${u.res && u.res[i] ? ' ' + u.res[i].k : ''}"><img src="${u.urls[i]}" alt="Screenshot ${i + 1}">${u.res && u.res[i] ? `<figcaption>${esc(u.res[i].t)}</figcaption>` : `<button type="button" class="im-x" data-im="rm" data-i="${i}" aria-label="Remove screenshot ${i + 1}">${icon('close', 's')}</button>`}</figure>`).join('')}${n < 10 && !u.busy ? `<label class="im-add" for="imFiles">${icon('plus')}<span>Add</span></label>` : ''}</div>` : '';
+    const html = `<div class="sx-head"><span class="sx-badge">${icon('import')}</span><h3>Add M-Pesa payments</h3><p>Read on this phone. Nothing is uploaded.</p></div>
+${n || u.paste ? '' : `<div class="im-pick"><label class="im-tile" for="imFiles">${icon('camera')}<b>Screenshots</b><small>of the M-Pesa messages</small></label><button type="button" class="im-tile" data-im="paste">${icon('chat')}<b>Paste</b><small>copied messages</small></button></div>`}
+<input type="file" id="imFiles" accept="image/*" multiple hidden>
+${shots}
+${u.paste ? `<label class="fgrp" for="imText"><span class="flab">Paste the messages</span><textarea id="imText" rows="5" placeholder="SKB7H2LQ4P Confirmed. You have received Ksh2,000.00 from…">${esc(u.text)}</textarea></label>` : ''}
+${u.busy ? `<div class="imp-prog" id="impProg"><span>${esc(u.busy)}</span><div class="cl-bar"><i style="width:${u.pct || 5}%"></i></div></div>` : ''}
+${(n || u.paste) && !u.busy ? `<button type="button" class="btn pri block lg" data-im="go">${n ? `Read ${n} screenshot${n > 1 ? 's' : ''}` : 'Find payments'}${n && t ? ' and the messages' : ''}</button>` : ''}
+${!u.paste && n && !u.busy ? `<button type="button" class="linkish im-more" data-im="paste">Also paste messages</button>` : ''}`;
+    if (R.Sheet.isOpen('import')) R.Sheet.update(html); else R.Sheet.open(html, { key: 'import', label: 'Add M-Pesa payments' });
+    const inp = document.getElementById('imFiles');
+    if (inp) inp.onchange = () => { const add = [...inp.files].slice(0, 10 - u.files.length); add.forEach(f => { u.files.push(f); u.urls.push(URL.createObjectURL(f)); }); u.res = null; this.sheet(); };
+  },
+  async go() {
+    const u = this.ui, files = u.files, R = __M_src_features_requests_js;
+    u.res = files.map(() => null); let all = u.text || '', found = 0;
+    for (let i = 0; i < files.length; i++) {
+      u.busy = `Reading screenshot ${i + 1} of ${files.length}…`; u.pct = Math.round((i + .3) / files.length * 100); this.sheet();
+      let txt = '';
+      try { txt = await this.ocr(files[i], m => { u.busy = `Screenshot ${i + 1} of ${files.length}: ${m}`; this.sheet(); }); } catch (e) { console.warn('OCR failed', e); }
+      let got = Mpesa.parse(txt);
+      /* nothing found: read it again another way (sharper black and white) before giving up */
+      if (!got.length) { try { const t2 = await this.ocr(files[i], null, 'bw'); const g2 = Mpesa.parse(t2); if (g2.length) { txt = t2; got = g2; } } catch (e) {} }
+      all += '\n' + txt; found += got.length;
+      u.res[i] = got.length ? { k: 'ok', t: got.length + (got.length > 1 ? ' payments' : ' payment') } : { k: 'no', t: 'Nothing found' };
+      this.sheet();
+    }
+    u.busy = ''; u.pct = 0;
+    const txs = Mpesa.parse(all);
+    if (!txs.length) { this.sheet(); return __M_src_ui_toast_js.Pop.alert(files.length ? 'No money received was found in these. Make sure the whole message shows in the screenshot, or paste the message text instead.' : 'No money received was found. Only messages that say "received" are added.', { title: 'No payments found', label: 'OK' }); }
+    R.Sheet.close(); u.urls.forEach(x => URL.revokeObjectURL(x));
+    setTimeout(() => this.review(txs), 260);
   },
   progress(msg, i, n) {
     const el = document.getElementById('impProg'); if (!el) return;
@@ -2950,7 +2990,7 @@ const Import = {
     const bits = [];
     if (t.name && (m.aliases || []).includes(Matcher.key(t.name))) bits.push('paid under this name before');
     const ph = Matcher.phone(m.phone, t.phone);
-    if (ph === 1) bits.push('same phone number'); else if (ph > 0) { const d = Matcher.loc(t.phone).replace(/\*+/g, ' ').trim().split(' '); bits.push('phone ' + (d[0] ? 'starts ' + d[0] : '') + (d[0] && d[1] ? ', ' : '') + (d[1] ? 'ends ' + d[1] : '')); }
+    if (ph === 1) bits.push('same phone number'); else if (ph < 0) bits.push('a different phone than the one saved'); else if (ph > 0) { const d = Matcher.loc(t.phone).replace(/\*+/g, ' ').trim().split(' '); bits.push('phone ' + (d[0] ? 'starts ' + d[0] : '') + (d[0] && d[1] ? ', ' : '') + (d[1] ? 'ends ' + d[1] : '')); }
     else if (t.phone && !m.phone) bits.push('no phone saved for ' + m.name.split(' ')[0]);
     const nm = Matcher.name(m, t); if (nm >= 0.9) bits.push('name matches'); else if (nm > 0.3) bits.push('name partly matches');
     return bits.join(' · ') || 'weak match';
@@ -2981,10 +3021,19 @@ ${t.dup ? '' : `<div class="imp-why"><span class="imp-conf"><i style="width:${pc
       const picks = txs.map((t, i) => ({ t, i })).filter(x => v['inc_' + x.i] != null);
       if (!picks.length) throw new Error('Nothing is ticked');
       picks.forEach(({ t, i }) => { if (!v['m_' + i]) throw new Error('Choose a member for ' + t.code); });
-      savePayments(picks.map(({ t, i }) => { const m = S().members.find(x => x.id === v['m_' + i]); return { memberId: m.id, month: v['mo_' + i], amount: t.amount, code: t.code, date: t.date || todayISO(), name: m.name, learn: { m, t } }; }));
+      savePayments(picks.map(({ t, i }) => { const m = S().members.find(x => x.id === v['m_' + i]); return { memberId: m.id, month: v['mo_' + i], amount: t.amount, code: t.code, date: t.date || todayISO(), name: m.name, from: t.name, phone: t.phone, sms: t.sms, learn: { m, t } }; }));
     } });
   }
 };
+
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-im]'); if (!b || !Import.ui) return;
+  const u = Import.ui, k = b.dataset.im, ta = document.getElementById('imText'); if (ta) u.text = ta.value;
+  if (k === 'rm') { const i = Number(b.dataset.i); URL.revokeObjectURL(u.urls[i]); u.files.splice(i, 1); u.urls.splice(i, 1); u.res = null; return Import.sheet(); }
+  if (k === 'paste') { u.paste = true; Import.sheet(); setTimeout(() => { const t = document.getElementById('imText'); if (t) t.focus(); }, 80); return; }
+  if (k === 'go') { if (!u.files.length && !u.text.trim()) return toast('Paste a message or add a screenshot'); return Import.go(); }
+});
+document.addEventListener('input', e => { if (e.target && e.target.id === 'imText' && Import.ui) Import.ui.text = e.target.value; });
 
 return { get Import() { return Import; }, };
 })();
@@ -3041,7 +3090,7 @@ const views = {
     }).join('');
 
     const pills = months.map(mk => `<button type="button" role="tab" aria-selected="${mk === mo}" data-act="cgMonth" data-mo="${mk}">${esc(monthLabel(mk))}</button>`).join('');
-    const recent = [...s.payments].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 10);
+    const recent = [...s.payments].sort((a, b) => (b.at || Date.parse(b.date) || 0) - (a.at || Date.parse(a.date) || 0)).slice(0, 10);
 
     return `${head}
       ${admin ? `<div class="btns" style="margin-top:0"><button class="btn tint sm" data-act="importPay">${icon('import')}Import from M-Pesa</button></div>` : ''}
@@ -3059,7 +3108,7 @@ const views = {
       <section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your payments' : 'Recent payments'}</h2></div>
         <div class="list">${recent.length ? recent.map(p => {
           const m = s.members.find(x => x.id === p.memberId);
-          const inner = `${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</small></span><span class="li-end"><span class="num">${esc(kes(p.amount))}</span>${admin ? icon('chev', 'chev') : ''}</span>`;
+          const inner = `${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}${p.from && m && p.from.toLowerCase() !== m.name.toLowerCase() ? ' · from ' + esc(p.from) : ''}${p.via === 'mpesa' ? ' · M-Pesa message kept' : ''}</small></span><span class="li-end"><span class="num">${esc(kes(p.amount))}</span>${admin ? icon('chev', 'chev') : ''}</span>`;
           return admin ? `<button type="button" class="li has-av" data-act="payMenu" data-id="${esc(p.id)}">${inner}</button>` : `<div class="li has-av">${inner}</div>`;
         }).join('') : '<div class="li empty">No payments recorded yet</div>'}</div>
       </section>`;
@@ -3092,6 +3141,8 @@ const actions = {
   payMenu: { admin: true, run(d) {
     const s = S(), p = s.payments.find(x => x.id === d.id); if (!p) return;
     Modal.open({ title: 'Payment', body: `<div class="kv"><span>Member</span><b>${esc(Domain.memberName(s, p.memberId))}</b></div><div class="kv"><span>Amount</span><b class="num">${esc(kes(p.amount))}</b></div><div class="kv"><span>For month</span><b>${esc(monthLabel(p.month))}</b></div><div class="kv"><span>Date</span><b>${esc(p.date)}</b></div><div class="kv"><span>M-Pesa code</span><b>${esc(p.code || 'None')}</b></div>
+      ${p.from || p.fromPhone ? `<div class="kv"><span>Sent by</span><b>${esc(p.from || '')}${p.fromPhone ? ' · ' + esc(String(p.fromPhone).replace(/\*+/g, m => '•'.repeat(Math.min(m.length, 6)))) : ''}</b></div>` : ''}
+      ${p.sms ? `<div class="pay-sms"><small>${icon('chat', 's')}The M-Pesa message</small><p>${esc(p.sms)}</p></div>` : ''}
       <div class="btns"><button type="button" class="btn grow" data-act="editPay" data-id="${esc(p.id)}">${icon('pencil')}Edit</button><button type="button" class="btn bad grow" data-act="delPay" data-id="${esc(p.id)}">${icon('trash')}Remove</button></div>` });
   } },
   delPay: { admin: true, run: d => { Modal.close(); confirmBox('Remove this payment? It is taken off the records. The change is kept in History and can be undone from the menu.', () => Store.commit(s => { s.payments = s.payments.filter(p => p.id !== d.id); })); } },
@@ -3106,13 +3157,8 @@ const actions = {
   } },
   importPay: { admin: true, run() {
     if (!S().members.length) return toast('Add members first');
-    Modal.open({ title: 'Import M-Pesa payments', submitLabel: 'Find payments',
-      body: `<div class="imp-how"><div><b>1</b><span>Copy the M-Pesa messages, or take screenshots of them</span></div><div><b>2</b><span>Paste or add them below</span></div><div><b>3</b><span>Check each match, then record</span></div></div>
-<label>Paste messages<textarea name="text" rows="5" placeholder="SJK4L2P9QX Confirmed. You have received Ksh2,000.00 from GRACE NJERI 0712***678 on 3/11/26 at 9:14 AM…"></textarea></label>
-<label class="imp-drop">${icon('camera')}<span><b>Add screenshots</b><small>Up to 10. Read on this phone; nothing is uploaded.</small></span><input type="file" name="shots" accept="image/*" multiple></label>
-<p class="fhelp">Only money you <b>received</b> is imported. Hidden digits (0712•••678) are fine: the app matches by the digits that show and the name, and you confirm each one.</p>`,
-      onSubmit: v => { const files = [...$('#modalRoot input[type=file]').files]; if (!(v.text || '').trim() && !files.length) throw new Error('Paste a message or add a screenshot'); if (files.length > 10) throw new Error('Add up to 10 screenshots at a time'); setTimeout(() => Import.run(v.text || '', files), 50); } });
-    const inp = $('#modalRoot input[type=file]'); if (inp) inp.addEventListener('change', () => { const sp = inp.closest('.imp-drop').querySelector('small'); sp.textContent = inp.files.length ? inp.files.length + ' screenshot' + (inp.files.length > 1 ? 's' : '') + ' added' : 'Up to 10. Read on this phone; nothing is uploaded.'; });
+    Import.ui = { files: [], urls: [], text: '' };
+    Import.sheet();
   } },
   cgMonth: { run(d) { cgMonth = d.mo; render(); } },
 };
