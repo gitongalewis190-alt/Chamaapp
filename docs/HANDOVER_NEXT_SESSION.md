@@ -7,6 +7,11 @@ features stay off until they run.
 Project: My Chama, Supabase ref `sgfvjsxmchohawhqraii` (NOT "The lees app"). Owner approved running SQL in this request.
 Repo: `gitongalewis190-alt/Chamaapp`. Live: https://chama-livid.vercel.app (Vercel deploys `main`).
 
+## 0. Fastest path for the owner
+`supabase/RUN_THIS_IN_SQL_EDITOR.sql` contains 023 + 024 + 025 as ONE transaction (all or nothing), checked with Postgres's own
+parser (libpg_query 18). Paste it into Supabase → SQL Editor and run. Then run `supabase/AFTER_UPDATE_CHECKS.sql`: every row
+should be `ok = true`. If the owner already did this, skip section 1.
+
 ## 1. Apply the migrations, in order, each tested first
 
 For each file: run it inside `begin; … rollback;` with the checks at the bottom of the file, read the output, then apply it
@@ -66,7 +71,7 @@ email link opening in a new tab, and any email-code sign-in on an account with a
 - Live realtime: role offers and removal notices arrive through notifications (also polled), not tested against the live database.
 
 ## 5. How to test locally
-- `NODE_PATH=$(npm root -g) node tests/run.js` → 173 scenarios passed at 0.16.1.
+- `NODE_PATH=$(npm root -g) node tests/run.js` → 173 scenarios passed at 0.16.2.
 - Lint: `npx eslint@8.57.0 --no-eslintrc -c <config with no-undef> --global Tesseract,supabase assets/app.js assets/boot.js sw.js` → clean.
 - OCR was verified end to end with real Tesseract on light and dark SMS screenshots under the production CSP.
 

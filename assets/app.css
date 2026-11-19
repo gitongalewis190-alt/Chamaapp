@@ -1793,3 +1793,17 @@ html[data-mode="dark"] .hero.tn-part { background: radial-gradient(130% 150% at 
 @keyframes tickOut { to { opacity: 0; transform: translateY(-70%); } }
 @media (prefers-reduced-motion: reduce) { .hero, .hero::before, .hero::after, .hero-live i, .hero-tick span { animation: none !important; } }
 html.a-rm .hero, html.a-rm .hero::before, html.a-rm .hero::after, html.a-rm .hero-live i, html.a-rm .hero-tick span { animation: none !important; }
+
+/* Home: the state card first, the payout attached right under it */
+.home-top { display: flex; flex-direction: column; margin-bottom: 16px; }
+.home-top .hero { position: relative; z-index: 2; }
+.home-top .po-card { margin: -18px 8px 0; padding-top: 30px; border-top-left-radius: 0; border-top-right-radius: 0; position: relative; z-index: 1; }
+.po-line { display: flex; align-items: flex-end; gap: 6px; overflow-x: auto; padding: 2px 0 2px; scrollbar-width: none; }
+.po-line::-webkit-scrollbar { display: none; }
+.po-line > span { flex: 1 0 64px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: 14px; background: var(--surface-2); font-size: .74em; color: var(--ink-3); position: relative; }
+.po-line > span b { color: var(--ink); font-size: 1.05em; }
+.po-line > span small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.po-line > span.po-now { background: var(--brand-soft); box-shadow: inset 0 0 0 1.5px var(--brand); }
+.po-line > span.po-now b { color: var(--brand); }
+.po-line > span.me { box-shadow: inset 0 0 0 1.5px var(--gold); }
+.po-line > span + span::before { content: ""; position: absolute; left: -6px; top: 21px; width: 6px; height: 2px; background: var(--line-2); }

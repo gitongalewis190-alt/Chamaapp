@@ -1,8 +1,8 @@
 /* My Chama service worker. Change V on every release. */
-const V = 'mca-app-v75';
+const V = 'mca-app-v76';
 const OCR = 'mca-ocr-v1';   /* kept across releases; change only when vendor/tesseract changes */
-const SHELL = ['./', './index.html', './manifest.json', './assets/app.css?v=0.16.1', './assets/boot.js?v=0.16.1', './assets/splash.js?v=0.16.1',
-  './assets/languages.js?v=0.16.1', './assets/app.js?v=0.16.1', './vendor/supabase-2.45.4.js', './icons/icon.svg', './icons/logo-192.png',
+const SHELL = ['./', './index.html', './manifest.json', './assets/app.css?v=0.16.2', './assets/boot.js?v=0.16.2', './assets/splash.js?v=0.16.2',
+  './assets/languages.js?v=0.16.2', './assets/app.js?v=0.16.2', './vendor/supabase-2.45.4.js', './icons/icon.svg', './icons/logo-192.png',
   './legal/privacy.html', './legal/terms.html', './legal/legal.css', './assets/fonts/inter-var.woff2', './assets/fonts/jakarta-var.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL).catch(() => {})).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V && x !== OCR).map(x => caches.delete(x)))).then(() => self.clients.claim())); });

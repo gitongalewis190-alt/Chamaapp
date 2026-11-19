@@ -2633,7 +2633,7 @@ const views = {
     const Sess = __M_src_core_session_js.Session, admin = Auth.isAdmin();
     let lang = 'en'; try { lang = __M_src_features_auth_gate_js.OB.lang(); } catch (e) {}
     const today = new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long' });
-    const greet = `<div class="greet"><div><small>${esc(today)}</small><h1>${esc(greeting(lang))}${Sess.displayName() ? ', ' + esc(Sess.displayName()) : ''}</h1></div><div class="greet-act"><button type="button" class="hb" data-act="guide" aria-label="Guide: ask or search anything">${icon('sparkle')}</button><button type="button" class="hb" data-act="moneyToggle" aria-label="${document.documentElement.classList.contains('hide-money') ? 'Show amounts' : 'Hide amounts'}">${icon('eye')}</button></div></div>`;
+    const greet = `<div class="greet"><div><small>${esc(today)}</small><h1>${esc(greeting(lang))}${Sess.displayName() ? ', ' + esc(Sess.displayName()) : ''}</h1></div><div class="greet-act"><button type="button" class="hb" data-act="moneyToggle" aria-label="${document.documentElement.classList.contains('hide-money') ? 'Show amounts' : 'Hide amounts'}">${icon('eye')}</button></div></div>`;
     if (!s.members.length) {
       return greet + `<div class="card">${s.shared
         ? emptyState('people', 'Nothing to show yet', 'Your treasurer has not added the member list yet. Your records will appear here once they do.')
@@ -2700,14 +2700,15 @@ const views = {
     /* the payout comes first: who receives the pot this month, how much, and whether it was sent */
     let payout = '';
     if (s.chama.mode !== 'savings' && rec) {
-      const amt = po ? po.amount : exp, nextRec = Domain.recipient(s, addMonths(cur, 1));
+      const amt = po ? po.amount : exp;
       const dueDate = new Date(Number(cur.slice(0, 4)), Number(cur.slice(5, 7)) - 1, Math.min(28, Number(s.chama.dueDay) || 10) + 1).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
       const status = po ? `<span class="tag ok">${icon('check', 's')}Sent ${esc(po.date)}</span>` : `<span class="tag warn">Not sent yet</span>`;
       const acts = admin ? (po
         ? `<div class="po-act">${po.sig ? sigImg(po.sig, 'Recipient signature').replace('<img', '<img class="po-sig"') : `<button class="btn sm" data-act="signPayout" data-id="${esc(po.id)}">${icon('sign', 's')}Get signature</button>`}<button class="btn sm ghost" data-act="undoPayout" data-id="${esc(po.id)}">Undo</button></div>`
         : `<div class="po-act"><button class="btn pri" data-act="markPayout" data-amt="${esc(exp)}">${icon('check')}Mark the payout sent</button></div>`) : '';
       payout = `<section class="po-card" aria-label="This month's payout"><div class="po-top">${av(rec, 48)}<div class="po-main"><small>Payout · ${esc(longMonth(cur))}</small><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b></div><div class="po-amt num">${esc(kes(amt))}</div></div>
-<div class="po-meta">${status}<span>Turn ${Math.max(1, idx + 1)} of ${s.members.length}</span>${po ? '' : `<span>${Domain.isOverdue(s, cur) ? 'Collections closed ' + esc(dueDate) : 'Collections close ' + esc(dueDate)}</span>`}${nextRec && nextRec.id !== rec.id ? `<span>Next: ${esc(nextRec.name)}</span>` : ''}</div>${acts}</section>`;
+${(() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 && line.length < 3; k++) { const mk = addMonths(cur, k), x = Domain.recipient(s, mk); if (x && !seen.has(x.id)) { seen.add(x.id); line.push([mk, x]); } } return line.length ? `<div class="po-line" aria-label="Next turns"><span class="po-now">${av(rec, 26)}<b>${esc(longMonth(cur).slice(0, 3))}</b></span>${line.map(([mk, x]) => `<span class="${me && x.id === me.id ? 'me' : ''}">${av(x, 26)}<b>${esc(longMonth(mk).slice(0, 3))}</b><small>${esc(me && x.id === me.id ? 'You' : x.name.split(' ')[0])}</small></span>`).join('')}</div>` : ''; })()}
+<div class="po-meta">${status}<span>Turn ${Math.max(1, idx + 1)} of ${s.members.length}</span>${po ? '' : `<span>${Domain.isOverdue(s, cur) ? 'Collections closed ' + esc(dueDate) : 'Collections close ' + esc(dueDate)}</span>`}</div>${acts}</section>`;
     }
 
     /* who is behind (treasurer only) */
@@ -2747,7 +2748,8 @@ const views = {
     </div>` : '';
     const reqs = Sess.role !== 'member' ? __M_src_features_requests_js.Requests.listHtml(true) : '';
     const smart = __M_src_features_smart_js.homeBlocks(s);
-    return `${greet}${reqs}${payout}${hero}${qa}${sec}${month}${smart}${group}${stats}${recentHtml}`;
+    /* order: who you are this month, then the pot, then what to do, then what needs attention, then the record */
+    return `${greet}<div class="home-top">${hero}${payout}</div>${qa}${sec}${reqs}${month}${smart}${group}${stats}${recentHtml}`;
   }
 };
 
@@ -3828,13 +3830,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.16.1', released: '2026-11-19',
+  name: 'My Chama App', version: '0.16.2', released: '2026-11-19',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.16.2', 'Home now leads with your card, with the payout attached right under it and a line showing this month and the next turns. The duplicate search button by the greeting is gone: the Guide lives next to the bell.'],
     ['0.16.1', 'Your card on Home now has tiers that follow your payments: red when late, amber when part paid, silver when due soon, green when paid, purple when paid ahead, and gold in your payout month or after six months on time in a row. It moves gently, counts up when your figure changes, and a live line shows what is true right now: days to the due date, your streak, the next payout and more.'],
     ['0.16.0', 'A smart Guide next to the bell answers questions and walks you through tasks. Home puts the payout first and your card changes colour with your payment state. M-Pesa screenshots are read reliably, hidden digits and all. Fair roles: offers you accept, reasons for stepping down and removals, notice before access ends. App lock with fingerprint or face. Several savings goals, edited announcements, member photos, signed loan terms, PDF statements and reports, and a walkthrough of each Chama for new members.'],
     ['0.15.1', 'Fixed a sign-in loop after being approved. Changes now arrive live, without reloading. Leaving and rejoining keeps your old entry, and people who left are no longer asked to pay. One clear "Add a member" button. One password box with a show button. Tap a photo to see it large.'],
@@ -6479,7 +6482,7 @@ document.addEventListener('keydown', e => {
 
 /* ---- "Make it yours": before a new person creates or joins a Chama, and once for everyone after this update ---- */
 const PERSONAL_V = 'mca-personal-v1';
-const WHATS_NEW = ['A smart Guide next to the bell: ask questions, find anything, or be shown step by step', 'Home puts the payout first, and your card changes colour with your payment state', 'M-Pesa screenshots are read on your phone, hidden digits and all', 'App lock with fingerprint or face, and a PIN you can switch off without losing it', 'Role changes are offered and accepted; removals come with a reason and notice', 'Several savings goals, edited announcements, member photos, signed loan terms'];
+const WHATS_NEW = ['A smart Guide next to the bell: ask questions, find anything, or be shown step by step', 'Home leads with your card, which changes colour with your payments, and the payout line right under it', 'M-Pesa screenshots are read on your phone, hidden digits and all', 'App lock with fingerprint or face, and a PIN you can switch off without losing it', 'Role changes are offered and accepted; removals come with a reason and notice', 'Several savings goals, edited announcements, member photos, signed loan terms'];
 const Personal = {
   done() { try { return !!localStorage.getItem(PERSONAL_V); } catch (e) { return true; } },
   html(existing) {
