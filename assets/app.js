@@ -1213,7 +1213,7 @@ const Session = {
     if (!r.error && r.data && r.data.session) {
       const { error } = await Backend.sb.auth.setSession({ access_token: r.data.session.access_token, refresh_token: r.data.session.refresh_token });
       if (error) return { error: 'Could not start your session. Try again.' };
-      clearIntent(); return { ok: true };
+      clearIntent(); clearReset(); this.viaCode = false; return { ok: true };
     }
     const err = r.error;
     if (err && err.context && typeof err.context.json === 'function') {
@@ -1526,7 +1526,7 @@ const { esc } = __M_src_core_utils_js;
 const { $ } = __M_src_lib_dom_js;
 
 const Haptic = {
-  pulse(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} },
+  pulse(pattern) { try { const ua = navigator.userActivation; if (navigator.vibrate && (!ua || ua.hasBeenActive)) navigator.vibrate(pattern); } catch (e) {} },   /* only after a real tap, or Chrome reports an error */
   sw() { const l = document.getElementById('hapticSw'); if (l) l.click(); },
   tap() { this.pulse(6); },
   ok() { this.pulse([16, 60, 24]); this.sw(); __M_src_ui_toast_js.Sfx.ok(); },
@@ -3767,13 +3767,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.15.1', released: '2026-11-19',
+  name: 'My Chama App', version: '0.16.0', released: '2026-11-19',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.16.0', 'A smart Guide next to the bell answers questions and walks you through tasks. Home puts the payout first and your card changes colour with your payment state. M-Pesa screenshots are read reliably, hidden digits and all. Fair roles: offers you accept, reasons for stepping down and removals, notice before access ends. App lock with fingerprint or face. Several savings goals, edited announcements, member photos, signed loan terms, PDF statements and reports, and a walkthrough of each Chama for new members.'],
     ['0.15.1', 'Fixed a sign-in loop after being approved. Changes now arrive live, without reloading. Leaving and rejoining keeps your old entry, and people who left are no longer asked to pay. One clear "Add a member" button. One password box with a show button. Tap a photo to see it large.'],
     ['0.15.0', 'The app now notices things for you. Treasurers get "Needs you today", a cash forecast, members to watch, suggested loan limits and a check for unusual payments. Everyone gets streaks, a payout countdown, a savings projection and a group goal. Search everything with /, hide amounts in public, lock the app with a PIN, add due dates and meetings to your calendar, share receipts and send feedback. Secretaries get a member register. Code emails can fill themselves in.'],
     ['0.14.0', 'Chat for your Chama: group and private messages, announcements, meetings with replies and an attendance register, minutes, votes, payment requests and statements. Joining with a code now asks the treasurer to approve you, and the Chama is shown before you join. Invites, People and access, your profile and Chama settings were rebuilt so each change is one tap away. Sounds are off unless you turn them on.'],
@@ -5956,7 +5957,7 @@ const Lock = {
   bioAvailable() { return !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext); },
   async bioSupported() {
     if (!this.bioAvailable()) return false;
-    try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { return false; }
+    try { return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { return false; }
   },
   /* registers a key held by this phone's fingerprint / face unlock; nothing leaves the phone */
   async bioEnroll() {

@@ -407,6 +407,17 @@ const TESTS = {
     ok(await page.isVisible('[data-act="pdfChama"]'), 'Reports offers the PDF report');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
+  async resetFromLink(b) {
+    /* the email's "Fill it in for me" link opens in a fresh tab: no forgot-password flag in that tab */
+    const sc = require('./fixtures').scenarios.signedOut;
+    const { page, ctx, errors } = await open(b, 'signedOut', { mock: { ...sc.mock, otpOk: '12345678' }, wait: 2600 });
+    await page.goto(page.url().split('#')[0] + '#otp=12345678&e=' + encodeURIComponent('wanjiku@example.com')); await page.reload(); await page.waitForTimeout(3500);
+    const t = await text(page);
+    ok(/new password/i.test(t) && await page.isVisible('[data-act="gateKeepPw"]'), 'a code sign-in on an account with a password opens the reset screen, even in a new tab');
+    await page.click('[data-act="gateKeepPw"]'); await page.waitForTimeout(800);
+    ok(!/Choose a new password/i.test(await text(page)), 'keeping the current password goes on into the app');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
   async leftAndLive(b) {
     const data = require('./fixtures').chama(); data.members[7].left = data.members[0].joined;   // Baraka left in the first month
     const notes = [{ id: 'n-old', kind: 'join_approved', title: 'Welcome to Umoja Savings', body: '', link: '#/home', priority: 'important', created_at: new Date().toISOString(), read_at: null, data: {} }];
