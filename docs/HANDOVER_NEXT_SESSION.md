@@ -8,7 +8,7 @@ Project: My Chama, Supabase ref `sgfvjsxmchohawhqraii` (NOT "The lees app"). Own
 Repo: `gitongalewis190-alt/Chamaapp`. Live: https://chama-livid.vercel.app (Vercel deploys `main`).
 
 ## 0a. Status at 0.17.0
-The owner applied 023-025 (release check S1/S2 passed). Migration 026 (`supabase/RUN_026.sql`) is written and parse-checked, NOT yet applied.
+The owner applied 023-025 (release check S1/S2 passed). Migrations 026 and 027 (`supabase/RUN_THIS_NEXT.sql`, one transaction) are written and parse-checked, NOT yet applied. 027 copies each person's profile phone into their member entry in every Chama (triggers on chama_members and profiles, plus a backfill).
 After it runs: About you saves date of birth and gender on the server, Chama photos show in the chooser, loan terms can be signed on the borrower's phone.
 The code email reaching many inboxes is outside the app: check Brevo transactional logs and BCC, Supabase SMTP and Auth Hooks.
 
@@ -76,7 +76,7 @@ email link opening in a new tab, and any email-code sign-in on an account with a
 - Live realtime: role offers and removal notices arrive through notifications (also polled), not tested against the live database.
 
 ## 5. How to test locally
-- `NODE_PATH=$(npm root -g) node tests/run.js` → 196 scenarios passed at 0.17.0.
+- `NODE_PATH=$(npm root -g) node tests/run.js` → 195 scenarios passed at 0.18.0.
 - Lint: `npx eslint@8.57.0 --no-eslintrc -c <config with no-undef> --global Tesseract,supabase assets/app.js assets/boot.js sw.js` → clean.
 - OCR was verified end to end with real Tesseract on light and dark SMS screenshots under the production CSP.
 

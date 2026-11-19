@@ -2781,7 +2781,8 @@ ${(() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 &&
     /* the borrower signs loan terms on their own phone */
     const mineUnsigned = meId ? (s.loans || []).filter(l => l.memberId === meId && !l.agreement && Domain.loan(l).balance > 0) : [];
     const terms = mineUnsigned.map(l => `<button type="button" class="sign-card" data-act="signLoanMine" data-id="${esc(l.id)}"><span class="sign-ic">${icon('sign')}</span><span class="sign-t"><b>Loan terms to sign</b><small>${esc(kes(l.principal))} loan · read what you pay back, then sign</small></span>${icon('chev', 'chev')}</button>`).join('');
-    return `${greet}${terms}<div class="home-top">${hero}${payout}</div>${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
+    const help = `<button type="button" class="simple-help only-simple" data-act="guide">${icon('guide')}<span><b>Need help?</b><small>Ask me, or let me show you how</small></span></button>`;
+    return `${greet}${terms}<div class="home-top">${hero}${payout}</div>${help}${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
   }
 };
 
@@ -3936,13 +3937,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.17.0', released: '2026-11-20',
+  name: 'My Chama App', version: '0.18.0', released: '2026-11-20',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.18.0', 'The app matches your age: from 45 larger text, from 60 Simple view with bigger buttons and fewer words, from 75 the largest text. You can always choose the standard app in Settings, Display. Your phone number is the same in every Chama you join. Everyone checks their details once after this update.'],
     ['0.17.0', 'Forgot password now always opens the reset screen, and a code link only works on the phone that asked for it. About you, one question at a time, with Simple view for anyone who wants bigger, calmer screens. Loan terms are signed on the borrower’s own phone. Each Chama can have its own photo. M-Pesa import is simpler and keeps each message with its payment. The Guide has its own new mark.'],
     ['0.16.2', 'Home now leads with your card, with the payout attached right under it and a line showing this month and the next turns. The duplicate search button by the greeting is gone: the Guide lives next to the bell.'],
     ['0.16.1', 'Your card on Home now has tiers that follow your payments: red when late, amber when part paid, silver when due soon, green when paid, purple when paid ahead, and gold in your payout month or after six months on time in a row. It moves gently, counts up when your figure changes, and a live line shows what is true right now: days to the due date, your streak, the next payout and more.'],
@@ -4233,7 +4235,9 @@ const views = {
     if (r.startsWith('settings/app')) {
       const sub = r.slice('settings/app'.length).replace(/^\//, '');
       const show = k => !sub || sub === k;
-      return `<h1 class="lt">Display and accessibility</h1><p class="lt-sub">Saved on this phone only</p>`
+      const G = __M_src_features_guide_js.Adapt, age = G.age(), band = G.band(age), mode = d.ageMode || '';
+      const ageCard = !sub && age != null ? `<section class="age-card"><div><b>${mode === 'off' ? 'Standard app' : mode === 'custom' ? 'Your own settings' : band === 'std' ? 'Standard app' : 'Matched to your age'}</b><small>${mode === 'off' ? 'You chose the standard app.' : mode === 'custom' ? 'You changed the settings yourself.' : band === 'std' ? 'For your age the standard app fits best.' : 'You are ' + age + ', so the app uses ' + esc(G.LABEL[band]) + '.'}</small></div>${mode === 'auto' && band !== 'std' ? '<button type="button" class="btn sm" data-act="ageStandard">Use the standard app</button>' : band !== 'std' ? '<button type="button" class="btn sm tint" data-act="ageMatch">Match my age</button>' : ''}</section>` : '';
+      return `<h1 class="lt">Display and accessibility</h1><p class="lt-sub">Saved on this phone only</p>${ageCard}`
         + (show('appearance') ? seg('theme', 'Appearance', [['auto', 'Follow phone'], ['light', 'Light'], ['dark', 'Dark']]) + `<div style="margin-top:12px">${seg('accent', 'Colour', [['green', 'Green'], ['blue', 'Blue'], ['purple', 'Purple'], ['gold', 'Gold'], ['rose', 'Rose'], ['teal', 'Teal']])}</div>` : '')
         + (show('text') ? `<div style="margin-top:12px">${seg('size', 'Text size', [['n', 'Default'], ['l', 'Large'], ['x', 'Largest']])}</div>` : '')
         + (show('seeing') ? grp('Seeing', [sw('hc', 'Stronger contrast', 'Black and white with thicker lines'), sw('cb', 'Symbols with colours', 'Adds ✓ and ✕ so colour is never the only clue'), sw('ft', 'Easy-read lettering', 'A plainer typeface for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')]) : '')
@@ -4338,9 +4342,11 @@ const chamaEditSheet = f => {
 views.settings = views.settings.bind(views);
 
 const actions = {
-  a11y: d => { A11y.d[d.k] = A11y.d[d.k] ? 0 : 1; A11y.save(); render(); A11y.refocus(`[data-act=a11y][data-k=${d.k}]`); },
-  a11ySet: d => { A11y.d[d.k] = d.v; A11y.save(); render(); A11y.refocus(`[data-act=a11ySet][data-k=${d.k}][data-v=${d.v}]`); },
+  a11y: d => { A11y.d[d.k] = A11y.d[d.k] ? 0 : 1; if (['simple', 'tg', 'rm'].includes(d.k) && A11y.d.ageMode === 'auto') A11y.d.ageMode = 'custom'; A11y.save(); render(); A11y.refocus(`[data-act=a11y][data-k=${d.k}]`); },
+  a11ySet: d => { A11y.d[d.k] = d.v; if (d.k === 'size' && A11y.d.ageMode === 'auto') A11y.d.ageMode = 'custom'; A11y.save(); render(); A11y.refocus(`[data-act=a11ySet][data-k=${d.k}][data-v=${d.v}]`); },
   sfxToggle() { try { localStorage.setItem('mca-sfx', __M_src_ui_toast_js.Sfx.enabled ? 'off' : 'on'); } catch (e) {} render(); if (__M_src_ui_toast_js.Sfx.enabled) { __M_src_ui_toast_js.Sfx.unlock(); __M_src_ui_toast_js.Sfx.ok(); } A11y.refocus('[data-act=sfxToggle]'); },
+  ageStandard() { __M_src_features_guide_js.Adapt.standard(); render(); toast('Standard app', 'ok'); },
+  ageMatch() { const b = __M_src_features_guide_js.Adapt.again(); render(); toast(b && b !== 'std' ? 'Matched to your age' : 'The standard app fits your age', 'ok'); },
   a11yReset() { A11y.d = { ...A11y.def }; A11y.save(); render(); toast('Back to default', 'info'); },
   openLang() { if (typeof window.openLanguagePicker === 'function') window.openLanguagePicker(); },
   skip() { $('#view').focus(); },
@@ -4418,11 +4424,11 @@ ${has ? '<button type="button" class="btn ghost block" style="margin-top:8px" da
     });
   } },
   chamaPhotoRemove: { admin: true, run() { Store.commit(st => { const c = { ...st.chama }; delete c.photo; st.chama = c; }); __M_src_features_requests_js.Sheet.close(); toast('Chama photo removed', 'info'); } },
-  aboutEdit: () => { try { localStorage.removeItem('mca-about-v1:' + ((Session.user && Session.user.id) || '')); } catch (e) {} __M_src_features_guide_js.About.check(); },
+  aboutEdit: () => { try { localStorage.removeItem('mca-about-v2:' + ((Session.user && Session.user.id) || '')); } catch (e) {} __M_src_features_guide_js.About.check(); },
   aboutClear: () => __M_src_ui_toast_js.Pop.confirm({ title: 'Remove these details?', text: 'Your date of birth, gender and phone number are deleted. Simple view stays as it is.', confirmLabel: 'Remove', danger: true,
     onYes: async () => {
       const uid = (Session.user && Session.user.id) || '';
-      try { localStorage.removeItem('mca-about-v1:data:' + uid); } catch (e) {}
+      try { localStorage.removeItem('mca-about:data:' + uid); } catch (e) {}
       const { error } = await Backend.sb.rpc('clear_my_details', { p_what: ['phone', 'birth_date', 'gender'] });
       if (error && !/Could not find the function|PGRST202|schema cache/i.test(error.message || '')) return toast(error.message);
       if (error) { const r = await Backend.sb.rpc('set_my_profile', { p_full_name: null, p_phone: '', p_username: null }); if (r.error) return toast('Removed from this phone. The server part needs the latest update.'); }
@@ -6628,54 +6634,114 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target && e.target.id === 'gdQ') { const r = Guide.results(); if (!r.ans && r.tasks[0] && r.tasks[0].tour && /\b(how|show|jinsi)\b/i.test(Guide.q)) Tour.start(r.tasks[0].id); }
 });
 
-/* ---- "About you": name, phone, date of birth, gender. One question at a time, big buttons, every answer optional
-   except the name, a plain "why", and removable later. Age 60+ turns on Simple view (bigger, fewer things). ---- */
-const ABOUT_V = 'mca-about-v1';
+/* ---- Age-matched app. Near reading starts to fade in the mid-40s (presbyopia); from about 60 many people find small text,
+   small targets, motion and busy screens hard. So the date of birth sets up the app, and the person can always choose the
+   standard app in Settings. Once they choose, the app never overrides them.
+     under 45   standard
+     45 to 59   larger text
+     60 to 74   Simple view: larger text, bigger buttons, calmer motion, fewer words and panels
+     75 and up  Simple view with the largest text                                                                     ---- */
+const Adapt = {
+  band(age) { if (age == null || isNaN(age)) return 'std'; if (age >= 75) return 'senior2'; if (age >= 60) return 'senior'; if (age >= 45) return 'reading'; return 'std'; },
+  LABEL: { std: 'the standard app', reading: 'larger text', senior: 'Simple view, larger text and bigger buttons', senior2: 'Simple view with the largest text and bigger buttons' },
+  age() {
+    let v = {}; try { v = JSON.parse(localStorage.getItem('mca-about:data:' + ((Session.user && Session.user.id) || '')) || '{}') || {}; } catch (e) {}
+    const b = String(v.birth_date || '').split('-'), y = Number(b[0]); if (!y) return null;
+    const now = new Date(); let a = now.getFullYear() - y; const m = Number(b[1]) || 1, d = Number(b[2]) || 1;
+    if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) a--; return a;
+  },
+  /* set the app up for this age, unless the person has chosen their own settings */
+  apply(age) {
+    const A = __M_src_core_a11y_js.A11y, d = A.d, band = this.band(age);
+    if (d.ageMode === 'off' || d.ageMode === 'custom') return null;
+    d.ageMode = 'auto'; d.ageBand = band;
+    if (band === 'reading') { d.size = d.size === 'x' ? 'x' : 'l'; d.simple = 0; }
+    else if (band === 'senior') { d.simple = 1; d.size = d.size === 'x' ? 'x' : 'l'; d.tg = 1; d.rm = 1; }
+    else if (band === 'senior2') { d.simple = 1; d.size = 'x'; d.tg = 1; d.rm = 1; }
+    A.save(); return band;
+  },
+  standard() { const A = __M_src_core_a11y_js.A11y; Object.assign(A.d, { ageMode: 'off', simple: 0, size: 'n', tg: 0, rm: 0 }); A.save(); },
+  again() { const A = __M_src_core_a11y_js.A11y; A.d.ageMode = 'auto'; A.save(); return this.apply(this.age()); },
+  explain(band, age) {
+    if (!band || band === 'std') return;
+    __M_src_ui_toast_js.Pop.confirm({ title: 'We set up the app for you', html: `<p>Because you are ${esc(String(age))}, My Chama now uses <b>${esc(this.LABEL[band])}</b>, so it is easier to read and use.</p><p class="fhelp keep">You can change this any time in Settings, Display.</p>`,
+      confirmLabel: 'Keep it', cancelLabel: 'Use the standard app', onNo: () => { this.standard(); toast('Standard app. You can match it to your age again in Settings, Display.', 'info'); } });
+  }
+};
+
+/* ---- "About you": name, phone, date of birth, gender, one question at a time, with a plain "why".
+   Everyone answers once (existing members after this update too): name, phone and birth year are needed;
+   the exact day and gender may be left out. All of it can be changed or removed later. ---- */
+const ABOUT_V = 'mca-about-v2';
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const UPDATE_NOTES = ['Your card on Home changes colour with your payments', 'Ask the Guide anything, next to the bell', 'Sign loan terms on your own phone', 'Read M-Pesa screenshots on your phone', 'The app can match your age: bigger and simpler if you like'];
 const About = {
-  st: null, why: false, overlay: false, server: true,
-  key() { return ABOUT_V + ':' + ((Session.user && Session.user.id) || ''); },
-  done() { try { const v = localStorage.getItem(this.key()); return !!v && (v === 'done' || Date.now() < Number(v)); } catch (e) { return true; } },
-  start() {
-    const acct = Session.account || {}, prof = (Session.readProfile && Session.readProfile()) || {};
-    let local = {}; try { local = JSON.parse(localStorage.getItem(ABOUT_V + ':data:' + ((Session.user && Session.user.id) || '')) || '{}') || {}; } catch (e) {}
-    const b = String(local.birth_date || '').split('-');
-    this.st = { step: 0, sub: 'decade', name: acct.full_name || prof.name || '', phone: prof.phone || local.phone || '', y: Number(b[0]) || null, m: Number(b[1]) || null, d: Number(b[2]) || null, decade: b[0] ? Math.floor(Number(b[0]) / 10) * 10 : null, gender: local.gender || '' };
+  st: null, why: false, overlay: false,
+  uid() { return (Session.user && Session.user.id) || ''; },
+  key() { return ABOUT_V + ':' + this.uid(); },
+  done() { try { return localStorage.getItem(this.key()) === 'done'; } catch (e) { return true; } },
+  local() { try { return JSON.parse(localStorage.getItem('mca-about:data:' + this.uid()) || '{}') || {}; } catch (e) { return {}; } },
+  start(srv, intro) {
+    const acct = Session.account || {}, prof = (Session.readProfile && Session.readProfile()) || {}, loc = this.local(), v = srv || {};
+    const b = String(v.birth_date || loc.birth_date || '').split('-');
+    this.st = { step: intro ? -1 : 0, sub: 'decade', name: v.full_name || acct.full_name || prof.name || '', phone: v.phone || prof.phone || loc.phone || '',
+      y: Number(b[0]) || null, m: Number(b[1]) || null, d: Number(b[2]) || null, decade: b[0] ? Math.floor(Number(b[0]) / 10) * 10 : null, gender: v.gender || loc.gender || '', exactSkipped: false };
     this.why = false;
   },
   age() { const s = this.st; if (!s || !s.y) return null; const now = new Date(); let a = now.getFullYear() - s.y; if (s.m && (now.getMonth() + 1 < s.m || (now.getMonth() + 1 === s.m && s.d && now.getDate() < s.d))) a--; return a; },
+  phoneOk(p) { return /^(\+?254|0)[17]\d{8}$/.test(String(p || '').replace(/[\s-]/g, '')); },
   WHY: {
     name: 'Your name shows to the people in your Chama, on receipts and on statements, so they know the money is yours.',
-    phone: 'Your phone number lets the treasurer remind you on WhatsApp, matches your M-Pesa payments to you, and will be used for SMS reminders. Only the treasurer and secretary of your Chama see it.',
-    dob: 'Your age helps the app suit you: people over 60 get bigger text and fewer things on each screen. It will also help with loan limits and age-based groups that are being built. Nobody else in your Chama sees your date of birth. You can remove it any time in Settings, Privacy and my data.',
-    gender: 'It helps groups such as women’s or youth Chamas, and helps us improve the app for everyone. It is never shown to other members. “Prefer not to say” is a full answer. You can remove it any time.'
+    phone: 'One number for every Chama you are in. The treasurer uses it to remind you on WhatsApp and SMS, and it matches your M-Pesa payments to you. Only the treasurer and secretary see it. If you change it here, your Chamas get the new number.',
+    dob: 'Your age lets the app suit you: from 45 the text gets larger, and from 60 the app becomes simpler with bigger buttons. You can always choose the standard app in Settings. Nobody in your Chama sees your date of birth, and you can remove it in Privacy and my data.',
+    gender: 'It helps women’s and youth Chamas, and helps us improve the app. It is never shown to other members. “Prefer not to say” is a full answer.'
   },
   html() {
-    const s = this.st, steps = ['name', 'phone', 'dob', 'gender'], k = steps[s.step], yr = new Date().getFullYear();
+    const s = this.st, steps = ['name', 'phone', 'dob', 'gender'], yr = new Date().getFullYear();
+    if (s.step === -1) return `<div class="ab"><span class="aw-ic">${icon('sparkle')}</span><h2 class="ab-q">My Chama has been updated</h2>
+<ul class="aw-list ab-news">${UPDATE_NOTES.map(x => `<li>${icon('check', 's')}${esc(x)}</li>`).join('')}</ul>
+<p class="ab-hint">To keep going, check four details about you. It takes a minute.</p>
+<div class="ab-nav"><span></span><button type="button" class="btn pri lg" data-ab="next">Continue</button></div></div>`;
+    const k = steps[s.step];
     const dots = `<div class="ab-dots" aria-hidden="true">${steps.map((_, i) => `<i class="${i < s.step ? 'done' : i === s.step ? 'on' : ''}"></i>`).join('')}</div>`;
     const why = `<button type="button" class="ab-why" data-ab="why" aria-expanded="${this.why}">${icon('help', 's')}Why we ask</button>${this.why ? `<p class="ab-whytext">${esc(this.WHY[k])}</p>` : ''}`;
     let q = '', body = '', ok = true;
     if (k === 'name') { q = 'What is your name?'; body = `<input id="abName" class="ab-input" autocomplete="name" autocapitalize="words" maxlength="80" value="${esc(s.name)}" placeholder="e.g. Grace Wanjiru">`; ok = s.name.trim().length >= 2; }
-    if (k === 'phone') { q = 'What is your phone number?'; body = `<input id="abPhone" class="ab-input" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" value="${esc(s.phone)}" placeholder="0712 345 678"><p class="ab-hint">The number you use for M-Pesa.</p>`; ok = !s.phone || /^(\+?254|0)[17]\d{8}$/.test(s.phone.replace(/[\s-]/g, '')); }
+    if (k === 'phone') { q = 'What is your phone number?'; body = `<input id="abPhone" class="ab-input" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" value="${esc(s.phone)}" placeholder="0712 345 678"><p class="ab-hint">The number you use for M-Pesa. Every Chama you join uses it.</p>`; ok = this.phoneOk(s.phone); }
     if (k === 'dob') {
       q = 'When were you born?';
       const sum = s.y ? `<div class="ab-sum"><b>${s.d ? s.d + ' ' : ''}${s.m ? MONTHS[s.m - 1] + ' ' : ''}${s.y}</b>${this.age() != null ? `<span>${this.age()} years</span>` : ''}</div>` : '';
       if (s.sub === 'decade') body = `<p class="ab-hint">First, the years you were born in.</p><div class="ab-grid g3">${[1940, 1950, 1960, 1970, 1980, 1990, 2000].filter(x => x <= yr - 13).map(x => `<button type="button" class="ab-opt${s.decade === x ? ' on' : ''}" data-ab="decade" data-v="${x}">${x}s</button>`).join('')}<button type="button" class="ab-opt" data-ab="decade" data-v="1930">Before 1940</button></div>`;
       else if (s.sub === 'year') body = `<p class="ab-hint">Now the year.</p><div class="ab-grid g5">${Array.from({ length: 10 }, (_, i) => s.decade + i).filter(x => x <= yr - 13).map(x => `<button type="button" class="ab-opt${s.y === x ? ' on' : ''}" data-ab="year" data-v="${x}">${x}</button>`).join('')}</div><button type="button" class="ab-back" data-ab="sub" data-v="decade">Other years</button>`;
-      else if (s.sub === 'month') body = `<p class="ab-hint">The month.</p><div class="ab-grid g3">${MONTHS.map((x, i) => `<button type="button" class="ab-opt${s.m === i + 1 ? ' on' : ''}" data-ab="month" data-v="${i + 1}">${x.slice(0, 3)}</button>`).join('')}</div><button type="button" class="ab-back" data-ab="sub" data-v="year">Change the year</button>`;
-      else body = `<p class="ab-hint">And the day. If you are not sure, tap Next.</p><div class="ab-grid g7">${Array.from({ length: new Date(s.y, s.m, 0).getDate() }, (_, i) => `<button type="button" class="ab-opt sm${s.d === i + 1 ? ' on' : ''}" data-ab="day" data-v="${i + 1}">${i + 1}</button>`).join('')}</div><button type="button" class="ab-back" data-ab="sub" data-v="month">Change the month</button>`;
-      body = sum + body;
+      else if (s.sub === 'month') body = `<p class="ab-hint">The month.</p><div class="ab-grid g3">${MONTHS.map((x, i) => `<button type="button" class="ab-opt${s.m === i + 1 ? ' on' : ''}" data-ab="month" data-v="${i + 1}">${x.slice(0, 3)}</button>`).join('')}</div><div class="ab-row"><button type="button" class="ab-back" data-ab="sub" data-v="year">Change the year</button><button type="button" class="ab-back" data-ab="notsure">Not sure</button></div>`;
+      else body = `<p class="ab-hint">And the day.</p><div class="ab-grid g7">${Array.from({ length: new Date(s.y, s.m, 0).getDate() }, (_, i) => `<button type="button" class="ab-opt sm${s.d === i + 1 ? ' on' : ''}" data-ab="day" data-v="${i + 1}">${i + 1}</button>`).join('')}</div><div class="ab-row"><button type="button" class="ab-back" data-ab="sub" data-v="month">Change the month</button><button type="button" class="ab-back" data-ab="notsure">Not sure</button></div>`;
+      body = sum + body; ok = !!s.y;
     }
-    if (k === 'gender') { q = 'What is your gender?'; body = `<div class="ab-grid g1">${[['female', 'Female'], ['male', 'Male'], ['other', 'Other'], ['prefer_not', 'Prefer not to say']].map(([v, t]) => `<button type="button" class="ab-opt wide${s.gender === v ? ' on' : ''}" data-ab="gender" data-v="${v}">${t}</button>`).join('')}</div>`; }
+    if (k === 'gender') { q = 'What is your gender?'; body = `<div class="ab-grid g1">${[['female', 'Female'], ['male', 'Male'], ['other', 'Other'], ['prefer_not', 'Prefer not to say']].map(([v, t]) => `<button type="button" class="ab-opt wide${s.gender === v ? ' on' : ''}" data-ab="gender" data-v="${v}">${t}</button>`).join('')}</div>`; ok = !!s.gender; }
     const last = s.step === steps.length - 1;
     return `<div class="ab"><div class="ab-top">${dots}<small>${s.step + 1} of 4</small></div><h2 class="ab-q">${esc(q)}</h2>${why}<div class="ab-body">${body}</div>
-<div class="ab-nav">${s.step > 0 ? '<button type="button" class="btn ghost" data-ab="prev">Back</button>' : '<span></span>'}<button type="button" class="btn pri lg" data-ab="${last ? 'save' : 'next'}"${ok ? '' : ' disabled'}>${last ? 'Finish' : 'Next'}</button></div>
-${k !== 'name' ? `<button type="button" class="ab-skip" data-ab="${last ? 'save' : 'skip'}">${last ? 'Skip and finish' : 'Skip this question'}</button>` : `<button type="button" class="ab-skip" data-ab="later">Not now, remind me later</button>`}</div>`;
+<div class="ab-nav">${s.step > 0 ? '<button type="button" class="btn ghost" data-ab="prev">Back</button>' : '<span></span>'}<button type="button" class="btn pri lg" data-ab="${last ? 'save' : 'next'}"${ok ? '' : ' disabled'}>${last ? 'Finish' : 'Next'}</button></div></div>`;
   },
-  card() { if (!this.st) this.start(); return `<div class="pz-page">${this.html()}</div>`; },
-  check() {
-    if (this.done() || !Session.ready()) return Personal.check();
-    this.start();
+  card() { if (!this.st) this.start(null, false); return `<div class="pz-page">${this.html()}</div>`; },
+  /* existing members: the update notice, then the questions (prefilled; skipped if all are already known) */
+  /* a new phone: bring the date of birth from the server so the app matches the person's age here too */
+  async syncAge() {
+    if (this.local().birth_date) return;
+    try {
+      const r = await __M_src_core_backend_js.Backend.sb.rpc('get_my_details'); if (r.error || !r.data || !r.data.birth_date) return;
+      localStorage.setItem('mca-about:data:' + this.uid(), JSON.stringify({ birth_date: r.data.birth_date, gender: r.data.gender, phone: r.data.phone }));
+      if (Adapt.apply(Adapt.age())) { try { render(); } catch (e) {} }
+    } catch (e) { /* stays as it is */ }
+  },
+  async check() {
+    if (this.done() || !Session.ready()) { if (this.done()) this.syncAge(); return Personal.check(); }
+    let srv = null; try { const r = await __M_src_core_backend_js.Backend.sb.rpc('get_my_details'); if (!r.error) srv = r.data; } catch (e) {}
+    this.start(srv, true);
+    const s = this.st;
+    if (srv && srv.full_name && this.phoneOk(srv.phone) && srv.birth_date && srv.gender) {
+      try { localStorage.setItem('mca-about:data:' + this.uid(), JSON.stringify({ birth_date: srv.birth_date, gender: srv.gender, phone: srv.phone })); } catch (e) {}
+      s.complete = true;
+    }
     let root = document.getElementById('awRoot'); if (!root) { root = document.createElement('div'); root.id = 'awRoot'; document.body.appendChild(root); }
     root.innerHTML = `<div class="aw" role="dialog" aria-modal="true" aria-label="About you"><div class="aw-in"><div class="aw-card ab-card">${this.html()}</div></div></div>`;
     document.body.classList.add('aw-on'); this.overlay = true;
@@ -6685,13 +6751,15 @@ ${k !== 'name' ? `<button type="button" class="ab-skip" data-ab="${last ? 'save'
     else { try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {} }
     const f = document.querySelector('#abName, #abPhone'); if (f && document.activeElement !== f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) {} }, 60);
   },
-  close(mark) {
-    try { localStorage.setItem(this.key(), mark); } catch (e) {}
-    if (this.overlay) { this.overlay = false; const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on'); setTimeout(() => Personal.check(), 300); }
+  close() {
+    try { localStorage.setItem(this.key(), 'done'); } catch (e) {}
+    const band = Adapt.apply(this.age()), age = this.age();
+    if (this.overlay) { this.overlay = false; const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on'); }
     else { try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {} }
+    setTimeout(() => { if (band && band !== 'std') Adapt.explain(band, age); setTimeout(() => Personal.check(), 400); }, 300);
   },
   async save() {
-    const s = this.st, B = __M_src_core_backend_js.Backend, uid = (Session.user && Session.user.id) || '';
+    const s = this.st, B = __M_src_core_backend_js.Backend, uid = this.uid();
     const dob = s.y ? `${s.y}-${String(s.m || 1).padStart(2, '0')}-${String(s.d || 1).padStart(2, '0')}` : null;
     const phone = s.phone.replace(/[\s-]/g, '') || null;
     let saved = false;
@@ -6699,20 +6767,14 @@ ${k !== 'name' ? `<button type="button" class="ab-skip" data-ab="${last ? 'save'
       const { error } = await B.sb.rpc('set_my_details', { p_full_name: s.name.trim() || null, p_phone: phone, p_birth_date: dob, p_gender: s.gender || null });
       if (!error) saved = true;
       else if (/Could not find the function|PGRST202|schema cache/i.test(error.message || '')) {
-        /* server not updated yet: name and phone go to the profile, the rest stays on this phone until it is */
         const r = await B.sb.rpc('set_my_profile', { p_full_name: s.name.trim() || null, p_phone: phone, p_username: null });
         saved = !r.error;
       } else return toast(rpcMessage(error));
     } catch (e) { return toast('Could not save. Check your internet and try again.'); }
-    try { localStorage.setItem(ABOUT_V + ':data:' + uid, JSON.stringify({ birth_date: dob, gender: s.gender || null, phone })); } catch (e) {}
+    try { localStorage.setItem('mca-about:data:' + uid, JSON.stringify({ birth_date: dob, gender: s.gender || null, phone, exact: !!(s.m && s.d) })); } catch (e) {}
     try { const p = Session.readProfile ? Session.readProfile() : null; if (p && Session.writeProfile) Session.writeProfile({ ...p, name: s.name.trim() || p.name, phone: phone || p.phone }); } catch (e) {}
-    const age = this.age(), A = __M_src_core_a11y_js.A11y;
-    if (age != null && age >= 60 && !A.d.simple) {
-      A.d.simple = 1; if (A.d.size === 'n') A.d.size = 'l'; A.save();
-      __M_src_ui_toast_js.Pop.alert('We made the app simpler for you: bigger letters and fewer things on each screen. You can change this in Settings, Display.', { title: 'Simple view is on', label: 'OK' });
-    }
     if (saved) toast('Saved. Thank you.', 'ok');
-    this.close('done');
+    this.close();
   }
 };
 document.addEventListener('click', e => {
@@ -6721,24 +6783,24 @@ document.addEventListener('click', e => {
   const n1 = document.getElementById('abName'); if (n1) s.name = n1.value;
   const p1 = document.getElementById('abPhone'); if (p1) s.phone = p1.value;
   if (k === 'why') { About.why = !About.why; return About.repaint(); }
-  if (k === 'next' || k === 'skip') {
-    if (k === 'skip') { if (s.step === 1) s.phone = ''; if (s.step === 2) { s.y = s.m = s.d = null; s.decade = null; } }
+  if (k === 'next') {
+    if (s.step === -1 && s.complete) return About.close();
     s.step = Math.min(3, s.step + 1); About.why = false; if (s.step === 2) s.sub = s.y ? (s.m ? 'day' : 'month') : 'decade'; return About.repaint();
   }
   if (k === 'prev') { s.step = Math.max(0, s.step - 1); About.why = false; return About.repaint(); }
-  if (k === 'decade') { s.decade = Number(v); s.sub = Number(v) === 1930 ? 'year' : 'year'; return About.repaint(); }
-  if (k === 'year') { s.y = Number(v); s.m = s.m || null; s.sub = 'month'; return About.repaint(); }
+  if (k === 'decade') { s.decade = Number(v); s.sub = 'year'; return About.repaint(); }
+  if (k === 'year') { s.y = Number(v); s.sub = 'month'; return About.repaint(); }
   if (k === 'month') { s.m = Number(v); if (s.d && s.d > new Date(s.y, s.m, 0).getDate()) s.d = null; s.sub = 'day'; return About.repaint(); }
   if (k === 'day') { s.d = Number(v); return About.repaint(); }
+  if (k === 'notsure') { if (s.sub === 'month') s.m = null; s.d = null; s.step = 3; About.why = false; return About.repaint(); }
   if (k === 'sub') { s.sub = v; return About.repaint(); }
   if (k === 'gender') { s.gender = v; return About.repaint(); }
   if (k === 'save') return About.save();
-  if (k === 'later') return About.close(String(Date.now() + 3 * 864e5));
 });
 document.addEventListener('input', e => {
   if (!About.st || !e.target) return;
   if (e.target.id === 'abName') { About.st.name = e.target.value; const b = document.querySelector('[data-ab="next"]'); if (b) b.disabled = e.target.value.trim().length < 2; }
-  if (e.target.id === 'abPhone') { About.st.phone = e.target.value; const b = document.querySelector('[data-ab="next"]'); if (b) b.disabled = !!e.target.value && !/^(\+?254|0)[17]\d{8}$/.test(e.target.value.replace(/[\s-]/g, '')); }
+  if (e.target.id === 'abPhone') { About.st.phone = e.target.value; const b = document.querySelector('[data-ab="next"]'); if (b) b.disabled = !About.phoneOk(e.target.value); }
 });
 
 /* ---- "Make it yours": before a new person creates or joins a Chama, and once for everyone after this update ---- */
@@ -6860,7 +6922,7 @@ const actions = {
   guideTour: d => Tour.start(d.id)
 };
 
-return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get Personal() { return Personal; }, get About() { return About; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
+return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get Personal() { return Personal; }, get About() { return About; }, get Adapt() { return Adapt; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
 })();
 
 /* ---- src/features/index.js ---- */

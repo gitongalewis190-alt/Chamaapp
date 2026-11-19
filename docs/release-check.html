@@ -75,7 +75,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 <div class="wrap">
   <header class="top">
     <h1>Chama Release Check</h1>
-    <p class="lede">Version 0.17.0 on <code>chama-livid.vercel.app</code>. New checks for this round are in the first section; checks marked Retest were fixed, so try them again. Work down the list on your phone with the live app open. Mark each check Pass, Fail or Skip and say what you saw. Failed checks collect in Needs fix, which you can copy to Claude. Your marks are saved here, so Claude can read them too.</p>
+    <p class="lede">Version 0.18.0 on <code>chama-livid.vercel.app</code>. New checks for this round are in the first section; checks marked Retest were fixed, so try them again. Work down the list on your phone with the live app open. Mark each check Pass, Fail or Skip and say what you saw. Failed checks collect in Needs fix, which you can copy to Claude. Your marks are saved here, so Claude can read them too.</p>
   </header>
 
   <div class="bar" id="bar">
@@ -111,7 +111,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 <script>
 /* Each check: id, area, title, steps, what you should see, and tags: db (done in the Supabase dashboard) or sql (needs the database update first). */
 const AREAS = [
-  ['new017', 'New in 0.17.0', 'Run S11 first. Then try these on the live app (close and reopen it so it shows 0.17.0).'],
+  ['new017', 'New in 0.17 and 0.18', 'Run S11 first. Then try these on the live app (close and reopen it so it shows 0.18.0).'],
   ['supabase', 'Supabase', 'Done in the Supabase dashboard, project My Chama (sgfvjsxmchohawhqraii). Claude could not reach the database from its session, so nothing below has been run yet. Do S1 first: many app checks depend on it.'],
   ['version', 'Version and update', 'Open the live app on your phone.'],
   ['signin', 'Sign-in and password', 'Use a real account you control. Sign out first.'],
@@ -128,7 +128,11 @@ const AREAS = [
   ['ux', 'Feel and finish', '']
 ];
 const CHECKS = [
-  ['S11', 'new017', 'Run the 0.17 database update', ['SQL Editor → New query → paste <code>supabase/RUN_026.sql</code> → Run'], 'Success, and the check at the end shows ok = true on every row.', ['db']],
+  ['S11', 'new017', 'Run the database update (026 + 027)', ['SQL Editor → New query → paste <code>supabase/RUN_THIS_NEXT.sql</code> → Run'], 'Success, and the check at the end shows ok = true on every row.', ['db']],
+  ['E1', 'new017', 'Everyone checks their details once', ['Open the app with an existing account'], '"My Chama has been updated", then name, phone, birth year and gender. It cannot be put off; known answers are filled in.', []],
+  ['E2', 'new017', 'The app matches the age', ['Use an account with a birth year before 1966 (60+), and one before 1951 (75+)'], '60+: Simple view, larger text, bigger buttons, a "Need help?" tile. 75+: the largest text. A message explains it.', []],
+  ['E3', 'new017', 'Choose the standard app', ['Settings → Display → Use the standard app', 'Close and reopen the app'], 'The normal app comes back and stays, even after reopening.', []],
+  ['E4', 'new017', 'One phone number in every Chama', ['Join a Chama with a code using an account that has a phone', 'Treasurer: open that member'], 'The member entry shows their phone without anyone typing it. Changing the phone in About you updates it.', ['sql']],
   ['S12', 'new017', 'Find where the code email is copied', ['Brevo → Transactional → Logs: open one "is your My Chama code" email and read the To column', 'Brevo → Settings: look for a BCC address', 'Supabase → Authentication → Emails → SMTP settings, and Authentication → Auth Hooks'], 'Each code email is addressed to one person and there is no BCC or hook copying it. Note what you find.', ['db']],
   ['A6', 'new017', 'Forgot password opens the reset screen (Retest A2)', ['Sign out → Sign in → Forgot password → your email', 'Type the code from the email'], '"Choose a new password" appears, also for an account that has used Google before.', []],
   ['A7', 'new017', 'Someone else\'s code link does not sign you in', ['On a phone that did NOT ask for a code, open "Fill it in for me" from another person\'s code email'], 'Nobody is signed in. A message says who the link was for and asks them to use their own code.', []],

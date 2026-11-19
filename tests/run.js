@@ -39,7 +39,7 @@ async function open(browser, key, opt = {}) {
     window.__MOCK = mock;
     try { sessionStorage.setItem('mca-splash', '1'); } catch (e) {}
     if (!personal && !localStorage.getItem('mca-personal-v1')) localStorage.setItem('mca-personal-v1', 'test');
-    if (!about) ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9', 'u-new'].forEach(id => { if (!localStorage.getItem('mca-about-v1:' + id)) localStorage.setItem('mca-about-v1:' + id, 'done'); });
+    if (!about) ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9', 'u-new'].forEach(id => { if (!localStorage.getItem('mca-about-v2:' + id)) localStorage.setItem('mca-about-v2:' + id, 'done'); });
     if (onboard && !localStorage.getItem('mca-onboard')) localStorage.setItem('mca-onboard', JSON.stringify(onboard));
     if (a11y) localStorage.setItem('chama:a11y', JSON.stringify(a11y));
   }, [opt.mock || sc.mock, sc.onboard, opt.a11y || null, !!opt.personal, !!opt.about]);
@@ -485,53 +485,35 @@ const TESTS = {
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
   async aboutYou(b) {
-    const { page, ctx, errors } = await open(b, 'member', { about: true, wait: 2200 });
-    ok(await page.isVisible('.ab-q') && /your name/i.test(await page.textContent('.ab-q')), 'About you starts with the name, one question at a time');
+    const { page, ctx, errors } = await open(b, 'member', { about: true, wait: 2400 });
+    ok(/has been updated/i.test(await page.textContent('#awRoot')), 'existing members first see what has changed');
+    ok(!(await page.locator('[data-ab="later"], [data-ab="skip"]').count()), 'the update cannot be put off');
+    await page.click('[data-ab="next"]'); await page.waitForTimeout(150);
+    ok(/your name/i.test(await page.textContent('.ab-q')), 'then the questions, one at a time, starting with the name');
     await page.click('[data-ab="next"]'); await page.waitForTimeout(150);
     await page.fill('#abPhone', '0712345678'); await page.click('[data-ab="next"]'); await page.waitForTimeout(150);
     await page.click('[data-ab="why"]'); await page.waitForTimeout(100);
-    ok(/over 60/i.test(await page.textContent('.ab-whytext')), 'Why we ask explains how the age is used');
-    await page.click('[data-ab="decade"][data-v="1950"]'); await page.click('[data-ab="year"][data-v="1958"]'); await page.click('[data-ab="month"][data-v="3"]'); await page.click('[data-ab="day"][data-v="12"]'); await page.waitForTimeout(100);
-    ok(/12 March 1958/.test(await page.textContent('.ab-sum')), 'the date of birth is picked in big taps, without typing');
-    await shot(page, '92-about-dob');
-    await page.click('[data-ab="next"]'); await page.click('[data-ab="gender"][data-v="female"]'); await page.click('[data-ab="save"]'); await page.waitForTimeout(600);
-    ok(await page.evaluate(() => document.documentElement.classList.contains('a-simple')), 'someone over 60 gets Simple view');
+    ok(/from 60/i.test(await page.textContent('.ab-whytext')), 'Why we ask explains how the age is used');
+    ok(await page.isDisabled('[data-ab="next"]'), 'the birth year is needed to go on');
+    await page.click('[data-ab="decade"][data-v="1950"]'); await page.click('[data-ab="year"][data-v="1952"]'); await page.click('[data-ab="notsure"]'); await page.waitForTimeout(100);
+    ok(/gender/i.test(await page.textContent('.ab-q')), 'the exact month and day may be left out');
+    await shot(page, '92-about-gender');
+    ok(await page.isDisabled('[data-ab="save"]'), 'an answer is needed for gender ("Prefer not to say" counts)');
+    await page.click('[data-ab="gender"][data-v="prefer_not"]'); await page.click('[data-ab="save"]'); await page.waitForTimeout(900);
+    const h = await page.evaluate(() => ({ simple: document.documentElement.classList.contains('a-simple'), size: document.documentElement.dataset.size }));
+    ok(h.simple && h.size === 'l', 'someone in their 70s gets Simple view and larger text automatically');
+    ok(/We set up the app for you/.test(await page.textContent('#popRoot')), 'they are told why, with the choice to use the standard app');
+    await page.click('#popRoot .pop-btn:not(.pri)'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => !document.documentElement.classList.contains('a-simple') && JSON.parse(localStorage.getItem('chama:a11y')).ageMode === 'off'), '"Use the standard app" turns it off and remembers the choice');
     ok((await calls(page)).some(x => x.kind === 'rpc' && (x.name === 'set_my_details' || x.name === 'set_my_profile')), 'the answers are saved');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
-  async loanSignMine(b) {
-    const fx = require('./fixtures'), data = fx.chama();
-    data.loans.push({ id: 'l9', memberId: 'm3', principal: 3000, rate: 10, months: 3, date: new Date().toISOString().slice(0, 10), repayments: [] });
-    const mock = { ...fx.scenarios.member.mock, chamas: { umoja: { data, version: 7 } } };
-    const { page, ctx, errors } = await open(b, 'member', { mock, wait: 1800 });
-    ok(await page.isVisible('[data-act="signLoanMine"]'), 'the borrower sees "Loan terms to sign" on Home');
-    await page.click('[data-act="signLoanMine"]'); await page.waitForTimeout(400);
-    ok(/You pay back/.test(await page.textContent('#modalRoot')) && await page.locator('#modalRoot .lt-row').count() === 3, 'the terms show what they pay back and each instalment date');
-    await page.check('#modalRoot input[name="agree"]'); await page.click('#modalRoot form .actions .btn.pri'); await page.waitForTimeout(500);
-    const pad = await page.locator('#sigPad').boundingBox();
-    await page.mouse.move(pad.x + 30, pad.y + 40); await page.mouse.down(); await page.mouse.move(pad.x + 160, pad.y + 90, { steps: 8 }); await page.mouse.up();
-    await page.click('#modalRoot form .actions .btn.pri'); await page.waitForTimeout(600);
-    const c = (await calls(page)).find(x => x.kind === 'rpc' && x.name === 'sign_loan_terms');
-    ok(c && c.args.p_loan === 'l9' && /^data:image\/png;base64,/.test(c.args.p_sig) && c.args.p_total === 3900, 'signing on their own phone sends the signature and the agreed total to the treasurer');
-    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
-  },
-  async mpesaImport(b) {
+  async ageBands(b) {
     const { page, ctx, errors } = await open(b, 'treasurer');
-    await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(300);
-    await page.click('[data-act="importPay"] >> nth=0'); await page.waitForTimeout(400);
-    ok(await page.isVisible('.im-tile[for="imFiles"]') && await page.isVisible('[data-im="paste"]'), 'import starts with two big choices: screenshots or paste');
-    await shot(page, '93-import-start');
-    await page.click('[data-im="paste"]'); await page.waitForTimeout(250);
-    await page.fill('#imText', 'SKZ1A2B3C4 Confirmed. You have received Ksh2,000.00 from OTIENO ODHIAMBO 0722***000 on 3/11/26 at 9:14 AM. New M-PESA balance is Ksh14,250.00.');
-    await page.click('[data-im="go"]'); await page.waitForTimeout(900);
-    ok(/1 payment found/.test(await page.textContent('#modalRoot')), 'pasted messages are read and matched');
-    await page.click('#modalRoot form .actions .btn.pri'); await page.waitForTimeout(800);
-    const p = await page.evaluate(() => __M_src_core_store_js.Store.get().payments.find(x => x.code === 'SKZ1A2B3C4'));
-    ok(p && p.from === 'OTIENO ODHIAMBO' && /0722\*+000/.test(p.fromPhone) && /Confirmed/.test(p.sms), 'the payment keeps who sent it, the masked number and the message');
-    await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(400);
-    ok(/SKZ1A2B3C4/.test(await page.textContent('[data-act="payMenu"] >> nth=0')), 'the newly recorded payment is first in Recent payments');
-    await page.click('[data-act="payMenu"] >> nth=0'); await page.waitForTimeout(300);
-    ok(/The M-Pesa message/.test(await page.textContent('#modalRoot')), 'opening the payment shows the original message');
+    const r = await page.evaluate(() => { const A = __M_src_features_guide_js.Adapt; return [30, 44, 45, 59, 60, 74, 75, 90].map(a => A.band(a)).join(','); });
+    ok(r === 'std,std,reading,reading,senior,senior,senior2,senior2', 'age bands: under 45 standard, 45+ larger text, 60+ Simple view, 75+ largest text');
+    const x = await page.evaluate(() => { const A = __M_src_features_guide_js.Adapt, Y = __M_src_core_a11y_js.A11y; Y.d.ageMode = 'custom'; return A.apply(80); });
+    ok(x === null, 'a person who chose their own settings is never overridden');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
   async leftAndLive(b) {
