@@ -149,10 +149,11 @@ const TOAST_KIND = msg => /fail|error|not right|not saved|not sent|not recorded|
 
 const esc_ = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-/* Sounds are synthesised in the browser (no audio files). Mute with localStorage 'mca-sfx' = 'off'. */
+/* Sounds are synthesised in the browser (no audio files). Off unless the person turns them on (Settings, Display: 'mca-sfx' = 'on').
+   Even when on, there is no click sound: only a soft chime when something important succeeds or fails. */
 const Sfx = (() => {
   let ctx = null;
-  const on = () => { try { return localStorage.getItem('mca-sfx') !== 'off'; } catch (e) { return true; } };
+  const on = () => { try { return localStorage.getItem('mca-sfx') === 'on'; } catch (e) { return false; } };
   const ac = () => {
     if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; try { ctx = new C(); } catch (e) { return null; } }
     if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
@@ -171,8 +172,8 @@ const Sfx = (() => {
   return {
     get enabled() { return on(); },
     unlock() { if (on()) ac(); },
-    tap() { if (on()) { tone(1650, 0, 0.04, 0.05, 'triangle'); tone(820, 0.012, 0.05, 0.03, 'sine'); } },
-    pop() { if (on()) { tone(740, 0, 0.09, 0.05); tone(1110, 0.05, 0.12, 0.04); } },
+    tap() {},
+    pop() {},
     /* approval: two rising bell strikes, short and bright */
     ok() { if (on()) { bell(1318.5, 0, 0.5, 0.15); bell(1975.5, 0.12, 0.95, 0.13); } },
     no() { if (on()) { tone(196, 0, 0.14, 0.11); tone(155.6, 0.14, 0.24, 0.11); } }
@@ -213,7 +214,6 @@ const Pop = {
       else if (e.key === 'Tab') { const bs = [...root.querySelectorAll('.pop-btn')]; if (!bs.length) return; const i = bs.indexOf(document.activeElement); e.preventDefault(); bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length].focus(); }
     };
     document.addEventListener('keydown', this._key, true);
-    Sfx.pop();
     const first = s.danger && s.buttons.length > 1 ? root.querySelector('.pop-btn') : (root.querySelector('.pop-btn.pri') || root.querySelector('.pop-btn'));
     if (first) first.focus();
   },
@@ -243,10 +243,17 @@ const toast = (msg, kind, opt) => {
   if (k === 'bad') return Pop.alert(msg, { title: /connection|internet|reach|offline/i.test(msg) ? 'Connection problem' : 'Please check' });
   const t = $('#toast'); if (!t) return;
   const o = opt || {}; toastAct = o.run || null;
-  t.className = 'on';
-  t.innerHTML = '<span class="tmsg">' + esc_(msg) + '</span>' + (o.label ? '<button type="button" class="tbtn" data-t="act">' + esc_(o.label) + '</button>' : '') + '<button type="button" class="tbtn" data-t="x" aria-label="Dismiss">OK</button>';
-  clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, toastLong ? 14000 : 4500);
+  const ms = toastLong ? 14000 : o.label ? 6500 : 4200;
+  t.className = '';
+  void t.offsetWidth;
+  t.className = 'on k-' + k;
+  t.innerHTML = '<span class="t-ic" aria-hidden="true"><svg viewBox="0 0 24 24">' + (k === 'ok' ? '<path d="M5 12.5l4.5 4.5L19 7.5"/>' : ICONS.info) + '</svg></span><span class="tmsg">' + esc_(msg) + '</span>'
+    + (o.label ? '<button type="button" class="tbtn" data-t="act">' + esc_(o.label) + '</button>' : '')
+    + '<button type="button" class="tbtn tx" data-t="x" aria-label="Dismiss"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></svg></button><i class="t-bar" style="animation-duration:' + ms + 'ms" aria-hidden="true"></i>';
+  clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, ms);
 };
+document.addEventListener('pointerenter', e => { if (e.target && e.target.id === 'toast') clearTimeout(toastTimer); }, true);
+document.addEventListener('pointerleave', e => { if (e.target && e.target.id === 'toast' && e.target.classList.contains('on')) { clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 1800); } }, true);
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('#toast .tbtn'); if (!b) return;
   const run = b.dataset.t === 'act' ? toastAct : null; hideToast(); if (run) run();
@@ -604,6 +611,14 @@ const Store = (() => {
       setInterval(() => { if (localStorage.getItem(dirtyKey)) pushSb(); }, 15000);
     }
   }
+  /* pull the latest copy now (after a server function changed the member list), unless this phone has unsent changes */
+  async function reload() {
+    if (!Backend.sb || localStorage.getItem(dirtyKey) || pushing || conflictOpen) return false;
+    const v = await getView(); if (!v) return false;
+    const next = normalise(v.data);
+    if (v.limited) { next.shared = { ...(next.shared || {}), me: v.member_id || null }; lastViewVersion = v.version; } else noteVersion(v.version);
+    state = next; saveLocal(); emit(); return true;
+  }
   async function init() {   /* local-only: used when no cloud backend is configured */
     try { state = normalise(JSON.parse(localStorage.getItem(localKey) || '{}')); } catch { state = blank(); }
     emit();
@@ -635,7 +650,7 @@ const Store = (() => {
     return true;
   }
   const hasUnsent = () => Object.keys(localStorage).some(k => /^chama:.+:dirty$/.test(k));
-  return { init, commit, undo, setSync, startSync, wipeLocal, hasUnsent, isLimited: () => limited, setConflictHandler: f => { conflictHandler = f; }, subscribe: f => subs.push(f), get: () => state, blank, chamaId };
+  return { init, reload, commit, undo, setSync, startSync, wipeLocal, hasUnsent, isLimited: () => limited, setConflictHandler: f => { conflictHandler = f; }, subscribe: f => subs.push(f), get: () => state, blank, chamaId };
 })();
 
 return { get Store() { return Store; }, };
@@ -722,7 +737,7 @@ const Perm = {
   /* mirror of ws/permissions/permissions.js and public.role_permissions (migration 002). The server is the authority; this only decides what to SHOW. */
   map: {
     treasurer: ['chama.view_shared', 'finance.view_own', 'finance.view_all', 'finance.record', 'members.view_list', 'members.invite', 'members.remove', 'roles.assign', 'chama.settings', 'audit.view'],
-    secretary: ['chama.view_shared', 'finance.view_own'],
+    secretary: ['chama.view_shared', 'finance.view_own', 'members.view_list'],
     member: ['chama.view_shared', 'finance.view_own']
   },
   can(role, perm) { return !!role && Object.prototype.hasOwnProperty.call(this.map, role) && this.map[role].indexOf(perm) >= 0; },
@@ -780,6 +795,17 @@ const Invite = {
 };
 Invite.init();
 
+/* One tab refreshes the session at a time (Web Locks). Without this, two open tabs could spend the same refresh token,
+   and Supabase then ends the session everywhere: the app looked signed in while the server had signed it out.
+   If a lock is not granted in time (seen on some iPhones), carry on without it rather than hang. */
+const authLock = async (name, acquireTimeout, fn) => {
+  if (!(navigator.locks && navigator.locks.request)) return await fn();
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  const t = ctl ? setTimeout(() => ctl.abort(), Math.max(4000, acquireTimeout > 0 ? acquireTimeout : 6000)) : 0;
+  try { return await navigator.locks.request(name, ctl ? { mode: 'exclusive', signal: ctl.signal } : { mode: 'exclusive' }, async () => { clearTimeout(t); return await fn(); }); }
+  catch (e) { clearTimeout(t); if (e && e.name === 'AbortError') return await fn(); throw e; }
+};
+
 const Session = {
   status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null, memberPics: {},
   ready() { return this.status === 'ready' || this.status === 'demo'; },
@@ -834,7 +860,7 @@ const Session = {
   },
   async boot() {
     if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
-    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, lock: async function (_n, _t, fn) { return await fn(); } } }); }
+    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, lock: authLock } }); }
     catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
     let settle = false;
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
@@ -852,8 +878,25 @@ const Session = {
       try { data = (await Backend.sb.auth.getSession()).data || {}; } catch (e) { data = data || {}; }
     }
     settle = true;
+    if (data && data.session && !(await this.sessionAlive())) {
+      try { await Backend.sb.auth.signOut({ scope: 'local' }); } catch (e) { /* the local copy is cleared below */ }
+      data = {};
+      try { __M_src_features_auth_gate_js.Gate.notice = 'Your session ended on this device. Sign in again to continue.'; __M_src_features_auth_gate_js.Gate.mode = 'in'; } catch (e) {}
+    }
     if (data && data.session) { if (!this.user) await this.after(data.session.user); }
     else { if (oauthMsg) { try { __M_src_features_auth_gate_js.Gate.notice = oauthMsg; } catch (e) {} } this.prepareGoogle(); if (!this.user) this.set('signed-out'); }
+  },
+  /* A saved session can outlive the server's copy (signed out elsewhere, refresh token reused, account changed).
+     The database still accepts its token until it expires, so the app looked signed in while the invitation service
+     (which checks the session strictly) said "Sign in first". Ask the server once; refresh if it is only stale. */
+  async sessionAlive() {
+    try {
+      const { data, error } = await Backend.sb.auth.getUser();
+      if (!error && data && data.user) return true;
+      if (error && !/session|jwt|token|not found|expired|invalid|401|403/i.test((error.message || '') + ' ' + (error.status || ''))) return true;   /* offline or server busy: keep the session */
+      const { data: r, error: e2 } = await Backend.sb.auth.refreshSession();
+      return !e2 && !!(r && r.session);
+    } catch (e) { return true; }
   },
   /* After any sign-in: (1) is the account finished? (2) is there an invitation to accept? (3) which Chama opens? */
   async after(user) {
@@ -903,6 +946,7 @@ const Session = {
     const { data: ws, error } = await Backend.sb.rpc('my_workspaces');
     if (error) throw error;
     this.workspaces = ws || [];
+    await this.loadMyRequests();
     const here = this.workspaces.find(w => w.chama_id === Store.chamaId);
     this.groupName = here ? here.chama_name : null;
     if (here && !this.chooserOpen) return this.enter(user, here.role);
@@ -922,7 +966,11 @@ const Session = {
     this.hydrating = false;
     this.busy = false;
     this.set('ready');
+    setTimeout(() => { try { __M_src_features_auth_gate_js.OB.ensureConsent(); } catch (e) {} }, 1200);
+    try { __M_src_features_notifications_notify_js.Notify.watch(); } catch (e) {}
+    try { __M_src_features_chat_index_js.Chat.watch(); } catch (e) {}
     if (Perm.can(m.role, 'members.invite')) { this.loadAccess().catch(() => {}); this.loadInvites().catch(() => {}); }
+    if (m.role !== 'member') this.loadRequests().then(r => { if (r.length) { render(); try { __M_src_features_requests_js.Requests.prompt(); } catch (e) {} } }).catch(() => {});
     Store.startSync().catch(() => {}).then(() => this.loadMemberPics().catch(() => {}));
   },
   switchTo(id) {
@@ -932,6 +980,38 @@ const Session = {
     if (!auth || !auth.getSession) { go(); return; }
     auth.getSession().then(go).catch(go);
     setTimeout(go, 700);
+  },
+  /* join requests this person has sent that a treasurer has not decided yet */
+  pending: [],
+  async loadMyRequests() {
+    try { const { data, error } = await Backend.sb.rpc('my_join_requests'); this.pending = error ? [] : (data || []); } catch (e) { this.pending = []; }
+    return this.pending;
+  },
+  async cancelRequest(cid) {
+    const { error } = await Backend.sb.rpc('cancel_join_request', { p_cid: cid });
+    if (error) throw new Error(rpcMessage(error));
+    await this.loadMyRequests();
+  },
+  /* treasurer and secretary: people waiting to be let in */
+  requests: [],
+  async loadRequests() {
+    if (!Backend.sb || !this.role || this.role === 'member') { this.requests = []; return []; }
+    try { const { data, error } = await Backend.sb.rpc('list_join_requests', { p_cid: Store.chamaId }); this.requests = error ? [] : (data || []); }
+    catch (e) { this.requests = []; }
+    return this.requests;
+  },
+  async decideRequest(id, approve, o = {}) {
+    const { data, error } = await Backend.sb.rpc('decide_join_request', { p_id: id, p_approve: !!approve, p_role: o.role || null, p_record: o.record || 'new', p_name: o.name || null });
+    if (error) throw new Error(rpcMessage(error));
+    await this.loadRequests();
+    if (approve) { try { await Store.reload(); } catch (e) {} this.loadAccess().catch(() => {}); this.loadMemberPics().catch(() => {}); }
+    return data;
+  },
+  async linkRecord(email, record, name) {
+    const { error } = await Backend.sb.rpc('link_member_record', { p_cid: Store.chamaId, p_email: email, p_record: record || 'new', p_name: name || null });
+    if (error) throw new Error(rpcMessage(error));
+    try { await Store.reload(); } catch (e) {}
+    await this.loadAccess();
   },
   async openChooser() {
     if (!Backend.sb || !this.user) return;
@@ -1060,6 +1140,7 @@ const Session = {
   async joinWithLink(text) {
     const raw = String(text || ''), compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!/[0-9a-f]{64}/i.test(raw) && compact.length === 10) return this.joinWithCode(compact);
+    if (!/[0-9a-f]{64}/i.test(raw)) return { error: compact.length && compact.length < 10 ? 'An invite code has 10 letters and numbers, like ABCD-EFGH-JK.' : 'That does not look like an invite code or an invitation link. Check it and try again.' };
     const m = /[0-9a-f]{64}/i.exec(String(text || ''));
     if (!m) return { error: 'That does not look like an invitation link. Copy the whole link from the email.' };
     Invite.token = m[0].toLowerCase(); Invite.checked = false; Invite.info = null; Invite.signin = true;
@@ -1160,8 +1241,17 @@ const Session = {
     render();
   },
   /* create / resend through the server function, which emails the link. { unavailable: true } = function not deployed yet. */
-  async sendInvite(action, payload) {
+  async sendInvite(action, payload, retried) {
     const { data, error } = await Backend.sb.functions.invoke('send-invitation', { body: { action, chama_id: Store.chamaId, ...payload } });
+    if (error && error.context && error.context.status === 401) {
+      if (!retried) {
+        const { data: r, error: e2 } = await Backend.sb.auth.refreshSession().catch(err => ({ error: err }));
+        if (!e2 && r && r.session) return this.sendInvite(action, payload, true);
+      }
+      __M_src_ui_toast_js.Pop.alert('Your sign-in on this device has expired, so the email could not be sent. Sign in again, then send it once more.', {
+        title: 'Sign in again', label: 'Sign in', onYes: () => __M_src_features_index_js.Actions.signOutApp() });
+      throw Object.assign(new Error('signin_expired'), { quiet: true });
+    }
     if (error) {
       /* the real reason is shown; nothing is hidden behind a fallback */
       if (error.context && typeof error.context.json === 'function') {
@@ -1214,46 +1304,22 @@ const Session = {
     await this.loadAccess();
     return data;
   },
-  codeBlockHtml() {
-    if (this.role !== 'treasurer') return '';
-    const ws = (this.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
-    const tag = ws.display_tag || '';
-    const fresh = this.newCode ? `<div class="card tint" style="margin-bottom:12px;text-align:center"><p class="plain"><b>New invite code. It is shown only once.</b></p><p class="num" style="font:700 1.7em/1.2 var(--font-display);letter-spacing:.12em;margin:10px 0;user-select:all;-webkit-user-select:all">${esc(this.newCode.code)}</p><p class="plain">Expires ${esc(new Date(this.newCode.expires_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }))}. Anyone with this code can join with the role you chose, up to the number of uses you set.</p><div class="btns" style="justify-content:center"><button class="btn pri" data-act="codeCopy">${icon('copy')}Copy code</button><button class="btn" data-act="codeDone">Done</button></div></div>` : '';
-    const now = new Date();
-    const rows = (this.codes || []).map(c => {
-      const st = c.revoked_at ? 'cancelled' : (new Date(c.expires_at) <= now ? 'expired' : (c.uses >= c.max_uses ? 'used up' : 'open'));
-      return `<div class="li has-ic"><span class="li-ic t-gold">${icon('key')}</span><div class="li-main"><b class="num">${esc(c.prefix)}…</b><small>${esc(Perm.label(c.role))} · ${esc(c.uses)} of ${esc(c.max_uses)} used · ${esc(st)}</small></div>${st === 'open' ? `<div class="li-end"><button class="btn sm bad" data-act="codeRevoke" data-id="${esc(c.id)}">Cancel</button></div>` : ''}</div>`;
-    }).join('');
-    const mem = (Store.get().members || []).map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
-    const roles = `<option value="member">Member</option><option value="secretary">Secretary</option>${this.role === 'treasurer' ? '<option value="treasurer">Treasurer</option>' : ''}`;
-    return `${fresh}<div class="card form"><p class="plain" style="margin-bottom:6px">For people who will not get an email. Share the code however you like. They enter it under Join a Chama.</p>
-      <label>Role<select id="codeRole">${roles}</select></label>
-      <label>Valid for<select id="codeHours"><option value="24">1 day</option><option value="168" selected>7 days</option><option value="720">30 days</option></select></label>
-      <label>Number of uses (1 to 100)<input id="codeUses" type="number" inputmode="numeric" min="1" max="100" value="1"></label>
-      <label>Member record<select id="codeMember"><option value="">Officer only: not on the member list</option>${mem}</select></label>
-      <button type="button" class="btn pri block" style="margin-top:18px" data-act="codeCreate">${icon('key')}Create code</button></div>
-      ${rows ? `<div class="list" style="margin-top:12px">${rows}</div>` : ''}
-      <div class="card form" style="margin-top:12px"><label>Chama tag (4 letters or numbers)<input id="codeTag" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false" value="${esc(tag)}"><small>Shown to people joining, so they know they have the right group.</small></label>
-      <button type="button" class="btn block" style="margin-top:14px" data-act="tagSave">Save tag</button></div>`;
-  },
-  /* join by code: check first, then ask the person to confirm, then redeem in one database step */
+  /* join by code: (1) preview shows the Chama in place of the code screen, (2) the person asks to join,
+     (3) the treasurer or secretary approves. Nothing opens until they do. */
   async joinWithCode(code) {
     if (!Backend.sb) return { error: 'Sign-in is not set up in this app yet' };
     const { data, error } = await Backend.sb.rpc('preview_invite_code', { p_code: code });
     if (error) return { error: rpcMessage(error) };
     if (!data || !data.ok) return { error: (data && data.error) || 'That code did not work.' };
-    if (data.already_member) { this.switchTo(data.chama_id); return { ok: true }; }
-    __M_src_ui_modal_js.Modal.open({ title: 'Join this Chama?', submitLabel: 'Join Chama',
-      body: `<p class="plain">You are joining <b>${esc(data.chama_name)}</b> (tag <b class="num">${esc(data.display_tag)}</b>) as <b>${esc(Perm.label(data.role))}</b>.</p><p class="plain mute">You can leave later from Settings.</p>`,
-      onSubmit: () => { setTimeout(async () => {
-        try {
-          const { data: r, error: e } = await Backend.sb.rpc('redeem_invite_code', { p_code: code });
-          if (e) throw new Error(rpcMessage(e));
-          if (!r || !r.ok) { __M_src_features_auth_gate_js.Gate.joinMsg = (r && r.error) || 'That code did not work.'; __M_src_features_auth_gate_js.Gate.paint(); return toast(__M_src_features_auth_gate_js.Gate.joinMsg); }
-          this.switchTo(r.chama_id);
-        } catch (err) { toast(err.message || 'Could not join. Try again.'); }
-      }, 0); } });
-    return { ok: true };
+    return { ok: true, preview: { ...data, code } };
+  },
+  async requestJoin(code) {
+    const { data, error } = await Backend.sb.rpc('redeem_invite_code', { p_code: code });
+    if (error) throw new Error(rpcMessage(error));
+    if (!data || !data.ok) throw new Error((data && data.error) || 'That code did not work.');
+    if (data.already_member) { this.switchTo(data.chama_id); return data; }
+    await this.loadMyRequests();
+    return data;
   },
   async signOut() {
     try { await Backend.sb.auth.signOut(); } catch {}
@@ -1322,24 +1388,24 @@ const __M_src_core_routes_js = (function () {
 /* =====================================================================
    7. ROUTER + RENDER
    ===================================================================== */
-const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['loans', 'Loans'], ['members', 'Members'], ['profile', 'Profile']];
+const ROUTES = [['home', 'Home'], ['grid', 'Contributions'], ['chat', 'Chat'], ['members', 'Members'], ['profile', 'Profile']];
 
-const SUB = ['fines', 'expenses', 'history', 'reports'];
+const SUB = ['fines', 'expenses', 'history', 'reports', 'loans'];
 
-const PAGES = ['settings', 'notifications'];
+const PAGES = ['settings', 'notifications', 'requests'];
 
 /* ---------- NAV: liquid tab bar, tap or drag ---------- */
-const NAV_ICON = { profile: ICONS.profile, home: ICONS.home, grid: ICONS.grid, loans: ICONS.loans, members: ICONS.members, more: ICONS.more };
+const NAV_ICON = { profile: ICONS.profile, home: ICONS.home, grid: ICONS.grid, loans: ICONS.loans, chat: ICONS.chat, members: ICONS.members, more: ICONS.more };
 
-const NAV_LABEL = { home: 'Home', grid: 'Payments', loans: 'Loans', members: 'Members', profile: 'Me' };
+const NAV_LABEL = { home: 'Home', grid: 'Payments', chat: 'Chat', loans: 'Loans', members: 'Members', profile: 'Me' };
 
 const SETTINGS_NAME = { 'legal/privacy': 'Privacy Policy', 'legal/terms': 'Terms of Use', 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/app': 'Display', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/help': 'Help and support', 'settings/privacy': 'Privacy and data', 'settings/actions': 'People and access', 'settings/about': 'About' };
 
-const PAGE_NAME = { home: 'Home', grid: 'Contributions', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings', notifications: 'Notifications', 'notifications/settings': 'Notification settings' };
+const PAGE_NAME = { home: 'Home', grid: 'Contributions', chat: 'Chat', requests: 'Join requests', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings', notifications: 'Notifications', 'notifications/settings': 'Notification settings' };
 
 const BACK = { notifications: 'home', 'notifications/settings': 'notifications', fines: 'home', expenses: 'home', history: 'home', reports: 'home', profile: 'home', settings: 'home' };
 
-const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) || r.startsWith('settings/') || r.startsWith('notifications/') || r === 'legal/privacy' || r === 'legal/terms' ? r : 'home'; };
+const route = () => { const r = location.hash.replace(/^#\/?/, ''); return ROUTES.some(x => x[0] === r) || SUB.includes(r) || PAGES.includes(r) || /^chat\/(group|records|[0-9a-f-]{36})$/.test(r) || r.startsWith('settings/') || r.startsWith('notifications/') || r === 'legal/privacy' || r === 'legal/terms' ? r : 'home'; };
 
 return { get ROUTES() { return ROUTES; }, get SUB() { return SUB; }, get PAGES() { return PAGES; }, get NAV_ICON() { return NAV_ICON; }, get NAV_LABEL() { return NAV_LABEL; }, get SETTINGS_NAME() { return SETTINGS_NAME; }, get PAGE_NAME() { return PAGE_NAME; }, get BACK() { return BACK; }, get route() { return route; }, };
 })();
@@ -1356,7 +1422,7 @@ const { $ } = __M_src_lib_dom_js;
 const Haptic = {
   pulse(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} },
   sw() { const l = document.getElementById('hapticSw'); if (l) l.click(); },
-  tap() { this.pulse(8); __M_src_ui_toast_js.Sfx.tap(); },
+  tap() { this.pulse(6); },
   ok() { this.pulse([16, 60, 24]); this.sw(); __M_src_ui_toast_js.Sfx.ok(); },
   no() { this.pulse([60, 40, 60]); __M_src_ui_toast_js.Sfx.no(); }
 };
@@ -1471,7 +1537,6 @@ const Otp = {
   }
 };
 document.addEventListener('input', e => { if (e.target && e.target.id === 'otpIn') Otp.onInput(e.target); });
-document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-act]')) Haptic.tap(); }, true);
 document.addEventListener('error', e => {
   const img = e.target;
   if (!img || !img.closest || !img.closest('.pk-av')) return;
@@ -1592,14 +1657,43 @@ const pwField = (id, label, ac, ph, eye) => `<label class="f" for="${id}">${esc(
 const OB = {
   pick: null, slide: 0, ag1: false, ag2: false, revisit: false, sheet: false, langPick: null, langQ: '',
   read() { try { return JSON.parse(localStorage.getItem(OB_KEY)) || {}; } catch (e) { return {}; } },
-  syncConsent() { const st = this.read(); if (st.policy !== OB_POLICY_VERSION || !st.agreedAt || st.serverSynced === OB_POLICY_VERSION || !Backend.sb) return;
-    Backend.sb.rpc('record_consent', { p_policy_version: OB_POLICY_VERSION, p_app_version: __M_src_content_app_info_js.APP.version }).then(r => { if (!r.error && r.data && r.data.ok) this.write({ serverSynced: OB_POLICY_VERSION }); }).catch(() => {}); },
+  /* Agreement is given by continuing (the line under the buttons says so). The moment is kept with what is needed to show it later:
+     policy version, time on the phone, how they continued, language, time zone and the screen. The server adds its own time,
+     the IP address and the browser it saw (record_consent_v2), and keeps the record even after the account is deleted. */
+  agree(method) {
+    const st = this.read();
+    if (st.policy === OB_POLICY_VERSION && st.agreedAt) { if (Backend.sb) this.syncConsent(); return; }
+    let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+    this.write({ policy: OB_POLICY_VERSION, agreedAt: new Date().toISOString(), method: String(method || 'continue'), tz, locale: (navigator.language || '').slice(0, 20),
+      screen: (screen && screen.width ? screen.width + 'x' + screen.height : ''), serverSynced: null });
+    if (Backend.sb) this.syncConsent();
+  },
+  syncConsent() {
+    const st = this.read(); if (st.policy !== OB_POLICY_VERSION || !st.agreedAt || st.serverSynced === OB_POLICY_VERSION || !Backend.sb) return;
+    const app = __M_src_content_app_info_js.APP.version;
+    Backend.sb.rpc('record_consent_v2', { p_policy_version: OB_POLICY_VERSION, p_app_version: app, p_method: st.method || 'continue', p_locale: st.locale || navigator.language || null,
+      p_timezone: st.tz || null, p_client_time: st.agreedAt, p_context: { lang: this.lang(), screen: st.screen || '', terms: LEGAL.terms, privacy: LEGAL.privacy, standalone: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches) } })
+      .then(r => {
+        if (!r.error && r.data && r.data.ok) return this.write({ serverSynced: OB_POLICY_VERSION, serverAt: r.data.accepted_at || null });
+        if (r.error && /record_consent_v2|does not exist|Could not find/i.test(r.error.message || ''))   /* older database: the original recorder */
+          return Backend.sb.rpc('record_consent', { p_policy_version: OB_POLICY_VERSION, p_app_version: app }).then(r2 => { if (!r2.error) this.write({ serverSynced: OB_POLICY_VERSION }); });
+      }).catch(() => {});
+  },
+  /* someone already signed in who has not accepted this version yet: one calm sheet, Continue records it */
+  ensureConsent() {
+    const st = this.read();
+    if (st.policy === OB_POLICY_VERSION && st.agreedAt) return this.syncConsent();
+    if (this._asked) return; this._asked = true;
+    __M_src_ui_toast_js.Pop.confirm({ title: 'We updated our terms',
+      html: `<p>We made the Terms of Use and Privacy Policy clearer. Nothing about who can see your money has changed.</p><p class="legal-mini">By continuing you agree to the <a href="${LEGAL.terms}" target="_blank" rel="noopener">Terms of Use</a> and the <a href="${LEGAL.privacy}" target="_blank" rel="noopener">Privacy Policy</a>.</p>`,
+      confirmLabel: 'Continue', hideCancel: true, onYes: () => this.agree('continue:updated-terms') });
+  },
   write(p) { try { localStorage.setItem(OB_KEY, JSON.stringify(Object.assign(this.read(), p))); } catch (e) { toast('Storage is full. Free some space and try again'); } },
   lang() { const l = this.read().lang; return OB_T[l] ? l : 'en'; },
   L() { return OB_T[this.lang()]; },
-  complete() { const s = this.read(); return !!(OB_T[s.lang] && s.policy === OB_POLICY_VERSION && s.agreedAt); },
+  complete() { const s = this.read(); return !!(OB_T[s.lang] && (s.tipsDone || s.agreedAt)); },
   needed() { return !this.complete() || this.revisit; },
-  stepNow() { const s = this.read(); if (this.revisit || !OB_T[s.lang]) return 'lang'; if (!s.tipsDone) return 'tips'; return 'privacy'; },
+  stepNow() { const s = this.read(); if (this.revisit || !OB_T[s.lang]) return 'lang'; return 'tips'; },
 
   chosen() {
     const ok = c => LG_ALL.some(l => l.code === c);
@@ -1655,16 +1749,7 @@ const OB = {
 <button type="button" class="btn pri block" style="margin-top:22px" data-ob="next">${esc(last ? L.start : L.next)}</button>`,
         { right: `<button type="button" class="btn ghost" data-ob="skip-tips">${esc(L.skip)}</button>`, back: `data-ob="prev" id="obPrev"${i === 0 ? ' style="visibility:hidden"' : ''}`, foot: false });
     }
-    const item = (ic, t, b) => `<div><span class="li-ic">${icon(ic)}</span><div><b>${esc(t)}</b><span>${esc(b)}</span></div></div>`;
-    const chk = (id, on, text) => `<label class="check"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span class="box">${icon('check')}</span><span>${text}</span></label>`;
-    const terms = `<a href="${LEGAL.terms}" target="_blank" rel="noopener">${esc(L.readTerms)}</a>`, priv = `<a href="${LEGAL.privacy}" target="_blank" rel="noopener">${esc(L.readPrivacy)}</a>`;
-    const agree1 = esc(L.agree1).replace(esc(L.readTerms), terms).replace(esc(L.readPrivacy), priv);
-    return shell(`<h1 class="auth-t" style="margin-top:4px">${esc(L.privacyTitle)}</h1><p class="auth-s">${esc(L.privacyLead)}</p>
-<div class="pp-sum">${item('doc', L.sumWhatT, L.sumWhatB)}${item('info', L.sumWhyT, L.sumWhyB)}${item('members', L.sumWhoT, L.sumWhoB)}${item('shield', L.sumRightsT, L.sumRightsB)}</div>
-<div class="legal-links"><a class="btn tint sm" href="${LEGAL.privacy}" target="_blank" rel="noopener">${icon('doc')}${esc(L.readPrivacy)}</a><a class="btn tint sm" href="${LEGAL.terms}" target="_blank" rel="noopener">${icon('scale')}${esc(L.readTerms)}</a></div>
-${chk('obAg1', this.ag1, agree1)}${chk('obAg2', this.ag2, esc(L.agree2))}
-<button type="button" class="btn pri block" style="margin-top:12px" data-ob="accept" ${this.ag1 && this.ag2 ? '' : 'disabled'}>${esc(L.cont)}</button>`,
-      { back: 'data-ob="back-tips"', top: true, foot: false });
+    return '';
   },
   go(i) {
     const tips = OB_TIPS[this.lang()], n = tips.length;
@@ -1686,6 +1771,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest ? e.target.closest('[data-ob],[data-gm]') : null;
   if (!t) return;
   if (t.dataset.gm) {
+    if (Gate.mode === 'start' && (t.dataset.gm === 'in' || t.dataset.gm === 'up')) OB.agree('continue:' + (t.dataset.gm === 'in' ? 'sign-in' : 'create-account'));
     const i = document.getElementById('gateEmail'); if (i) Gate.email = i.value;
     const idEl = document.getElementById('gateId'); if (idEl) Gate.id = idEl.value;
     const pwEl = document.getElementById('gatePw'); if (pwEl && Gate.mode === 'in') Gate.signPw = pwEl.value;
@@ -1703,17 +1789,7 @@ document.addEventListener('click', e => {
     case 'prev': return OB.go(OB.slide - 1);
     case 'next': return OB.slide >= OB_TIPS[OB.lang()].length - 1 ? OB.finishTips() : OB.go(OB.slide + 1);
     case 'skip-tips': return OB.finishTips();
-    case 'back-tips': OB.write({ tipsDone: false }); OB.slide = OB_TIPS[OB.lang()].length - 1; return Gate.paint();
-    case 'accept':
-      if (OB.ag1 && OB.ag2) { OB.write({ policy: OB_POLICY_VERSION, agreedAt: new Date().toISOString() }); OB.ag1 = false; OB.ag2 = false; OB.syncConsent(); }
-      return Gate.paint();
   }
-});
-document.addEventListener('change', e => {
-  const id = e.target && e.target.id;
-  if (id !== 'obAg1' && id !== 'obAg2') return;
-  if (id === 'obAg1') OB.ag1 = e.target.checked; else OB.ag2 = e.target.checked;
-  const b = document.querySelector('[data-ob="accept"]'); if (b) b.disabled = !(OB.ag1 && OB.ag2);
 });
 let obSwipeX = null;
 document.addEventListener('pointerdown', e => { obSwipeX = (e.target.closest && e.target.closest('#obVp')) ? e.clientX : null; }, true);
@@ -1760,6 +1836,10 @@ const AUTH_T = GT;
 const Gate = {
   email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', signPw: '', coolUntil: 0, coolTimer: null, sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' || m === 'in' ? m : 'start'; })(),
   navRow(x) { return `<div class="btns">${x}</div>`; },
+  agreeLine() {
+    const sw = OB.lang() === 'sw', t = `<a href="${LEGAL.terms}" target="_blank" rel="noopener">${sw ? 'Masharti' : 'Terms'}</a>`, p = `<a href="${LEGAL.privacy}" target="_blank" rel="noopener">${sw ? 'Sera ya Faragha' : 'Privacy Policy'}</a>`;
+    return `<p class="legal-mini">${sw ? `Ukiendelea, unakubali ${t} na ${p} yetu.` : `By continuing, you agree to our ${t} and ${p}.`}</p>`;
+  },
   pwProblem(p) { return p.length < 6 ? 'Use at least 6 characters' : !/[A-Z]/.test(p) ? 'Add a capital letter' : !/[0-9]/.test(p) ? 'Add a number' : !/[^A-Za-z0-9]/.test(p) ? 'Add a symbol, such as ! or #' : p.length > 72 ? 'Use 72 characters or fewer' : ''; },
   refreshRules() {
     const p = (document.getElementById('gatePw') || {}).value || '', p2 = (document.getElementById('gatePw2') || {}).value || '';
@@ -1802,7 +1882,7 @@ ${note}
 <button type="button" class="btn pri block" data-gm="in">${esc(G.cta)}</button>
 <button type="button" class="btn tint block" data-gm="up">${esc(G.createAcct)}</button>
 </div>
-<p class="fhelp" style="text-align:center;margin-top:16px">${esc(G.agreeNote)}</p>`);
+${this.agreeLine()}`);
     if (mode === 'in') return shell(`<h1 class="auth-t" style="margin-top:0">${esc(G.inTitle)}</h1>
 <p class="auth-s">${esc(G.inSub)}</p>
 <form class="auth-form" id="signForm" novalidate>
@@ -1824,7 +1904,7 @@ ${pwField('gatePw', L.pwLabel, 'current-password', L.pwPh, true)}
 <label class="f" for="gateEmail">${esc(L.email)}<span class="field">${icon('mail')}<input id="gateEmail" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="you@example.com" value="${esc(this.email)}"></span></label>
 <p class="ferr" id="upErr" role="alert" aria-live="polite">${esc(this.notice || '')}</p>
 <button type="button" class="btn pri block" data-act="gateSend"${sendOff ? ' disabled aria-busy="true"' : ''}><span class="btn-label">${esc(sendLabel)}</span></button>
-<p class="fhelp" style="text-align:center;margin-top:12px">${esc(G.agreeNote)}</p>
+${this.agreeLine()}
 </div>
 <p class="auth-alt">${esc(G.haveAcct)} <button type="button" data-gm="in">${esc(G.signInLink)}</button></p>`, { back: 'data-gm="start"' });
     }
@@ -1851,16 +1931,19 @@ ${pwField('gatePw', L.pwLabel, 'current-password', L.pwPh, true)}
   /* Choose a Chama, welcome (no Chama yet), Create a Chama and Join a Chama */
   hubPage(isWelcome) {
     if (this.sub === 'create') return this.createPage();
+    if (this.sub === 'join') return this.joinPage();
     const H = HL(), G = GL(), list = Session.workspaces || [];
     if (!isWelcome || list.length) return this.pickerPage(H, G, list);
     return shell(`<div class="auth-art">${art('group')}</div>
 <h1 class="auth-t" style="margin-top:6px">${esc(G.welcome(Session.displayName()))}</h1>
-<p class="auth-s">${esc(G.welcomeSub)}</p>
+<p class="auth-s">${esc((Session.pending || []).length ? 'Your request is with the treasurer. You can also start your own Chama.' : G.welcomeSub)}</p>
+${this.pendingHtml()}
 <div class="list" style="margin-top:26px">
 <button type="button" class="li has-ic" data-act="wsSub" data-s="create"><span class="li-ic">${icon('plus')}</span><span class="li-main"><b>${esc(H.createRow)}</b><small>${esc(H.createRowSub)}</small></span>${icon('chev', 'chev')}</button>
 <button type="button" class="li has-ic" data-act="wsSub" data-s="join"><span class="li-ic t-gold">${icon('key')}</span><span class="li-main"><b>${esc(H.joinRow)}</b><small>${esc(H.joinRowSub)}</small></span>${icon('chev', 'chev')}</button>
 </div>
-<button type="button" class="btn ghost block" style="margin-top:18px" data-act="gateSignOut">${icon('out')}${esc(G.signOut)}</button>`, { lang: false });
+<button type="button" class="btn ghost block" style="margin-top:18px" data-act="gateSignOut">${icon('out')}${esc(G.signOut)}</button>
+${this.accountFoot()}`, { lang: false });
   },
 
   pickerPage(H, G, list) {
@@ -1889,13 +1972,15 @@ ${av}<span class="pk-info"><span class="pk-name">${esc(w.chama_name || 'Chama')}
     return shell(`<h1 class="auth-t" style="margin-top:0">${sw ? 'Chagua Chama' : 'Your Chamas'}</h1>
 <p class="auth-s">${esc(lead)}</p>
 <ul class="pk-list" role="radiogroup" aria-label="${sw ? 'Chama zako' : 'Your Chamas'}">${rows || `<li class="pk-empty">${esc(H.noChamas)}</li>`}</ul>
+${this.pendingHtml()}
 <button type="button" class="btn pri block" style="margin-top:18px" data-act="pkOpen"${picked && !this.opening ? '' : ' disabled'}>${this.opening ? '<span class="spin" aria-hidden="true"></span>' : ''}<span>${esc(openLabel)}</span></button>
 <div class="sec-h" style="margin-top:30px"><h3>${esc(H.manage)}</h3></div>
 <div class="list">
 <button type="button" class="li has-ic" data-act="wsSub" data-s="create"><span class="li-ic">${icon('plus')}</span><span class="li-main"><b>${esc(H.createRow)}</b><small>${esc(H.createRowSub)}</small></span>${icon('chev', 'chev')}</button>
 <button type="button" class="li has-ic" data-act="wsSub" data-s="join"><span class="li-ic t-gold">${icon('key')}</span><span class="li-main"><b>${esc(H.joinRow)}</b><small>${esc(H.joinRowSub)}</small></span>${icon('chev', 'chev')}</button>
 </div>
-<button type="button" class="btn ghost block" style="margin-top:14px" data-act="gateSignOut">${icon('out')}${esc(G.signOut)}</button>`,
+<button type="button" class="btn ghost block" style="margin-top:14px" data-act="gateSignOut">${icon('out')}${esc(G.signOut)}</button>
+${this.accountFoot()}`,
       { back: canLeave ? `data-act="wsBack"` : '', top: true, lang: false });
   },
   pkInitials(name) {
@@ -1926,19 +2011,73 @@ ${formErr}
 <p class="fhelp" style="text-align:center;margin-top:12px">${esc(H.afterNote)}</p>
 </form>`, { back: 'data-act="wsSub" data-s=""', top: true, lang: false });
   },
-  /* Join a Chama: a sheet over the chooser */
-  joinModal() {
-    const H = HL(), G = GL(), busy = this.joinBusy;
-    return `<div class="jm-veil" data-jm="veil"><section class="jm" role="dialog" aria-modal="true" aria-labelledby="jmTitle" aria-describedby="jmSub">
-<button type="button" class="jm-x" data-act="wsSub" data-s="" aria-label="${esc(H.close)}">&times;</button>
-<div class="auth-art" style="width:120px;height:90px">${art('key')}</div>
-<h3 id="jmTitle">${esc(H.joinTitle)}</h3>
-<p class="jm-sub" id="jmSub">${esc(H.joinSub)}</p>
-<label class="f" for="joinLink" style="margin-top:18px">${esc(H.joinLabel)}<span class="field">${icon('link')}<input id="joinLink" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="go" placeholder="${esc(H.joinPh)}" value="${esc(this.draft.link)}"${this.joinMsg ? ' aria-describedby="joinErr" aria-invalid="true"' : ''}${busy ? ' disabled' : ''}></span></label>
-${this.joinMsg ? `<p class="ferr" id="joinErr" role="alert">${esc(this.joinMsg)}</p>` : ''}
-<button type="button" class="btn pri block" style="margin-top:18px" data-act="wsJoin"${busy ? ' disabled aria-busy="true"' : ''}>${busy ? `<span class="spin" aria-hidden="true"></span><span>${esc(H.checking)}</span>` : `<span>${esc(H.joinBtn)}</span>`}</button>
-<button type="button" class="btn ghost block" style="margin-top:6px" data-act="wsSub" data-s="">${esc(H.cancel)}</button>
-</section></div>`;
+  /* Join a Chama: one full screen in three steps. 1 enter the code, 2 see the Chama it opens, 3 request sent.
+     The preview replaces the code field; nothing covers it. */
+  joinPreview: null, joinDone: null,
+  roleInfo(r) {
+    return ({ treasurer: { t: 'Treasurer', d: 'Keeps the books: records money, approves members and runs the Chama.', ic: 'wallet' },
+      secretary: { t: 'Secretary', d: 'Keeps the member register, calls meetings, takes minutes and runs polls.', ic: 'doc' },
+      member: { t: 'Member', d: 'Sees your own money and the group totals, votes and chats with the group.', ic: 'profile' } })[r] || { t: 'Member', d: '', ic: 'profile' };
+  },
+  joinPage() {
+    const H = HL(), busy = this.joinBusy, p = this.joinPreview, done = this.joinDone;
+    const mono = n => esc(this.pkInitials(n));
+    if (done) {
+      const ri = this.roleInfo(done.role);
+      return shell(`<div class="jn jn-done">
+<div class="jn-orbit" aria-hidden="true"><span></span><span></span><div class="jn-ic">${icon('clock')}</div></div>
+<h1 class="auth-t">Request sent</h1>
+<p class="auth-s">${esc((p && p.treasurer_name) || 'The treasurer')} has been told. You get in as soon as your request is approved, and we will let you know.</p>
+<div class="jn-mini"><span class="jn-tile">${mono(done.chama_name)}</span><span class="jn-mini-t"><b>${esc(done.chama_name || 'Chama')}</b><small>${esc(ri.t)} · waiting for approval</small></span></div>
+<button type="button" class="btn pri block" style="margin-top:26px" data-act="jnFinish">Done</button>
+<button type="button" class="btn ghost block" data-act="jnCancel" data-id="${esc(done.chama_id)}">Cancel my request</button>
+</div>`, { top: true, lang: false });
+    }
+    if (p) {
+      const ri = this.roleInfo(p.role), money = Number(p.contribution) > 0 ? (p.currency || 'KES') + ' ' + Number(p.contribution).toLocaleString('en-KE') : '—';
+      const state = p.already_member ? `<button type="button" class="btn pri block" data-act="jnOpen" data-id="${esc(p.chama_id)}">${icon('chev')}<span>Open ${esc(p.chama_name || 'Chama')}</span></button><p class="fhelp jn-c">You are already in this Chama.</p>`
+        : p.pending ? `<div class="jn-wait">${icon('clock', 's')}<span>Your request is waiting for approval.</span></div><button type="button" class="btn ghost block" data-act="jnCancel" data-id="${esc(p.chama_id)}">Cancel my request</button>`
+        : `<button type="button" class="btn pri block" data-act="jnRequest"${busy ? ' disabled aria-busy="true"' : ''}>${busy ? '<span class="spin" aria-hidden="true"></span><span>Sending request…</span>' : `<span>Ask to join ${esc(p.chama_name || '')}</span>`}</button>
+<p class="fhelp jn-c">${esc(p.treasurer_name || 'The treasurer')} approves every new person. Nothing changes until they do.</p>`;
+      const err = this.joinMsg ? `<p class="notice" role="alert">${icon('alert', 's')}<span>${esc(this.joinMsg)}</span></p>` : '';
+      return shell(`<div class="jn jn-pv">
+<div class="jn-hero"><span class="jn-tile lg">${mono(p.chama_name)}</span>
+<span class="jn-found">${icon('check', 's')}Code accepted</span>
+<h1 class="auth-t">${esc(p.chama_name || 'Chama')}</h1>
+${p.display_tag ? `<span class="tag">${icon('tag', 's')}${esc(p.display_tag)}</span>` : ''}</div>
+<div class="jn-stats">
+<div><small>People</small><b class="num">${esc(p.people || 0)}</b></div>
+<div><small>On the list</small><b class="num">${esc(p.members_listed || 0)}</b></div>
+<div><small>Monthly</small><b class="num">${esc(money)}</b></div></div>
+<div class="jn-role"><span class="li-ic">${icon(ri.ic)}</span><span><small>You would join as</small><b>${esc(ri.t)}</b><span>${esc(ri.d)}</span></span></div>
+${p.treasurer_name ? `<div class="jn-by">${icon('shield', 's')}<span>Treasurer: <b>${esc(p.treasurer_name)}</b></span></div>` : ''}
+${err}<div class="jn-act">${state}
+<button type="button" class="btn ghost block" data-act="jnAgain">Use a different code</button></div>
+</div>`, { back: 'data-act="jnAgain"', top: true, lang: false });
+    }
+    return shell(`<div class="jn jn-in">
+<div class="jn-key" aria-hidden="true">${art('key')}</div>
+<h1 class="auth-t">${esc(H.joinTitle)}</h1>
+<p class="auth-s">Enter the code your treasurer shared, or paste the link from your invitation email.</p>
+<label class="jn-field${this.joinMsg ? ' bad' : ''}" for="joinLink"><span class="vh">${esc(H.joinLabel)}</span>
+<input id="joinLink" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="one-time-code" enterkeyhint="go" maxlength="300" placeholder="ABCD-EFGH-JK" value="${esc(this.draft.link)}"${this.joinMsg ? ' aria-describedby="joinErr" aria-invalid="true"' : ''}${busy ? ' disabled' : ''}>
+<button type="button" class="jn-paste" data-act="jnPaste">${icon('copy', 's')}Paste</button></label>
+<p class="ferr" id="joinErr" role="alert">${esc(this.joinMsg || '')}</p>
+<button type="button" class="btn pri block" style="margin-top:14px" data-act="wsJoin"${busy ? ' disabled aria-busy="true"' : ''}>${busy ? `<span class="spin" aria-hidden="true"></span><span>${esc(H.checking)}</span>` : `<span>${esc(H.joinBtn)}</span>`}</button>
+<ol class="jn-steps"><li><b>1</b>Enter the code</li><li><b>2</b>Check it is the right Chama</li><li><b>3</b>The treasurer lets you in</li></ol>
+</div>`, { back: 'data-act="wsSub" data-s=""', top: true, lang: false });
+  },
+  /* outside any Chama: deleting (or restoring) the account must still be possible, because deletion requires leaving every Chama first */
+  accountFoot() {
+    const A = __M_src_features_account_deletion_js.Account;
+    if (!this._acctAsked && Backend.sb) { this._acctAsked = true; Backend.sb.rpc('account_deletion_status').then(r => { if (!r.error && r.data && r.data.pending) { A.pending = { requestedAt: new Date(r.data.requested_at), purgeAt: new Date(r.data.purge_at) }; A.checked = true; this.paint(); } }, () => {}); }
+    if (A.pending) return `<div class="card warn" style="margin-top:22px"><h2>Account deletion scheduled</h2><p class="plain">Your account will be erased on ${esc(A.pending.purgeAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }))}. Restore it to keep it.</p><div class="btns"><button type="button" class="btn pri" data-act="gateRestore">Restore my account</button></div></div>`;
+    return `<p class="legal-mini" style="margin-top:22px"><a href="${LEGAL.privacy}" target="_blank" rel="noopener">Privacy Policy</a> · <button type="button" class="linkish" data-act="deleteAccount">Delete my account</button></p>`;
+  },
+  pendingHtml() {
+    const list = Session.pending || []; if (!list.length) return '';
+    const ago = d => { const m = Math.max(1, Math.round((Date.now() - new Date(d).getTime()) / 60000)); return m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+    return `<div class="sec-h" style="margin-top:26px"><h3>Waiting for approval</h3></div><div class="list pend">${list.map(r => `<div class="li has-ic"><span class="pk-av">${esc(this.pkInitials(r.chama_name))}</span><span class="li-main"><b>${esc(r.chama_name || 'Chama')}</b><small>${esc(this.roleInfo(r.role).t)} · asked ${esc(ago(r.requested_at))}${r.treasurer_name ? ' · ' + esc(r.treasurer_name) + ' decides' : ''}</small></span><span class="li-end"><span class="live-dot" aria-hidden="true"></span><button type="button" class="btn sm ghost" data-act="jnCancel" data-id="${esc(r.chama_id)}">Cancel</button></span></div>`).join('')}</div>`;
   },
   welcomeCard() { return this.hubPage(true); },
   chooseCard() { return this.hubPage(false); },
@@ -1968,7 +2107,9 @@ ${this.joinMsg ? `<p class="ferr" id="joinErr" role="alert">${esc(this.joinMsg)}
     try { r = await Session.joinWithLink(v); } catch (e) { r = { error: (e && e.message) || H.joinFail }; }
     this.joinBusy = false;
     if (r && r.error) this.joinMsg = r.error;
+    else if (r && r.preview) { this.joinPreview = r.preview; try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {} }
     this.paint();
+    if (r && r.error) { const f = document.getElementById('joinLink'); if (f) { f.focus(); f.select(); } }
   },
   /* Opening a Chama reloads the app into it, so the confirmation is kept for the next load */
   openChama(id) {
@@ -2027,8 +2168,21 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
     if (st === 'signed-out' && this.mode === 'in') { const pw = document.getElementById('gatePw'); if (pw) pw.value = this.signPw || ''; }
     if (st === 'signed-out' && this.mode === 'up' && !this.sent && !this.sending) this.armCool();
     if (OB.sheet) { const q = document.getElementById('lgSearch'); if (q) setTimeout(() => q.focus(), 280); }
-    const jr = document.getElementById('jmRoot');
-    if ((st === 'welcome' || st === 'choose') && this.sub === 'join' && jr) jr.innerHTML = this.joinModal();
+    /* while a join request waits, look again every 20 seconds and open the Chama as soon as it is approved */
+    clearInterval(this._pendTimer);
+    if ((st === 'welcome' || st === 'choose') && (Session.pending || []).length) {
+      this._pendTimer = setInterval(async () => {
+        if (document.hidden || !['welcome', 'choose'].includes(Session.status)) return;
+        const before = (Session.pending || []).map(x => x.chama_id);
+        try {
+          const { data } = await Backend.sb.rpc('my_workspaces');
+          const hit = (data || []).find(w => before.includes(w.chama_id));
+          if (hit) { clearInterval(this._pendTimer); flashNext('dialog:' + 'You were approved. Welcome to ' + (hit.chama_name || 'the Chama') + '.'); Session.switchTo(hit.chama_id); return; }
+          await Session.loadMyRequests();
+          if ((Session.pending || []).length !== before.length) this.paint();
+        } catch (e) { /* offline: try again next time */ }
+      }, 20000);
+    }
     if (st === 'signed-out' && this.sent) {
       try { const d = sessionStorage.getItem('mca-otp') || ''; const inp = document.getElementById('otpIn'); if (inp && d) { inp.value = d; inp._prev = d; Otp.paint(d); } else Otp.paint(''); } catch (e) {}
       Otp.tick();
@@ -2044,20 +2198,25 @@ document.addEventListener('input', e => {
     Gate.draft.name = t.value;
     if (Gate.nameErr) { Gate.nameErr = ''; t.setAttribute('aria-invalid', 'false'); const x = document.getElementById('newChamaErr'); if (x) x.remove(); }
   } else if (t.id === 'joinLink') {
+    /* codes are typed as ABCD-EFGH-JK; links are left as they are */
+    const raw = t.value;
+    if (!/[\/:.]/.test(raw) && raw.replace(/[^A-Za-z0-9]/g, '').length <= 10) {
+      const c = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const f = [c.slice(0, 4), c.slice(4, 8), c.slice(8, 10)].filter(Boolean).join('-');
+      if (f !== raw) { t.value = f; try { t.setSelectionRange(f.length, f.length); } catch (err) {} }
+    }
     Gate.draft.link = t.value;
+    if (Gate.joinMsg) { Gate.joinMsg = ''; const x = document.getElementById('joinErr'); if (x) x.textContent = ''; t.closest('.jn-field') && t.closest('.jn-field').classList.remove('bad'); }
   }
 });
 document.addEventListener('change', e => { if (e.target.id === 'newChamaListed') Gate.draft.listed = e.target.checked; });
 document.addEventListener('submit', e => { if (e.target.id === 'createForm') { e.preventDefault(); Gate.submitCreate(); } });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && Gate.sub === 'join') { Gate.sub = null; Gate.joinMsg = ''; Gate.paint(); }
+  if (e.key === 'Escape' && Gate.sub === 'join' && !Gate.joinPreview) { Gate.sub = null; Gate.joinMsg = ''; Gate.paint(); }
   if (e.key === 'Enter' && e.target.id === 'joinLink') { e.preventDefault(); Gate.submitJoin(); }
 });
-document.addEventListener('click', e => {
-  if (e.target.classList && e.target.classList.contains('jm-veil')) { Gate.sub = null; Gate.joinMsg = ''; Gate.paint(); }
-});
 
-return { get Gate() { return Gate; }, get Otp() { return Otp; }, get OB() { return OB; }, get GL() { return GL; }, get GT() { return GT; }, get AUTH_T() { return AUTH_T; }, get LG_ALL() { return LG_ALL; }, get lgMatches() { return lgMatches; }, get LEGAL() { return LEGAL; }, get OB_POLICY_VERSION() { return OB_POLICY_VERSION; }, };
+return { get Gate() { return Gate; }, get Haptic() { return Haptic; }, get Otp() { return Otp; }, get OB() { return OB; }, get GL() { return GL; }, get GT() { return GT; }, get AUTH_T() { return AUTH_T; }, get LG_ALL() { return LG_ALL; }, get lgMatches() { return lgMatches; }, get LEGAL() { return LEGAL; }, get OB_POLICY_VERSION() { return OB_POLICY_VERSION; }, };
 })();
 
 /* ---- src/core/state.js ---- */
@@ -2300,7 +2459,20 @@ const views = {
           : `<div class="li has-av">${av(m || { name: 'Removed member' }, 40)}<div class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`; }).join('')
       : `<div class="li empty">No payments recorded yet</div>`}</div></section>`;
 
-    return `${greet}${hero}${qa}${stats}${month}${recentHtml}`;
+    /* the group's next meeting and its pinned announcement, from Chat */
+    const C = __M_src_features_chat_index_js.Chat, up = (C.msgs || []).filter(m => m.kind === 'meeting' && !m.deleted_at && m.meta && Date.parse(m.meta.when) > Date.now() - 3 * 3600e3).sort((a, b) => Date.parse(a.meta.when) - Date.parse(b.meta.when))[0];
+    const pin = (C.msgs || []).filter(m => m.pinned && !m.recipient && !m.deleted_at).slice(-1)[0];
+    let group = '';
+    if (up) { const w = new Date(up.meta.when), my = C.mine(up.id); group += `<a class="next-meet" href="#/chat/group"><div class="mt-date"><b>${esc(w.toLocaleDateString('en-KE', { day: 'numeric' }))}</b><span>${esc(w.toLocaleDateString('en-KE', { month: 'short' }))}</span></div><div class="nm-main"><small>Next meeting</small><b>${esc(up.meta.title || 'Chama meeting')}</b><span>${esc(w.toLocaleDateString('en-KE', { weekday: 'short' }) + ' · ' + w.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }))}${up.meta.place ? ' · ' + esc(up.meta.place) : ''}</span></div><span class="nm-rsvp${my ? ' on' : ''}">${my === 'yes' ? 'Coming' : my === 'no' ? 'Not coming' : my === 'maybe' ? 'Maybe' : 'Reply'}</span></a>`; }
+    if (pin) group += `<a class="pin-card" href="#/chat/group">${icon('bell', 's')}<span><b>${esc((pin.meta && pin.meta.title) || 'Announcement')}</b>${esc((pin.body || '').slice(0, 140))}</span></a>`;
+    const sec = Sess.role === 'secretary' ? `<div class="qa" role="group" aria-label="Secretary tools">
+      <button type="button" data-act="chatForm" data-k="meeting" data-th="group"><span class="qa-i">${icon('clock')}</span>Call a meeting</button>
+      <button type="button" data-act="chatForm" data-k="minutes" data-th="group"><span class="qa-i">${icon('doc')}</span>Share minutes</button>
+      <button type="button" data-act="chatForm" data-k="poll" data-th="group"><span class="qa-i">${icon('chart')}</span>Start a vote</button>
+      <button type="button" data-act="chatForm" data-k="announcement" data-th="group"><span class="qa-i">${icon('bell')}</span>Announce</button>
+    </div>` : '';
+    const reqs = Sess.role !== 'member' ? __M_src_features_requests_js.Requests.listHtml(true) : '';
+    return `${greet}${reqs}${hero}${qa}${sec}${group}${stats}${month}${recentHtml}`;
   }
 };
 
@@ -2726,13 +2898,16 @@ const { Reports } = __M_src_lib_reports_js;
 const { av } = __M_src_ui_avatar_js;
 const { Modal, confirmBox } = __M_src_ui_modal_js;
 
-/* Treasurer-only card: people who joined by invite code and are not yet member records. Nothing is added until the treasurer confirms each one. */
+/* Treasurer and secretary: join requests waiting, and people who can sign in but are not on the member list */
 const joinedCard = s => {
-  const Sess = __M_src_core_session_js.Session, P = __M_src_core_session_js.Perm;
-  if (s.shared || !Sess || Sess.role !== 'treasurer') return '';
-  const rows = (Sess.access || []).filter(a => a.status === 'active' && !a.member_id && a.role === 'member');
-  if (!rows.length) return '';
-  return `<section class="sec"><div class="sec-h"><h2>Joined by invite code</h2></div><div class="list">${rows.map(a => `<div class="li has-ic"><span class="li-ic t-gold">${icon('key')}</span><div class="li-main"><b>${esc(a.email)}</b><small>${esc(P.label(a.role))} · not on the member list yet</small></div><div class="li-end"><button class="btn sm pri" data-act="confirmJoined" data-email="${esc(a.email)}">Confirm</button></div></div>`).join('')}</div><p class="foot-note">These people signed in with an invite code. Confirm each one to add them to the member list. Nothing is added until you confirm.</p></section>`;
+  const Sess = __M_src_core_session_js.Session, RQ = __M_src_features_requests_js;
+  if (s.shared && Sess.role === 'member') return '';
+  let out = RQ.Requests.listHtml(true);
+  if (Sess.role === 'treasurer') {
+    const rows = (Sess.access || []).filter(a => a.status === 'active' && !a.member_id && a.role !== 'treasurer');
+    if (rows.length) out += `<section class="sec"><div class="sec-h"><h2>Not on the member list</h2></div><div class="list">${rows.map(a => `<button type="button" class="li has-av" data-act="personOpen" data-e="${esc(a.email)}">${RQ.pav(a.email, null, 42)}<span class="li-main"><b>${esc(a.email)}</b><small>${esc(__M_src_core_session_js.Perm.label(a.role))} · can sign in, money not shown yet</small></span><span class="li-end"><span class="pill-act">Add</span></span></button>`).join('')}</div></section>`;
+  }
+  return out;
 };
 /* Phone masking stays off until the owner approves it (05, B2). false keeps the current full phone numbers. */
 const CG_MASK_PHONES = false;
@@ -2741,7 +2916,7 @@ const views = {
   members(s) {
     const admin = Auth.isAdmin(), meId = s.shared ? s.shared.me : null;
     const head = `<h1 class="lt">Members</h1><p class="lt-sub">${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}${s.chama.mode === 'savings' ? '' : ' · listed in payout order'}</p>`;
-    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri grow" data-act="addMember">${icon('userPlus')}Add member</button><a class="btn tint grow" href="#/settings/actions">${icon('mail')}Invite</a></div>` : '';
+    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri grow" data-act="addMember">${icon('userPlus')}Add a name</button><button type="button" class="btn tint grow" data-act="inviteSheet" data-v="code">${icon('key')}Invite to the app</button></div>` : '';
     if (!s.members.length) return head + btn + joinedCard(s) + `<div class="card" style="margin-top:14px">${s.shared ? emptyState('people', 'No member list yet', 'Your treasurer has not shared the member list yet.') : emptyState('people', 'No members yet', 'Add the people in your chama. You can invite them to sign in afterwards.')}</div>`;
     const rows = s.members.map((m, i) => {
       const rel = s.shared ? null : Domain.reliability(s, m.id);
@@ -2758,26 +2933,7 @@ const views = {
   }
 };
 
-/* Confirming a joined person writes the Chama document, so the treasurer's copy must be refreshed afterwards (otherwise the next save is refused as a conflict). */
-const openConfirmJoined = email => {
-  const base = email.split('@')[0].replace(/[._+\-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
-  Modal.open({ title: 'Confirm member', submitLabel: 'Confirm member',
-    fields: [{ name: 'name', label: 'Full name', value: base, required: true }],
-    body: `<p class="plain"><b>${esc(email)}</b> joined with an invite code. Confirming adds them to the member list, where their payments and loans will be recorded.</p>`,
-    onSubmit: v => { setTimeout(() => confirmJoinedMember(email, String(v.name || '').trim()), 0); } });
-};
-const confirmJoinedMember = async (email, name) => {
-  if (!name) return __M_src_ui_toast_js.toast('Enter the member’s name');
-  const sb = __M_src_core_backend_js.Backend.sb;
-  if (!sb) return __M_src_ui_toast_js.toast('Sign-in is not set up in this app yet');
-  __M_src_ui_toast_js.toast('Confirming ' + email + '…', 'info');
-  const { error } = await sb.rpc('confirm_joined_member', { p_cid: Store.chamaId, p_email: email, p_name: name });
-  if (error) return __M_src_ui_toast_js.toast(rpcMessage(error), 'bad');
-  flashNext(name + ' is now a member.');
-  location.reload();
-};
 const actions = {
-  confirmJoined: { admin: true, run: d => openConfirmJoined(d.email) },
   addMember: { admin: true, run: () => memberForm() },
   editMember: { admin: true, run: d => memberForm(S().members.find(m => m.id === d.id)) },
   moveMember: { admin: true, run(d) {
@@ -3019,50 +3175,86 @@ const views = {
     const fines = m ? sum(s.fines.filter(f => f.memberId === m.id && !f.paid), f => f.amount) : 0;
     const shot = me.photo || (m && Session.photoFor(m)) || '';
     const google = Session.usesGoogle(), hasPw = !!(Session.account && Session.account.has_password);
-    const money = m ? `<div class="stats four"><div><span>Monthly amount</span><b>${esc(kes(Domain.dueFor(s, m.id)))}</b></div><div><span>Saved so far</span><b>${esc(kes(Domain.memberSaved(s, m.id)))}</b></div><div><span>Loan I owe</span><b>${esc(kes(owed))}</b></div><div><span>Unpaid fines</span><b>${esc(kes(fines))}</b></div></div>`
-      : `<div class="card" style="margin-top:12px"><h2>Not on the member list</h2><p class="plain">${Session.role === 'treasurer' ? 'You manage this Chama as an officer. You have no contributions of your own here. To be listed, add yourself in Members.' : 'Your treasurer has not linked your sign-in to a member record yet. Once they do, your money shows here.'}</p></div>`;
+    const tile = (k, v, ic, tone) => `<div class="mtile"><span class="mt-ic ${tone || ''}">${icon(ic, 's')}</span><small>${esc(k)}</small><b class="num">${esc(v)}</b></div>`;
+    const money = m ? `<div class="mtiles">${tile('Monthly amount', kes(Domain.dueFor(s, m.id)), 'clock')}${tile('Saved so far', kes(Domain.memberSaved(s, m.id)), 'coins', 't-ok')}${tile('Loan I owe', kes(owed), 'loans', owed ? 't-warn' : '')}${tile('Unpaid fines', kes(fines), 'receipt', fines ? 't-bad' : '')}</div>`
+      : Session.role === 'treasurer'
+        ? `<div class="card soft-card"><div class="sc-ic">${icon('key')}</div><div><b>You keep the books as an officer</b><p>You are not on the member list, so nothing is recorded under your name. If you also save with the group, add yourself.</p><a class="btn sm tint" href="#/members">${icon('userPlus', 's')}Add myself in Members</a></div></div>`
+        : `<div class="card soft-card"><div class="sc-ic">${icon('clock')}</div><div><b>Almost there</b><p>Your sign-in is not linked to a name on the member list yet, so your money cannot show. The treasurer can fix this in one tap.</p><button type="button" class="btn sm tint" data-act="askLink">${icon('chat', 's')}Ask the treasurer</button></div></div>`;
     const recent = m ? s.payments.filter(p => p.memberId === m.id).sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5) : [];
+    const row = (f, ic, k, v, tone) => `<button type="button" class="li has-ic" data-act="meEdit" data-f="${f}"><span class="li-ic ${tone || ''}">${icon(ic)}</span><span class="li-main"><small>${esc(k)}</small><b>${v ? esc(v) : '<span class="mute">Add</span>'}</b></span>${icon('chev', 'chev')}</button>`;
     return `
-    <section class="card pcard">
+    <section class="phero">
+      <div class="phero-bg" aria-hidden="true"></div>
       <div class="pphoto">${av({ id: m && m.id, name, photo: shot }, 104)}<button type="button" class="cam" data-act="pickPhoto" aria-label="${shot ? 'Change photo' : 'Add a photo'}">${icon('camera')}</button></div>
-      <div class="pname">${name ? esc(name) : 'Add your name'}</div>
-      <div class="prole">${esc(roleName())} · ${esc(Session.groupName || (s.chama && s.chama.name) || 'your Chama')}</div>
-      ${msg ? `<p style="margin-top:12px"><span class="tag ${msg[0]}">${esc(msg[1])}</span></p>` : ''}
-      ${shot ? '<div class="btns" style="justify-content:center"><button type="button" class="btn ghost sm" data-act="removePhoto">Remove photo</button></div>' : ''}
+      <h1 class="pname">${name ? esc(name) : 'Add your name'}</h1>
+      <p class="prole"><span class="rtag r-${esc(Session.role || 'member')}">${esc(roleName())}</span> ${esc(Session.groupName || (s.chama && s.chama.name) || 'your Chama')}</p>
+      ${msg ? `<span class="tag ${msg[0]}">${esc(msg[1])}</span>` : ''}
     </section>
     ${money}
-    ${m ? `<section class="sec"><div class="sec-h"><h2>My recent payments</h2>${recent.length ? `<button type="button" data-act="statement" data-id="${esc(m.id)}">Statement</button>` : ''}</div><div class="list">${recent.length ? recent.map(p => `<div class="li"><div class="li-main"><b>${esc(monthLabel(p.month))}</b><small>${esc(p.date || '')}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`).join('') : '<div class="li empty">No payments recorded for you yet</div>'}</div></section>` : ''}
-    <section class="sec"><div class="sec-h"><h2>My details</h2></div>
-      <div class="card form">
-        <label>Full name<input id="meName" value="${esc(name)}" autocomplete="name" autocapitalize="words" maxlength="120"></label>
-        <label>Username<input id="meUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || ''))}" placeholder="e.g. john.kamau"><small>3 to 20 letters, numbers, dot, dash or underscore. You can sign in with it.</small></label>
-        <label>Phone number<input id="mePhone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(me.phone || (m && m.phone) || '')}" placeholder="0712 345 678"></label>
-        <label>Contact email<input id="meEmail" type="email" inputmode="email" autocomplete="email" value="${esc(me.email || '')}" placeholder="you@example.com"><small>Optional. Your sign-in email stays ${esc(Session.email || 'the same')}.</small></label>
-        <button type="button" class="btn pri block" style="margin-top:20px" data-act="saveMe">Save my details</button>
-        <p class="fhelp" style="text-align:center">The same details are used in every Chama you belong to.</p>
-      </div>
-    </section>
-    <section class="sec"><div class="sec-h"><h2>Password</h2></div>
-      <div class="card form">${hasPw ? `
-        <label>Current password<input id="pwCur" type="password" autocomplete="current-password"></label>
-        <label>New password<input id="pwNew" type="password" autocomplete="new-password"><small>At least 6 characters, with a capital letter, a number and a symbol.</small></label>
-        <label>Confirm new password<input id="pwAgain" type="password" autocomplete="new-password"></label>
-        <button type="button" class="btn block" style="margin-top:20px" data-act="changePassword">Change password</button>` : `<p class="plain">${google ? 'You sign in with Google, so you have no app password. To add one, sign out, choose Sign in, then Forgot password.' : 'No password is set on this account yet. Sign out, choose Sign in, then Forgot password to set one.'}</p>`}
-      </div>
-    </section>
-    <section class="sec"><div class="sec-h"><h2>Account</h2></div>
-      <div class="list">
-        <div class="li"><div class="li-main"><small>Sign-in email</small><b>${esc(Session.email || 'Not set')}</b></div></div>
-        <div class="li"><div class="li-main"><small>Signs in with</small><b>${google && !hasPw ? 'Google' : hasPw ? (google ? 'Google, or email or username and password' : 'Email or username and password') : 'Email code'}</b></div></div>
-        <div class="li"><div class="li-main"><small>Member ID</small><b class="num">${Session.memberId ? esc(String(Session.memberId).slice(-6).toUpperCase()) : 'Not linked'}</b></div></div>
-        <a class="li has-ic" href="#/settings/privacy"><span class="li-ic t-ink">${icon('shield')}</span><span class="li-main"><b>Privacy and my data</b><small>Download, correct or delete your data</small></span>${icon('chev', 'chev')}</a>
-        <a class="li has-ic" href="#/settings"><span class="li-ic t-ink">${icon('gear')}</span><span class="li-main"><b>Settings</b></span>${icon('chev', 'chev')}</a>
-      </div>
-    </section>`;
+    ${m ? `<section class="sec"><div class="sec-h"><h2>My recent payments</h2>${recent.length ? `<button type="button" data-act="statement" data-id="${esc(m.id)}">Statement</button>` : ''}</div><div class="list">${recent.length ? recent.map(p => `<div class="li has-ic"><span class="li-ic t-ok">${icon('check')}</span><div class="li-main"><b>${esc(monthLabel(p.month))}</b><small>${esc(p.date || '')}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`).join('') : '<div class="li empty">No payments recorded yet</div>'}</div></section>` : ''}
+    <section class="sec"><div class="sec-h"><h2>My details</h2></div><div class="list">
+      ${row('name', 'profile', 'Full name', name)}
+      ${row('user', 'tag', 'Username', /^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || ''), 't-ink')}
+      ${row('phone', 'phone', 'Phone number', me.phone || (m && m.phone) || '', 't-info')}
+      ${row('email', 'mail', 'Contact email', me.email || '', 't-gold')}
+    </div><p class="foot-note">The same details are used in every Chama you belong to.</p></section>
+    <section class="sec"><div class="sec-h"><h2>Sign-in and security</h2></div><div class="list">
+      <div class="li has-ic"><span class="li-ic t-ink">${icon('mail')}</span><div class="li-main"><small>Sign-in email</small><b>${esc(Session.email || 'Not set')}</b></div></div>
+      ${hasPw ? row('password', 'lock', 'Password', 'Change password', 't-ink') : `<div class="li has-ic"><span class="li-ic t-ink">${icon('lock')}</span><div class="li-main"><small>Signs in with</small><b>${google ? 'Google' : 'Email code'}</b></div></div>`}
+      ${shot ? `<button type="button" class="li has-ic" data-act="removePhoto"><span class="li-ic">${icon('camera')}</span><span class="li-main"><b>Remove photo</b></span>${icon('chev', 'chev')}</button>` : ''}
+      <a class="li has-ic" href="#/settings/privacy"><span class="li-ic t-ink">${icon('shield')}</span><span class="li-main"><b>Privacy and my data</b><small>Download, correct or delete your data</small></span>${icon('chev', 'chev')}</a>
+    </div></section>`;
   },
 };
 
+/* one field at a time, in a sheet: fewer taps than a long form, and nothing else on the page moves */
+const editSheet = f => {
+  const me = Me.get(), s = S(), m = s && me.memberId ? s.members.find(x => x.id === me.memberId) : null;
+  const Sheet = __M_src_features_requests_js.Sheet;
+  const F = {
+    name: ['Full name', 'profile', `<input id="edV" value="${esc(me.name || (m && m.name) || '')}" autocomplete="name" autocapitalize="words" maxlength="120" autofocus>`, 'As your Chama knows you.'],
+    user: ['Username', 'tag', `<input id="edV" value="${esc(/^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || ''))}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="e.g. john.kamau" autofocus>`, '3 to 20 letters, numbers, dot, dash or underscore. You can sign in with it.'],
+    phone: ['Phone number', 'phone', `<input id="edV" type="tel" inputmode="tel" autocomplete="tel" value="${esc(me.phone || (m && m.phone) || '')}" placeholder="0712 345 678" autofocus>`, 'The treasurer uses it for M-Pesa matching and reminders.'],
+    email: ['Contact email', 'mail', `<input id="edV" type="email" inputmode="email" autocomplete="email" value="${esc(me.email || '')}" placeholder="you@example.com" autofocus>`, 'Optional. Your sign-in email stays ' + (Session.email || 'the same') + '.'],
+    password: ['Change password', 'lock', '', '']
+  }[f];
+  if (!F) return;
+  if (f === 'password') return Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('lock')}</span><h3>Change password</h3><p>At least 6 characters, with a capital letter, a number and a symbol.</p></div>
+<label class="fgrp" for="pwCur"><span class="flab">Current password</span><span class="field">${icon('lock')}<input id="pwCur" type="password" autocomplete="current-password" autofocus></span></label>
+<label class="fgrp" for="pwNew"><span class="flab">New password</span><span class="field">${icon('lock')}<input id="pwNew" type="password" autocomplete="new-password"></span></label>
+<label class="fgrp" for="pwAgain"><span class="flab">Confirm new password</span><span class="field">${icon('lock')}<input id="pwAgain" type="password" autocomplete="new-password"></span></label>
+<button type="button" class="btn pri block lg" data-act="changePassword">Change password</button>`, { key: 'edit', label: 'Change password' });
+  Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon(F[1])}</span><h3>${esc(F[0])}</h3><p>${esc(F[3])}</p></div>
+<label class="fgrp" for="edV"><span class="field">${icon(F[1])}${F[2]}</span></label>
+<button type="button" class="btn pri block lg" data-act="meSave" data-f="${f}">Save</button>`, { key: 'edit', label: F[0] });
+};
+
 const actions = {
+  meEdit: d => editSheet(d.f),
+  askLink: async () => {
+    const C = __M_src_features_chat_index_js.Chat;
+    try {
+      if (!C.contacts.length) await C.load();
+      const t = C.contacts.find(c => c.role === 'treasurer');
+      if (!t) return toast('No treasurer found in this Chama');
+      await C.send(t.user_id, 'text', 'Hi, could you add me to the member list so my contributions show on my profile? (People and access → tap my name → Add)', {});
+      toast('Message sent to ' + t.name, 'ok'); location.hash = '#/chat/' + t.user_id;
+    } catch (e) { toast(e.message); }
+  },
+  async meSave(d) {
+    const me = Me.get(), s = S(), m = s && me.memberId ? s.members.find(x => x.id === me.memberId) : null;
+    const v = String(($('#edV') || {}).value || '').trim();
+    const cur = { name: me.name || (m && m.name) || '', phone: me.phone || (m && m.phone) || '', email: me.email || '', username: /^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || '') };
+    try {
+      if (d.f === 'name') { cur.name = v.replace(/\s+/g, ' '); if (!cur.name) throw new Error('Please type your name'); if (cur.name.length > 120) throw new Error('Keep your name to 120 characters or fewer'); }
+      if (d.f === 'user') { cur.username = v.toLowerCase(); if (cur.username && !/^[a-z0-9._-]{3,20}$/.test(cur.username)) throw new Error('Username must be 3 to 20 letters, numbers, dot, dash or underscore'); }
+      if (d.f === 'phone') { cur.phone = v.replace(/[\s-]/g, ''); if (cur.phone && !/^(\+?254|0)[17]\d{8}$/.test(cur.phone)) throw new Error('Phone number should look like 0712345678'); }
+      if (d.f === 'email') { cur.email = v.toLowerCase(); if (cur.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cur.email)) throw new Error('Email address does not look right'); }
+      if (!cur.name) throw new Error('Add your full name first');
+      await Session.saveDetails({ name: cur.name, phone: cur.phone, email: cur.email, username: cur.username || null });
+      __M_src_features_requests_js.Sheet.close(); toast('Saved', 'ok'); render();
+    } catch (e) { toast(e.message); }
+  },
   pickPhoto() {
     const input = document.getElementById('mePhoto');
     if (!input) return;
@@ -3097,7 +3289,7 @@ const actions = {
       if (next === cur) throw new Error('Choose a password you have not used before');
       if (btn) { btn.disabled = true; btn.textContent = 'Changing…'; }
       await Session.changePassword(cur, next);
-      toast('Password changed'); render();
+      __M_src_features_requests_js.Sheet.close(); toast('Password changed', 'ok'); render();
     } catch (e) { toast(e.message); if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = 'Change password'; } }
   },
   exportMe() {
@@ -3322,7 +3514,7 @@ const Account = {
   async submitDelete(v) {
     if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
     const { data, error } = await Backend.sb.rpc('request_account_deletion', { p_reason: String(v.reason || '').trim().slice(0, 500) || null });
-    if (error) { toast(/Leave your/i.test(error.message) ? 'You still belong to a Chama. Leave it, or hand it over, then delete your account.' : /recent|sign in again|10 minutes/i.test(error.message) ? 'For your safety, sign out and sign in again, then delete your account within 10 minutes.' : error.message); if (/Leave your/i.test(error.message)) location.hash = '#/settings/chama'; return; }
+    if (error) { toast(/Leave your/i.test(error.message) ? 'You still belong to a Chama. Leave it, or hand it over, then delete your account.' : /recent|sign in again|10 minutes/i.test(error.message) ? 'For your safety, sign out and sign in again, then delete your account within 10 minutes.' : error.message); if (/Leave your/i.test(error.message) && Session.ready()) location.hash = '#/settings/chama'; return; }
     this.checked = false; this.pending = null;
     try { await Backend.sb.auth.signOut({ scope: 'global' }); } catch (e) { /* the local sign-out below still runs */ }
     try { Object.keys(localStorage).filter(k => k.startsWith('chama:') && !/dirty/i.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) { /* storage unavailable */ }
@@ -3418,26 +3610,29 @@ const views = {
         + (show('text') ? `<div style="margin-top:12px">${seg('size', 'Text size', [['n', 'Default'], ['l', 'Large'], ['x', 'Largest']])}</div>` : '')
         + (show('seeing') ? grp('Seeing', [sw('hc', 'Stronger contrast', 'Black and white with thicker lines'), sw('cb', 'Symbols with colours', 'Adds ✓ and ✕ so colour is never the only clue'), sw('ft', 'Easy-read lettering', 'A plainer typeface for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')]) : '')
         + (show('hands') ? grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')]) : '')
+        + (!sub ? grp('Sound', [`<div class="li"><span class="li-main"><b>Sounds</b><small>A soft chime when something important succeeds, such as a confirmed code. Never on every tap.</small></span><button type="button" class="sw" role="switch" aria-checked="${__M_src_ui_toast_js.Sfx.enabled}" aria-label="Sounds" data-act="sfxToggle"></button></div>`]) : '')
         + (show('reading') ? grp('Reading and messages', [sw('long', 'Keep messages longer', 'Small messages stay on screen for 14 seconds'), sw('read', 'Read-aloud button', 'Shows a button that reads the page out loud')]) : '')
         + `<div class="btns"><button class="btn" data-act="a11yReset">Reset to default</button></div>`;
     }
     if (r === 'settings/account') return `<h1 class="lt">My account</h1><div class="card"><div class="kv"><span>Name</span><b>${esc(me.name || 'Not added yet')}</b></div><div class="kv"><span>Phone</span><b>${esc(me.phone || 'Not added yet')}</b></div><div class="kv"><span>Contact email</span><b>${esc(me.email || 'Not added yet')}</b></div><div class="kv"><span>Sign-in email</span><b>${esc(Session.email || '')}</b></div></div>
       <div class="btns"><a class="btn pri" href="#/profile">Edit in my profile</a></div>`;
-    if (r === 'settings/chama') { const c = s.chama; return `<h1 class="lt">${esc(c.name)}</h1><p class="lt-sub">${admin ? 'You are the treasurer, so you can change these.' : 'Only the treasurer can change these.'}</p>
-      <div class="card"><div class="kv"><span>Monthly contribution</span><b class="num">${esc(kes(c.monthly))}</b></div>
-      <div class="kv"><span>Due by</span><b>Day ${esc(c.dueDay)}</b></div>
-      <div class="kv"><span>Late fine</span><b class="num">${esc(kes(c.finePerLate))}</b></div>
-      <div class="kv"><span>Loan interest</span><b>${esc(c.loanRate)}% a month, flat</b></div>
-      <div class="kv"><span>Type</span><b>${c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round'}</b></div>
-      ${c.mode === 'savings' ? '' : `<div class="kv"><span>First payout month</span><b>${esc(c.startMonth || '')}</b></div>`}
-      ${c.payTo ? `<div class="kv"><span>Pay to</span><b>${esc(c.payTo)}</b></div>` : ''}</div>
-      ${admin ? '<div class="btns"><button class="btn pri" data-act="settings">' + icon('pencil') + 'Edit Chama details</button><button class="btn" data-act="undo">' + icon('undo') + 'Undo last change</button></div>' : ''}
-      <section class="sec"><div class="list"><button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`; }
+    if (r === 'settings/chama') {
+      const c = s.chama, ws = (Session.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
+      const row = (f, ic, tone, k, v) => admin
+        ? `<button type="button" class="li has-ic" data-act="chamaEdit" data-f="${f}"><span class="li-ic ${tone}">${icon(ic)}</span><span class="li-main"><small>${esc(k)}</small><b>${esc(v)}</b></span>${icon('chev', 'chev')}</button>`
+        : `<div class="li has-ic"><span class="li-ic ${tone}">${icon(ic)}</span><span class="li-main"><small>${esc(k)}</small><b>${esc(v)}</b></span></div>`;
+      return `<section class="chama-hero"><span class="jn-tile lg">${esc(String(c.name || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span><div><h1>${esc(c.name)}</h1><p>${c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round'}${ws.display_tag ? ' · ' + esc(ws.display_tag) : ''} · ${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}</p></div></section>
+      <p class="lt-sub" style="margin-top:12px">${admin ? 'Tap a rule to change it. Every change is kept in History, and you can undo the last one.' : 'Only the treasurer can change these.'}</p>
+      <section class="sec" style="margin-top:0"><div class="sec-h"><h2>Basics</h2></div><div class="list">${row('name', 'pencil', 't-ink', 'Name', c.name)}${row('mode', 'swap', 't-gold', 'Type', c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round')}${c.mode === 'savings' ? '' : row('startMonth', 'clock', 't-info', 'First payout month', c.startMonth ? monthLabelLong(c.startMonth) : 'Not set')}</div></section>
+      <section class="sec"><div class="sec-h"><h2>Money rules</h2></div><div class="list">${row('monthly', 'coins', '', 'Monthly contribution per share', kes(c.monthly))}${row('dueDay', 'clock', 't-info', 'Due by', 'Day ' + c.dueDay + ' of the month')}${row('finePerLate', 'receipt', 't-bad', 'Late fine', kes(c.finePerLate))}${row('loanRate', 'loans', 't-gold', 'Loan interest', c.loanRate + '% a month, flat')}${row('payTo', 'wallet', 't-ink', 'Members pay to', c.payTo || 'Not set')}</div></section>
+      ${admin ? `<section class="sec"><div class="list"><button type="button" class="li has-ic" data-act="undo"><span class="li-ic t-ink">${icon('undo')}</span><span class="li-main"><b>Undo last change</b></span>${icon('chev', 'chev')}</button></div></section>` : ''}
+      <section class="sec"><div class="list"><button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
+    }
     if (r === 'settings/data') return `<h1 class="lt">Data and storage</h1><div class="card"><h2>Where records are kept</h2>
       <p class="plain">Every change is saved on this phone first, then sent to the chama’s secure cloud database when you are online. ${CONFIG.supabase ? '' : 'The cloud is not set up in this app.'}</p>
       <p class="plain">Signing out removes this Chama’s records from this phone. Changes that have not been sent yet are lost, so wait until you are online before you sign out.</p></div>
       <div class="btns"><a class="btn" href="#/reports">Reports and backup</a><a class="btn" href="#/settings/help">Run checks</a></div>`;
-    if (r === 'settings/actions') return this.access(s, admin);
+    if (r === 'settings/actions') return admin ? __M_src_features_requests_js.accessView(s) : this.access(s, admin);
     if (r === 'settings/about') return `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 0 6px">${markTile('lg')}<h1 class="lt" style="margin-top:16px">${esc(APP.name)}</h1><p class="mute">Version ${esc(APP.version)} · ${esc(APP.released)}</p></div>
       <div class="card"><p class="plain">Record-keeping for chamas: contributions, loans, fines, payouts and expenses, shared clearly with every member. My Chama keeps records only. It does not hold, send or lend money.</p></div>
       <section class="sec"><div class="sec-h"><h2>What’s new</h2></div><div class="list">${APP.notes.slice(0, 3).map(([v, t]) => `<div class="li"><div class="li-main"><b>${esc(v)}</b><small style="white-space:normal">${esc(t)}</small></div></div>`).join('')}</div></section>
@@ -3460,6 +3655,7 @@ const views = {
       <section class="sec"><div class="list">
         <div class="li"><div class="li-main"><small>Privacy contact</small><b>${esc(APP.privacyContact || 'Not set yet')}</b></div></div>
         <div class="li"><div class="li-main"><small>You accepted</small><b>${consent.agreedAt ? 'Version ' + esc(consent.policy || '') + ' on ' + esc(new Date(consent.agreedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) : 'Not recorded on this phone'}</b></div></div>
+        ${consentRecords()}
       </div><p class="foot-note">To withdraw your consent, leave your Chamas and delete your account below, or write to the privacy contact. Withdrawing does not affect what was done before.</p></section>
       <section class="sec">${Account.card()}</section>`;
     }
@@ -3468,28 +3664,41 @@ const views = {
   },
   access(s, admin) {
     const label = a => a.status === 'active' ? 'signed in' : a.status === 'removed' ? 'access removed' : 'waiting to sign in';
-    if (!admin) return `<h1 class="lt">My access</h1><div class="card"><div class="kv"><span>Role</span><b>${esc(Perm.label(Session.role))}</b></div><div class="kv"><span>Signed in as</span><b>${esc(Session.email)}</b></div><div class="kv"><span>Member record</span><b>${Session.memberId ? 'Linked' : 'Not linked'}</b></div></div>
+    if (!admin) return `<h1 class="lt">My access</h1>${__M_src_features_requests_js.Requests.listHtml()}<div class="card"><div class="kv"><span>Role</span><b>${esc(Perm.label(Session.role))}</b></div><div class="kv"><span>Signed in as</span><b>${esc(Session.email)}</b></div><div class="kv"><span>Member record</span><b>${Session.memberId ? 'Linked' : 'Not linked'}</b></div></div>
       <p class="foot-note">You see your own money and the group totals. Your treasurer controls who can sign in.</p>
       <section class="sec"><div class="list"><button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
-    const opts = s.members.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
-    const invWhen = d => { try { return new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); } catch (e) { return ''; } };
-    const invites = (Session.invites || []).filter(i => i.status !== 'accepted');
-    const invRows = invites.map(i => `<div class="li has-ic" style="align-items:flex-start"><span class="li-ic t-info">${icon('mail')}</span><div class="li-main"><b style="overflow-wrap:anywhere">${esc(i.invited_email)}</b><small>${esc(Perm.label(i.intended_role))} · ${i.status === 'pending' ? 'expires ' + esc(invWhen(i.expires_at)) : esc(i.status)}${i.member_id ? ' · linked to a member' : ''}</small>${i.status === 'pending' || i.status === 'expired' ? `<span class="btns"><button class="btn sm" data-act="resendInvite" data-i="${esc(i.id)}">Resend</button>${i.status === 'pending' ? `<button class="btn sm bad" data-act="revokeInvite" data-i="${esc(i.id)}" aria-label="Cancel invitation to ${esc(i.invited_email)}">Cancel</button>` : ''}</span>` : ''}</div></div>`).join('');
-    const others = (Session.access || []).filter(a => a.status === 'active' && String(a.email).toLowerCase() !== String(Session.email || '').toLowerCase());
-    const list = (Session.access || []).map(a => { const self = String(a.email).toLowerCase() === String(Session.email || '').toLowerCase();
-      return `<div class="li has-ic"><span class="li-ic ${a.role === 'treasurer' ? 't-gold' : ''}">${icon(a.role === 'treasurer' ? 'key' : 'profile')}</span><div class="li-main"><b>${esc(a.email)}${self ? ' (you)' : ''}</b><small>${esc(Perm.label(a.role))} · ${label(a)} · ${a.member_id ? 'listed as a member' : 'officer only'}</small></div>${a.status === 'removed' || a.role === 'treasurer' || self ? '' : `<div class="li-end"><button class="btn sm bad" data-act="revoke" data-e="${esc(a.email)}">Remove</button></div>`}</div>`; }).join('');
-    return `<h1 class="lt">People and access</h1><p class="lt-sub">Who can sign in to ${esc(s.chama.name)}, and what they can see</p>
-      <div class="card form"><h2>Invite by email</h2><p class="plain">They get an email with a link, sign in with that email address, and press Accept. Nobody joins until they accept.</p>
-        <label>Email address<input id="invEmail" type="email" inputmode="email" autocomplete="off" autocapitalize="none" placeholder="name@example.com"></label>
-        <label>Role<select id="invRole"><option value="member">Member: sees own money and group totals</option>${Array.isArray(Session.invites) ? '<option value="secretary">Secretary: same access as a member for now</option>' : ''}<option value="treasurer">Treasurer: sees and changes everything</option></select></label>
-        <label>Member record<select id="invMember"><option value="">Officer only: not on the member list</option>${opts}</select><small>Link them to their name, so they see their own money.</small></label>
-        <button type="button" class="btn pri block" style="margin-top:18px" data-act="invite">${icon('mail')}${Array.isArray(Session.invites) ? 'Send invitation' : 'Add person'}</button>
-      </div>
-      ${Array.isArray(Session.invites) ? `<section class="sec"><div class="sec-h"><h2>Invitations</h2></div><div class="list">${invRows || '<div class="li empty">No open invitations</div>'}</div></section>` : ''}
-      <section class="sec"><div class="sec-h"><h2>Invite code</h2></div>${Session.codeBlockHtml()}</section>
-      <section class="sec"><div class="sec-h"><h2>People with access</h2><button type="button" data-act="loadAccess">Refresh</button></div><div class="list">${list || '<div class="li empty">Nobody else has access yet</div>'}</div></section>
-      ${others.length ? `<section class="sec"><div class="sec-h"><h2>Hand over the Chama</h2></div><div class="list">${others.map(a => `<div class="li"><div class="li-main"><b>${esc(a.email)}</b><small>${esc(Perm.label(a.role))}</small></div><div class="li-end"><button class="btn sm" data-act="handover" data-e="${esc(a.email)}">Make treasurer</button></div></div>`).join('')}</div><p class="foot-note">You can stay on as co-treasurer, or step down to Member. The Chama always keeps one treasurer.</p></section>` : ''}`;
+    return '';
   },
+};
+/* what the server holds about each acceptance: the person can see exactly what we can show later */
+let consentCache = null, consentLoading = false;
+const consentRecords = () => {
+  if (consentCache === null && !consentLoading && Backend.sb) {
+    consentLoading = true;
+    Backend.sb.rpc('my_consents').then(r => { consentCache = r.error ? [] : (r.data || []); consentLoading = false; render(); }, () => { consentCache = []; consentLoading = false; });
+  }
+  if (!consentCache || !consentCache.length) return '';
+  return consentCache.slice(0, 3).map(c => `<div class="li"><div class="li-main"><small>Recorded on our server · ${esc(c.policy_version)}</small><b>${esc(new Date(c.accepted_at).toLocaleString('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }))}</b><small>${esc([c.method === 'continue:google' ? 'Continued with Google' : c.method === 'continue:sign-in' ? 'Continued to sign in' : c.method === 'continue:create-account' ? 'Continued to create an account' : c.method ? 'Continued' : '', c.timezone, c.ip ? 'from ' + c.ip : '', c.user_agent ? (/iPhone|iPad/.test(c.user_agent) ? 'iPhone' : /Android/.test(c.user_agent) ? 'Android' : /Mac/.test(c.user_agent) ? 'Mac' : /Windows/.test(c.user_agent) ? 'Windows' : 'browser') : ''].filter(Boolean).join(' · '))}</small></div></div>`).join('');
+};
+const monthLabelLong = k => { const [y, m] = String(k).split('-').map(Number); return y && m ? new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' }) : String(k); };
+const CHAMA_FIELDS = {
+  name: ['Chama name', 'pencil', 'text', 'Members see this everywhere.'],
+  mode: ['Type of Chama', 'swap', 'select', 'Merry-go-round: the pot rotates. Savings: money stays in the pool for loans.'],
+  startMonth: ['First payout month', 'clock', 'month', 'The month the first member receives the pot.'],
+  monthly: ['Monthly contribution per share', 'coins', 'number', 'In KES. A member with two shares pays twice this.'],
+  dueDay: ['Due by day of the month', 'clock', 'number', 'From 1 to 28. After this day a payment counts as late.'],
+  finePerLate: ['Late fine', 'receipt', 'number', 'In KES. 0 means no fine.'],
+  loanRate: ['Loan interest', 'loans', 'number', 'Percent a month, flat. New loans start with this rate.'],
+  payTo: ['Members pay to', 'wallet', 'text', 'Till, paybill or phone number. It is shown in reminders and payment requests.']
+};
+const chamaEditSheet = f => {
+  const F = CHAMA_FIELDS[f], c = S().chama; if (!F) return;
+  const v = c[f] == null ? '' : c[f];
+  const input = F[2] === 'select' ? `<select id="chV"><option value="rotation"${v === 'rotation' ? ' selected' : ''}>Merry-go-round (the pot rotates)</option><option value="savings"${v === 'savings' ? ' selected' : ''}>Savings or table banking</option></select>`
+    : `<input id="chV" type="${F[2]}" value="${esc(v)}"${F[2] === 'number' ? ' inputmode="decimal" step="any"' : ''} autofocus>`;
+  __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon(F[1])}</span><h3>${esc(F[0])}</h3><p>${esc(F[3])}</p></div>
+<label class="fgrp" for="chV"><span class="field">${icon(F[1])}${input}</span></label>
+<button type="button" class="btn pri block lg" data-act="chamaSave" data-f="${f}">Save</button>`, { key: 'chama', label: F[0] });
 };
 /* keep `this` pointing at views when called as Views.settings */
 views.settings = views.settings.bind(views);
@@ -3497,6 +3706,7 @@ views.settings = views.settings.bind(views);
 const actions = {
   a11y: d => { A11y.d[d.k] = A11y.d[d.k] ? 0 : 1; A11y.save(); render(); A11y.refocus(`[data-act=a11y][data-k=${d.k}]`); },
   a11ySet: d => { A11y.d[d.k] = d.v; A11y.save(); render(); A11y.refocus(`[data-act=a11ySet][data-k=${d.k}][data-v=${d.v}]`); },
+  sfxToggle() { try { localStorage.setItem('mca-sfx', __M_src_ui_toast_js.Sfx.enabled ? 'off' : 'on'); } catch (e) {} render(); if (__M_src_ui_toast_js.Sfx.enabled) { __M_src_ui_toast_js.Sfx.unlock(); __M_src_ui_toast_js.Sfx.ok(); } A11y.refocus('[data-act=sfxToggle]'); },
   a11yReset() { A11y.d = { ...A11y.def }; A11y.save(); render(); toast('Back to default', 'info'); },
   openLang() { if (typeof window.openLanguagePicker === 'function') window.openLanguagePicker(); },
   skip() { $('#view').focus(); },
@@ -3506,41 +3716,14 @@ const actions = {
     const u = new SpeechSynthesisUtterance($('#view').innerText); u.lang = 'en-KE'; u.rate = 0.95;
     u.onend = u.onerror = () => { b.textContent = 'Read this page aloud'; }; b.textContent = 'Stop reading'; ss.speak(u);
   },
-  codeCreate: async () => {
-    const role = $('#codeRole').value, hours = Number($('#codeHours').value), maxUses = Number($('#codeUses').value), memberId = $('#codeMember').value || null;
-    if (!(Number.isInteger(maxUses) && maxUses >= 1 && maxUses <= 100)) return toast('Uses must be a whole number from 1 to 100');
-    try { await Session.createCode({ role, hours, maxUses, memberId }); toast('Code created. Copy it now: it is shown once', 'info'); } catch (e) { toast(e.message); }
-  },
-  codeCopy: () => {
-    const c = Session.newCode && Session.newCode.code; if (!c) return;
-    if (navigator.clipboard) navigator.clipboard.writeText(c).then(() => toast('Code copied'), () => toast('Could not copy. Press and hold the code to copy it.'));
-    else toast('Press and hold the code to copy it.', 'info');
-  },
-  codeDone: () => { Session.newCode = null; Session.loadAccess(); },
   codeRevoke: async d => { try { await Session.revokeCode(d.id); toast('Code cancelled', 'info'); } catch (e) { toast(e.message); } },
   tagSave: async () => {
     const t = ($('#codeTag').value || '').trim().toUpperCase();
     if (!/^[A-Z0-9]{4}$/.test(t)) return toast('A tag is exactly 4 letters or numbers');
-    try { const tag = await Session.saveTag(t); toast('Chama tag saved: ' + tag); } catch (e) { toast(e.message); }
+    try { const tag = await Session.saveTag(t); __M_src_features_requests_js.Sheet.close(); toast('Chama tag saved: ' + tag, 'ok'); } catch (e) { toast(e.message); }
   },
   revoke: async d => { __M_src_ui_toast_js.Pop.confirm({ title: 'Remove access?', text: d.e + ' will no longer be able to open this Chama. Their records are kept.', confirmLabel: 'Remove', danger: true, onYes: async () => { try { await Session.revoke(d.e); } catch (e) { toast(e.message); } } }); },
   loadAccess: () => Session.loadAccess(),
-  invite: async () => {
-    const email = ($('#invEmail').value || '').trim().toLowerCase(), mid = $('#invMember').value || null, role = $('#invRole').value;
-    if (!validEmail(email)) return toast('Email address does not look right');
-    if (email === String(Session.email || '').toLowerCase()) return toast('That is your own email');
-    if (!Backend.sb) return toast('Sign-in is not set up in this app yet');
-    const btn = document.querySelector('[data-act="invite"]'); if (btn) btn.disabled = true;
-    let r;
-    try { r = await Session.sendInvite('create', { email, role, member_id: mid }); } catch (e) { if (btn) btn.disabled = false; return toast(e.message); }
-    if (btn) btn.disabled = false;
-    if (r.unavailable) return toast('Invitation not sent. The invitation service did not answer.');
-    $('#invEmail').value = ''; $('#invMember').value = '';
-    toast(r.email_status === 'sent' ? 'Invitation sent to ' + email
-      : r.email_status === 'not_configured' ? 'Invitation saved, but email sending is not set up yet. Use Resend once it is.'
-      : 'Invitation saved, but the email could not be sent (' + (r.email_error || 'unknown reason') + '). Use Resend to try again.');
-    await Promise.all([Session.loadInvites(), Session.loadAccess()]);
-  },
   resendInvite: async d => {
     try {
       const r = await Session.sendInvite('resend', { invitation_id: d.i });
@@ -3554,6 +3737,20 @@ const actions = {
     if (error) return toast(error.message);
     toast('Invitation cancelled', 'info'); await Session.loadInvites();
   },
+  chamaEdit: { admin: true, run: d => chamaEditSheet(d.f) },
+  chamaSave: { admin: true, run(d) {
+    const raw = String(($('#chV') || {}).value || '').trim(), f = d.f; let val;
+    if (f === 'name') { val = raw.replace(/\s+/g, ' '); if (val.length < 2 || val.length > 80) throw new Error('Chama name must be 2 to 80 characters'); }
+    else if (f === 'mode') val = raw === 'savings' ? 'savings' : 'rotation';
+    else if (f === 'startMonth') { if (!/^\d{4}-\d{2}$/.test(raw)) throw new Error('Choose a month'); val = raw; }
+    else if (f === 'payTo') val = raw.slice(0, 60);
+    else if (f === 'dueDay') { val = Math.round(num(raw, 'Due day', { min: 1 })); if (val > 28) throw new Error('Due day must be 1 to 28'); }
+    else if (f === 'loanRate') { val = num(raw, 'Rate', { allowZero: true }); if (val > 100) throw new Error('Interest above 100% a month is not allowed'); }
+    else if (f === 'finePerLate') val = num(raw, 'Fine', { allowZero: true });
+    else if (f === 'monthly') val = num(raw, 'Contribution');
+    Store.commit(s => { s.chama = { ...s.chama, [f]: val }; });
+    __M_src_features_requests_js.Sheet.close(); toast('Saved', 'ok');
+  } },
   settings: { admin: true, run() {
     const c = S().chama;
     Modal.open({ title: 'Chama details', fields: [
@@ -3608,10 +3805,29 @@ const NOTE_TYPES = {
   contribution_overdue:  { cat: 'financial', icon: 'alert', tone: 'danger', label: 'Contribution overdue', high: true },
   late_summary:          { cat: 'group', icon: 'users', tone: 'group', label: 'Late contributions', high: true },
   password_changed:      { cat: 'system', icon: 'shield', tone: 'danger', label: 'Security', mandatory: true, high: true },
-  release_published:     { cat: 'system', icon: 'doc', tone: 'system', label: 'App update' }
+  release_published:     { cat: 'system', icon: 'doc', tone: 'system', label: 'App update' },
+  /* written by the server (table chama_notifications), one row per person */
+  join_request:          { cat: 'group', icon: 'users', tone: 'warn', label: 'Join request', high: true, mandatory: true },
+  join_approved:         { cat: 'group', icon: 'shield', tone: 'financial', label: 'Approved', high: true },
+  join_declined:         { cat: 'group', icon: 'alert', tone: 'danger', label: 'Request declined', high: true },
+  member_joined:         { cat: 'group', icon: 'users', tone: 'group', label: 'New member' },
+  member_left:           { cat: 'group', icon: 'users', tone: 'warn', label: 'Member left', high: true },
+  member_removed:        { cat: 'group', icon: 'users', tone: 'warn', label: 'Access removed', high: true },
+  access_removed:        { cat: 'group', icon: 'alert', tone: 'danger', label: 'Access removed', high: true, mandatory: true },
+  member_linked:         { cat: 'group', icon: 'users', tone: 'financial', label: 'Member list' },
+  role_changed:          { cat: 'group', icon: 'shield', tone: 'group', label: 'Your role', high: true, mandatory: true },
+  role_changed_all:      { cat: 'group', icon: 'users', tone: 'group', label: 'Roles' },
+  ownership:             { cat: 'group', icon: 'shield', tone: 'warn', label: 'New treasurer', high: true },
+  payment_claimed:       { cat: 'financial', icon: 'wallet', tone: 'warn', label: 'Says they paid', high: true },
+  message_announcement:  { cat: 'messages', icon: 'bell', tone: 'group', label: 'Announcement', high: true },
+  message_meeting:       { cat: 'messages', icon: 'doc', tone: 'group', label: 'Meeting', high: true },
+  message_minutes:       { cat: 'messages', icon: 'doc', tone: 'system', label: 'Minutes' },
+  message_poll:          { cat: 'messages', icon: 'users', tone: 'group', label: 'Vote' },
+  message_payment_request: { cat: 'financial', icon: 'wallet', tone: 'warn', label: 'Payment request', high: true },
+  message_statement:     { cat: 'financial', icon: 'doc', tone: 'financial', label: 'Statement' }
 };
 
-const NOTE_CAT_LABEL = { financial: 'Financial', group: 'Group', system: 'System' };
+const NOTE_CAT_LABEL = { financial: 'Money', group: 'People', messages: 'Messages', system: 'App' };
 
 const NOTE_ICON = {
   wallet: '<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l12-3v3"/><circle cx="16.5" cy="13.5" r="1"/>',
@@ -3625,22 +3841,65 @@ const NOTE_ICON = {
 
 const NOTE_SYN = { money: ['kes', 'payment', 'contribution', 'financial'], pay: ['payment'], paid: ['payment'], late: ['overdue', 'late', 'owed', 'due'], due: ['due', 'owed'], owed: ['owed', 'due'], security: ['pin', 'security'], update: ['version', 'app', 'update'], version: ['version'], group: ['group', 'treasurer'] };
 
-const NOTE_LIST_CATS = ['financial', 'group', 'system'];
+const NOTE_LIST_CATS = ['financial', 'group', 'messages', 'system'];
 
 const svgIcon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NOTE_ICON[k] || ''}</svg>`;
 
 const Notify = {
-  filter: 'all', q: '', lastCount: null,
+  filter: 'all', q: '', lastCount: null, server: [], _chan: null, _timer: 0,
+  /* the server's notifications for this person in this Chama, live */
+  async loadServer() {
+    const Backend = __M_src_core_backend_js.Backend, Session = __M_src_core_session_js.Session;
+    if (!Backend.sb || !Session.user || !Store.chamaId) return;
+    const { data, error } = await Backend.sb.from('chama_notifications').select('id,kind,title,body,link,priority,created_at,read_at,data')
+      .eq('chama_id', Store.chamaId).order('created_at', { ascending: false }).limit(150);
+    if (error) return;
+    const before = new Set(this.server.map(n => n.id));
+    this.server = data || [];
+    const fresh = this.server.filter(n => !before.has(n.id) && !n.read_at);
+    if (before.size && fresh.length) {
+      const top = fresh[0];
+      toast(top.title, 'info', top.link && /^#\/[\w/-]*$/.test(top.link) ? { label: 'View', run: () => { location.hash = top.link; } } : null);
+    }
+    if (fresh.some(n => n.kind === 'join_request')) { try { __M_src_features_requests_js.Requests.refresh(true); } catch (e) {} }
+    if (fresh.some(n => /^(role_changed|access_removed|join_approved)$/.test(n.kind))) { try { setTimeout(() => location.reload(), 2600); } catch (e) {} }
+    render();
+  },
+  watch() {
+    const Backend = __M_src_core_backend_js.Backend, Session = __M_src_core_session_js.Session;
+    if (!Backend.sb || !Session.user || this._chan) return;
+    this.loadServer().catch(() => {});
+    try {
+      this._chan = Backend.sb.channel('n-' + Session.user.id).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chama_notifications', filter: 'recipient=eq.' + Session.user.id },
+        p => { if (p.new && p.new.chama_id === Store.chamaId) this.loadServer().catch(() => {}); }).subscribe();
+    } catch (e) { /* the timer below still keeps the list fresh */ }
+    clearInterval(this._timer);
+    this._timer = setInterval(() => { if (!document.hidden) this.loadServer().catch(() => {}); }, 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) this.loadServer().catch(() => {}); });
+  },
+  serverItems() {
+    return this.server.map(n => ({ id: 'srv:' + n.id, sid: n.id, type: n.kind, to: 'all', title: n.title, body: n.body || '', dest: n.link || null,
+      destLabel: /chat/.test(n.link || '') ? 'message' : /requests/.test(n.link || '') ? 'request' : /members/.test(n.link || '') ? 'members' : 'details',
+      facts: [['When', this.when(Date.parse(n.created_at))]], ts: Date.parse(n.created_at), srvRead: !!n.read_at, action: n.priority === 'action' }));
+  },
   viewer() { const me = Me.get(), admin = Auth.isAdmin(); return { admin, memberId: me.memberId || null, key: (admin ? 'treasurer' : 'member') + ':' + (me.memberId || 'none') }; },
   prefs() {
     let p = {}; try { p = JSON.parse(localStorage.getItem('chama:notif:prefs:' + Store.chamaId) || '{}') || {}; } catch {}
-    return { cat: { financial: true, group: true, system: true, ...(p.cat || {}) }, preview: !!p.preview };
+    return { cat: { financial: true, group: true, messages: true, system: true, ...(p.cat || {}) }, preview: p.preview !== false };
   },
   savePrefs(p) { try { localStorage.setItem('chama:notif:prefs:' + Store.chamaId, JSON.stringify(p)); } catch { toast('Storage full'); } },
   readKey() { return 'chama:notif:read:' + Store.chamaId + ':' + this.viewer().key; },
   readSet() { try { return new Set(JSON.parse(localStorage.getItem(this.readKey()) || '[]')); } catch { return new Set(); } },
   writeSet(set) { try { localStorage.setItem(this.readKey(), JSON.stringify([...set].slice(-800))); } catch { toast('Storage full'); } },
-  markRead(ids) { const set = this.readSet(); ids.forEach(id => set.add(id)); this.writeSet(set); },
+  markRead(ids) {
+    const set = this.readSet(); ids.forEach(id => set.add(id)); this.writeSet(set);
+    const srv = ids.filter(id => String(id).indexOf('srv:') === 0).map(id => id.slice(4));
+    const Backend = __M_src_core_backend_js.Backend;
+    if (srv.length && Backend.sb) {
+      this.server.forEach(n => { if (srv.includes(n.id) && !n.read_at) n.read_at = new Date().toISOString(); });
+      Backend.sb.rpc('mark_notifications_read', { p_ids: srv }).then(() => {}, () => {});
+    }
+  },
   dayKey: ts => new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }),
   when: ts => new Date(ts).toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
   ago(ts) {
@@ -3699,32 +3958,38 @@ const Notify = {
   },
   list(s) {
     const v = this.viewer(), p = this.prefs();
-    const all = [...(s.notes || []), ...this.derived(s, v), ...this.releases()].map(n => {
+    const all = [...(s.notes || []), ...this.derived(s, v), ...this.releases(), ...this.serverItems()].map(n => {
       const t = NOTE_TYPES[n.type] || {};
       return { ...n, cat: t.cat || 'system', icon: t.icon || 'bell', tone: t.tone || 'system', label: t.label || 'Update', mand: !!t.mandatory, prio: t.high ? 'high' : 'normal' };
     });
     return all.filter(n => this.visible(n, v, p)).sort((x, y) => y.ts - x.ts);
   },
-  unread(s) { const r = this.readSet(); return this.list(s).filter(n => !r.has(n.id)).length; },
-  toggleRead(id) { const r = this.readSet(); if (r.has(id)) r.delete(id); else r.add(id); this.writeSet(r); render(); },
+  isRead(n, r) { return n.srvRead || r.has(n.id); },
+  unread(s) { const r = this.readSet(); return this.list(s).filter(n => !this.isRead(n, r)).length; },
+  toggleRead(id) {
+    const r = this.readSet(), n = this.server.find(x => 'srv:' + x.id === id);
+    if (n && n.read_at) { n.read_at = null; r.delete(id); this.writeSet(r); return render(); }
+    if (r.has(id)) r.delete(id); else return this.markRead([id]), render();
+    this.writeSet(r); render();
+  },
   markAll() { this.markRead(this.list(Store.get()).map(n => n.id)); render(); toast('All marked as read'); },
   setCat(k) {
     if (k === 'security') return toast('Security alerts cannot be turned off');
     const p = this.prefs(); p.cat[k] = !p.cat[k]; this.savePrefs(p); render(); toast('Saved');
   },
   togglePreview() { const p = this.prefs(); p.preview = !p.preview; this.savePrefs(p); render(); toast('Saved'); },
-  resetPrefs() { this.savePrefs({ cat: { financial: true, group: true, system: true }, preview: false }); render(); toast('Back to normal'); },
-  chipPass(n, chip, rs) { return chip === 'all' || (chip === 'unread' ? !rs.has(n.id) : n.cat === chip); },
+  resetPrefs() { this.savePrefs({ cat: { financial: true, group: true, messages: true, system: true }, preview: true }); render(); toast('Back to normal'); },
+  chipPass(n, chip, rs) { return chip === 'all' || (chip === 'unread' ? !this.isRead(n, rs) : n.cat === chip); },
   tokenMatch(n, t, rs) {
-    if (t === 'unread') return !rs.has(n.id);
-    if (t === 'read') return rs.has(n.id);
+    if (t === 'unread') return !this.isRead(n, rs);
+    if (t === 'read') return this.isRead(n, rs);
     if (t === 'today') return this.dayKey(n.ts) === this.dayKey(Date.now());
     let hay = [n.title, n.body, NOTE_CAT_LABEL[n.cat], n.label, this.dayKey(n.ts), this.when(n.ts), ...(n.facts || []).map(f => f[1])].join(' ').toLowerCase();
     hay = hay + ' ' + hay.replace(/,/g, '');
     return hay.includes(t) || (NOTE_SYN[t] || []).some(x => hay.includes(x));
   },
   rowHTML(n, rs) {
-    const unread = !rs.has(n.id), show = this.prefs().preview;
+    const unread = !this.isRead(n, rs), show = this.prefs().preview;
     return `<a class="ncard${unread ? ' unread' : ''}" href="#/notifications/${encodeURIComponent(n.id)}"${unread ? ' aria-label="Unread: ' + esc(n.title) + '"' : ''}><span class="nico ${esc(n.tone)}">${svgIcon(n.icon)}</span><span class="nmain"><span class="ntop"><b>${esc(n.title)}</b><time>${esc(this.ago(n.ts))}</time></span><span class="nbody">${show ? esc(n.body) : 'Open to read'}</span><span class="nmeta"><span class="ncat">${esc(NOTE_CAT_LABEL[n.cat])}</span>${n.prio === 'high' ? '<span class="pill">Important</span>' : ''}</span></span></a>`;
   },
   listHTML(s) {
@@ -3774,7 +4039,7 @@ const views = {
     const id = decodeURIComponent(r.slice('notifications/'.length));
     const n = Notify.list(s).find(x => x.id === id);
     if (!n) return `<div class="card">${emptyState('lost', 'No longer available', 'This notification was removed or has expired.', '<a class="btn pri" href="#/notifications">Back to notifications</a>')}</div>`;
-    const unread = !Notify.readSet().has(n.id);
+    const unread = !Notify.isRead(n, Notify.readSet());
     const facts = n.facts.map(([k, v]) => `<div class="kv"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
     return `<article class="ndetail">
       <div class="nhero"><span class="nico ${esc(n.tone)}">${svgIcon(n.icon)}</span><div><span class="ncat">${esc(NOTE_CAT_LABEL[n.cat])}</span>${n.prio === 'high' ? ' <span class="pill">Important</span>' : ''}</div></div>
@@ -3791,7 +4056,8 @@ const views = {
     return `<h1 class="lt">Notification settings</h1><p class="lt-sub">In the app for now. Saved on this phone only.</p>`
       + `<div class="list">`
       + row('financial', 'wallet', 'financial', 'Money', 'Payments recorded or reversed, and due dates', p.cat.financial !== false, false)
-      + row('group', 'users', 'group', 'Group', 'Late-contribution summaries for the treasurer', p.cat.group !== false, false)
+      + row('group', 'users', 'group', 'People', 'Join requests, people joining or leaving, role changes', p.cat.group !== false, false)
+      + row('messages', 'bell', 'group', 'Messages', 'Announcements, meetings, minutes and votes', p.cat.messages !== false, false)
       + row('system', 'doc', 'system', 'App updates', 'New versions of this app', p.cat.system !== false, false)
       + row('security', 'shield', 'danger', 'Security alerts', 'Always on', true, true)
       + `</div>`
@@ -3885,6 +4151,7 @@ const actions = {
   togglePw: () => { const i = document.getElementById('gatePw'); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector('[data-act="togglePw"]'); if (b) { b.textContent = show ? GL().hide : GL().show; b.setAttribute('aria-pressed', show ? 'true' : 'false'); } },
   gateSignIn: async () => {
     if (Gate.signing) return;
+    OB.agree('continue:sign-in');
     const idEl = document.getElementById('gateId'), pwEl = document.getElementById('gatePw');
     const rawId = (idEl && idEl.value) || '', pw = (pwEl && pwEl.value) || '';
     const id = rawId.trim();
@@ -3915,6 +4182,7 @@ const actions = {
   },
   gateSend: async () => {
     if (Gate.sending) return;
+    if (Gate.mode === 'up') OB.agree('continue:create-account');
     const btn = document.querySelector('[data-act="gateSend"]');
     const raw = ($('#gateEmail') && $('#gateEmail').value) || '';
     const email = raw.trim().toLowerCase();
@@ -3947,10 +4215,34 @@ const actions = {
     catch (e) { fail(e.message); const n = document.getElementById('setName'); if (n) n.value = name; const u = document.getElementById('setUser'); if (u) u.value = user; }
   },
   wsSub: d => {
-    Gate.sub = d.s || null; Gate.joinMsg = ''; Gate.nameErr = ''; Gate.formErr = ''; Gate.paint();
+    Gate.sub = d.s || null; Gate.joinMsg = ''; Gate.joinPreview = null; Gate.joinDone = null; Gate.nameErr = ''; Gate.formErr = ''; Gate.paint();
     setTimeout(() => { const f = document.getElementById(Gate.sub === 'join' ? 'joinLink' : Gate.sub === 'create' ? 'newChamaName' : ''); if (f) f.focus(); }, 60);
   },
   wsCreate: () => Gate.submitCreate(),
+  jnRequest: async () => {
+    const p = Gate.joinPreview; if (!p || Gate.joinBusy) return;
+    Gate.joinBusy = true; Gate.joinMsg = ''; Gate.paint();
+    try {
+      const r = await Session.requestJoin(p.code);
+      Gate.joinBusy = false;
+      if (r && r.already_member) return;
+      Gate.joinDone = { ...r, chama_name: r.chama_name || p.chama_name };
+      try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
+    } catch (e) { Gate.joinBusy = false; Gate.joinMsg = e.message || 'Could not send your request. Try again.'; }
+    Gate.paint();
+  },
+  jnAgain: () => { Gate.joinPreview = null; Gate.joinDone = null; Gate.joinMsg = ''; Gate.draft.link = ''; Gate.paint(); setTimeout(() => { const f = document.getElementById('joinLink'); if (f) f.focus(); }, 60); },
+  jnFinish: async () => { Gate.sub = null; Gate.joinPreview = null; Gate.joinDone = null; Gate.draft.link = ''; await Session.loadMyRequests(); Gate.paint(); },
+  jnOpen: d => Session.switchTo(d.id),
+  jnCancel: d => __M_src_ui_toast_js.Pop.confirm({ title: 'Cancel your request?', text: 'The treasurer will no longer see it. You can ask again with a valid code.', confirmLabel: 'Cancel request', cancelLabel: 'Keep it', danger: true,
+    onYes: async () => { try { await Session.cancelRequest(d.id); Gate.joinDone = null; if (Gate.joinPreview) Gate.joinPreview = { ...Gate.joinPreview, pending: false }; toast('Request cancelled'); Gate.paint(); } catch (e) { toast(e.message); } } }),
+  jnPaste: async () => {
+    try {
+      const t = await navigator.clipboard.readText();
+      const f = document.getElementById('joinLink'); if (!f || !t) return;
+      f.value = t.trim(); f.dispatchEvent(new Event('input', { bubbles: true })); Gate.submitJoin();
+    } catch (e) { const f = document.getElementById('joinLink'); if (f) f.focus(); toast('Long-press the box and choose Paste', 'info'); }
+  },
   wsJoin: () => Gate.submitJoin(),
   wsOpen: d => Gate.openChama(d.id),
   wsSwitch: () => { Gate.sub = null; Gate.notice = ''; Session.openChooser(); },
@@ -4016,7 +4308,7 @@ const actions = {
     } catch (e) { toast('Could not check the code. Try again'); }
   },
   gateSignOut: () => actions.signOutAsk(),
-  gateGoogle: () => Session.googleSignIn(),
+  gateGoogle: () => { OB.agree('continue:google'); Session.googleSignIn(); },
   signOutAsk: () => {
     __M_src_ui_toast_js.Pop.confirm({
       title: 'Sign out?',
@@ -4030,6 +4322,7 @@ const actions = {
     try { sessionStorage.removeItem('mca-splash'); sessionStorage.removeItem('mca-gate'); sessionStorage.removeItem('mca-intent'); } catch (e) {}
     location.reload();
   },
+  gateRestore: async () => { const A = __M_src_features_account_deletion_js.Account; await A.restore(); Gate.paint(); },
   gateRetry: () => (Session.user ? Session.after(Session.user) : Session.boot()),
   inviteContinue: () => { Invite.signin = true; Gate.paint(); },
   inviteAccept: () => Invite.accept(),
@@ -4057,6 +4350,635 @@ const actions = {
 return { get actions() { return actions; }, };
 })();
 
+/* ---- src/ui/sheet.js + src/features/requests/index.js ----
+   One bottom sheet for rich content (invite, approve, person), the invite flow, join approvals,
+   and the People and access page. */
+const __M_src_features_requests_js = (function () {
+const { Backend } = __M_src_core_backend_js;
+const { render } = __M_src_core_rerender_js;
+const { Session, Perm } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { esc } = __M_src_core_utils_js;
+const { $ } = __M_src_lib_dom_js;
+const { Modal } = __M_src_ui_modal_js;
+const { toast, Pop } = __M_src_ui_toast_js;
+const { validEmail } = __M_src_lib_validate_js;
+
+/* A sheet with free content. lock = the person must answer (no close button, the backdrop does nothing). */
+const Sheet = {
+  locked: false, key: '',
+  open(html, o = {}) {
+    this.locked = !!o.lock; this.key = o.key || '';
+    $('#modalRoot').innerHTML = `<div class="veil${this.locked ? ' locked' : ''}"><div class="sheet sx${o.cls ? ' ' + o.cls : ''}" role="dialog" aria-modal="true" aria-label="${esc(o.label || '')}">
+${this.locked ? '' : `<button type="button" class="sx-x" data-act="sheetClose" aria-label="Close">${icon('close')}</button>`}<div class="sx-body">${html}</div></div></div>`;
+    document.body.style.overflow = 'hidden';
+    const f = document.querySelector('#modalRoot .sx [autofocus]'); if (f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) {} }, 300);
+  },
+  isOpen(key) { return !!document.querySelector('#modalRoot .sx') && (!key || this.key === key); },
+  update(html) { const b = document.querySelector('#modalRoot .sx-body'); if (b) b.innerHTML = html; },
+  close() { this.locked = false; this.key = ''; Modal.close(); }
+};
+const ROLE = {
+  member: { t: 'Member', d: 'Own money and group totals', ic: 'profile' },
+  secretary: { t: 'Secretary', d: 'Register, meetings, minutes, polls', ic: 'doc' },
+  treasurer: { t: 'Treasurer', d: 'Keeps the books, full control', ic: 'wallet' }
+};
+const roleCards = (cur, act, allowTreasurer = true) => `<div class="rolepick" role="radiogroup" aria-label="Role">${Object.keys(ROLE).filter(r => allowTreasurer || r !== 'treasurer').map(r => `<button type="button" class="rp${cur === r ? ' on' : ''}" role="radio" aria-checked="${cur === r}" data-act="${act}" data-v="${r}"><span class="rp-ic">${icon(ROLE[r].ic)}</span><b>${ROLE[r].t}</b><small>${ROLE[r].d}</small></button>`).join('')}</div>`;
+const initials = n => String(n || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+const pav = (name, photo, n = 44) => typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)
+  ? `<img class="av" style="--n:${n}px" src="${photo}" alt="">` : `<span class="av c${(String(name || '').length % 3) + 1}" style="--n:${n}px" aria-hidden="true">${esc(initials(name))}</span>`;
+const ago = d => { const m = Math.max(1, Math.round((Date.now() - new Date(d).getTime()) / 60000)); return m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');
+const unlinkedMembers = s => { const used = new Set((Session.access || []).filter(a => a.status === 'active' && a.member_id).map(a => a.member_id)); return (s.members || []).filter(m => !used.has(m.id)); };
+
+/* ---------------- Invite: one sheet, two ways ---------------- */
+const Inv = {
+  tab: 'code', role: 'member', hours: 168, uses: 1, email: '', record: 'new', result: null, busy: false, err: '',
+  reset(tab) { Object.assign(this, { tab: tab || 'code', role: 'member', hours: 168, uses: 1, email: '', record: 'new', result: null, busy: false, err: '' }); },
+  html() {
+    const s = Store.get() || { members: [], chama: {} }, name = (s.chama && s.chama.name) || 'your Chama';
+    if (this.result) return this.resultHtml(name);
+    const tabs = `<div class="seg2" role="tablist"><button type="button" role="tab" aria-selected="${this.tab === 'code'}" data-act="invTab" data-v="code">${icon('key', 's')}Share a code</button><button type="button" role="tab" aria-selected="${this.tab === 'email'}" data-act="invTab" data-v="email">${icon('mail', 's')}Send an email</button></div>`;
+    const lead = this.tab === 'code' ? 'Anyone with the code can ask to join. You approve each person before they get in.' : 'They get a link by email. It only works for that address, so they are in as soon as they accept.';
+    let body = '';
+    if (this.tab === 'code') {
+      body = `<div class="fgrp"><span class="flab">Valid for</span><div class="chips2">${[[24, '1 day'], [168, '7 days'], [720, '30 days']].map(([h, t]) => `<button type="button" class="chip2${this.hours === h ? ' on' : ''}" data-act="invHours" data-v="${h}">${t}</button>`).join('')}</div></div>
+<div class="fgrp"><span class="flab">How many people can use it</span><div class="stepper"><button type="button" data-act="invUses" data-v="-1" aria-label="Fewer"${this.uses <= 1 ? ' disabled' : ''}>−</button><b class="num" aria-live="polite">${this.uses}</b><button type="button" data-act="invUses" data-v="1" aria-label="More"${this.uses >= 100 ? ' disabled' : ''}>+</button><small>${this.uses === 1 ? 'One person' : this.uses + ' people'}</small></div></div>`;
+    } else {
+      const opts = unlinkedMembers(s).map(m => `<option value="${esc(m.id)}"${this.record === m.id ? ' selected' : ''}>${esc(m.name)}</option>`).join('');
+      body = `<label class="fgrp" for="invEmail2"><span class="flab">Their email address</span><span class="field">${icon('mail')}<input id="invEmail2" type="email" inputmode="email" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="name@example.com" value="${esc(this.email)}" autofocus></span></label>
+${this.role !== 'treasurer' || true ? `<label class="fgrp" for="invRecord"><span class="flab">On the member list</span><span class="field">${icon('members')}<select id="invRecord"><option value="new"${this.record === 'new' ? ' selected' : ''}>Add them as a new member</option>${opts ? `<optgroup label="They are already on the list as">${opts}</optgroup>` : ''}<option value=""${this.record === '' ? ' selected' : ''}>Officer only, not a member</option></select></span></label>` : ''}`;
+    }
+    return `<div class="sx-head"><span class="sx-badge">${icon('userPlus')}</span><h3>Invite to ${esc(name)}</h3><p>${esc(lead)}</p></div>${tabs}
+<div class="fgrp"><span class="flab">Their role</span>${roleCards(this.role, 'invRole', Session.role === 'treasurer')}</div>${body}
+<p class="ferr" role="alert">${esc(this.err)}</p>
+<button type="button" class="btn pri block lg" data-act="invGo"${this.busy ? ' disabled aria-busy="true"' : ''}>${this.busy ? '<span class="spin" aria-hidden="true"></span>' : icon(this.tab === 'code' ? 'key' : 'mail')}<span>${this.busy ? (this.tab === 'code' ? 'Creating…' : 'Sending…') : this.tab === 'code' ? 'Create code' : 'Send invitation'}</span></button>`;
+  },
+  resultHtml(name) {
+    const r = this.result;
+    if (r.kind === 'code') {
+      const until = new Date(r.expires_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+      return `<div class="ticket"><div class="tk-top"><span class="tk-lab">Invite code · ${esc(ROLE[r.role].t)}</span><b class="tk-code num" id="tkCode">${esc(r.code)}</b><span class="tk-sub">${esc(name)} · works until ${esc(until)} · ${r.uses === 1 ? '1 person' : r.uses + ' people'}</span></div>
+<div class="tk-cut" aria-hidden="true"></div><div class="tk-act">
+<button type="button" class="tk-b" data-act="invCopy">${icon('copy')}<span>Copy</span></button>
+<button type="button" class="tk-b" data-act="invShare">${icon('share')}<span>Share</span></button>
+<a class="tk-b" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=${encodeURIComponent(this.shareText(name))}">${icon('chat')}<span>WhatsApp</span></a></div></div>
+<p class="sx-note">${icon('shield', 's')}<span>This code is shown once. When someone uses it, you will be asked to approve them.</span></p>
+<div class="btns col"><button type="button" class="btn pri block" data-act="sheetClose">Done</button><button type="button" class="btn ghost block" data-act="invAgain">Create another</button></div>`;
+    }
+    const ok = r.status === 'sent';
+    return `<div class="sx-result ${ok ? 'ok' : 'warn'}"><div class="sx-tick">${icon(ok ? 'check' : 'alert')}</div><h3>${ok ? 'Invitation sent' : 'Invitation saved'}</h3>
+<p>${ok ? `We emailed <b>${esc(r.email)}</b>. The link works for 7 days and only for that address.` : `The invitation for <b>${esc(r.email)}</b> exists, but the email did not go out (${esc(r.error || 'email is not set up')}). Try Resend from People and access.`}</p></div>
+<div class="btns col"><button type="button" class="btn pri block" data-act="sheetClose">Done</button><button type="button" class="btn ghost block" data-act="invAgain">Invite someone else</button></div>`;
+  },
+  shareText(name) { const r = this.result; return `Join ${name} on My Chama.\n1. Open ${appUrl()}\n2. Sign in, then tap "Join a Chama"\n3. Enter this code: ${r.code}\nThe treasurer approves you once you ask to join.`; },
+  open(tab) { this.reset(tab); Sheet.open(this.html(), { key: 'invite', label: 'Invite someone' }); },
+  paint() { const e = document.getElementById('invEmail2'); if (e) this.email = e.value; const r = document.getElementById('invRecord'); if (r) this.record = r.value; Sheet.update(this.html()); },
+  async go() {
+    if (this.busy) return;
+    this.err = '';
+    if (this.tab === 'code') {
+      this.busy = true; this.paint();
+      try { await Session.createCode({ role: this.role, hours: this.hours, maxUses: this.uses, memberId: null }); this.result = { kind: 'code', role: this.role, uses: this.uses, ...Session.newCode }; Session.newCode = null; }
+      catch (e) { this.err = e.message; }
+      this.busy = false; return this.paint();
+    }
+    const e = document.getElementById('invEmail2'); this.email = e ? e.value.trim().toLowerCase() : this.email;
+    const rec = document.getElementById('invRecord'); this.record = rec ? rec.value : this.record;
+    if (!validEmail(this.email)) { this.err = 'That email address does not look right.'; return this.paint(); }
+    if (this.email === String(Session.email || '').toLowerCase()) { this.err = 'That is your own email.'; return this.paint(); }
+    this.busy = true; this.paint();
+    try {
+      const r = await Session.sendInvite('create', { email: this.email, role: this.role, member_id: this.record || null });
+      this.result = { kind: 'email', email: this.email, status: r.email_status, error: r.email_error };
+      Session.loadInvites().catch(() => {});
+    } catch (err) { if (!err.quiet) this.err = err.message; else { this.busy = false; return Sheet.close(); } }
+    this.busy = false; this.paint();
+  }
+};
+
+/* ---------------- Join requests: the treasurer must answer ---------------- */
+const Requests = {
+  i: 0, pick: {}, busy: false,
+  async refresh(prompt) { await Session.loadRequests(); render(); if (prompt) this.prompt(); },
+  prompt() {
+    const list = Session.requests || [];
+    if (!list.length) { if (Sheet.isOpen('requests')) Sheet.close(); return; }
+    if (Sheet.isOpen() && !Sheet.isOpen('requests')) return setTimeout(() => this.prompt(), 4000);
+    if (this.i >= list.length) this.i = 0;
+    const html = this.html();
+    if (Sheet.isOpen('requests')) Sheet.update(html); else Sheet.open(html, { key: 'requests', lock: true, label: 'Join request', cls: 'req' });
+  },
+  state(r) {
+    if (!this.pick[r.id]) this.pick[r.id] = { role: r.role, record: r.requested_member_id || 'new', name: r.name || '' };
+    return this.pick[r.id];
+  },
+  html() {
+    const list = Session.requests || [], r = list[this.i]; if (!r) return '';
+    const st = this.state(r), s = Store.get() || { members: [] }, n = list.length;
+    const opts = unlinkedMembers(s).map(m => `<option value="${esc(m.id)}"${st.record === m.id ? ' selected' : ''}>${esc(m.name)}</option>`).join('');
+    const canTreasurer = Session.role === 'treasurer';
+    return `<div class="rq-top"><span class="rq-live"><span class="live-dot"></span>Needs your answer</span>${n > 1 ? `<span class="rq-count">${this.i + 1} of ${n}</span>` : ''}</div>
+<div class="rq-who">${pav(r.name, r.photo, 64)}<div><h3>${esc(r.name)}</h3><p>${esc(r.email)}${r.phone ? ' · ' + esc(r.phone) : ''}</p><p class="mute">Asked to join as ${esc(ROLE[r.role].t)} · ${esc(ago(r.requested_at))}</p></div></div>
+<div class="fgrp"><span class="flab">Let them in as</span>${roleCards(st.role, 'rqRole', canTreasurer)}</div>
+<label class="fgrp" for="rqRecord"><span class="flab">On the member list</span><span class="field">${icon('members')}<select id="rqRecord" data-id="${esc(r.id)}"><option value="new"${st.record === 'new' ? ' selected' : ''}>Add as a new member</option>${opts ? `<optgroup label="Already listed as">${opts}</optgroup>` : ''}<option value="none"${st.record === 'none' ? ' selected' : ''}>Officer only, not a member</option></select></span></label>
+${st.record === 'new' ? `<label class="fgrp" for="rqName"><span class="flab">Name on the member list</span><span class="field">${icon('profile')}<input id="rqName" data-id="${esc(r.id)}" maxlength="120" value="${esc(st.name)}"></span></label>` : ''}
+<p class="sx-note">${icon('shield', 's')}<span>Members see their own money and the group totals. Only a treasurer sees everyone’s records.</span></p>
+<div class="rq-act"><button type="button" class="btn bad-soft" data-act="rqDecline" data-id="${esc(r.id)}"${this.busy ? ' disabled' : ''}>Decline</button><button type="button" class="btn pri grow" data-act="rqApprove" data-id="${esc(r.id)}"${this.busy ? ' disabled aria-busy="true"' : ''}>${this.busy ? '<span class="spin" aria-hidden="true"></span>' : icon('check')}<span>Approve ${esc(String(r.name).split(/\s+/)[0])}</span></button></div>
+${n > 1 ? `<button type="button" class="btn ghost block sm" data-act="rqNext">Look at the next request first</button>` : ''}`;
+  },
+  async decide(id, approve) {
+    const r = (Session.requests || []).find(x => x.id === id); if (!r || this.busy) return;
+    const st = this.state(r);
+    const nm = document.getElementById('rqName'); if (nm) st.name = nm.value.trim();
+    this.busy = true; Sheet.update(this.html());
+    try {
+      await Session.decideRequest(id, approve, { role: st.role, record: st.record, name: st.name });
+      toast(approve ? (r.name || 'They') + ' is in' : 'Request declined', approve ? 'ok' : 'info');
+      try { if (approve) __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
+    } catch (e) { toast(e.message); }
+    this.busy = false; delete this.pick[id];
+    this.prompt(); render();
+  },
+  /* the inline list (People and access, Members, #/requests) */
+  listHtml(compact) {
+    const list = Session.requests || []; if (!list.length) return '';
+    return `<section class="sec rq-sec"><div class="sec-h"><h2>Waiting for you <span class="cnt-b">${list.length}</span></h2></div><div class="list">${list.map((r, i) => `<button type="button" class="li has-av rq-row" data-act="rqOpen" data-i="${i}">${pav(r.name, r.photo, 42)}<span class="li-main"><b>${esc(r.name)}</b><small>Wants to join as ${esc(ROLE[r.role].t)} · ${esc(ago(r.requested_at))}</small></span><span class="li-end"><span class="pill-act">Review</span></span></button>`).join('')}</div>${compact ? '' : '<p class="foot-note">Nobody gets in until you approve them. They are told either way.</p>'}</section>`;
+  }
+};
+
+/* ---------------- One person: role, member list, hand-over, remove ---------------- */
+const Person = {
+  open(email) {
+    const a = (Session.access || []).find(x => String(x.email).toLowerCase() === String(email).toLowerCase()); if (!a) return;
+    const s = Store.get() || { members: [] }, m = a.member_id ? s.members.find(x => x.id === a.member_id) : null;
+    const self = String(a.email).toLowerCase() === String(Session.email || '').toLowerCase();
+    const name = (m && m.name) || a.email.split('@')[0];
+    const opts = unlinkedMembers(s).map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+    const rows = [];
+    if (!self && a.status === 'active') rows.push(`<div class="fgrp"><span class="flab">Role</span>${roleCards(a.role, 'personRole', true).replace(/data-act="personRole"/g, `data-act="personRole" data-e="${esc(a.email)}"`)}</div>`);
+    if (a.status === 'active') rows.push(m
+      ? `<div class="kv"><span>Member list</span><b>Listed as ${esc(m.name)}</b></div>`
+      : `<div class="fgrp"><span class="flab">Member list</span><div class="inline-pick"><span class="field">${icon('members')}<select id="personRec"><option value="new">Add as a new member</option>${opts ? `<optgroup label="Link to">${opts}</optgroup>` : ''}</select></span><button type="button" class="btn pri" data-act="personLink" data-e="${esc(a.email)}">Add</button></div><small class="fhelp">Not on the member list, so their profile shows no money yet.</small></div>`);
+    const tail = self || a.status !== 'active' ? '' : `<div class="list sx-list">
+${a.role !== 'treasurer' ? `<button type="button" class="li has-ic" data-act="handover" data-e="${esc(a.email)}"><span class="li-ic t-gold">${icon('key')}</span><span class="li-main"><b>Hand the books to ${esc(name.split(' ')[0])}</b><small>Make them treasurer</small></span>${icon('chev', 'chev')}</button>` : ''}
+<button type="button" class="li has-ic danger" data-act="revoke" data-e="${esc(a.email)}"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Remove access</b><small>Their records stay in the books</small></span>${icon('chev', 'chev')}</button></div>`;
+    Sheet.open(`<div class="rq-who">${m ? __M_src_ui_avatar_js.av(m, 60) : pav(name, null, 60)}<div><h3>${esc(name)}${self ? ' <span class="tag">You</span>' : ''}</h3><p>${esc(a.email)}</p><p class="mute">${esc(Perm.label(a.role))} · ${a.status === 'active' ? 'can sign in' : 'access removed'}</p></div></div>${rows.join('')}${tail}`, { key: 'person', label: name });
+  }
+};
+
+/* ---------------- People and access (treasurer) ---------------- */
+const accessView = s => {
+  const me = String(Session.email || '').toLowerCase();
+  const active = (Session.access || []).filter(a => a.status === 'active');
+  const nameOf = a => { const m = a.member_id ? (s.members || []).find(x => x.id === a.member_id) : null; return (m && m.name) || a.email.split('@')[0]; };
+  const roleOrder = { treasurer: 0, secretary: 1, member: 2 };
+  const people = active.slice().sort((a, b) => roleOrder[a.role] - roleOrder[b.role] || nameOf(a).localeCompare(nameOf(b))).map(a => {
+    const m = a.member_id ? (s.members || []).find(x => x.id === a.member_id) : null, self = String(a.email).toLowerCase() === me;
+    return `<button type="button" class="li has-av" data-act="personOpen" data-e="${esc(a.email)}">${m ? __M_src_ui_avatar_js.av(m, 42) : pav(nameOf(a), null, 42)}<span class="li-main"><b>${esc(nameOf(a))}${self ? ' <span class="tag">You</span>' : ''}</b><small>${esc(a.email)}</small></span><span class="li-end"><span class="rtag r-${esc(a.role)}">${esc(Perm.label(a.role))}</span>${a.member_id || a.role === 'treasurer' ? '' : '<span class="dot-warn" title="Not on the member list"></span>'}${icon('chev', 'chev')}</span></button>`;
+  }).join('');
+  const now = new Date();
+  const codes = (Session.codes || []).filter(c => !c.revoked_at && new Date(c.expires_at) > now && c.uses < c.max_uses);
+  const invs = (Session.invites || []).filter(i => i.status === 'pending' || i.status === 'expired');
+  const until = d => new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+  const open = [
+    ...codes.map(c => `<div class="li has-ic"><span class="li-ic t-gold">${icon('key')}</span><span class="li-main"><b class="num">${esc(c.prefix)}-••••-••</b><small>${esc(Perm.label(c.role))} code · ${esc(c.uses)} of ${esc(c.max_uses)} used · until ${esc(until(c.expires_at))}</small></span><span class="li-end"><button type="button" class="btn sm ghost" data-act="codeRevoke" data-id="${esc(c.id)}">Cancel</button></span></div>`),
+    ...invs.map(i => `<div class="li has-ic"><span class="li-ic t-info">${icon('mail')}</span><span class="li-main"><b style="overflow-wrap:anywhere">${esc(i.invited_email)}</b><small>${esc(Perm.label(i.intended_role))} · ${i.status === 'pending' ? 'until ' + esc(until(i.expires_at)) : 'expired'}</small></span><span class="li-end"><button type="button" class="btn sm" data-act="resendInvite" data-i="${esc(i.id)}">Resend</button>${i.status === 'pending' ? `<button type="button" class="btn sm ghost" data-act="revokeInvite" data-i="${esc(i.id)}" aria-label="Cancel invitation">${icon('close', 's')}</button>` : ''}</span></div>`)
+  ].join('');
+  const ws = (Session.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
+  return `<h1 class="lt">People and access</h1><p class="lt-sub">${active.length} ${active.length === 1 ? 'person' : 'people'} can open ${esc(s.chama.name)}</p>
+<div class="invite-hero"><div><b>Bring someone in</b><span>A code for WhatsApp or SMS, or an email link.</span></div>
+<div class="ih-btns"><button type="button" class="ih-b" data-act="inviteSheet" data-v="code">${icon('key')}<span>Share a code</span></button><button type="button" class="ih-b" data-act="inviteSheet" data-v="email">${icon('mail')}<span>Send an email</span></button></div></div>
+${Requests.listHtml()}
+<section class="sec"><div class="sec-h"><h2>People</h2><button type="button" data-act="loadAccess">Refresh</button></div><div class="list">${people || '<div class="li empty">Only you so far</div>'}</div>
+${active.some(a => !a.member_id && a.role !== 'treasurer') ? '<p class="foot-note"><span class="dot-warn"></span> Not on the member list yet. Tap them to add them.</p>' : ''}</section>
+${open ? `<section class="sec"><div class="sec-h"><h2>Open invitations</h2></div><div class="list">${open}</div></section>` : ''}
+<section class="sec"><div class="list"><button type="button" class="li has-ic" data-act="tagEdit"><span class="li-ic t-ink">${icon('tag')}</span><span class="li-main"><b>Chama tag</b><small>Shown to people joining, so they know it is the right group</small></span><span class="li-end"><b class="num">${esc(ws.display_tag || '—')}</b>${icon('chev', 'chev')}</span></button></div></section>`;
+};
+
+const views = {
+  requests(s) {
+    if (!Session.role || Session.role === 'member') return `<div class="card">${emptyState('people', 'Nothing to approve', 'Only the treasurer and secretary approve new people.')}</div>`;
+    const list = Requests.listHtml(true);
+    setTimeout(() => Requests.refresh(false), 0);
+    return `<h1 class="lt">Join requests</h1><p class="lt-sub">People who used an invite code</p>${list || `<div class="card">${emptyState('done', 'All caught up', 'Nobody is waiting to join.')}</div>`}`;
+  }
+};
+
+const actions = {
+  sheetClose: () => Sheet.close(),
+  inviteSheet: d => Inv.open(d.v || 'code'),
+  invTab: d => { Inv.tab = d.v; Inv.err = ''; Inv.paint(); },
+  invRole: d => { Inv.role = d.v; if (d.v === 'treasurer' && Inv.record === 'new') Inv.record = ''; Inv.paint(); },
+  invHours: d => { Inv.hours = Number(d.v); Inv.paint(); },
+  invUses: d => { Inv.uses = Math.max(1, Math.min(100, Inv.uses + Number(d.v))); Inv.paint(); },
+  invGo: () => Inv.go(),
+  invAgain: () => { const t = Inv.tab; Inv.reset(t); Inv.paint(); },
+  invCopy: () => {
+    const c = Inv.result && Inv.result.code; if (!c) return;
+    const done = () => { const el = document.getElementById('tkCode'); if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } toast('Code copied', 'ok'); };
+    if (navigator.clipboard) navigator.clipboard.writeText(c).then(done, () => toast('Press and hold the code to copy it', 'info')); else toast('Press and hold the code to copy it', 'info');
+  },
+  invShare: async () => {
+    const s = Store.get(), text = Inv.shareText((s && s.chama.name) || 'our Chama');
+    if (navigator.share) { try { await navigator.share({ text }); } catch (e) { /* closed */ } }
+    else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('Invitation text copied', 'ok'), () => {});
+  },
+  rqOpen: d => { Requests.i = Number(d.i) || 0; Requests.prompt(); },
+  rqNext: () => { Requests.i = (Requests.i + 1) % Math.max(1, (Session.requests || []).length); Requests.prompt(); },
+  rqRole: d => { const r = (Session.requests || [])[Requests.i]; if (!r) return; const st = Requests.state(r); st.role = d.v; if (d.v === 'treasurer' && st.record === 'new') st.record = 'none'; Requests.prompt(); },
+  rqApprove: d => Requests.decide(d.id, true),
+  rqDecline: d => Pop.confirm({ title: 'Decline this request?', text: 'They will be told their request was declined. They can ask again with a new code.', confirmLabel: 'Decline', danger: true, onYes: () => Requests.decide(d.id, false) }),
+  personOpen: d => Person.open(d.e),
+  personRole: d => {
+    const a = (Session.access || []).find(x => x.email === d.e); if (!a || a.role === d.v) return;
+    Pop.confirm({ title: 'Make them ' + ROLE[d.v].t + '?', text: d.v === 'treasurer' ? 'They will see and change every record, like you.' : d.v === 'secretary' ? 'They will keep the member register, call meetings, share minutes and run polls. They will not see other members’ money.' : 'They will see their own money and the group totals only.', confirmLabel: 'Change role',
+      onYes: async () => {
+        const { error } = await Backend.sb.rpc('set_member_role', { cid: Store.chamaId, p_email: d.e, p_role: d.v });
+        if (error) return toast(rpcMessage(error));
+        toast('Role changed. They have been told.', 'ok'); await Session.loadAccess(); Person.open(d.e);
+      } });
+  },
+  personLink: async d => {
+    const sel = document.getElementById('personRec');
+    try { await Session.linkRecord(d.e, sel ? sel.value : 'new'); toast('Added to the member list', 'ok'); Person.open(d.e); } catch (e) { toast(e.message); }
+  },
+  tagEdit: () => {
+    const ws = (Session.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
+    Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('tag')}</span><h3>Chama tag</h3><p>Four letters or numbers. People joining see it next to the name, so they know they have the right group.</p></div>
+<label class="fgrp" for="codeTag"><span class="field tagfield"><input id="codeTag" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false" value="${esc(ws.display_tag || '')}" autofocus></span></label>
+<button type="button" class="btn pri block lg" data-act="tagSave">Save tag</button>`, { key: 'tag', label: 'Chama tag' });
+  }
+};
+
+return { get views() { return views; }, get actions() { return actions; }, get Sheet() { return Sheet; }, get Requests() { return Requests; }, get Inv() { return Inv; }, get accessView() { return accessView; }, get pav() { return pav; }, get ROLE() { return ROLE; } };
+})();
+
+document.addEventListener('change', e => {
+  const t = e.target; if (!t) return;
+  const R = __M_src_features_requests_js;
+  if (t.id === 'rqRecord') { const r = (__M_src_core_session_js.Session.requests || [])[R.Requests.i]; if (r) { R.Requests.state(r).record = t.value; R.Requests.prompt(); } }
+  if (t.id === 'invRecord') R.Inv.record = t.value;
+});
+document.addEventListener('input', e => {
+  const t = e.target; if (!t) return;
+  const R = __M_src_features_requests_js;
+  if (t.id === 'rqName') { const r = (__M_src_core_session_js.Session.requests || [])[R.Requests.i]; if (r) R.Requests.state(r).name = t.value; }
+  if (t.id === 'invEmail2') { R.Inv.email = t.value; if (R.Inv.err) { R.Inv.err = ''; const x = document.querySelector('.sx .ferr'); if (x) x.textContent = ''; } }
+  if (t.id === 'codeTag') { const v = t.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (v !== t.value) t.value = v; }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'invEmail2') { e.preventDefault(); __M_src_features_requests_js.Inv.go(); } });
+
+
+/* ---- src/features/chat/index.js ----
+   Messages inside a Chama: one group conversation and private conversations.
+   What each role can send is decided by the server (send_chama_message); this only shows the right tools.
+     member     text in the group, private messages to the treasurer or secretary, vote, reply to meetings, "I have paid"
+     secretary  + announcements, meeting notices with an attendance register, minutes and resolutions, polls, pinning
+     treasurer  + payment requests and personal statements, private messages to anyone */
+const __M_src_features_chat_index_js = (function () {
+const { Backend } = __M_src_core_backend_js;
+const { render } = __M_src_core_rerender_js;
+const { Session, Perm } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { Domain } = __M_src_core_domain_js;
+const { esc, kes, monthLabel } = __M_src_core_utils_js;
+const { toast, Pop } = __M_src_ui_toast_js;
+const R = () => __M_src_features_requests_js;
+
+const TOOLS = {
+  announcement: { t: 'Announcement', d: 'Pinned at the top for everyone', ic: 'bell', roles: ['treasurer', 'secretary'], group: true },
+  meeting: { t: 'Call a meeting', d: 'Date, place and agenda. People reply if they are coming', ic: 'clock', roles: ['treasurer', 'secretary'], group: true },
+  minutes: { t: 'Share minutes', d: 'What was discussed and what was decided', ic: 'doc', roles: ['treasurer', 'secretary'], group: true },
+  poll: { t: 'Start a vote', d: 'Ask the group to choose', ic: 'chart', roles: ['treasurer', 'secretary'], group: true },
+  payment_request: { t: 'Request a payment', d: 'Ask one member or everyone to pay', ic: 'wallet', roles: ['treasurer'] },
+  statement: { t: 'Send a statement', d: 'Their savings, loan and fines, privately', ic: 'receipt', roles: ['treasurer'], direct: true }
+};
+const ROLE_T = r => Perm.label(r);
+const dayKey = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
+const dayLabel = d => { const k = dayKey(d), t = dayKey(Date.now()), y = dayKey(Date.now() - 864e5); return k === t ? 'Today' : k === y ? 'Yesterday' : new Date(d).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' }); };
+const hm = d => new Date(d).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
+const short = d => { const k = dayKey(d); return k === dayKey(Date.now()) ? hm(d) : new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); };
+const linkify = t => esc(t).replace(/\n/g, '<br>');
+
+const Chat = {
+  msgs: [], resp: [], contacts: [], unread: {}, loaded: false, busy: false, _chan: null, _timer: 0, draft: {}, form: null,
+  me() { return Session.user && Session.user.id; },
+  thread(m) { return !m.recipient ? 'group' : m.sender === this.me() ? m.recipient : m.sender; },
+  contact(id) { return this.contacts.find(c => c.user_id === id); },
+  can(kind) { const t = TOOLS[kind]; return !!t && t.roles.includes(Session.role); },
+  tools(thread) { return Object.keys(TOOLS).filter(k => this.can(k) && (thread === 'group' ? !TOOLS[k].direct : !TOOLS[k].group)); },
+  totalUnread() { return Object.values(this.unread).reduce((a, b) => a + (b || 0), 0); },
+  async load() {
+    if (!Backend.sb || !Session.user || !Store.chamaId) return;
+    const cid = Store.chamaId;
+    const [m, r, c, u] = await Promise.all([
+      Backend.sb.from('chama_messages').select('*').eq('chama_id', cid).order('created_at', { ascending: false }).limit(300),
+      Backend.sb.from('chama_message_responses').select('message_id,user_id,choice,name,created_at').eq('chama_id', cid),
+      this.contacts.length ? Promise.resolve({ data: this.contacts }) : Backend.sb.rpc('chat_contacts', { p_cid: cid }),
+      Backend.sb.rpc('chat_unread', { p_cid: cid })
+    ]);
+    if (!m.error) this.msgs = (m.data || []).slice().reverse();
+    if (!r.error) this.resp = r.data || [];
+    if (!c.error) this.contacts = c.data || [];
+    if (!u.error) { this.unread = {}; (u.data || []).forEach(x => { this.unread[x.thread] = x.unread; }); }
+    this.loaded = true;
+    this.paintBadge(); render();
+  },
+  watch() {
+    if (!Backend.sb || !Session.user || this._chan) return;
+    this.load().catch(() => {});
+    try {
+      this._chan = Backend.sb.channel('chat-' + Store.chamaId)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chama_messages', filter: 'chama_id=eq.' + Store.chamaId }, p => this.onRow(p))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chama_message_responses', filter: 'chama_id=eq.' + Store.chamaId }, () => this.loadResponses())
+        .subscribe();
+    } catch (e) { /* the timer keeps it fresh */ }
+    clearInterval(this._timer);
+    this._timer = setInterval(() => { if (!document.hidden) this.load().catch(() => {}); }, /^#\/chat/.test(location.hash) ? 20000 : 60000);
+  },
+  async loadResponses() { const { data, error } = await Backend.sb.from('chama_message_responses').select('message_id,user_id,choice,name,created_at').eq('chama_id', Store.chamaId); if (!error) { this.resp = data || []; render(); } },
+  onRow(p) {
+    const row = p.new; if (!row || !row.id) return;
+    const i = this.msgs.findIndex(x => x.id === row.id);
+    if (i >= 0) this.msgs[i] = row; else this.msgs.push(row);
+    const th = this.thread(row), open = location.hash === '#/chat/' + th;
+    if (i < 0 && row.sender !== this.me()) {
+      if (open && !document.hidden) this.markRead(th);
+      else { this.unread[th] = (this.unread[th] || 0) + 1; if (!/^#\/chat/.test(location.hash)) toast((row.sender_name || 'Someone') + ': ' + (row.body || TOOLS[row.kind] && TOOLS[row.kind].t || 'New message').slice(0, 80), 'info', { label: 'Open', run: () => { location.hash = '#/chat/' + th; } }); }
+    }
+    this.paintBadge(); render();
+    if (open) this.scrollEnd(true);
+  },
+  markRead(th) {
+    if (!this.unread[th]) return;
+    this.unread[th] = 0; this.paintBadge();
+    Backend.sb.rpc('mark_thread_read', { p_cid: Store.chamaId, p_thread: th }).then(() => {}, () => {});
+  },
+  paintBadge() {
+    const n = this.totalUnread(), a = document.querySelector('#nav a[data-k="chat"]'); if (!a) return;
+    let b = a.querySelector('.nav-badge'); if (!b) { b = document.createElement('span'); b.className = 'nav-badge'; a.appendChild(b); }
+    b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n);
+  },
+  scrollEnd(smooth) { setTimeout(() => { const el = document.getElementById('chatEnd'); if (el) el.scrollIntoView({ block: 'end', behavior: smooth ? 'smooth' : 'auto' }); }, 30); },
+  responses(id) { return this.resp.filter(r => r.message_id === id); },
+  mine(id) { const r = this.resp.find(x => x.message_id === id && x.user_id === this.me()); return r ? r.choice : null; },
+
+  /* ---------------- views ---------------- */
+  inbox(s) {
+    if (!this.loaded) { this.load().catch(() => {}); return `<h1 class="lt">Chat</h1>${Skel.page()}`; }
+    const threads = {};
+    this.msgs.forEach(m => { if (m.deleted_at && !m.body) {} const t = this.thread(m); threads[t] = m; });
+    const row = (th, title, sub, avatar, last) => `<a class="li has-av ch-row${this.unread[th] ? ' unread' : ''}" href="#/chat/${esc(th)}">${avatar}<span class="li-main"><span class="ch-top"><b>${esc(title)}</b>${last ? `<time>${esc(short(last.created_at))}</time>` : ''}</span><span class="ch-sub"><small>${sub}</small>${this.unread[th] ? `<span class="ch-n">${this.unread[th]}</span>` : ''}</span></span></a>`;
+    const preview = m => !m ? 'Say hello to the group' : m.deleted_at ? 'Message removed' : esc((m.sender === this.me() ? 'You: ' : (m.sender_name || '').split(' ')[0] + ': ') + (m.kind === 'text' ? m.body : (TOOLS[m.kind] ? TOOLS[m.kind].t : '') + (m.body ? ' · ' + m.body : ''))).slice(0, 140);
+    const name = (s.chama && s.chama.name) || 'Chama';
+    const group = row('group', name, preview(threads.group), `<span class="av grp" style="--n:46px">${icon('members')}</span>`, threads.group);
+    const dms = Object.keys(threads).filter(t => t !== 'group').sort((a, b) => threads[b].created_at.localeCompare(threads[a].created_at)).map(t => {
+      const c = this.contact(t) || { name: threads[t].sender === this.me() ? 'Former member' : threads[t].sender_name, role: threads[t].sender_role };
+      return row(t, c.name, `<span class="rtag r-${esc(c.role)}">${esc(ROLE_T(c.role))}</span> ${preview(threads[t])}`, R().pav(c.name, c.photo, 46), threads[t]);
+    }).join('');
+    const pinned = this.msgs.filter(m => m.pinned && !m.recipient && !m.deleted_at).slice(-1)[0];
+    const records = this.msgs.filter(m => ['meeting', 'minutes', 'poll'].includes(m.kind) && !m.deleted_at).length;
+    return `<div class="ch-head"><h1 class="lt">Chat</h1><button type="button" class="btn pri sm" data-act="chatNew">${icon('pencil', 's')}New message</button></div>
+${pinned ? `<a class="pin-card" href="#/chat/group">${icon('bell', 's')}<span><b>Pinned</b>${esc((pinned.body || '').slice(0, 120))}</span></a>` : ''}
+<div class="list ch-list">${group}${dms}</div>
+${records ? `<section class="sec"><div class="list"><a class="li has-ic" href="#/chat/records"><span class="li-ic t-info">${icon('doc')}</span><span class="li-main"><b>Meetings, minutes and votes</b><small>${records} on record</small></span>${icon('chev', 'chev')}</a></div></section>` : ''}
+${Session.role === 'member' ? '<p class="foot-note">The group sees group messages. Private messages go only to the treasurer or secretary you write to.</p>' : '<p class="foot-note">Tap <b>+</b> in a conversation for your role’s tools.</p>'}`;
+  },
+  records(s) {
+    const items = this.msgs.filter(m => ['meeting', 'minutes', 'poll', 'announcement'].includes(m.kind) && !m.deleted_at && !m.recipient).slice().reverse();
+    return `<h1 class="lt">Meetings, minutes and votes</h1><p class="lt-sub">The group’s record, newest first</p>${items.length ? `<div class="rec-list">${items.map(m => this.card(m, s, true)).join('')}</div>` : `<div class="card">${emptyState('ledger', 'Nothing on record yet', 'Meetings, minutes and votes appear here once the secretary or treasurer shares them.')}</div>`}`;
+  },
+  threadView(s, th) {
+    if (!this.loaded) { this.load().catch(() => {}); return Skel.page(); }
+    if (th === 'records') return this.records(s);
+    const c = th === 'group' ? null : this.contact(th);
+    if (th !== 'group' && !c && !this.msgs.some(m => this.thread(m) === th)) return `<div class="card">${emptyState('lost', 'Conversation not found', 'This person may have left the Chama.', '<a class="btn pri" href="#/chat">Back to chat</a>')}</div>`;
+    const list = this.msgs.filter(m => this.thread(m) === th);
+    setTimeout(() => this.markRead(th), 300);
+    let lastDay = '', lastSender = '';
+    const body = list.map(m => {
+      let out = '';
+      const dk = dayKey(m.created_at); if (dk !== lastDay) { out += `<div class="ch-day"><span>${esc(dayLabel(m.created_at))}</span></div>`; lastDay = dk; lastSender = ''; }
+      const mine = m.sender === this.me(), cont = lastSender === m.sender && m.kind === 'text'; lastSender = m.kind === 'text' ? m.sender : '';
+      if (m.kind !== 'text' && !m.deleted_at) return out + `<div class="ch-card-wrap${mine ? ' mine' : ''}">${this.card(m, s)}</div>`;
+      const who = th === 'group' && !mine && !cont ? `<span class="ch-who">${esc(m.sender_name)}${m.sender_role !== 'member' ? ` <span class="rtag r-${esc(m.sender_role)}">${esc(ROLE_T(m.sender_role))}</span>` : ''}</span>` : '';
+      const txt = m.deleted_at ? `<i class="mute">${icon('close', 's')}Message removed</i>` : linkify(m.body);
+      return out + `<div class="bub-row${mine ? ' mine' : ''}${cont ? ' cont' : ''}">${who}<div class="bub" ${!m.deleted_at && (mine || Session.role !== 'member') ? `data-act="msgMenu" data-id="${esc(m.id)}" tabindex="0"` : ''}>${txt}<span class="bub-t">${esc(hm(m.created_at))}${m.pinned ? ' · ' + icon('bell', 's') : ''}</span></div></div>`;
+    }).join('');
+    const title = th === 'group' ? ((s.chama && s.chama.name) || 'Group') : c ? c.name : 'Conversation';
+    const sub = th === 'group' ? (this.contacts.length + 1) + ' people' : c ? ROLE_T(c.role) : '';
+    const tools = this.tools(th);
+    const canWrite = th === 'group' || (c && c.can_message);
+    const pinned = th === 'group' ? this.msgs.filter(m => m.pinned && !m.recipient && !m.deleted_at).slice(-1)[0] : null;
+    this.scrollEnd(false);
+    return `<div class="ch-thread"><div class="ch-bar">${th === 'group' ? `<span class="av grp" style="--n:40px">${icon('members')}</span>` : R().pav(title, c && c.photo, 40)}<div><b>${esc(title)}</b><small>${esc(sub)}</small></div></div>
+${pinned ? `<button type="button" class="pin-card" data-act="chatJump" data-id="${esc(pinned.id)}">${icon('bell', 's')}<span><b>Pinned</b>${esc((pinned.body || '').slice(0, 120))}</span></button>` : ''}
+<div class="ch-msgs" id="chMsgs">${body || `<div class="ch-empty">${art('group')}<p>${th === 'group' ? 'Nothing here yet. Say hello to everyone.' : 'Start a private conversation.'}</p></div>`}<span id="chatEnd"></span></div>
+${canWrite ? `<form class="composer" id="chatForm" data-th="${esc(th)}" autocomplete="off">${tools.length ? `<button type="button" class="cp-tools" data-act="chatTools" data-th="${esc(th)}" aria-label="Tools">${icon('plus')}</button>` : ''}
+<textarea id="chatIn" rows="1" maxlength="4000" placeholder="${th === 'group' ? 'Message everyone' : 'Message ' + esc((c && c.name || '').split(' ')[0])}" aria-label="Message">${esc(this.draft[th] || '')}</textarea>
+<button type="submit" class="cp-send" aria-label="Send"${this.busy ? ' disabled' : ''}>${icon('up')}</button></form>` : `<p class="foot-note">You can message the treasurer or the secretary privately.</p>`}</div>`;
+  },
+
+  /* ---------------- special messages ---------------- */
+  card(m, s, full) {
+    const meta = m.meta || {}, officer = Session.role !== 'member', mine = m.sender === this.me();
+    const by = `<span class="cc-by">${esc(m.sender_name)} · ${esc(ROLE_T(m.sender_role))} · ${esc(short(m.created_at))}</span>`;
+    const menu = (mine || Session.role === 'treasurer' || (officer && !m.recipient)) ? `<button type="button" class="cc-more" data-act="msgMenu" data-id="${esc(m.id)}" aria-label="Options">${icon('more')}</button>` : '';
+    const rs = this.responses(m.id), my = this.mine(m.id);
+    if (m.kind === 'announcement') return `<article class="cc cc-ann" id="m-${esc(m.id)}"><header>${icon('bell')}<span>Announcement${m.pinned ? ' · pinned' : ''}</span>${menu}</header>${meta.title ? `<h4>${esc(meta.title)}</h4>` : ''}<p>${linkify(m.body)}</p>${by}</article>`;
+    if (m.kind === 'meeting') {
+      const w = new Date(meta.when), ok = !isNaN(w), cnt = k => rs.filter(r => r.choice === k).length, past = ok && w < Date.now();
+      const att = meta.attendance || null, present = att ? Object.values(att).filter(v => v === 'present').length : 0;
+      const agenda = String(meta.agenda || '').split('\n').map(x => x.trim()).filter(Boolean);
+      return `<article class="cc cc-meet" id="m-${esc(m.id)}"><header>${icon('clock')}<span>Meeting${past ? ' · held' : ''}</span>${menu}</header>
+<div class="mt-row"><div class="mt-date"><b>${ok ? w.toLocaleDateString('en-KE', { day: 'numeric' }) : '—'}</b><span>${ok ? w.toLocaleDateString('en-KE', { month: 'short' }) : ''}</span></div><div><h4>${esc(meta.title || 'Chama meeting')}</h4><p class="mute">${ok ? esc(w.toLocaleDateString('en-KE', { weekday: 'long' }) + ' · ' + hm(w)) : ''}${meta.place ? ' · ' + esc(meta.place) : ''}</p></div></div>
+${agenda.length ? `<ol class="mt-ag">${agenda.map(a => `<li>${esc(a)}</li>`).join('')}</ol>` : ''}${m.body ? `<p>${linkify(m.body)}</p>` : ''}
+${past ? '' : `<div class="rsvp">${[['yes', 'Coming'], ['maybe', 'Maybe'], ['no', 'Not coming']].map(([k, t]) => `<button type="button" class="${my === k ? 'on' : ''}" data-act="msgRespond" data-id="${esc(m.id)}" data-v="${k}">${t}<span class="num">${cnt(k)}</span></button>`).join('')}</div>`}
+${att ? `<p class="mt-reg">${icon('check', 's')}Register: ${present} present · kept by ${esc(meta.register_by || '')}</p>` : ''}
+${officer ? `<button type="button" class="btn sm tint" data-act="meetRegister" data-id="${esc(m.id)}">${icon('members', 's')}${att ? 'Update register' : 'Take attendance'}</button>` : ''}${by}</article>`;
+    }
+    if (m.kind === 'minutes') {
+      const res = String(meta.resolutions || '').split('\n').map(x => x.trim()).filter(Boolean);
+      return `<article class="cc cc-min" id="m-${esc(m.id)}"><header>${icon('doc')}<span>Minutes${meta.date ? ' · ' + esc(new Date(meta.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })) : ''}</span>${menu}</header><h4>${esc(meta.title || 'Meeting minutes')}</h4>
+${meta.present ? `<p class="mute">Present: ${esc(meta.present)}</p>` : ''}${m.body ? `<div class="min-body${full ? '' : ' clamp'}">${linkify(m.body)}</div>` : ''}
+${res.length ? `<div class="min-res"><b>Resolved</b><ol>${res.map(r => `<li>${esc(r)}</li>`).join('')}</ol></div>` : ''}${by}</article>`;
+    }
+    if (m.kind === 'poll') {
+      const opts = meta.options || [], total = rs.length, closed = !!meta.closed;
+      return `<article class="cc cc-poll" id="m-${esc(m.id)}"><header>${icon('chart')}<span>Vote${closed ? ' · closed' : ''}</span>${menu}</header><h4>${esc(m.body)}</h4>
+<div class="poll">${opts.map((o, i) => { const n = rs.filter(r => r.choice === String(i)).length, pc = total ? Math.round(n / total * 100) : 0; return `<button type="button" class="po${my === String(i) ? ' on' : ''}" data-act="msgRespond" data-id="${esc(m.id)}" data-v="${i}"${closed ? ' disabled' : ''} style="--p:${pc}%"><span class="po-t">${my === String(i) ? icon('check', 's') : ''}${esc(o)}</span><span class="po-n num">${pc}%</span></button>`; }).join('')}</div>
+<p class="mute small">${total} ${total === 1 ? 'vote' : 'votes'}${my != null ? ' · you voted' : ''}${officer && !closed ? ` · <button type="button" class="linkish" data-act="pollClose" data-id="${esc(m.id)}">Close the vote</button>` : ''}</p>${by}</article>`;
+    }
+    if (m.kind === 'payment_request') {
+      const paid = rs.filter(r => r.choice === 'paid');
+      return `<article class="cc cc-pay" id="m-${esc(m.id)}"><header>${icon('wallet')}<span>Payment request${m.recipient ? '' : ' · everyone'}</span>${menu}</header>
+<div class="pay-amt num">${esc(kes(meta.amount))}</div><p>${esc(meta.reason || 'Contribution')}${meta.due ? ' · due ' + esc(new Date(meta.due).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })) : ''}</p>
+${s.chama && s.chama.payTo ? `<p class="mute">Pay to ${esc(s.chama.payTo)}</p>` : ''}${m.body ? `<p>${linkify(m.body)}</p>` : ''}
+${!mine ? `<div class="rsvp two"><button type="button" class="${my === 'paid' ? 'on' : ''}" data-act="msgRespond" data-id="${esc(m.id)}" data-v="paid">${icon('check', 's')}I have paid</button><button type="button" class="${my === 'later' ? 'on' : ''}" data-act="msgRespond" data-id="${esc(m.id)}" data-v="later">I’ll pay later</button></div>`
+        : `<p class="mt-reg">${paid.length ? icon('check', 's') + esc(paid.map(r => r.name).join(', ')) + ' say they paid' : 'No answers yet'}</p>`}${by}</article>`;
+    }
+    if (m.kind === 'statement') {
+      const rows = [['Saved so far', kes(meta.saved)], ['This month', meta.owed > 0 ? kes(meta.owed) + ' still owed' : 'Paid up'], ['Loan balance', kes(meta.loan)], ['Unpaid fines', kes(meta.fines)]];
+      return `<article class="cc cc-st" id="m-${esc(m.id)}"><header>${icon('receipt')}<span>Statement · ${esc(meta.month ? monthLabel(meta.month) : '')}</span>${menu}</header><h4>${esc(meta.name || '')}</h4>
+<div class="st-grid">${rows.map(([k, v]) => `<div><small>${esc(k)}</small><b class="num">${esc(v)}</b></div>`).join('')}</div>${m.body ? `<p>${linkify(m.body)}</p>` : ''}${by}</article>`;
+    }
+    return '';
+  },
+
+  /* ---------------- composing ---------------- */
+  async send(th, kind, body, meta) {
+    if (this.busy) return false;
+    this.busy = true;
+    try {
+      const { data, error } = await Backend.sb.rpc('send_chama_message', { p_cid: Store.chamaId, p_kind: kind, p_body: body || '', p_meta: meta || {}, p_recipient: th === 'group' ? null : th });
+      if (error) throw new Error(rpcMessage(error));
+      if (data && data.id && !this.msgs.some(x => x.id === data.id)) this.msgs.push(data);
+      this.draft[th] = ''; this.busy = false; render(); this.scrollEnd(true);
+      return true;
+    } catch (e) { this.busy = false; toast(e.message); return false; }
+  },
+  toolSheet(th) {
+    const list = this.tools(th);
+    R().Sheet.open(`<div class="sx-head"><h3>${Session.role === 'secretary' ? 'Secretary tools' : 'Treasurer tools'}</h3><p>${th === 'group' ? 'These go to the whole group.' : 'This goes only to this person.'}</p></div>
+<div class="tool-grid">${list.map(k => `<button type="button" class="tool" data-act="chatForm" data-k="${k}" data-th="${esc(th)}"><span class="tool-ic">${icon(TOOLS[k].ic)}</span><b>${esc(TOOLS[k].t)}</b><small>${esc(TOOLS[k].d)}</small></button>`).join('')}</div>`, { key: 'tools', label: 'Tools' });
+  },
+  formSheet(kind, th) {
+    const s = Store.get() || { members: [], chama: {} }, f = (id, lab, inner) => `<label class="fgrp" for="${id}"><span class="flab">${lab}</span>${inner}</label>`;
+    const fld = (id, ph, v, type, extra) => `<span class="field"><input id="${id}" type="${type || 'text'}" placeholder="${esc(ph || '')}" value="${esc(v || '')}"${extra || ''}></span>`;
+    const area = (id, ph, rows) => `<span class="field area"><textarea id="${id}" rows="${rows || 3}" placeholder="${esc(ph || '')}"></textarea></span>`;
+    let inner = '';
+    const soon = new Date(Date.now() + 3 * 864e5); soon.setHours(14, 0, 0, 0);
+    const local = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    if (kind === 'announcement') inner = f('fTitle', 'Heading (optional)', fld('fTitle', 'e.g. Change of meeting venue')) + f('fBody', 'Announcement', area('fBody', 'What everyone should know', 4)) + `<label class="check"><input type="checkbox" id="fPin" checked><span class="box">${icon('check')}</span><span>Pin it at the top of the chat</span></label>`;
+    if (kind === 'meeting') inner = f('fTitle', 'Meeting', fld('fTitle', 'e.g. Monthly meeting', 'Monthly meeting')) + f('fWhen', 'Date and time', fld('fWhen', '', local(soon), 'datetime-local')) + f('fPlace', 'Where', fld('fPlace', 'e.g. Wanjiku’s home, or a Google Meet link')) + f('fAgenda', 'Agenda, one item per line', area('fAgenda', 'Contributions\nLoan requests\nAny other business', 4));
+    if (kind === 'minutes') {
+      const meets = this.msgs.filter(m => m.kind === 'meeting' && !m.deleted_at).slice(-6).reverse();
+      inner = (meets.length ? f('fMeet', 'For the meeting', `<span class="field"><select id="fMeet"><option value="">Not linked to a meeting</option>${meets.map(m => `<option value="${esc(m.id)}">${esc((m.meta && m.meta.title) || 'Meeting')} · ${esc(new Date(m.meta.when).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }))}</option>`).join('')}</select></span>`) : '')
+        + f('fTitle', 'Title', fld('fTitle', 'e.g. Minutes of the November meeting', 'Minutes of the ' + new Date().toLocaleDateString('en-KE', { month: 'long' }) + ' meeting'))
+        + f('fDate', 'Meeting date', fld('fDate', '', new Date().toISOString().slice(0, 10), 'date'))
+        + f('fBody', 'What was discussed', area('fBody', 'Short notes, in order', 5)) + f('fRes', 'What was decided, one per line', area('fRes', 'Loan for Achieng approved at 10%\nNext meeting on 14 December', 3));
+    }
+    if (kind === 'poll') inner = f('fBody', 'Question', fld('fBody', 'e.g. Should we raise the contribution to 2,500?')) + `<div class="fgrp"><span class="flab">Choices</span><div id="pollOpts">${['Yes', 'No'].map((v, i) => `<span class="field"><input class="pollOpt" placeholder="Choice ${i + 1}" value="${v}"></span>`).join('')}</div><button type="button" class="btn sm ghost" data-act="pollAdd">${icon('plus', 's')}Add a choice</button></div>`;
+    if (kind === 'payment_request' || kind === 'statement') {
+      const people = this.contacts.filter(c => c.member_id);
+      const to = th === 'group' ? '' : th;
+      const sel = `<span class="field"><select id="fTo">${kind === 'payment_request' ? '<option value="group">Everyone</option>' : ''}${people.map(c => `<option value="${esc(c.user_id)}"${c.user_id === to ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></span>`;
+      if (kind === 'payment_request') {
+        const c = this.contact(to), owed = c && c.member_id ? Domain.outstanding(s, c.member_id, Domain.now()) : 0;
+        inner = f('fTo', 'Who should pay', sel) + f('fAmt', 'Amount (KES)', fld('fAmt', '', String(owed || s.chama.monthly || ''), 'number', ' inputmode="numeric" min="1"')) + f('fReason', 'For', fld('fReason', '', 'Contribution for ' + monthLabel(Domain.now()))) + f('fDue', 'Pay by', fld('fDue', '', (() => { const d = new Date(); d.setDate(Number(s.chama.dueDay) || 10); if (d < new Date()) d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 10); })(), 'date')) + f('fBody', 'Note (optional)', area('fBody', 'Anything else they should know', 2));
+      } else {
+        if (!people.length) inner = '<p class="plain">Nobody on the member list has an account yet.</p>';
+        else inner = f('fTo', 'Statement for', sel) + f('fBody', 'Note (optional)', area('fBody', 'e.g. Thank you for paying on time', 2)) + '<p class="sx-note">' + icon('shield', 's') + '<span>Only this person sees it.</span></p>';
+      }
+    }
+    R().Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon(TOOLS[kind].ic)}</span><h3>${esc(TOOLS[kind].t)}</h3><p>${esc(TOOLS[kind].d)}</p></div>${inner}
+<button type="button" class="btn pri block lg" data-act="chatSubmit" data-k="${kind}" data-th="${esc(th)}">${icon('up')}<span>Send</span></button>`, { key: 'form', label: TOOLS[kind].t });
+  },
+  async submitForm(kind, th) {
+    const v = id => { const e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+    const s = Store.get();
+    let body = v('fBody'), meta = {}, to = th;
+    if (kind === 'announcement') { meta = { title: v('fTitle'), pin: !!(document.getElementById('fPin') || {}).checked }; if (!body) return toast('Write the announcement'); to = 'group'; }
+    if (kind === 'meeting') { const w = v('fWhen'); if (!w) return toast('Choose the date and time'); meta = { title: v('fTitle') || 'Chama meeting', when: new Date(w).toISOString(), place: v('fPlace'), agenda: v('fAgenda') }; body = ''; to = 'group'; }
+    if (kind === 'minutes') {
+      const mid = v('fMeet'), mt = mid ? this.msgs.find(m => m.id === mid) : null, att = mt && mt.meta && mt.meta.attendance;
+      const present = att ? Object.entries(att).filter(([, x]) => x === 'present').map(([u]) => (this.contact(u) || {}).name || (u === this.me() ? Session.displayName() : '')).filter(Boolean).join(', ') : '';
+      meta = { title: v('fTitle'), date: v('fDate'), resolutions: v('fRes'), meeting: mid || null, present };
+      if (!body && !meta.resolutions) return toast('Add the notes or what was decided'); to = 'group';
+    }
+    if (kind === 'poll') { const opts = [...document.querySelectorAll('.pollOpt')].map(i => i.value.trim()).filter(Boolean); if (!body) return toast('Write the question'); if (opts.length < 2) return toast('Add at least two choices'); meta = { options: opts.slice(0, 8) }; to = 'group'; }
+    if (kind === 'payment_request') { const amt = Number(v('fAmt')); if (!(amt > 0)) return toast('Enter the amount'); meta = { amount: amt, reason: v('fReason'), due: v('fDue') }; to = v('fTo') || 'group'; }
+    if (kind === 'statement') {
+      to = v('fTo'); const c = this.contact(to); if (!c || !c.member_id) return toast('Choose a member');
+      const mk = Domain.now();
+      meta = { name: c.name, month: mk, saved: Domain.memberSaved(s, c.member_id), owed: Domain.outstanding(s, c.member_id, mk), loan: Domain.memberLoanBalance(s, c.member_id), fines: Domain.memberFinesDue(s, c.member_id) };
+    }
+    const ok = await this.send(to, kind, body, meta);
+    if (ok) { R().Sheet.close(); toast(TOOLS[kind].t + ' sent', 'ok'); if (location.hash !== '#/chat/' + to) location.hash = '#/chat/' + to; }
+  },
+  register(id) {
+    const m = this.msgs.find(x => x.id === id); if (!m) return;
+    const att = (m.meta && m.meta.attendance) || {}, rs = this.responses(id);
+    const people = [{ user_id: this.me(), name: Session.displayName() + ' (you)', role: Session.role }, ...this.contacts];
+    R().Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('members')}</span><h3>Attendance register</h3><p>${esc((m.meta && m.meta.title) || 'Meeting')}. Tap to mark each person.</p></div>
+<div class="reg">${people.map(p => { const st = att[p.user_id] || (rs.find(r => r.user_id === p.user_id && r.choice === 'no') ? 'apology' : ''); return `<div class="reg-row" data-u="${esc(p.user_id)}"><span class="reg-n"><b>${esc(p.name)}</b><small>${esc(ROLE_T(p.role))}</small></span><span class="reg-seg">${[['present', 'Present'], ['apology', 'Apology'], ['absent', 'Absent']].map(([k, t]) => `<button type="button" class="${st === k ? 'on ' + k : ''}" data-act="regMark" data-u="${esc(p.user_id)}" data-v="${k}">${t}</button>`).join('')}</span></div>`; }).join('')}</div>
+<button type="button" class="btn pri block lg" data-act="regSave" data-id="${esc(id)}">Save register</button>`, { key: 'reg', label: 'Attendance register' });
+  },
+  newMessage() {
+    const people = this.contacts.filter(c => c.can_message);
+    R().Sheet.open(`<div class="sx-head"><h3>New message</h3><p>${Session.role === 'member' ? 'Write privately to the treasurer or secretary, or to the whole group.' : 'Write to the group or to one person.'}</p></div>
+<div class="list sx-list"><a class="li has-av" href="#/chat/group" data-act="sheetClose"><span class="av grp" style="--n:42px">${icon('members')}</span><span class="li-main"><b>Everyone</b><small>The group conversation</small></span>${icon('chev', 'chev')}</a>
+${people.map(c => `<a class="li has-av" href="#/chat/${esc(c.user_id)}" data-act="sheetClose">${R().pav(c.name, c.photo, 42)}<span class="li-main"><b>${esc(c.name)}</b><small>${esc(ROLE_T(c.role))}</small></span>${icon('chev', 'chev')}</a>`).join('')}</div>`, { key: 'new', label: 'New message' });
+  },
+  msgMenu(id) {
+    const m = this.msgs.find(x => x.id === id); if (!m) return;
+    const mine = m.sender === this.me(), officer = Session.role !== 'member';
+    const rows = [];
+    if (m.body && navigator.clipboard) rows.push(`<button type="button" class="li has-ic" data-act="msgCopy" data-id="${esc(id)}"><span class="li-ic">${icon('copy')}</span><span class="li-main"><b>Copy text</b></span></button>`);
+    if (officer && !m.recipient) rows.push(`<button type="button" class="li has-ic" data-act="msgPin" data-id="${esc(id)}" data-v="${m.pinned ? '0' : '1'}"><span class="li-ic t-gold">${icon('bell')}</span><span class="li-main"><b>${m.pinned ? 'Unpin' : 'Pin to the top'}</b></span></button>`);
+    if (mine || Session.role === 'treasurer') rows.push(`<button type="button" class="li has-ic danger" data-act="msgRemove" data-id="${esc(id)}"><span class="li-ic t-bad">${icon('trash')}</span><span class="li-main"><b>Remove for everyone</b></span></button>`);
+    if (!rows.length) return;
+    R().Sheet.open(`<div class="list sx-list">${rows.join('')}</div>`, { key: 'msg', label: 'Message options' });
+  }
+};
+
+const views = {
+  chat(s) { return Chat.inbox(s); }
+};
+
+const actions = {
+  chatNew: () => Chat.newMessage(),
+  chatTools: d => Chat.toolSheet(d.th),
+  chatForm: d => Chat.formSheet(d.k, d.th),
+  chatSubmit: d => Chat.submitForm(d.k, d.th),
+  chatJump: d => { const el = document.getElementById('m-' + d.id) || [...document.querySelectorAll('[data-id="' + d.id + '"]')][0]; if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('hl'); setTimeout(() => el.classList.remove('hl'), 1600); } },
+  pollAdd: () => { const box = document.getElementById('pollOpts'); if (!box) return; const n = box.querySelectorAll('.pollOpt').length; if (n >= 8) return toast('Up to 8 choices'); box.insertAdjacentHTML('beforeend', `<span class="field"><input class="pollOpt" placeholder="Choice ${n + 1}"></span>`); box.lastElementChild.querySelector('input').focus(); },
+  msgRespond: async d => {
+    const prev = Chat.mine(d.id);
+    Chat.resp = Chat.resp.filter(r => !(r.message_id === d.id && r.user_id === Chat.me())).concat([{ message_id: d.id, user_id: Chat.me(), choice: String(d.v), name: Session.displayName() }]); render();
+    const { error } = await Backend.sb.rpc('respond_chama_message', { p_id: d.id, p_choice: String(d.v) });
+    if (error) { Chat.resp = Chat.resp.filter(r => !(r.message_id === d.id && r.user_id === Chat.me())); if (prev) Chat.resp.push({ message_id: d.id, user_id: Chat.me(), choice: prev }); render(); return toast(rpcMessage(error)); }
+    if (d.v === 'paid') toast('The treasurer has been told', 'ok');
+  },
+  pollClose: d => Pop.confirm({ title: 'Close this vote?', text: 'Nobody can vote or change their vote after this.', confirmLabel: 'Close vote', onYes: async () => { const { error } = await Backend.sb.rpc('close_poll', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await Chat.load(); } }),
+  meetRegister: d => Chat.register(d.id),
+  regMark: d => { const row = document.querySelector(`.reg-row[data-u="${d.u}"]`); if (!row) return; row.querySelectorAll('button').forEach(b => { b.className = b.dataset.v === d.v ? 'on ' + d.v : ''; }); },
+  regSave: async d => {
+    const att = {}; document.querySelectorAll('.reg-row').forEach(r => { const on = r.querySelector('button.on'); if (on) att[r.dataset.u] = on.dataset.v; });
+    const { error } = await Backend.sb.rpc('record_attendance', { p_id: d.id, p_attendance: att });
+    if (error) return toast(rpcMessage(error));
+    R().Sheet.close(); toast('Register saved', 'ok'); await Chat.load();
+  },
+  msgMenu: d => Chat.msgMenu(d.id),
+  msgCopy: d => { const m = Chat.msgs.find(x => x.id === d.id); R().Sheet.close(); if (m) navigator.clipboard.writeText(m.body).then(() => toast('Copied', 'ok'), () => {}); },
+  msgPin: async d => { R().Sheet.close(); const { error } = await Backend.sb.rpc('pin_chama_message', { p_id: d.id, p_pin: d.v === '1' }); if (error) return toast(rpcMessage(error)); await Chat.load(); },
+  msgRemove: d => { R().Sheet.close(); Pop.confirm({ title: 'Remove this message?', text: 'It is removed for everyone. People will see that a message was removed.', confirmLabel: 'Remove', danger: true, onYes: async () => { const { error } = await Backend.sb.rpc('retract_chama_message', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await Chat.load(); } }); }
+};
+
+return { get views() { return views; }, get actions() { return actions; }, get Chat() { return Chat; }, get TOOLS() { return TOOLS; } };
+})();
+
+/* the composer: Enter sends on a computer, the button on a phone; the box grows with the text */
+document.addEventListener('submit', e => {
+  if (!e.target || e.target.id !== 'chatForm') return;
+  e.preventDefault();
+  const C = __M_src_features_chat_index_js.Chat, th = e.target.dataset.th, inp = document.getElementById('chatIn');
+  const t = inp ? inp.value.trim() : ''; if (!t) return;
+  C.draft[th] = ''; if (inp) inp.value = '';
+  C.send(th, 'text', t, {}).then(ok => { if (!ok) { C.draft[th] = t; const i = document.getElementById('chatIn'); if (i) i.value = t; } else { const i = document.getElementById('chatIn'); if (i) i.focus(); } });
+});
+document.addEventListener('input', e => {
+  if (!e.target || e.target.id !== 'chatIn') return;
+  const f = document.getElementById('chatForm'); if (f) __M_src_features_chat_index_js.Chat.draft[f.dataset.th] = e.target.value;
+  e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px';
+});
+document.addEventListener('keydown', e => {
+  if (!e.target || e.target.id !== 'chatIn' || e.key !== 'Enter' || e.shiftKey || matchMedia('(pointer: coarse)').matches) return;
+  e.preventDefault(); const f = document.getElementById('chatForm'); if (f) f.requestSubmit();
+});
+
+
 /* ---- src/features/index.js ---- */
 const __M_src_features_index_js = (function () {
 const homeFeature = __M_src_features_home_index_js;
@@ -4074,11 +4996,13 @@ const helpFeature = __M_src_features_help_index_js;
 const authFeature = __M_src_features_auth_index_js;
 const accountFeature = __M_src_features_account_deletion_js;
 const shellFeature = __M_src_features_shell_index_js;
+const requestsFeature = __M_src_features_requests_js;
+const chatFeature = __M_src_features_chat_index_js;
 /* Feature registry. Each feature folder exports `views` (pages it draws) and/or `actions` (things that change data).
    This file merges them into one table, and stops at start-up if two features claim the same name.
    To add a feature: create its folder, then add one import line and one entry in FEATURE_LIST below. */
 
-const FEATURE_LIST = [homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature];
+const FEATURE_LIST = [homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature, requestsFeature, chatFeature];
 
 function merge(kind) {
   const out = Object.create(null);
@@ -4098,7 +5022,7 @@ return { get Views() { return Views; }, get Actions() { return Actions; }, };
 const __M_src_ui_menu_js = (function () {
 const { $ } = __M_src_lib_dom_js;
 
-const P = { alert: ICONS.alert, wallet: ICONS.wallet, clock: ICONS.clock, doc: ICONS.doc, users: ICONS.members, undo: ICONS.undo, pencil: ICONS.pencil, exit: ICONS.out, user: ICONS.profile, gear: ICONS.gear, back: ICONS.back, chev: ICONS.chev, close: ICONS.close, out: ICONS.out, globe: ICONS.globe, receipt: ICONS.receipt, shield: ICONS.shield, help: ICONS.help, scale: ICONS.scale, swap: ICONS.swap, mail: ICONS.mail, text: ICONS.text, bell: ICONS.bell, download: ICONS.download };
+const P = { loans: ICONS.loans, chat: ICONS.chat, key: ICONS.key, alert: ICONS.alert, wallet: ICONS.wallet, clock: ICONS.clock, doc: ICONS.doc, users: ICONS.members, undo: ICONS.undo, pencil: ICONS.pencil, exit: ICONS.out, user: ICONS.profile, gear: ICONS.gear, back: ICONS.back, chev: ICONS.chev, close: ICONS.close, out: ICONS.out, globe: ICONS.globe, receipt: ICONS.receipt, shield: ICONS.shield, help: ICONS.help, scale: ICONS.scale, swap: ICONS.swap, mail: ICONS.mail, text: ICONS.text, bell: ICONS.bell, download: ICONS.download };
 const svg = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 const toast = (t) => { try { __M_src_ui_toast_js.toast(t); } catch (e) {} };
 const drawer = () => document.getElementById('drawer');
@@ -4359,6 +5283,7 @@ const Menu = {
     document.querySelectorAll('#drawer [data-key="lang"]').forEach(n => { n.textContent = lang.native; });
     document.querySelectorAll('#drawer [data-key="user"]').forEach(n => { n.textContent = user.name; });
     document.querySelectorAll('#drawer [data-key="fines"]').forEach(n => { n.hidden = fines < 1; n.textContent = String(fines); });
+    { const rq = (__M_src_core_session_js.Session.requests || []).length; document.querySelectorAll('#drawer [data-key="requests"]').forEach(n => { n.hidden = rq < 1; n.textContent = String(rq); }); }
     document.querySelectorAll('#drawer [data-key="money"]').forEach(n => { n.textContent = fines ? (fines + (fines === 1 ? ' fine due' : ' fines due')) : 'Fines and expenses'; });
     const av = document.querySelector('#drawer .mn-avatar'); if (av) { if (user.photo) av.innerHTML = '<img alt="" src="' + user.photo + '">'; else av.textContent = user.first; }
     const sub = document.querySelector('#drawer .mn-who em'); if (sub) sub.textContent = (chama.role ? chama.role + ' · ' : '') + chama.name;
@@ -4390,6 +5315,7 @@ const Menu = {
         scroll.appendChild(hero);
         const admin = __M_src_core_auth_js.Auth.isAdmin();
         scroll.appendChild(group([
+          row({ icon: 'loans', tone: '#0b6b4d', label: 'Loans', onTap: () => go('#/loans') }),
           row({ icon: 'receipt', tone: '#c0392b', label: 'Fines', badgeKey: 'fines', onTap: () => go('#/fines') }),
           row({ icon: 'wallet', tone: '#b0843a', label: 'Expenses', onTap: () => go('#/expenses') }),
           row({ icon: 'clock', tone: '#2e6bb8', label: 'History', onTap: () => go('#/history') }),
@@ -4397,7 +5323,9 @@ const Menu = {
         ], 'Money and records'));
         scroll.appendChild(group([
           row({ icon: 'swap', tone: '#b0843a', label: 'Switch Chama', valueKey: 'chama', value: chama.name, onTap: () => window.openChamaPicker() }),
+          ...(__M_src_core_session_js.Session.role !== 'member' ? [row({ icon: 'key', tone: '#a8670f', label: 'Join requests', badgeKey: 'requests', onTap: () => go('#/requests') })] : []),
           row({ icon: 'users', tone: '#0b6b4d', label: admin ? 'People and access' : 'My access', onTap: () => go('#/settings/actions') }),
+          row({ icon: 'doc', tone: '#2e6bb8', label: 'Meetings, minutes and votes', onTap: () => go('#/chat/records') }),
           row({ icon: 'pencil', tone: '#47524c', label: 'Chama settings', onTap: () => go('#/settings/chama') }),
           ...(admin ? [row({ icon: 'undo', tone: '#47524c', label: 'Undo last change', chevron: false, onTap: () => window.undoLastChange() })] : [])
         ], 'Chama'));
@@ -4662,7 +5590,7 @@ function renderPage() {
   if (menuBtn) menuBtn.hidden = !home;
   if (hname) hname.hidden = !home;
   if (backBtn) { backBtn.hidden = home; backBtn.setAttribute('href', '#/' + Hist.back()); }
-  const pageName = PAGE_NAME[r] || SETTINGS_NAME[r] || (r.startsWith('notifications/') ? 'Notification' : 'Chama');
+  const pageName = PAGE_NAME[r] || SETTINGS_NAME[r] || (r.startsWith('notifications/') ? 'Notification' : r.startsWith('chat/') ? 'Chat' : 'Chama');
   document.title = (home ? chamaName : pageName) + ' · My Chama';
   if (pt) { pt.hidden = home; pt.innerHTML = `<small>${esc(chamaName)}</small><b>${esc(pageName)}</b>`; if (changed) restart(pt, 'enter'); }
   if (changed && !home && viewEl) { try { window.scrollTo(0, 0); } catch (e) {} }
@@ -4674,10 +5602,11 @@ function renderPage() {
   document.querySelectorAll('#drawer .dgroup').forEach(g => { g.hidden = ![...g.querySelectorAll('.dl')].some(x => !x.hidden); });
   if (changed && r.startsWith('notifications/') && r !== 'notifications/settings') Notify.markRead([decodeURIComponent(r.slice(14))]);
   document.body.classList.toggle('no-tabs', !ROUTES.some(x => x[0] === r));
+  document.body.classList.toggle('in-thread', /^chat\/(group|[0-9a-f-]{36})$/.test(r));
   let html = '';
   try {
     Account.load();
-    html = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r));
+    html = Account.banner() + (Views[r] ? Views[r](s) : r.startsWith('chat/') ? __M_src_features_chat_index_js.Chat.threadView(s, r.slice(5)) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r));
   } catch (e) {
     console.error(e);
     html = '<div class="card">' + emptyState('lost', 'This page could not open', 'Your records are safe. Go back, or close the app and open it again.', '<a class="btn pri" href="#/home">Go to Home</a>') + '</div>';
@@ -4699,6 +5628,7 @@ function renderPage() {
     }
   } else painted = html;
   try { Notify.paintBell(s, r); } catch (e) {}
+  try { __M_src_features_chat_index_js.Chat.paintBadge(); } catch (e) {}
 }
 
 return { get renderPage() { return renderPage; }, };
@@ -4765,17 +5695,12 @@ const { Gate, OB, LG_ALL, lgMatches } = __M_src_features_auth_gate_js;
 bindRender(renderPage);
 bindChangeHandler((a, b) => Notify.fromChange(a, b));
 Nav.init();
-document.addEventListener('pointerdown', e => {
-  const S_ = __M_src_ui_toast_js.Sfx; S_.unlock();
-  const b = e.target.closest && e.target.closest('button, .btn, [data-act], [data-gm]');
-  if (b && !b.disabled && !b.closest('.otp-stage, .pop')) S_.tap();
-}, true);
+document.addEventListener('pointerdown', () => { __M_src_ui_toast_js.Sfx.unlock(); }, { capture: true, once: true });
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target) return;
   if (e.target.id === 'gateEmail') Actions.gateSend();
   else if (e.target.id === 'gateId' || (e.target.id === 'gatePw' && Gate.mode === 'in')) Actions.gateSignIn();
-  else if (e.target.id === 'invEmail') Actions.invite();
 });
 
 
@@ -4819,8 +5744,8 @@ document.addEventListener('click', e => {
   try { fn.call(a, el.dataset); } catch (err) { toast(err.message); }
 });
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('#modalRoot .veil') && !document.querySelector('#popRoot .pop-veil')) Modal.close(); });
-document.addEventListener('click', e => { if (e.target && e.target.classList && e.target.classList.contains('veil')) Modal.close(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('#modalRoot .veil:not(.locked)') && !document.querySelector('#popRoot .pop-veil')) Modal.close(); });
+document.addEventListener('click', e => { if (e.target && e.target.classList && e.target.classList.contains('veil') && !e.target.classList.contains('locked')) Modal.close(); });
 addEventListener('scroll', () => { const h = document.getElementById('top'); if (h) h.classList.toggle('scrolled', window.scrollY > 4); }, { passive: true });
 
 /* Menu buttons stay inside the drawer until a real screen is opened. */

@@ -62,15 +62,15 @@ const TESTS = {
     await shot(page, '02-tour');
     ok((await page.locator('.ob-slide').count()) === 3, 'tour has three slides');
     await page.click('[data-ob="next"]'); await page.click('[data-ob="next"]'); await page.click('[data-ob="next"]'); await page.waitForTimeout(200);
-    await shot(page, '03-privacy');
-    ok(await page.isDisabled('[data-ob="accept"]'), 'continue is disabled until both boxes are ticked');
-    ok((await page.locator('a[href="legal/privacy.html"]').count()) > 0 && (await page.locator('a[href="legal/terms.html"]').count()) > 0, 'privacy and terms links present');
-    await page.click('label.check .box >> nth=0'); await page.click('label.check .box >> nth=1');
-    await page.click('[data-ob="accept"]'); await page.waitForTimeout(300);
     await shot(page, '04-start');
-    ok(await page.isVisible('[data-act="gateGoogle"]'), 'start screen shows Continue with Google');
-    const st = await page.evaluate(() => JSON.parse(localStorage.getItem('mca-onboard')));
-    ok(st.policy === '2026-11-18-v3' && !!st.agreedAt, 'consent stored with policy version');
+    ok(await page.isVisible('[data-act="gateGoogle"]'), 'after the tour the start screen opens directly (no checkbox page)');
+    ok(await page.isVisible('.legal-mini a[href="legal/terms.html"]') && await page.isVisible('.legal-mini a[href="legal/privacy.html"]'), 'by-continuing line links the Terms and the Policy');
+    let st = await page.evaluate(() => JSON.parse(localStorage.getItem('mca-onboard')));
+    ok(!st.agreedAt, 'nothing is recorded before the person continues');
+    await page.click('[data-gm="in"]'); await page.waitForTimeout(200);
+    st = await page.evaluate(() => JSON.parse(localStorage.getItem('mca-onboard')));
+    ok(st.policy === '2026-11-18-v3' && !!st.agreedAt && st.method === 'continue:sign-in' && 'tz' in st, 'continuing records version, time, method and time zone');
+    ok(await page.evaluate(() => localStorage.getItem('mca-sfx') !== 'on' && !__M_src_ui_toast_js.Sfx.enabled), 'sounds are off by default');
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();
   },
@@ -137,16 +137,16 @@ const TESTS = {
     await page.fill('#modalRoot input[name="code"]', 'qwe123rty9'); await page.click('#modalRoot .btn.pri'); await page.waitForTimeout(400);
     ok(await page.isVisible('#popRoot .pop'), 'a repeated M-Pesa code is refused');
     await page.click('#popRoot .pop-btn'); await page.waitForTimeout(300); await page.click('#modalRoot [data-act="closeModal"] >> nth=-1'); await page.waitForTimeout(200);
-    await page.click('#nav a[data-k="loans"]'); await page.waitForTimeout(400);
+    await page.goto(page.url().split('#')[0] + '#/loans'); await page.waitForTimeout(400);
     await shot(page, '14-loans');
     await page.click('[data-act="loanMenu"] >> nth=0'); await page.waitForTimeout(400);
     await shot(page, '15-loan-sheet');
     await page.click('#modalRoot [data-act="repay"]'); await page.waitForTimeout(400);
     await page.click('#modalRoot .btn.pri'); await page.waitForTimeout(400);
     ok(/Repayment saved/.test(await page.textContent('#toast')), 'loan repayment recorded');
-    await page.click('#nav a[data-k="members"]'); await page.waitForTimeout(400);
+    await page.goto(page.url().split('#')[0] + '#/members'); await page.waitForTimeout(400);
     await shot(page, '16-members');
-    ok(/Joined by invite code/i.test(await text(page)), 'treasurer sees joined-by-code card');
+    ok(/Not on the member list/i.test(await text(page)), 'treasurer sees people who are not on the member list');
     await page.click('[data-act="memberMenu"] >> nth=1'); await page.waitForTimeout(400);
     await shot(page, '17-member-sheet');
     await page.click('#modalRoot [data-act="moveMember"]'); await page.waitForTimeout(300);
@@ -154,18 +154,33 @@ const TESTS = {
     ok(/Otieno/.test(order[0]), 'move up changes payout order');
     await page.click('#nav a[data-k="profile"]'); await page.waitForTimeout(400);
     await shot(page, '18-profile');
-    await page.fill('#mePhone', '12345'); await page.click('[data-act="saveMe"]'); await page.waitForTimeout(300);
+    await page.click('[data-act="meEdit"][data-f="phone"]'); await page.waitForTimeout(350);
+    await page.fill('#edV', '12345'); await page.click('[data-act="meSave"]'); await page.waitForTimeout(300);
     ok(await page.isVisible('#popRoot .pop'), 'bad phone number is refused');
     await page.click('#popRoot .pop-btn'); await page.waitForTimeout(250);
+    await page.fill('#edV', '0712 345 678'); await page.click('[data-act="meSave"]'); await page.waitForTimeout(400);
+    ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'save_my_details' && x.args.p_phone === '0712345678'), 'one field edits in a sheet and saves');
     await page.goto(page.url().split('#')[0] + '#/settings'); await page.waitForTimeout(500);
     await shot(page, '19-settings');
     await page.goto(page.url().split('#')[0] + '#/settings/actions'); await page.waitForTimeout(500);
     await shot(page, '20-access');
     ok(/People and access/.test(await text(page)) && /grace@example.com/.test(await text(page)), 'people and access lists invitations');
-    await page.fill('#invEmail', 'baraka@example.com'); await page.click('[data-act="invite"]'); await page.waitForTimeout(500);
-    ok((await calls(page)).some(x => x.kind === 'fn' && x.name === 'send-invitation' && x.body.email === 'baraka@example.com'), 'invitation sent through send-invitation');
-    await page.click('[data-act="codeCreate"]'); await page.waitForTimeout(400);
-    ok(/ABCD-EFGH-JK/.test(await text(page)), 'invite code shown once');
+    await page.click('[data-act="inviteSheet"][data-v="email"]'); await page.waitForTimeout(400);
+    await shot(page, '20b-invite-email');
+    await page.click('.rp[data-v="secretary"]'); await page.waitForTimeout(100);
+    await page.fill('#invEmail2', 'baraka@example.com'); await page.click('[data-act="invGo"]'); await page.waitForTimeout(500);
+    ok((await calls(page)).some(x => x.kind === 'fn' && x.name === 'send-invitation' && x.body.email === 'baraka@example.com' && x.body.role === 'secretary' && x.body.member_id === 'new'), 'email invite sent with role and a new member-list entry');
+    ok(/Invitation sent/.test(await page.textContent('#modalRoot')), 'email invite shows a clear result');
+    await page.click('[data-act="invAgain"]'); await page.click('[data-act="invTab"][data-v="code"]'); await page.waitForTimeout(150);
+    await page.click('[data-act="invUses"][data-v="1"]'); await page.click('[data-act="invGo"]'); await page.waitForTimeout(500);
+    await shot(page, '20c-invite-code');
+    ok(/ABCD-EFGH-JK/.test(await page.textContent('#modalRoot')), 'invite code shown on a ticket');
+    ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'create_invite_code' && x.args.p_max_uses === 2), 'code created with the chosen uses');
+    await page.click('#modalRoot [data-act="sheetClose"] >> nth=0'); await page.waitForTimeout(300);
+    await page.click('[data-act="personOpen"] >> nth=1'); await page.waitForTimeout(350);
+    await shot(page, '20d-person');
+    ok(await page.isVisible('#modalRoot .rolepick'), 'tapping a person opens their role and member-list sheet');
+    await page.click('#modalRoot [data-act="sheetClose"]'); await page.waitForTimeout(300);
     for (const r of ['fines', 'expenses', 'history', 'reports', 'notifications', 'settings/app', 'settings/chama', 'settings/privacy', 'settings/about', 'settings/help', 'notifications/settings', 'legal/terms', 'legal/privacy']) {
       await page.goto(page.url().split('#')[0] + '#/' + r); await page.waitForTimeout(r.startsWith('legal') ? 900 : 350);
       const v = await text(page);
@@ -213,9 +228,76 @@ const TESTS = {
     ok(/Tumaini/.test(await page.textContent('[data-act="pkOpen"]')), 'open button names the chosen Chama');
     await page.click('[data-act="wsSub"][data-s="join"]'); await page.waitForTimeout(300);
     await shot(page, '41-join');
-    await page.fill('#joinLink', 'abcd-efgh-jk'); await page.click('[data-act="wsJoin"]'); await page.waitForTimeout(500);
-    ok(/Join this Chama/.test(await page.textContent('body')), 'a valid code shows the confirmation');
-    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.locator('#joinLink').pressSequentially('abcdefghjk', { delay: 10 });
+    ok((await page.inputValue('#joinLink')) === 'ABCD-EFGH-JK', 'the code formats itself as it is typed');
+    await page.click('[data-act="wsJoin"]'); await page.waitForTimeout(500);
+    await shot(page, '41b-join-preview');
+    const pv = await page.textContent('#view');
+    ok(/Umoja Savings/.test(pv) && /Ask to join/.test(pv) && /Secretary/.test(pv) && /Wanjiku Kamau/.test(pv), 'a valid code replaces the form with the Chama preview (name, role, treasurer)');
+    ok(!(await page.locator('#jmRoot *').count()) && !(await page.locator('#joinLink').count()), 'nothing covers the preview');
+    await page.click('[data-act="jnRequest"]'); await page.waitForTimeout(500);
+    await shot(page, '41c-join-sent');
+    ok(/Request sent/.test(await page.textContent('#view')), 'asking to join shows the request-sent screen');
+    await page.click('[data-act="jnFinish"]'); await page.waitForTimeout(400);
+    ok(/Waiting for approval/.test(await page.textContent('#view')), 'the pending request is listed on the hub');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+  },
+  async approvals(b) {
+    const rq = [{ id: 'r1', email: 'baraka@example.com', name: 'Baraka Mutua', username: 'baraka', phone: '0711000000', photo: null, role: 'member', requested_member_id: null, requested_at: new Date(Date.now() - 600000).toISOString() }];
+    const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1600, mock: { ...scenarios.treasurer.mock, requests: rq } });
+    await shot(page, '60-approval');
+    ok(await page.isVisible('#modalRoot .veil.locked'), 'a join request opens a sheet the treasurer must answer');
+    await page.keyboard.press('Escape'); await page.mouse.click(5, 5); await page.waitForTimeout(300);
+    ok(await page.isVisible('#modalRoot .veil.locked'), 'Escape and the backdrop do not dismiss it');
+    await page.click('#modalRoot .rp[data-v="secretary"]'); await page.waitForTimeout(150);
+    await page.click('#modalRoot [data-act="rqApprove"]'); await page.waitForTimeout(500);
+    const c = (await calls(page)).find(x => x.kind === 'rpc' && x.name === 'decide_join_request');
+    ok(c && c.args.p_approve === true && c.args.p_role === 'secretary' && c.args.p_record === 'new' && c.args.p_name === 'Baraka Mutua', 'approval sends role, a new member-list entry and the name');
+    ok(!(await page.locator('#modalRoot .veil').count()), 'the sheet closes when nothing is left');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+  },
+  async chat(b) {
+    const msgs = [
+      { id: '33333333-3333-4333-8333-333333333331', chama_id: 'umoja', sender: '11111111-1111-4111-8111-111111111111', sender_name: 'Otieno Odhiambo', sender_role: 'secretary', recipient: null, kind: 'meeting', body: '', meta: { title: 'Monthly meeting', when: new Date(Date.now() + 3 * 864e5).toISOString(), place: 'Community hall', agenda: 'Contributions\nLoans' }, pinned: false, created_at: new Date(Date.now() - 3600e3).toISOString() },
+      { id: '33333333-3333-4333-8333-333333333332', chama_id: 'umoja', sender: '11111111-1111-4111-8111-111111111111', sender_name: 'Otieno Odhiambo', sender_role: 'secretary', recipient: null, kind: 'poll', body: 'Raise the contribution to 2,500?', meta: { options: ['Yes', 'No'] }, pinned: false, created_at: new Date(Date.now() - 1800e3).toISOString() },
+      { id: '33333333-3333-4333-8333-333333333333', chama_id: 'umoja', sender: '22222222-2222-4222-8222-222222222222', sender_name: 'Faith Mwende', sender_role: 'member', recipient: null, kind: 'text', body: 'Good morning everyone', meta: {}, pinned: false, created_at: new Date(Date.now() - 600e3).toISOString() }];
+    const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, mock: { ...scenarios.treasurer.mock, messages: msgs } });
+    ok(await page.isVisible('#nav a[data-k="chat"]'), 'Chat is in the tab bar');
+    await page.waitForTimeout(400);
+    ok(/Next meeting/i.test(await text(page)), 'Home shows the next meeting');
+    await page.click('#nav a[data-k="chat"]'); await page.waitForTimeout(500);
+    await shot(page, '61-chat-inbox');
+    ok(/Good morning everyone/.test(await text(page)), 'inbox shows the group conversation with its last message');
+    await page.click('a.ch-row[href="#/chat/group"]'); await page.waitForTimeout(600);
+    await shot(page, '62-chat-group');
+    ok(await page.isVisible('.cc-meet') && await page.isVisible('.cc-poll'), 'meeting and vote cards render in the conversation');
+    await page.click('.cc-poll .po >> nth=0'); await page.waitForTimeout(300);
+    ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'respond_chama_message' && x.args.p_choice === '0'), 'voting sends the choice');
+    await page.fill('#chatIn', 'Hello from the treasurer'); await page.click('.cp-send'); await page.waitForTimeout(500);
+    ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'send_chama_message' && x.args.p_kind === 'text' && x.args.p_recipient === null), 'a group message is sent');
+    ok(/Hello from the treasurer/.test(await text(page)), 'the sent message appears');
+    await page.click('.cp-tools'); await page.waitForTimeout(350);
+    await shot(page, '63-chat-tools');
+    const tools = await page.locator('#modalRoot .tool').count();
+    ok(tools >= 4, 'treasurer sees role tools (' + tools + ')');
+    await page.click('#modalRoot .tool[data-k="payment_request"]'); await page.waitForTimeout(350);
+    await shot(page, '64-chat-payreq');
+    await page.click('#modalRoot [data-act="chatSubmit"]'); await page.waitForTimeout(500);
+    ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'send_chama_message' && x.args.p_kind === 'payment_request' && x.args.p_meta.amount > 0), 'a payment request is sent');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+    const m = await open(b, 'member', { wait: 1400, mock: { ...scenarios.member.mock, messages: msgs } });
+    await m.page.goto(m.page.url().split('#')[0] + '#/chat/group'); await m.page.waitForTimeout(600);
+    ok(!(await m.page.locator('.cp-tools').count()), 'a member has no officer tools');
+    ok(!m.errors.length, 'no page errors ' + m.errors.join(' | '));
+    await m.ctx.close();
+  },
+  async deadSession(b) {
+    const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, mock: { ...scenarios.treasurer.mock, sessionDead: true } });
+    await shot(page, '65-dead-session');
+    ok(/session ended/i.test(await page.textContent('#view')) && await page.isVisible('#gatePw'), 'a session the server ended goes to sign-in with a reason, not a broken app');
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();
   },

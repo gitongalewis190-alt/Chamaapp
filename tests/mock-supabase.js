@@ -24,6 +24,13 @@
     codes: M.codes || [],
     otpOk: M.otpOk || '12345678',
     failSave: !!M.failSave,
+    requests: M.requests || [],
+    pending: M.pending || [],
+    messages: M.messages || [],
+    responses: M.responses || [],
+    notifications: M.notifications || [],
+    contacts: M.contacts || [{ user_id: '11111111-1111-4111-8111-111111111111', name: 'Otieno Odhiambo', role: 'secretary', photo: null, member_id: 'm2', can_message: true }, { user_id: '22222222-2222-4222-8222-222222222222', name: 'Faith Mwende', role: 'member', photo: null, member_id: 'm3', can_message: true }],
+    sessionDead: !!M.sessionDead,
   });
   const listeners = [];
   const fire = (ev, s) => listeners.forEach(f => { try { f(ev, s); } catch (e) { console.error(e); } });
@@ -71,8 +78,25 @@
     request_account_deletion: () => ok({ ok: true }),
     cancel_account_deletion: () => ok({ ok: true }),
     create_chama_global: a => { const id = 'new-' + Date.now(); sessionStorage.setItem('mock-session', JSON.stringify(db.session)); db.chamas[id] = { data: a.cdata, version: 1 }; db.roles[id] = { role: 'treasurer', member_id: null }; db.workspaces.push({ chama_id: id, chama_name: a.cname, role: 'treasurer' }); return ok({ chama_id: id, role: 'treasurer' }); },
-    preview_invite_code: a => a.p_code === 'ABCDEFGHJK' ? ok({ ok: true, chama_id: 'umoja', chama_name: 'Umoja Savings', display_tag: 'UMOJ', role: 'member' }) : ok({ ok: false, error: 'That code was not found.' }),
-    redeem_invite_code: () => ok({ ok: true, chama_id: 'umoja' }),
+    preview_invite_code: a => a.p_code === 'ABCDEFGHJK' ? ok({ ok: true, chama_id: 'umoja', chama_name: 'Umoja Savings', display_tag: 'UMOJ', role: 'secretary', treasurer_name: 'Wanjiku Kamau', people: 8, members_listed: 8, contribution: 2000, currency: 'KES' }) : ok({ ok: false, error: 'That code was not found.' }),
+    redeem_invite_code: () => { db.pending = [{ chama_id: 'umoja', chama_name: 'Umoja Savings', display_tag: 'UMOJ', role: 'secretary', requested_at: new Date().toISOString(), treasurer_name: 'Wanjiku Kamau' }]; return ok({ ok: true, chama_id: 'umoja', chama_name: 'Umoja Savings', role: 'secretary', pending: true }); },
+    my_join_requests: () => ok(db.pending),
+    cancel_join_request: () => { db.pending = []; return ok(null); },
+    list_join_requests: () => ok(db.requests),
+    decide_join_request: a => { db.requests = db.requests.filter(r => r.id !== a.p_id); return ok({ ok: true, approved: a.p_approve }); },
+    link_member_record: () => ok({ ok: true }),
+    set_member_role: () => ok(null),
+    mark_notifications_read: () => ok(1),
+    record_consent_v2: a => ok({ ok: true, policy_version: a.p_policy_version, accepted_at: new Date().toISOString() }),
+    chat_contacts: () => ok(db.contacts),
+    chat_unread: () => ok([]),
+    mark_thread_read: () => ok(null),
+    send_chama_message: a => { const m = { id: 'aaaaaaaa-0000-4000-8000-' + String(Date.now()).slice(-12).padStart(12, '0'), chama_id: a.p_cid, sender: (db.session && db.session.user.id) || 'u1', sender_name: 'Wanjiku Kamau', sender_role: 'treasurer', recipient: a.p_recipient || null, kind: a.p_kind, body: a.p_body || '', meta: a.p_meta || {}, pinned: a.p_kind === 'announcement', created_at: new Date().toISOString() }; db.messages.push(m); return ok(m); },
+    respond_chama_message: a => { db.responses = db.responses.filter(r => !(r.message_id === a.p_id && r.user_id === 'u1')).concat([{ message_id: a.p_id, user_id: 'u1', choice: a.p_choice, name: 'Wanjiku' }]); return ok({ ok: true }); },
+    record_attendance: () => ok({ ok: true }),
+    close_poll: () => ok(null),
+    pin_chama_message: () => ok(null),
+    retract_chama_message: () => ok(null),
     verify_invitation: () => ok(M.invitation || { ok: false, code: 'invalid' }),
     accept_invitation: () => ok({ ok: true, chama_id: 'umoja' }),
     decline_invitation: () => ok({ ok: true }),
@@ -87,6 +111,9 @@
     const st = { table, filters: {}, op: 'select', patch: null };
     const run = () => {
       calls.push({ kind: 'from', table, op: st.op, filters: clone(st.filters), patch: st.op === 'update' ? '[doc]' : undefined });
+      if (table === 'chama_messages') return ok(clone(db.messages).reverse());
+      if (table === 'chama_message_responses') return ok(clone(db.responses));
+      if (table === 'chama_notifications') return ok(clone(db.notifications));
       if (table === 'chama_members') {
         const r = db.roles[st.filters.chama_id];
         return ok(r ? { role: r.role, member_id: r.member_id } : null);
@@ -104,7 +131,7 @@
       return ok(null);
     };
     const q = {
-      select() { return q; }, eq(k, v) { st.filters[k] = v; return q; },
+      select() { return q; }, eq(k, v) { st.filters[k] = v; return q; }, order() { return q; }, limit() { return q; },
       update(p) { st.op = 'update'; st.patch = p; return q; },
       maybeSingle: run, single: run,
       then(a, b) { return run().then(a, b); },
@@ -117,6 +144,8 @@
       return {
         auth: {
           getSession: () => ok({ session: db.session }),
+          getUser: () => db.sessionDead ? Promise.resolve({ data: { user: null }, error: { message: 'Session from session_id claim in JWT does not exist', status: 403 } }) : ok({ user: db.session && db.session.user }),
+          refreshSession: () => db.sessionDead ? Promise.resolve({ data: { session: null }, error: { message: 'Invalid Refresh Token' } }) : ok({ session: db.session }),
           onAuthStateChange(cb) { listeners.push(cb); setTimeout(() => cb('INITIAL_SESSION', db.session), 0); return { data: { subscription: { unsubscribe() {} } } }; },
           signInWithOtp: a => { calls.push({ kind: 'otp', email: a.email }); return later({ data: {}, error: null }, 50); },
           verifyOtp: a => {
@@ -127,7 +156,7 @@
             return later({ data: { session: db.session }, error: null }, 100);
           },
           setSession: () => ok({}),
-          signOut: () => { db.session = null; sessionStorage.removeItem('mock-session'); setTimeout(() => fire('SIGNED_OUT', null), 0); return ok({}); },
+          signOut: () => { db.sessionDead = false; db.session = null; sessionStorage.removeItem('mock-session'); setTimeout(() => fire('SIGNED_OUT', null), 0); return ok({}); },
           updateUser: () => { db.account.has_password = true; return ok({}); },
         },
         rpc(name, args) { calls.push({ kind: 'rpc', name, args: clone(args) }); const f = RPC[name]; return f ? f(args || {}) : err('Could not find the function public.' + name); },
