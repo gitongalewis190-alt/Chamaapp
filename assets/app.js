@@ -2431,7 +2431,8 @@ async function savePayments(list) {
       st.payments.push({ id: uid(), memberId: p.memberId, month: p.month, amount: p.amount, code: p.code || '', date: p.date });
       if (p.learn) { const mm = st.members.find(x => x.id === p.memberId); if (mm) Matcher.learn(mm, p.learn.t); }
     }));
-    toast(saved.length === 1 ? 'Payment recorded' : saved.length + ' payments recorded');
+    toast(saved.length === 1 ? 'Payment recorded: ' + __M_src_core_utils_js.kes(saved[0].amount) + (saved[0].name ? ' from ' + saved[0].name : '') : saved.length + ' payments recorded', 'ok');
+    try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
   }
 }
 /* shows cash on hand and what is left after the amount being typed, updating with every key */
@@ -3096,13 +3097,32 @@ const { Store } = __M_src_core_store_js;
 const { monthKey, uid, esc } = __M_src_core_utils_js;
 const { Modal } = __M_src_ui_modal_js;
 
+/* a small square photo for the member list: it is stored in the Chama's shared record, so it is kept under ~25 KB */
+const smallPhoto = file => new Promise((ok, no) => {
+  const img = new Image(), u = URL.createObjectURL(file);
+  img.onload = () => {
+    URL.revokeObjectURL(u);
+    const n = Math.min(img.width, img.height); if (!n) return no(new Error('That picture is empty'));
+    const c = document.createElement('canvas'); c.width = c.height = 160;
+    c.getContext('2d').drawImage(img, (img.width - n) / 2, (img.height - n) / 2, n, n, 0, 0, 160, 160);
+    let q = 0.8, url = c.toDataURL('image/jpeg', q); while (url.length > 25000 && q > 0.4) { q -= 0.1; url = c.toDataURL('image/jpeg', q); }
+    ok(url);
+  };
+  img.onerror = () => { URL.revokeObjectURL(u); no(new Error('That file is not a picture. Try a JPG or PNG.')); };
+  img.src = u;
+});
+const okPhoto = v => typeof v === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v);
+
 function memberForm(m) {
+  const pic = m && okPhoto(m.photo) ? m.photo : '';
+  const ini = n => String(n || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '+';
   Modal.open({ title: m ? 'Edit member' : 'Add member', submitLabel: m ? 'Save' : 'Add member', fields: [
     { name: 'name', label: 'Full name', value: m?.name, required: true, placeholder: 'e.g. Achieng Atieno' },
-    { name: 'phone', label: 'Phone (for WhatsApp reminders)', type: 'tel', value: m?.phone, placeholder: '0712 345 678' },
-    { name: 'role', label: 'Title in the group (optional)', value: m?.role, placeholder: 'Chair, Secretary, Treasurer' },
+    { name: 'phone', label: 'Phone number', type: 'tel', value: m?.phone, placeholder: '0712 345 678', help: 'Used for WhatsApp and SMS reminders and to match M-Pesa payments.' },
+    { name: 'role', label: 'Title in the group (optional)', value: m?.role, placeholder: 'Chair, Patron, Organiser' },
     { name: 'shares', label: 'Shares (2 pays double)', type: 'number', value: m?.shares || 1 }],
-    body: m ? `<p class="plain">Changes are kept in History.</p><div class="btns" style="margin-top:6px"><button type="button" class="btn bad sm" data-act="delMember" data-id="${esc(m.id)}">Remove this member</button></div>` : '<p class="plain">Members are the people whose money the chama records. To let someone sign in, invite them from People and access.</p>',
+    body: `<div class="mf-photo"><span class="mf-av" id="mfAv">${pic ? `<img src="${pic}" alt="">` : `<b>${esc(ini(m && m.name))}</b>`}</span><div><b>Profile photo</b><small>Optional. Helps everyone recognise them.</small><div class="mf-btns"><label class="btn sm tint">${icon('camera', 's')}${pic ? 'Change' : 'Add photo'}<input type="file" accept="image/*" id="mfFile" hidden></label>${pic ? '<button type="button" class="btn sm ghost" id="mfDel">Remove</button>' : ''}</div></div><input type="hidden" name="photo" id="mfPhoto" value="${pic ? 'keep' : ''}"></div>`
+      + (m ? `<p class="plain">Changes are kept in History.</p><div class="btns" style="margin-top:6px"><button type="button" class="btn bad sm" data-act="delMember" data-id="${esc(m.id)}">Remove this member</button></div>` : '<p class="plain">Members are the people whose money the chama records. To let someone sign in, invite them from People and access.</p>'),
     onSubmit: v => {
       const phone = String(v.phone || '').replace(/[\s-]/g, '');
       const d = { name: String(v.name || '').trim().replace(/\s+/g, ' '), phone, role: String(v.role || '').trim(), shares: Math.max(1, Math.round(Number(v.shares) || 1)) };
@@ -3110,8 +3130,15 @@ function memberForm(m) {
       if (d.name.length > 80) throw new Error('Keep the name to 80 characters or fewer');
       if (phone && !/^(\+?254|0)[17]\d{8}$/.test(phone)) throw new Error('Phone number should look like 0712345678');
       if (d.shares > 20) throw new Error('Use 20 shares or fewer');
-      Store.commit(s => m ? Object.assign(s.members.find(x => x.id === m.id), d) : s.members.push({ id: uid(), ...d, joined: monthKey(new Date()) }));
+      const ph = v.photo === 'keep' ? pic : okPhoto(v.photo) ? v.photo : '';
+      Store.commit(s => {
+        if (m) { const x = s.members.find(y => y.id === m.id); Object.assign(x, d); if (ph) x.photo = ph; else delete x.photo; }
+        else s.members.push({ id: uid(), ...d, ...(ph ? { photo: ph } : {}), joined: monthKey(new Date()) });
+      });
     } });
+  const f = document.getElementById('mfFile'), hid = document.getElementById('mfPhoto'), box = document.getElementById('mfAv');
+  if (f) f.addEventListener('change', async () => { if (!f.files[0]) return; try { const url = await smallPhoto(f.files[0]); hid.value = url; box.innerHTML = `<img src="${url}" alt="">`; } catch (e) { __M_src_ui_toast_js.toast(e.message); } });
+  const del = document.getElementById('mfDel'); if (del) del.addEventListener('click', () => { hid.value = ''; box.innerHTML = '<b>+</b>'; del.remove(); });
 }
 
 return { get memberForm() { return memberForm; }, };
@@ -3204,10 +3231,23 @@ const actions = {
   addNameOnly: { admin: true, run() { __M_src_features_requests_js.Sheet.close(); setTimeout(() => memberForm(), 260); } },
   addMember: { admin: true, run: () => memberForm() },
   editMember: { admin: true, run: d => memberForm(S().members.find(m => m.id === d.id)) },
+  /* choose exactly where someone goes in the payout order; each place shows the month it pays out */
   moveMember: { admin: true, run(d) {
-    Modal.close();
-    Store.commit(s => { const i = s.members.findIndex(m => m.id === d.id); if (i > 0) [s.members[i - 1], s.members[i]] = [s.members[i], s.members[i - 1]]; });
-    __M_src_ui_toast_js.toast('Moved up one place in the payout order');
+    const s = S(), from = s.members.findIndex(m => m.id === d.id); if (from < 0) return;
+    const U = __M_src_core_utils_js, n = s.members.length, cur = Domain.now();
+    const monthFor = i => { const off = ((U.monthDiff(s.chama.startMonth, cur) % n) + n) % n; let k = (i - off + n) % n; return U.addMonths(cur, k); };
+    const who = s.members[from];
+    const rows = s.members.map((m, i) => `<button type="button" class="mv-row${i === from ? ' on' : ''}" data-act="movePick" data-id="${esc(who.id)}" data-to="${i}" ${i === from ? 'disabled aria-current="true"' : ''}>
+<span class="mv-n">${i + 1}</span><span class="mv-main"><b>${esc(U.monthLabel(monthFor(i)))}</b><small>${i === from ? 'Now: ' + esc(who.name) : 'Now: ' + esc(m.name) + (m.left ? ' · left' : '')}</small></span><span class="mv-go">${i === from ? 'Current' : 'Put here'}</span></button>`).join('');
+    Modal.open({ title: 'Move ' + who.name.split(' ')[0] + ' in the payout order', body: `<p class="plain">Tap the turn ${esc(who.name.split(' ')[0])} should take. Everyone between moves one place. Recorded payouts never change.</p><div class="mv-list">${rows}</div>` });
+  } },
+  movePick: { admin: true, run(d) {
+    const s = S(), from = s.members.findIndex(m => m.id === d.id), to = Number(d.to); if (from < 0 || isNaN(to) || to === from) return;
+    const U = __M_src_core_utils_js, n = s.members.length, cur = Domain.now();
+    const monthFor = i => { const off = ((U.monthDiff(s.chama.startMonth, cur) % n) + n) % n; return U.addMonths(cur, (i - off + n) % n); };
+    const name = s.members[from].name, displaced = s.members[to].name;
+    __M_src_ui_toast_js.Pop.confirm({ title: 'Move ' + name.split(' ')[0] + ' to turn ' + (to + 1) + '?', text: name + ' will receive in ' + U.monthLabel(monthFor(to)) + '. ' + displaced + ' moves ' + (to < from ? 'one place later' : 'one place earlier') + ', and so does everyone in between. Everyone sees the new order.', confirmLabel: 'Move',
+      onYes: () => { Modal.close(); Store.commit(st => { const i = st.members.findIndex(m => m.id === d.id); if (i < 0) return; const [m] = st.members.splice(i, 1); st.members.splice(Math.min(to, st.members.length), 0, m); }); __M_src_ui_toast_js.toast(name.split(' ')[0] + ' now receives in ' + U.monthLabel(monthFor(to)), 'ok'); } });
   } },
   memberMenu(d) {
     const s = S(), m = s.members.find(x => x.id === d.id); if (!m) return;
@@ -3229,7 +3269,7 @@ const actions = {
       ${admin ? `<div class="kv"><span>Phone</span><b>${phone ? `<a href="tel:${esc(String(m.phone).replace(/[^\d+]/g, ''))}">${esc(phone)}</a>` : 'Not added'}</b></div>` : ''}
       <div class="btns">
         <button type="button" class="btn grow" data-act="statement" data-id="${esc(m.id)}">${icon('doc')}Statement</button>
-        ${admin ? `${i > 0 && s.chama.mode !== 'savings' ? `<button type="button" class="btn grow" data-act="moveMember" data-id="${esc(m.id)}">${icon('up')}Move up</button>` : ''}<button type="button" class="btn grow" data-act="editMember" data-id="${esc(m.id)}">${icon('pencil')}Edit</button>` : ''}
+        ${admin ? `${s.members.length > 1 && s.chama.mode !== 'savings' ? `<button type="button" class="btn grow" data-act="moveMember" data-id="${esc(m.id)}">${icon('swap')}Change payout turn</button>` : ''}<button type="button" class="btn grow" data-act="editMember" data-id="${esc(m.id)}">${icon('pencil')}Edit</button>` : ''}
       </div>` });
   },
   statement(d) {
@@ -5238,7 +5278,7 @@ ${Session.role === 'member' ? '<p class="foot-note">The group sees group message
       if (m.kind !== 'text' && !m.deleted_at) return out + `<div class="ch-card-wrap${mine ? ' mine' : ''}">${this.card(m, s)}</div>`;
       const who = th === 'group' && !mine && !cont ? `<span class="ch-who">${esc(m.sender_name)}${m.sender_role !== 'member' ? ` <span class="rtag r-${esc(m.sender_role)}">${esc(ROLE_T(m.sender_role))}</span>` : ''}</span>` : '';
       const txt = m.deleted_at ? `<i class="mute">${icon('close', 's')}Message removed</i>` : linkify(m.body);
-      return out + `<div class="bub-row${mine ? ' mine' : ''}${cont ? ' cont' : ''}">${who}<div class="bub" ${!m.deleted_at && (mine || Session.role !== 'member') ? `data-act="msgMenu" data-id="${esc(m.id)}" tabindex="0"` : ''}>${txt}<span class="bub-t">${esc(hm(m.created_at))}${m.pinned ? ' · ' + icon('bell', 's') : ''}</span></div></div>`;
+      return out + `<div class="bub-row${mine ? ' mine' : ''}${cont ? ' cont' : ''}">${who}<div class="bub" ${!m.deleted_at && (mine || Session.role !== 'member') ? `data-act="msgMenu" data-id="${esc(m.id)}" tabindex="0"` : ''}>${txt}<span class="bub-t">${m.edited_at && !m.deleted_at ? 'edited · ' : ''}${esc(hm(m.created_at))}${m.pinned ? ' · ' + icon('bell', 's') : ''}</span></div></div>`;
     }).join('');
     const title = th === 'group' ? ((s.chama && s.chama.name) || 'Group') : c ? c.name : 'Conversation';
     const sub = th === 'group' ? (this.contacts.length + 1) + ' people' : c ? ROLE_T(c.role) : '';
@@ -5392,6 +5432,9 @@ ${people.map(c => `<a class="li has-av" href="#/chat/${esc(c.user_id)}" data-act
     const mine = m.sender === this.me(), officer = Session.role !== 'member';
     const rows = [];
     if (m.body && navigator.clipboard) rows.push(`<button type="button" class="li has-ic" data-act="msgCopy" data-id="${esc(id)}"><span class="li-ic">${icon('copy')}</span><span class="li-main"><b>Copy text</b></span></button>`);
+    /* the same rule as the server: your own words, or an officer keeping the group's notice board */
+    const canEdit = !m.deleted_at && ['text', 'announcement', 'minutes'].includes(m.kind) && (mine || (officer && !m.recipient && (m.kind === 'announcement' || m.pinned)));
+    if (canEdit) rows.push(`<button type="button" class="li has-ic" data-act="msgEdit" data-id="${esc(id)}"><span class="li-ic">${icon('pencil')}</span><span class="li-main"><b>Edit</b><small>${m.kind === 'announcement' || m.pinned ? 'Everyone sees it was edited' : 'Shows as edited'}</small></span></button>`);
     if (officer && !m.recipient) rows.push(`<button type="button" class="li has-ic" data-act="msgPin" data-id="${esc(id)}" data-v="${m.pinned ? '0' : '1'}"><span class="li-ic t-gold">${icon('bell')}</span><span class="li-main"><b>${m.pinned ? 'Unpin' : 'Pin to the top'}</b></span></button>`);
     if (mine || Session.role === 'treasurer') rows.push(`<button type="button" class="li has-ic danger" data-act="msgRemove" data-id="${esc(id)}"><span class="li-ic t-bad">${icon('trash')}</span><span class="li-main"><b>Remove for everyone</b></span></button>`);
     if (!rows.length) return;
@@ -5415,7 +5458,7 @@ const actions = {
     Chat.resp = Chat.resp.filter(r => !(r.message_id === d.id && r.user_id === Chat.me())).concat([{ message_id: d.id, user_id: Chat.me(), choice: String(d.v), name: Session.displayName() }]); render();
     const { error } = await Backend.sb.rpc('respond_chama_message', { p_id: d.id, p_choice: String(d.v) });
     if (error) { Chat.resp = Chat.resp.filter(r => !(r.message_id === d.id && r.user_id === Chat.me())); if (prev) Chat.resp.push({ message_id: d.id, user_id: Chat.me(), choice: prev }); render(); return toast(rpcMessage(error)); }
-    if (d.v === 'paid') toast('The treasurer has been told', 'ok');
+    if (d.v === 'paid') { try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {} Pop.alert('paid:' + d.id, { title: 'You marked this as paid', html: `<div class="sx-tick big-tick">${icon('check')}</div><p>The treasurer has been alerted. Your payment shows as paid once they confirm the money arrived. Keep your M-Pesa message until then.</p>`, label: 'Done' }); }
   },
   pollClose: d => Pop.confirm({ title: 'Close this vote?', text: 'Nobody can vote or change their vote after this.', confirmLabel: 'Close vote', onYes: async () => { const { error } = await Backend.sb.rpc('close_poll', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await Chat.load(); } }),
   meetRegister: d => Chat.register(d.id),
@@ -5427,6 +5470,21 @@ const actions = {
     R().Sheet.close(); toast('Register saved', 'ok'); await Chat.load();
   },
   msgMenu: d => Chat.msgMenu(d.id),
+  msgEdit: d => {
+    const m = Chat.msgs.find(x => x.id === d.id); if (!m) return;
+    const titled = m.kind === 'announcement' || m.kind === 'minutes', meta = m.meta || {};
+    R().Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('pencil')}</span><h3>Edit ${m.kind === 'text' ? 'message' : m.kind}</h3><p>The earlier wording is kept, and people see that it was edited.</p></div>
+${titled ? `<label class="fgrp" for="meTitle"><span class="flab">Title</span><span class="field"><input id="meTitle" maxlength="120" value="${esc(meta.title || '')}"></span></label>` : ''}
+<label class="fgrp" for="meBody"><span class="flab">Text</span><textarea id="meBody" class="ta" rows="6" maxlength="4000">${esc(m.body || '')}</textarea></label>
+<button type="button" class="btn pri block lg" data-act="msgEditSave" data-id="${esc(m.id)}">Save changes</button>`, { key: 'msgEdit', label: 'Edit message' });
+  },
+  msgEditSave: async d => {
+    const body = ((document.getElementById('meBody') || {}).value || '').trim(), t = document.getElementById('meTitle');
+    if (!body) return toast('The message cannot be empty');
+    const { error } = await Backend.sb.rpc('edit_chama_message', { p_id: d.id, p_body: body, p_title: t ? t.value.trim() : null });
+    if (error) return toast(/Could not find the function|PGRST202|schema cache/i.test(error.message || '') ? 'Editing needs the latest server update. Ask the app owner to apply it.' : rpcMessage(error));
+    R().Sheet.close(); toast('Saved. People see it was edited.', 'ok'); await Chat.load();
+  },
   msgCopy: d => { const m = Chat.msgs.find(x => x.id === d.id); R().Sheet.close(); if (m) navigator.clipboard.writeText(m.body).then(() => toast('Copied', 'ok'), () => {}); },
   msgPin: async d => { R().Sheet.close(); const { error } = await Backend.sb.rpc('pin_chama_message', { p_id: d.id, p_pin: d.v === '1' }); if (error) return toast(rpcMessage(error)); await Chat.load(); },
   msgRemove: d => { R().Sheet.close(); Pop.confirm({ title: 'Remove this message?', text: 'It is removed for everyone. People will see that a message was removed.', confirmLabel: 'Remove', danger: true, onYes: async () => { const { error } = await Backend.sb.rpc('retract_chama_message', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await Chat.load(); } }); }
@@ -5632,14 +5690,16 @@ ${rc.top && rc.top.n >= 3 ? `<p class="rc-star">${icon('sparkle', 's')}${esc(rc.
 <div class="su-list">${steps.map(([t, ok, act, arg]) => ok ? `<div class="su-i ok">${icon('check', 's')}<span>${esc(t)}</span></div>` : act === 'go' ? `<a class="su-i" href="${esc(arg)}"><i></i><span>${esc(t)}</span>${icon('chev', 's')}</a>` : `<button type="button" class="su-i" data-act="${act}" ${act === 'chamaEdit' ? `data-f="${arg}"` : act === 'chatForm' ? `data-k="${arg}" data-th="group"` : act === 'inviteSheet' ? `data-v="${arg}"` : ''}><i></i><span>${esc(t)}</span>${icon('chev', 's')}</button>`).join('')}</div>
 <button type="button" class="linkish su-x" data-act="setupHide">Hide this</button></section>`;
   }
-  const g = s.chama.goal;
-  if (g && g.amount > 0) {
-    const have = s.shared ? Number(s.shared.collected || 0) : sum(s.payments, p => p.amount), pc = Math.min(100, Math.round(have / g.amount * 100));
+  /* savings goals: several at once; each counts what was collected from the month it was set (older goals count everything) */
+  const goals = goalsOf(s);
+  goals.forEach(g => {
+    const have = goalHave(s, g), pc = Math.min(100, Math.round(have / g.amount * 100));
     const left = g.by ? Math.max(0, Math.ceil((new Date(g.by) - new Date()) / (30.4 * 864e5))) : null;
     const need = left ? Math.max(0, Math.round((g.amount - have) / left)) : 0;
-    out += `<section class="goal"${Auth.isAdmin() ? ' data-act="goalEdit" role="button" tabindex="0"' : ''}><div class="gl-top"><span>${icon('sparkle', 's')}Goal</span><b class="num">${pc}%</b></div><h3>${esc(g.title || 'Our goal')}</h3>
+    out += `<section class="goal${pc >= 100 ? ' done' : ''}"${Auth.isAdmin() ? ` data-act="goalEdit" data-id="${esc(g.id)}" role="button" tabindex="0"` : ''}><div class="gl-top"><span>${icon('sparkle', 's')}${pc >= 100 ? 'Goal reached' : 'Goal'}${g.since ? ' · since ' + esc(__M_src_core_utils_js.monthLabel(g.since)) : ''}</span><b class="num">${pc}%</b></div><h3>${esc(g.title || 'Our goal')}</h3>
 <div class="bar"><i style="width:${pc}%"></i></div><p class="mute small">${esc(kes(have))} of ${esc(kes(g.amount))}${left != null ? ` · ${left} months left${need ? ' · about ' + esc(kes(need)) + ' a month' : ''}` : ''}</p></section>`;
-  } else if (Auth.isAdmin() && s.members.length) out += `<button type="button" class="goal-add" data-act="goalEdit">${icon('plus', 's')}Set a savings goal for the group</button>`;
+  });
+  if (Auth.isAdmin() && s.members.length && goals.length < 6) out += `<button type="button" class="goal-add" data-act="goalEdit">${icon('plus', 's')}${goals.length ? 'Add another goal' : 'Set a savings goal for the group'}</button>`;
   const meId = s.shared ? s.shared.me : Session.memberId, me = meId ? s.members.find(m => m.id === meId) : null;
   if (me) {
     const nt = Smart.nextTurn(s, me.id), pj = Smart.projection(s, me.id), st = Smart.streak(s, me.id);
@@ -5812,6 +5872,12 @@ document.addEventListener('visibilitychange', () => {
   else if (Lock.hiddenAt && Date.now() - Lock.hiddenAt > (c.after || 1) * 60000 && Session.ready()) Lock.show();
 });
 
+/* goals: the list, with the older single goal read as the first one */
+const goalsOf = s => { const c = (s && s.chama) || {}; const list = Array.isArray(c.goals) && c.goals.length ? c.goals : (c.goal && c.goal.amount > 0 ? [{ id: 'g0', ...c.goal }] : []); return list.filter(g => g && g.amount > 0).map((g, i) => g.id ? g : { ...g, id: 'g' + i }); };
+const goalHave = (s, g) => {
+  if (s.shared) { const mc = s.shared.monthCollected || {}; return g.since ? Object.keys(mc).filter(k => k >= g.since).reduce((t, k) => t + Number(mc[k] || 0), 0) || 0 : Number(s.shared.collected || 0); }
+  return sum(s.payments.filter(p => !g.since || p.month >= g.since), p => p.amount);
+};
 /* ================= views and actions ================= */
 const views = { insights, register };
 const sheet = () => R().Sheet;
@@ -5863,20 +5929,26 @@ const actions = {
     const q = Reports.cell, rows = [['Name', 'Role', 'Email', 'Phone', 'Since', 'On member list'], ...(regRows || []).map(r => [r.name, Perm.label(r.role), r.email, r.phone || '', String(r.joined_at || '').slice(0, 10), r.member_id ? 'Yes' : 'No'])];
     Reports.download((Store.get().chama.name || 'chama') + '-register.csv', '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
   },
-  goalEdit: { admin: true, run() {
-    const g = (Store.get().chama.goal) || {};
-    sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('sparkle')}</span><h3>Savings goal</h3><p>Give the group something to aim for. Everyone sees the progress on Home.</p></div>
+  goalEdit: { admin: true, run(d) {
+    const g = (d && d.id && goalsOf(Store.get()).find(x => x.id === d.id)) || {};
+    sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('sparkle')}</span><h3>${g.id ? 'Edit goal' : 'New savings goal'}</h3><p>Give the group something to aim for. Everyone sees the progress on Home${g.id ? '' : '. A new goal counts what is collected from this month on'}.</p></div>
 <label class="fgrp" for="gTitle"><span class="flab">What for</span><span class="field">${icon('tag')}<input id="gTitle" maxlength="60" placeholder="e.g. Land in Kitengela" value="${esc(g.title || '')}" autofocus></span></label>
 <label class="fgrp" for="gAmt"><span class="flab">Amount (KES)</span><span class="field">${icon('coins')}<input id="gAmt" type="number" inputmode="numeric" value="${esc(g.amount || '')}"></span></label>
 <label class="fgrp" for="gBy"><span class="flab">By</span><span class="field">${icon('clock')}<input id="gBy" type="month" value="${esc(g.by || '')}"></span></label>
-<button type="button" class="btn pri block lg" data-act="goalSave">Save goal</button>${g.amount ? '<button type="button" class="btn ghost block" data-act="goalClear">Remove the goal</button>' : ''}`, { key: 'goal', label: 'Savings goal' });
+<button type="button" class="btn pri block lg" data-act="goalSave" data-id="${esc(g.id || '')}">Save goal</button>${g.id ? `<button type="button" class="btn ghost block" data-act="goalClear" data-id="${esc(g.id)}">Remove this goal</button>` : ''}`, { key: 'goal', label: 'Savings goal' });
   } },
-  goalSave: { admin: true, run() {
+  goalSave: { admin: true, run(d) {
     const t = (document.getElementById('gTitle').value || '').trim().slice(0, 60), a = Number(document.getElementById('gAmt').value), by = document.getElementById('gBy').value;
     if (!(a > 0)) throw new Error('Enter the amount');
-    Store.commit(s => { s.chama.goal = { title: t || 'Our goal', amount: Math.round(a), by: /^\d{4}-\d{2}$/.test(by) ? by : '' }; }); sheet().close(); toast('Goal saved', 'ok');
+    const fields = { title: t || 'Our goal', amount: Math.round(a), by: /^\d{4}-\d{2}$/.test(by) ? by : '' };
+    Store.commit(s => {
+      const list = goalsOf(s).map(x => ({ ...x }));
+      const i = d && d.id ? list.findIndex(x => x.id === d.id) : -1;
+      if (i >= 0) list[i] = { ...list[i], ...fields }; else list.push({ id: 'g' + Date.now().toString(36), since: Domain.now(), ...fields });
+      s.chama.goals = list; s.chama.goal = list[0] || undefined; if (!s.chama.goal) delete s.chama.goal;
+    }); sheet().close(); toast('Goal saved', 'ok');
   } },
-  goalClear: { admin: true, run() { Store.commit(s => { delete s.chama.goal; }); sheet().close(); toast('Goal removed', 'info'); } },
+  goalClear: { admin: true, run(d) { Store.commit(s => { const list = goalsOf(s).filter(x => x.id !== (d && d.id)); s.chama.goals = list; if (list[0]) s.chama.goal = list[0]; else delete s.chama.goal; }); sheet().close(); toast('Goal removed', 'info'); } },
   feedback: () => {
     sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('chat')}</span><h3>How is My Chama for you?</h3><p>Goes straight to the people who build the app. We read every one.</p></div>
 <div class="stars" role="radiogroup" aria-label="Rating">${[1, 2, 3, 4, 5].map(n => `<button type="button" role="radio" aria-checked="false" data-act="fbStar" data-v="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}</div>
@@ -6770,6 +6842,33 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('#modalRoot .veil:not(.locked)') && !document.querySelector('#popRoot .pop-veil')) Modal.close(); });
+/* drag a bottom sheet down to dismiss it, like a phone app. Locked sheets (approvals, offers) cannot be dragged away. */
+(() => {
+  let sh = null, y0 = 0, t0 = 0, dy = 0, armed = false, scroller = null;
+  const shut = () => { const R = __M_src_features_requests_js; if (R.Sheet && R.Sheet.isOpen()) R.Sheet.close(); else Modal.close(); };
+  document.addEventListener('touchstart', e => {
+    const el = e.target.closest && e.target.closest('#modalRoot .veil:not(.locked) .sheet');
+    if (!el || e.touches.length !== 1 || matchMedia('(min-width: 720px)').matches) return;
+    if (e.target.closest('input, textarea, select, canvas, .lg-list')) return;   /* typing, signing and picking are never a swipe */
+    const r = el.getBoundingClientRect(), top = e.touches[0].clientY - r.top < 64;
+    scroller = el; sh = el; armed = top || el.scrollTop <= 0; y0 = e.touches[0].clientY; t0 = Date.now(); dy = 0;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!sh || !armed) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || scroller.scrollTop > 0) { if (dy < 0) armed = scroller.scrollTop <= 0; sh.style.transform = ''; return; }
+    sh.style.transition = 'none'; sh.style.transform = `translateY(${dy}px)`;
+    const v = sh.closest('.veil'); if (v) v.style.background = `rgba(5, 10, 8, ${Math.max(0, .42 - dy / 900)})`;
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (!sh) return;
+    const el = sh, d = dy, fast = d > 50 && d / Math.max(1, Date.now() - t0) > 0.6; sh = null;
+    const v = el.closest('.veil');
+    if (d > 110 || fast) { el.style.transition = 'transform .2s ease'; el.style.transform = 'translateY(100%)'; setTimeout(shut, 180); return; }
+    el.style.transition = 'transform .22s cubic-bezier(.2,.8,.2,1)'; el.style.transform = ''; if (v) v.style.background = '';
+    setTimeout(() => { el.style.transition = ''; }, 240);
+  }, { passive: true });
+})();
 document.addEventListener('click', e => { if (e.target && e.target.classList && e.target.classList.contains('veil') && !e.target.classList.contains('locked')) Modal.close(); });
 addEventListener('scroll', () => { const h = document.getElementById('top'); if (h) h.classList.toggle('scrolled', window.scrollY > 4); }, { passive: true });
 

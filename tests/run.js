@@ -149,9 +149,12 @@ const TESTS = {
     ok(/Not on the member list/i.test(await text(page)), 'treasurer sees people who are not on the member list');
     await page.click('[data-act="memberMenu"] >> nth=1'); await page.waitForTimeout(400);
     await shot(page, '17-member-sheet');
-    await page.click('#modalRoot [data-act="moveMember"]'); await page.waitForTimeout(300);
+    await page.click('#modalRoot [data-act="moveMember"]'); await page.waitForTimeout(400);
+    ok(await page.locator('#modalRoot .mv-row').count() >= 2, 'payout turn picker lists every turn with its month');
+    await page.click('#modalRoot [data-act="movePick"][data-to="0"]'); await page.waitForTimeout(300);
+    await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(400);
     const order = await page.evaluate(() => [...document.querySelectorAll('[data-act="memberMenu"] .li-main b')].slice(0, 2).map(x => x.textContent));
-    ok(/Otieno/.test(order[0]), 'move up changes payout order');
+    ok(/Otieno/.test(order[0]), 'choosing turn 1 moves them to the front of the payout order');
     await page.click('#nav a[data-k="profile"]'); await page.waitForTimeout(400);
     await shot(page, '18-profile');
     await page.click('[data-act="meEdit"][data-f="phone"]'); await page.waitForTimeout(350);
