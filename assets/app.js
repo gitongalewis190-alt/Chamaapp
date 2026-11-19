@@ -3062,6 +3062,7 @@ const { Modal, confirmBox, savePayments } = __M_src_ui_modal_js;
 const { toast } = __M_src_ui_toast_js;
 const { render } = __M_src_core_rerender_js;
 let cgMonth = null;   // selected month, UI state only
+const shortDay = d => { const t = Date.parse(d); return isNaN(t) ? String(d || '') : new Date(t).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); };
 
 const views = {
   grid(s) {
@@ -3108,7 +3109,7 @@ const views = {
       <section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your payments' : 'Recent payments'}</h2></div>
         <div class="list">${recent.length ? recent.map(p => {
           const m = s.members.find(x => x.id === p.memberId);
-          const inner = `${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}${p.from && m && p.from.toLowerCase() !== m.name.toLowerCase() ? ' · from ' + esc(p.from) : ''}${p.via === 'mpesa' ? ' · M-Pesa message kept' : ''}</small></span><span class="li-end"><span class="num">${esc(kes(p.amount))}</span>${admin ? icon('chev', 'chev') : ''}</span>`;
+          const inner = `${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${p.code ? esc(p.code) + ' · ' : ''}${esc(shortDay(p.date))}${String(p.date || '').slice(0, 7) !== p.month ? ' · for ' + esc(monthLabel(p.month)) : ''}${p.from && m && p.from.toLowerCase() !== m.name.toLowerCase() ? ' · from ' + esc(p.from) : ''}${p.via === 'mpesa' ? ' · ' + icon('chat', 's') : ''}</small></span><span class="li-end"><span class="num">${esc(kes(p.amount))}</span>${admin ? icon('chev', 'chev') : ''}</span>`;
           return admin ? `<button type="button" class="li has-av" data-act="payMenu" data-id="${esc(p.id)}">${inner}</button>` : `<div class="li has-av">${inner}</div>`;
         }).join('') : '<div class="li empty">No payments recorded yet</div>'}</div>
       </section>`;
@@ -3935,13 +3936,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.16.2', released: '2026-11-19',
+  name: 'My Chama App', version: '0.17.0', released: '2026-11-20',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.17.0', 'Forgot password now always opens the reset screen, and a code link only works on the phone that asked for it. About you, one question at a time, with Simple view for anyone who wants bigger, calmer screens. Loan terms are signed on the borrower’s own phone. Each Chama can have its own photo. M-Pesa import is simpler and keeps each message with its payment. The Guide has its own new mark.'],
     ['0.16.2', 'Home now leads with your card, with the payout attached right under it and a line showing this month and the next turns. The duplicate search button by the greeting is gone: the Guide lives next to the bell.'],
     ['0.16.1', 'Your card on Home now has tiers that follow your payments: red when late, amber when part paid, silver when due soon, green when paid, purple when paid ahead, and gold in your payout month or after six months on time in a row. It moves gently, counts up when your figure changes, and a live line shows what is true right now: days to the due date, your streak, the next payout and more.'],
     ['0.16.0', 'A smart Guide next to the bell answers questions and walks you through tasks. Home puts the payout first and your card changes colour with your payment state. M-Pesa screenshots are read reliably, hidden digits and all. Fair roles: offers you accept, reasons for stepping down and removals, notice before access ends. App lock with fingerprint or face. Several savings goals, edited announcements, member photos, signed loan terms, PDF statements and reports, and a walkthrough of each Chama for new members.'],
@@ -4272,21 +4274,22 @@ const views = {
     if (r === 'settings/help') return Help.render();
     if (r === 'settings/privacy') {
       let consent = {}; try { consent = JSON.parse(localStorage.getItem('mca-onboard') || '{}') || {}; } catch (e) {}
-      return `<h1 class="lt">Privacy and my data</h1><p class="lt-sub">How your information is handled, and your choices</p>
-      <div class="list">${PRIVACY.map(x => `<div class="li"><div class="li-main"><b>${esc(x[0])}</b><small style="white-space:normal">${esc(x[1])}</small></div></div>`).join('')}</div>
-      <section class="sec"><div class="sec-h"><h2>Your choices</h2></div><div class="list">
-        ${act('exportMe', 'download', '', 'Download my data', 'A copy of your details and your records in this Chama')}
-        ${act('aboutEdit', 'profile', 't-info', 'About you', 'Change your name, phone, date of birth or gender')}
-        ${act('aboutClear', 'trash', 't-bad', 'Remove my date of birth, gender and phone', 'Deleted from our servers. Your name stays so your Chama knows who you are.')}
-        ${li('profile', 'pencil', 't-info', 'Correct my details', 'Name, username, phone and contact email')}
-        ${li('legal/privacy', 'doc', 't-ink', 'Read the Privacy Policy', '')}
-        ${li('legal/terms', 'scale', 't-ink', 'Read the Terms of Use', '')}
+      /* what you can do first; the explanations are one plain line each, with the full wording a tap away */
+      const SHORT = [['shield', 'We keep your name, email and your money records'], ['check', 'Only to run your Chama. Never sold, no adverts'], ['eye', 'The treasurer sees all; members see their own'], ['lock', 'Stored safely in the cloud and on this phone'], ['clock', 'Erased 30 days after you delete your account'], ['scale', 'You can see, correct, download or delete it']];
+      return `<h1 class="lt">Privacy and my data</h1>
+      <section class="sec" style="margin-top:6px"><div class="list">
+        ${act('exportMe', 'download', '', 'Download my data', 'PDF or data file')}
+        ${act('aboutEdit', 'profile', 't-info', 'About you', 'Name, phone, birthday, gender')}
+        ${li('profile', 'pencil', 't-info', 'Correct my details', 'Name, username, contact')}
+        ${act('aboutClear', 'trash', 't-bad', 'Remove birthday, gender and phone', 'Your name stays')}
       </div></section>
+      <section class="sec"><div class="sec-h"><h2>How we treat your data</h2></div><div class="pv-facts">${PRIVACY.map((x, i) => `<details class="pv-fact"><summary><span class="li-ic">${icon((SHORT[i] || ['info'])[0], 's')}</span><span>${esc((SHORT[i] || [0, x[0]])[1])}</span>${icon('chev', 'chev')}</summary><p><b>${esc(x[0])}.</b> ${esc(x[1])}</p></details>`).join('')}</div>
+      <div class="list" style="margin-top:10px">${li('legal/privacy', 'doc', 't-ink', 'Privacy Policy', '')}${li('legal/terms', 'scale', 't-ink', 'Terms of Use', '')}</div></section>
       <section class="sec"><div class="list">
         <div class="li"><div class="li-main"><small>Privacy contact</small><b>${esc(APP.privacyContact || 'Not set yet')}</b></div></div>
         <div class="li"><div class="li-main"><small>You accepted</small><b>${consent.agreedAt ? 'Version ' + esc(consent.policy || '') + ' on ' + esc(new Date(consent.agreedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) : 'Not recorded on this phone'}</b></div></div>
         ${consentRecords()}
-      </div><p class="foot-note">To withdraw your consent, leave your Chamas and delete your account below, or write to the privacy contact. Withdrawing does not affect what was done before.</p></section>
+      </div><p class="foot-note">To withdraw consent, delete your account below or write to the privacy contact.</p></section>
       <section class="sec">${Account.card()}</section>`;
     }
     if (r === 'legal/privacy' || r === 'legal/terms') return `<div class="card">${Legal.html(r.slice(6))}</div>`;
@@ -4357,7 +4360,7 @@ const actions = {
   revoke: async d => {
     const R = __M_src_features_requests_js;
     Modal.open({ title: 'Remove access?', submitLabel: 'Continue', danger: true,
-      body: `<div class="ho-warn">${icon('shield')}<div><b>Before you remove someone</b><ul><li>Their payments, loans and history stay in the books.</li><li>They are told the reason you write below.</li><li>Unless they asked to leave, they get a few days’ notice to reply, and you can still change your mind.</li><li>Removals are recorded with your name.</li></ul></div></div>`,
+      body: `<div class="ho-warn">${icon('shield')}<div><b>Be fair</b><ul><li>They see your reason.</li><li>They get a few days to reply first.</li><li>Their money records stay.</li></ul></div></div>`,
       fields: [{ name: 'cat', label: 'Why', type: 'select', options: [['', 'Choose one…'], ...R.REMOVE_WHY], value: '' },
         { name: 'why', label: 'Explain in your own words', type: 'textarea', required: true, placeholder: 'e.g. No contribution since January and no reply to three reminders.' },
         { name: 'days', label: 'Notice before access ends', type: 'select', options: [['3', '3 days (suggested)'], ['7', '7 days'], ['14', '14 days']], value: '3', help: 'Ignored when they asked to leave, for a duplicate account or a security risk: those end at once.' }],
@@ -5002,7 +5005,7 @@ const actions = {
     const a = (Session.access || []).find(x => x.email === d.e) || { email: d.e }, s = Store.get() || { members: [] };
     const m = a.member_id ? s.members.find(x => x.id === a.member_id) : null, name = (m && m.name) || String(d.e).split('@')[0], first = name.split(' ')[0];
     Modal.open({ title: 'Make ' + first + ' the treasurer?', submitLabel: 'Send the offer', danger: true,
-      body: `<div class="ho-warn">${icon('shield')}<div><b>This hands over the whole Chama</b><ul><li>${esc(first)} will see and change every record.</li><li>There is one treasurer: when ${esc(first)} accepts, <b>you become a member</b>.</li><li>Every member is told about the change.</li><li>Nothing happens until ${esc(first)} accepts.</li></ul></div></div>`,
+      body: `<div class="ho-warn">${icon('shield')}<div><b>This hands over the whole Chama</b><ul><li>When ${esc(first)} accepts, <b>you become a member</b>.</li><li>Everyone is told.</li><li>Nothing changes until they accept.</li></ul></div></div>`,
       fields: [{ name: 'who', label: 'Type ' + first + ' to confirm', placeholder: first, required: true }, { name: 'pw', label: 'Your password', type: 'password', required: true, help: 'Asked so that nobody holding your phone can give the Chama away.' }],
       onSubmit: v => {
         if (String(v.who || '').trim().toLowerCase() !== first.toLowerCase()) throw new Error('Type ' + first + ' exactly, to show you mean this person');
@@ -6740,7 +6743,7 @@ document.addEventListener('input', e => {
 
 /* ---- "Make it yours": before a new person creates or joins a Chama, and once for everyone after this update ---- */
 const PERSONAL_V = 'mca-personal-v1';
-const WHATS_NEW = ['A smart Guide next to the bell: ask questions, find anything, or be shown step by step', 'Home leads with your card, which changes colour with your payments, and the payout line right under it', 'M-Pesa screenshots are read on your phone, hidden digits and all', 'App lock with fingerprint or face, and a PIN you can switch off without losing it', 'Role changes are offered and accepted; removals come with a reason and notice', 'Several savings goals, edited announcements, member photos, signed loan terms'];
+const WHATS_NEW = ['Ask the Guide anything (next to the bell)', 'Your card changes colour with your payments', 'Sign loan terms on your own phone', 'M-Pesa screenshots read on your phone', 'Fingerprint or face to unlock'];
 const Personal = {
   done() { try { return !!localStorage.getItem(PERSONAL_V); } catch (e) { return true; } },
   html(existing) {

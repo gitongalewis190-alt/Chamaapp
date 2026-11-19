@@ -1894,3 +1894,16 @@ html.a-simple .sec-h h2 { font-size: .95em; }
 .pay-sms { margin: 10px 0 4px; padding: 12px 14px; border-radius: 16px 16px 16px 4px; background: var(--surface-2); }
 .pay-sms small { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-weight: 650; font-size: .78em; margin-bottom: 6px; }
 .pay-sms p { margin: 0; font-size: .9em; line-height: 1.5; overflow-wrap: anywhere; }
+
+#modalRoot label.im-tile, #modalRoot label.im-add { display: flex !important; flex-direction: column; margin: 0; font-weight: inherit; }
+#modalRoot label.im-tile b { font: 700 1.05em var(--font-display); color: var(--ink); }
+
+/* privacy facts: one plain line each, the full wording a tap away */
+.pv-facts { display: flex; flex-direction: column; gap: 6px; }
+.pv-fact { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.pv-fact summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; font-weight: 600; }
+.pv-fact summary::-webkit-details-marker { display: none; }
+.pv-fact summary > span:nth-child(2) { flex: 1; min-width: 0; }
+.pv-fact summary .chev { transition: transform var(--t-fast); color: var(--ink-3); }
+.pv-fact[open] summary .chev { transform: rotate(90deg); }
+.pv-fact p { margin: 0; padding: 0 14px 14px 56px; color: var(--ink-2); line-height: 1.55; font-size: .92em; }
