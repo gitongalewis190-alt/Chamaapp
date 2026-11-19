@@ -2264,7 +2264,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
   paint() {
     if (Otp.hold) return;
     document.body.classList.add('no-tabs', 'gate-on');
-    ['#menuBtn', '#backBtn', '#pageTitle', '#bell'].forEach(q => { const el = $(q); if (el) el.hidden = true; });
+    ['#menuBtn', '#backBtn', '#pageTitle', '#bell', '#guideBtn'].forEach(q => { const el = $(q); if (el) el.hidden = true; });
     $('#syncBar').hidden = true;
     { const jr = document.getElementById('jmRoot'); if (jr) jr.innerHTML = ''; }
     if (Session.status === 'signed-out' && OB.needed()) { $('#view').innerHTML = OB.html(); return; }
@@ -2537,7 +2537,7 @@ const views = {
     const Sess = __M_src_core_session_js.Session, admin = Auth.isAdmin();
     let lang = 'en'; try { lang = __M_src_features_auth_gate_js.OB.lang(); } catch (e) {}
     const today = new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long' });
-    const greet = `<div class="greet"><div><small>${esc(today)}</small><h1>${esc(greeting(lang))}${Sess.displayName() ? ', ' + esc(Sess.displayName()) : ''}</h1></div><div class="greet-act"><button type="button" class="hb" data-act="palette" aria-label="Search">${icon('search')}</button><button type="button" class="hb" data-act="moneyToggle" aria-label="${document.documentElement.classList.contains('hide-money') ? 'Show amounts' : 'Hide amounts'}">${icon('eye')}</button></div></div>`;
+    const greet = `<div class="greet"><div><small>${esc(today)}</small><h1>${esc(greeting(lang))}${Sess.displayName() ? ', ' + esc(Sess.displayName()) : ''}</h1></div><div class="greet-act"><button type="button" class="hb" data-act="guide" aria-label="Guide: ask or search anything">${icon('sparkle')}</button><button type="button" class="hb" data-act="moneyToggle" aria-label="${document.documentElement.classList.contains('hide-money') ? 'Show amounts' : 'Hide amounts'}">${icon('eye')}</button></div></div>`;
     if (!s.members.length) {
       return greet + `<div class="card">${s.shared
         ? emptyState('people', 'Nothing to show yet', 'Your treasurer has not added the member list yet. Your records will appear here once they do.')
@@ -4360,6 +4360,7 @@ const Notify = {
   paintBell(s, r) {
     const bell = $('#bell'), badge = $('#nbCount'), n = this.unread(s);
     bell.hidden = !ROUTES.some(x => x[0] === r);
+    { const gb = document.getElementById('guideBtn'); if (gb) gb.hidden = bell.hidden; }
     bell.setAttribute('aria-label', n ? `Notifications, ${n} unread` : 'Notifications');
     badge.hidden = !n; badge.textContent = n > 99 ? '99+' : String(n);
     if (this.lastCount !== null && n > this.lastCount && !bell.hidden) {
@@ -5882,7 +5883,7 @@ const goalHave = (s, g) => {
 const views = { insights, register };
 const sheet = () => R().Sheet;
 const actions = {
-  palette: () => Palette.show(),
+  palette: () => __M_src_features_guide_js.Guide.show(),
   recapHide: d => { ls.set('mca-recap-hide', d.v); render(); },
   setupHide: () => { ls.set('mca-setup-done:' + Store.chamaId, true); render(); },
   copyPayTo: () => { const s = Store.get(); if (!s || !s.chama.payTo) return; (navigator.clipboard ? navigator.clipboard.writeText(s.chama.payTo) : Promise.reject()).then(() => toast('Copied: ' + s.chama.payTo, 'ok'), () => toast(s.chama.payTo, 'info')); },
@@ -6016,7 +6017,7 @@ return { get views() { return views; }, get actions() { return actions; }, get S
 /* search: open with /, Ctrl+K or Cmd+K; arrows move; Enter opens */
 document.addEventListener('keydown', e => {
   const P = __M_src_features_smart_js.Palette, t = e.target, typing = t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
-  if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing && !P.open)) { e.preventDefault(); return P.open ? P.hide() : P.show(); }
+  if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing && !P.open)) { e.preventDefault(); const G = __M_src_features_guide_js.Guide; if (P.open) P.hide(); return G.open ? G.hide() : G.show(); }
   if (!P.open) {
     /* g then a letter jumps between tabs on a computer */
     if (typing || e.metaKey || e.ctrlKey || e.altKey || !__M_src_core_session_js.Session.ready() || document.querySelector('#modalRoot .veil')) return;
@@ -6058,6 +6059,216 @@ document.addEventListener('click', e => {
 try { if (localStorage.getItem('mca-hide-money') === 'true') document.documentElement.classList.add('hide-money'); } catch (e) {}
 
 
+/* ---- src/features/guide/index.js ----
+   The Guide: one box that answers questions, searches people, payments and pages, and walks people through a task
+   with live cards ("Tap here"), waiting for each tap before the next step. Opened from the sparkle next to the bell,
+   from Home, from the menu search, or with "/". Answers about money are worked out from the real records. */
+const __M_src_features_guide_js = (function () {
+const { Store } = __M_src_core_store_js;
+const { Session } = __M_src_core_session_js;
+const { Auth } = __M_src_core_auth_js;
+const { Domain } = __M_src_core_domain_js;
+const { esc, kes, monthLabel } = __M_src_core_utils_js;
+const { toast } = __M_src_ui_toast_js;
+
+/* words people use -> the words the app uses (English and Kiswahili) */
+const SYN = { pay: 'payment', paid: 'payment', paying: 'payment', contribution: 'payment', contribute: 'payment', money: 'payment', deposit: 'payment', lipa: 'payment', mchango: 'payment', michango: 'payment',
+  borrow: 'loan', lend: 'loan', mkopo: 'loan', loans: 'loan', penalty: 'fine', faini: 'fine', fines: 'fine', spend: 'expense', spent: 'expense', expenses: 'expense', matumizi: 'expense',
+  add: 'add', new: 'add', create: 'add', ongeza: 'add', person: 'member', people: 'member', mwanachama: 'member', wanachama: 'member', members: 'member',
+  invite: 'invite', join: 'invite', code: 'invite', karibisha: 'invite', remind: 'remind', reminder: 'remind', kumbusha: 'remind', late: 'late', behind: 'late', owe: 'owe', owes: 'owe', deni: 'owe', debt: 'owe',
+  message: 'chat', text: 'chat', ujumbe: 'chat', whatsapp: 'remind', lock: 'lock', pin: 'lock', fingerprint: 'lock', face: 'lock', password: 'password', nenosiri: 'password',
+  leave: 'leave', quit: 'leave', exit: 'leave', ondoka: 'leave', goal: 'goal', target: 'goal', lengo: 'goal', mpesa: 'mpesa', 'm-pesa': 'mpesa', import: 'mpesa', screenshot: 'mpesa', sms: 'mpesa',
+  photo: 'photo', picture: 'photo', picha: 'photo', payout: 'payout', pot: 'payout', turn: 'payout', zamu: 'payout', receive: 'payout', cash: 'cash', balance: 'cash', bank: 'cash', treasurer: 'treasurer', handover: 'treasurer', role: 'role', secretary: 'role', remove: 'remove', kick: 'remove', report: 'report', export: 'report', pdf: 'report', backup: 'report' };
+const words = q => String(q || '').toLowerCase().replace(/[^a-z0-9\s'-]/g, ' ').split(/\s+/).filter(w => w.length > 1).map(w => SYN[w] || w);
+
+/* tasks: what people ask to do. Each can be done now (act), or shown step by step (tour). */
+const TASKS = [
+  { id: 'pay', t: 'Record a payment', k: 'add record payment', admin: true, act: 'quickPay', tour: [
+    { go: '#/grid', sel: '[data-act="pay"]', text: 'Tap a member’s status button to record their payment.', click: true },
+    { sel: '#modalRoot input[name="amount"]', text: 'Type how much they paid. Choose “Extra” above if they are paying ahead.' },
+    { sel: '#modalRoot input[name="code"]', text: 'Add the M-Pesa code. The same code can never be recorded twice.' },
+    { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Record payment. Done.', click: true }] },
+  { id: 'import', t: 'Import M-Pesa messages or screenshots', k: 'mpesa import payment', admin: true, act: 'importPay', tour: [
+    { go: '#/grid', sel: '[data-act="importPay"]', text: 'Tap Import from M-Pesa.', click: true },
+    { sel: '#modalRoot textarea[name="text"]', text: 'Paste the messages here, or add screenshots below. Hidden digits are fine.' },
+    { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Find payments, then check each match before recording.', click: true }] },
+  { id: 'member', t: 'Add a member', k: 'add member', admin: true, act: 'addMember', tour: [
+    { go: '#/home', sel: '[data-act="addMember"]', text: 'Tap Add member.', click: true },
+    { sel: '#modalRoot input[name="name"]', text: 'Type their full name.' },
+    { sel: '#modalRoot input[name="phone"]', text: 'Add their phone for reminders and M-Pesa matching.' },
+    { sel: '#mfAv', text: 'Optional: add a photo so everyone recognises them.' },
+    { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Add member.', click: true }] },
+  { id: 'invite', t: 'Invite someone to the app', k: 'invite member add', admin: true, act: 'inviteSheet', tour: [
+    { go: '#/settings/actions', sel: '[data-act="inviteSheet"][data-v="code"]', text: 'Tap Share a code. They type it in the app to ask to join.', click: true },
+    { sel: '#modalRoot .sx', text: 'Choose their role, then share the code by WhatsApp or SMS. You approve them when they ask.' }] },
+  { id: 'loan', t: 'Give a loan', k: 'add loan', admin: true, act: 'addLoan', tour: [
+    { go: '#/home', sel: '[data-act="addLoan"]', text: 'Tap New loan.', click: true },
+    { sel: '#modalRoot select[name="memberId"]', text: 'Choose who is borrowing. A suggested limit appears.' },
+    { sel: '#modalRoot input[name="principal"]', text: 'Type the amount. The bar shows what is left in the cash box.' },
+    { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Issue loan. The borrower then reads and signs the terms.', click: true }] },
+  { id: 'fine', t: 'Add a fine', k: 'add fine', admin: true, act: 'addFine', tour: [
+    { go: '#/fines', sel: '[data-act="addFine"]', text: 'Tap Add fine.', click: true },
+    { sel: '#modalRoot select[name="memberId"]', text: 'People who still owe are listed first.' },
+    { sel: '#modalRoot input[name="reason"]', text: 'Say why, for example “Late for March”.' },
+    { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Add fine.', click: true }] },
+  { id: 'expense', t: 'Record an expense', k: 'add expense', admin: true, act: 'addExpense', tour: [
+    { go: '#/expenses', sel: '[data-act="addExpense"]', text: 'Tap Add expense.', click: true },
+    { sel: '#modalRoot input[name="amount"]', text: 'Type the amount. You see at once what is left in cash.' },
+    { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Add expense.', click: true }] },
+  { id: 'remind', t: 'Remind people who are late', k: 'remind late payment owe', admin: true, act: 'remindAll', tour: [
+    { go: '#/home', sel: '[data-act="remindAll"]', text: 'Tap Remind all.', click: true },
+    { sel: '#modalRoot .sx-list', text: 'Tap Send next to each person. WhatsApp opens with their amount filled in.' }] },
+  { id: 'payout', t: 'Mark this month’s payout as sent', k: 'payout', admin: true, act: 'markPayout', tour: [
+    { go: '#/home', sel: '.po-card', text: 'This month’s payout is always at the top of Home.' },
+    { sel: '[data-act="markPayout"]', text: 'After sending the money, tap here and ask them to sign.', click: true }] },
+  { id: 'turn', t: 'Change someone’s payout turn', k: 'payout member', admin: true, tour: [
+    { go: '#/members', sel: '[data-act="memberMenu"]', text: 'Tap the person.', click: true },
+    { sel: '#modalRoot [data-act="moveMember"]', text: 'Tap Change payout turn, then choose their new turn.', click: true }] },
+  { id: 'goal', t: 'Set a savings goal', k: 'add goal', admin: true, act: 'goalEdit', tour: [
+    { go: '#/home', sel: '[data-act="goalEdit"]', text: 'Tap here to set a goal. You can have several.', click: true }] },
+  { id: 'chat', t: 'Send a message', k: 'chat', act: 'chatNew', tour: [
+    { go: '#/chat', sel: '[data-act="chatNew"]', text: 'Tap New message.', click: true },
+    { sel: '#modalRoot .sx-list', text: 'Choose the group, or the person you want to write to.' }] },
+  { id: 'lock', t: 'Lock the app with a PIN or fingerprint', k: 'lock', act: 'lockSetup', tour: [
+    { go: '#/settings', sel: '[data-act="lockSetup"]', text: 'Tap App lock.', click: true },
+    { sel: '#modalRoot .sx', text: 'Set a 4-digit PIN. You can also turn on fingerprint or face, and choose how long before it locks.' }] },
+  { id: 'photo', t: 'Change my photo', k: 'photo', tour: [
+    { go: '#/profile', sel: '[data-act="pickPhoto"]', text: 'Tap the camera to choose a photo.', click: true }] },
+  { id: 'leave', t: 'Leave the Chama', k: 'leave', tour: [
+    { go: '#/settings/chama', sel: '[data-act="leaveChama"]', text: 'Leaving is here. You will be asked for your reason. Your past records stay with the group.' }] },
+  { id: 'report', t: 'Download a report', k: 'report', tour: [
+    { go: '#/reports', sel: '#view .card, #view .sec', text: 'Choose a report or a full backup here.' }] }
+];
+
+/* questions answered from the records themselves */
+const ANSWERS = [
+  { re: /\b(who|nani)\b.*\b(late|owe|behind|hasn'?t paid|not paid|haja)|\blate members\b/, admin: true, run(s) {
+    const cur = Domain.now(), late = s.members.filter(m => !m.left && Domain.outstanding(s, m.id, cur) > 0);
+    return late.length ? { title: late.length + ' ' + (late.length === 1 ? 'person owes' : 'people owe') + ' for ' + monthLabel(cur), text: late.slice(0, 8).map(m => m.name + ': ' + kes(Domain.outstanding(s, m.id, cur))).join('\n'), task: 'remind' } : { title: 'Everyone is paid up for ' + monthLabel(cur), text: 'Nobody owes anything this month.' };
+  } },
+  { re: /\b(how much|what)\b.*\b(i|me)\b.*\b(owe|pay|due)|\bmy balance\b|\bnadaiwa\b/, run(s) {
+    const id = s.shared ? s.shared.me : Session.memberId, cur = Domain.now(); if (!id) return { title: 'Your sign-in is not linked to a member yet', text: 'Ask the treasurer to link you to the member list.' };
+    const o = Domain.outstanding(s, id, cur), a = Domain.ahead(s, id, cur);
+    return { title: o ? 'You owe ' + kes(o) : a ? 'You are ' + kes(a) + ' ahead' : 'You are paid up', text: o ? 'Due by day ' + s.chama.dueDay + ' of ' + monthLabel(cur) + (s.chama.payTo ? '. Pay to ' + s.chama.payTo + '.' : '.') : 'Nothing is due for ' + monthLabel(cur) + '.' };
+  } },
+  { re: /\b(next|this month'?s?|who)\b.*\b(payout|pot|receive|turn)|\bwhen\b.*\bmy turn\b|\bzamu\b/, run(s) {
+    const cur = Domain.now(), r = Domain.recipient(s, cur), id = s.shared ? s.shared.me : Session.memberId; if (!r) return null;
+    let mine = ''; if (id) for (let i = 0; i < 36; i++) { const mk = __M_src_core_utils_js.addMonths(cur, i), x = Domain.recipient(s, mk); if (x && x.id === id) { mine = i === 0 ? ' It is your turn this month.' : ' Your turn: ' + monthLabel(mk) + '.'; break; } }
+    return { title: r.name + ' receives the ' + monthLabel(cur) + ' payout', text: 'About ' + kes(__M_src_core_utils_js.sum(s.members.filter(m => !m.left), m => Domain.dueFor(s, m.id, cur))) + '.' + mine };
+  } },
+  { re: /\b(cash|money|balance|pesa)\b.*\b(hand|have|left|box|group)|\bhow much (do we|does the group)\b/, run(s) { return { title: 'Cash on hand: ' + kes(Domain.cashOnHand(s)), text: 'Money in minus loans out, payouts and expenses.' }; } },
+  { re: /\bmy loan\b|\bloan balance\b|\bmkopo wangu\b/, run(s) { const id = s.shared ? s.shared.me : Session.memberId; if (!id) return null; const b = Domain.memberLoanBalance(s, id); return { title: b ? 'Your loan balance is ' + kes(b) : 'You have no loan', text: b ? 'See Loans for the dates of each instalment.' : 'Ask the treasurer if you need one.' }; } }
+];
+
+const Guide = {
+  q: '', open: false,
+  articles() { try { return (__M_src_content_app_info_js.HELP_ARTICLES || []); } catch (e) { return []; } },
+  tasks() { const admin = Auth.isAdmin(); return TASKS.filter(t => !t.admin || admin); },
+  score(text, ws) { const hay = words(text); let sc = 0; ws.forEach(w => { if (hay.includes(w)) sc += 2; else if (hay.some(h => h.startsWith(w) && w.length > 2)) sc += 1; }); return sc; },
+  results() {
+    const q = this.q.trim(), s = Store.get() || { members: [], payments: [], chama: {} };
+    if (!q) return { tasks: this.tasks().slice(0, 6), items: [], arts: [], ans: null };
+    const ws = words(q), lower = q.toLowerCase();
+    let ans = null; for (const a of ANSWERS) if ((!a.admin || Auth.isAdmin()) && a.re.test(lower)) { try { ans = a.run(s); } catch (e) { ans = null; } if (ans) break; }
+    const howTo = /\b(how|show|where|teach|help|jinsi|wapi|nisaidie|nionyeshe)\b/.test(lower);
+    const tasks = this.tasks().map(t => ({ t, sc: this.score(t.t + ' ' + t.k, ws) + (howTo ? 1 : 0) })).filter(x => x.sc >= 2).sort((a, b) => b.sc - a.sc).map(x => x.t).slice(0, 4);
+    const arts = this.articles().map(a => ({ a, sc: this.score(a.q + ' ' + a.a, ws) })).filter(x => x.sc >= 2).sort((a, b) => b.sc - a.sc).map(x => x.a).slice(0, 3);
+    let items = []; try { const P = __M_src_features_smart_js.Palette; P.q = q; items = P.results().filter(x => x.sub !== 'Action').slice(0, 6); } catch (e) {}
+    this._items = items;
+    return { tasks, items, arts, ans };
+  },
+  html() {
+    const r = this.results(), sugg = Auth.isAdmin() ? ['Who has not paid?', 'How do I record a payment?', 'Cash on hand', 'How do I import M-Pesa?'] : ['What do I owe?', 'When is my turn?', 'How do I message the treasurer?', 'How do I lock the app?'];
+    const task = t => `<div class="gd-task"><span class="li-ic">${icon('sparkle')}</span><b>${esc(t.t)}</b><span class="gd-btns">${t.tour ? `<button type="button" class="btn sm tint" data-gd="tour" data-id="${t.id}">Show me</button>` : ''}${t.act ? `<button type="button" class="btn sm" data-gd="do" data-id="${t.id}">Do it</button>` : ''}</span></div>`;
+    const ans = r.ans ? `<div class="gd-ans"><small>${icon('sparkle', 's')}Answer from your records</small><b>${esc(r.ans.title)}</b>${r.ans.text ? `<p>${esc(r.ans.text).replace(/\n/g, '<br>')}</p>` : ''}${r.ans.task ? `<button type="button" class="btn sm tint" data-gd="tour" data-id="${r.ans.task}">Show me what to do</button>` : ''}</div>` : '';
+    const empty = this.q && !r.ans && !r.tasks.length && !r.items.length && !r.arts.length;
+    return `<div class="gd-veil" data-gd="x"><div class="gd" role="dialog" aria-modal="true" aria-label="Guide">
+<div class="gd-head"><span class="gd-mark">${icon('sparkle')}</span><div><b>Guide</b><small>Ask anything, find anything, or learn how</small></div><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
+<label class="pal-in gd-in">${icon('search')}<input id="gdQ" type="search" placeholder="e.g. How do I give a loan?" value="${esc(this.q)}" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>
+<div class="gd-body" id="gdBody">${this.q ? '' : `<div class="gd-sugg">${sugg.map(x => `<button type="button" data-gd="ask" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`}
+${ans}
+${r.tasks.length ? `<div class="gd-sec"><h4>${this.q ? 'Do it, or let the Guide show you' : 'Things you can do'}</h4>${r.tasks.map(task).join('')}</div>` : ''}
+${r.items.length ? `<div class="gd-sec"><h4>Found</h4>${r.items.map((x, i) => `<button type="button" class="gd-item" data-gd="item" data-i="${i}"><span class="li-ic t-ink">${icon(x.ic)}</span><span><b>${esc(x.t)}</b><small>${esc(x.sub)}</small></span></button>`).join('')}</div>` : ''}
+${r.arts.length ? `<div class="gd-sec"><h4>Answers</h4>${r.arts.map(a => `<details class="gd-art"><summary>${esc(a.q)}</summary><p>${esc(a.a)}</p></details>`).join('')}</div>` : ''}
+${empty ? `<div class="gd-none"><b>No answer yet for “${esc(this.q)}”.</b><p>Try other words, such as “loan”, “payment” or “invite”. Or ask the treasurer in Chat.</p><a class="btn sm tint" href="#/chat">Open Chat</a></div>` : ''}</div></div></div>`;
+  },
+  show(q) {
+    if (!Session.ready()) return;
+    this.open = true; this.q = q || ''; this._items = null;
+    document.getElementById('jmRoot').innerHTML = this.html();
+    setTimeout(() => { const i = document.getElementById('gdQ'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 40);
+  },
+  paint() { const b = document.getElementById('gdBody'); if (!b) return; const tmp = document.createElement('div'); tmp.innerHTML = this.html(); b.replaceWith(tmp.querySelector('#gdBody')); },
+  hide() { this.open = false; const r = document.getElementById('jmRoot'); if (r) r.innerHTML = ''; },
+  run(id) { const t = TASKS.find(x => x.id === id); if (!t || !t.act) return; this.hide(); const A = __M_src_features_index_js.Actions[t.act]; if (!A) return; if (typeof A === 'object' && A.admin && !Auth.isAdmin()) return toast('Only the treasurer can do that'); try { (typeof A === 'function' ? A : A.run).call(A, { v: t.act === 'inviteSheet' ? 'code' : '' }); } catch (e) { toast(e.message); } }
+};
+
+/* ---- live tour: a spotlight on the real button, a card that says what to do, and it waits for the tap ---- */
+const Tour = {
+  steps: [], i: 0, el: null, timer: null, name: '',
+  start(id) {
+    const t = TASKS.find(x => x.id === id); if (!t || !t.tour) return;
+    Guide.hide(); this.steps = t.tour; this.i = 0; this.name = t.t;
+    let root = document.getElementById('tourRoot'); if (!root) { root = document.createElement('div'); root.id = 'tourRoot'; document.body.appendChild(root); }
+    this.step();
+  },
+  step() {
+    const st = this.steps[this.i]; if (!st) return this.end(true);
+    if (st.go && location.hash !== st.go) location.hash = st.go;
+    let tries = 0; clearInterval(this.timer);
+    this.timer = setInterval(() => {
+      const el = [...document.querySelectorAll(st.sel)].find(x => x.offsetParent !== null || x.getClientRects().length);
+      if (el) { clearInterval(this.timer); this.el = el; try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} setTimeout(() => this.paint(), 260); return; }
+      if (++tries > 30) { clearInterval(this.timer); this.paint(true); }
+    }, 120);
+  },
+  paint(missing) {
+    const root = document.getElementById('tourRoot'); if (!root) return;
+    const st = this.steps[this.i], n = this.steps.length, r = !missing && this.el ? this.el.getBoundingClientRect() : null;
+    const hole = r ? `<div class="tr-hole" style="top:${r.top - 6}px;left:${r.left - 6}px;width:${r.width + 12}px;height:${r.height + 12}px"></div>` : '<div class="tr-dim"></div>';
+    const below = !r || r.top < innerHeight * 0.55, top = r ? (below ? Math.min(innerHeight - 190, r.bottom + 14) : Math.max(12, r.top - 176)) : innerHeight / 2 - 90;
+    root.innerHTML = `${hole}<div class="tr-card" role="dialog" aria-live="polite" style="top:${top}px"><small>${esc(this.name)} · step ${this.i + 1} of ${n}</small><p>${esc(missing ? 'This step is not on the screen right now. You may not have permission, or the page looks different. You can skip it.' : st.text)}</p>
+<div class="tr-act"><button type="button" class="btn sm ghost" data-tr="end">End guide</button>${st.click && !missing ? `<span class="tr-hint">${icon('hand', 's')}Tap the highlighted button</span>` : `<button type="button" class="btn sm pri" data-tr="next">${this.i === n - 1 ? 'Finish' : 'Next'}</button>`}</div></div>`;
+  },
+  next() { this.i++; this.el = null; if (this.i >= this.steps.length) return this.end(true); setTimeout(() => this.step(), 350); },
+  end(done) { clearInterval(this.timer); this.steps = []; this.el = null; const r = document.getElementById('tourRoot'); if (r) r.innerHTML = ''; if (done) toast('Guide finished: ' + this.name, 'ok'); }
+};
+document.addEventListener('click', e => {
+  const tr = e.target.closest && e.target.closest('[data-tr]'); if (tr) { e.preventDefault(); e.stopPropagation(); return tr.dataset.tr === 'next' ? Tour.next() : Tour.end(false); }
+  /* tapping the highlighted button moves the tour on; the button still does its job */
+  if (Tour.steps.length && Tour.el && Tour.steps[Tour.i] && Tour.steps[Tour.i].click && Tour.el.contains(e.target)) { const r = document.getElementById('tourRoot'); if (r) r.innerHTML = ''; Tour.next(); }
+}, true);
+addEventListener('resize', () => { if (Tour.steps.length && Tour.el) Tour.paint(); });
+addEventListener('scroll', () => { if (Tour.steps.length && Tour.el) { clearTimeout(Tour._s); Tour._s = setTimeout(() => Tour.paint(), 80); } }, { passive: true, capture: true });
+document.addEventListener('click', e => {
+  const g = e.target.closest && e.target.closest('[data-gd]'); if (!g) return;
+  const k = g.dataset.gd;
+  if (k === 'x') { if (e.target === g || g.classList.contains('gd-x') || g.closest('.gd-x')) Guide.hide(); return; }
+  if (k === 'ask') { Guide.q = g.dataset.q; const i = document.getElementById('gdQ'); if (i) i.value = Guide.q; return Guide.paint(); }
+  if (k === 'tour') return Tour.start(g.dataset.id);
+  if (k === 'do') return Guide.run(g.dataset.id);
+  if (k === 'item') {
+    const x = (Guide._items || [])[Number(g.dataset.i)]; Guide.hide(); if (!x) return;
+    if (x.href) { location.hash = x.href; return; }
+    const A = __M_src_features_index_js.Actions[x.act]; if (!A) return;
+    try { (typeof A === 'function' ? A : A.run).call(A, { id: x.id }); } catch (err) { toast(err.message); }
+  }
+});
+document.addEventListener('input', e => { if (e.target && e.target.id === 'gdQ') { Guide.q = e.target.value; Guide.paint(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && Tour.steps.length) { Tour.end(false); return; }
+  if (e.key === 'Escape' && Guide.open) { Guide.hide(); return; }
+  if (e.key === 'Enter' && e.target && e.target.id === 'gdQ') { const r = Guide.results(); if (!r.ans && r.tasks[0] && r.tasks[0].tour && /\b(how|show|jinsi)\b/i.test(Guide.q)) Tour.start(r.tasks[0].id); }
+});
+
+const actions = {
+  guide: d => Guide.show((d && d.q) || ''),
+  guideTour: d => Tour.start(d.id)
+};
+
+return { get Guide() { return Guide; }, get Tour() { return Tour; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
+})();
+
 /* ---- src/features/index.js ---- */
 const __M_src_features_index_js = (function () {
 const homeFeature = __M_src_features_home_index_js;
@@ -6078,11 +6289,12 @@ const shellFeature = __M_src_features_shell_index_js;
 const requestsFeature = __M_src_features_requests_js;
 const chatFeature = __M_src_features_chat_index_js;
 const smartFeature = __M_src_features_smart_js;
+const guideFeature = __M_src_features_guide_js;
 /* Feature registry. Each feature folder exports `views` (pages it draws) and/or `actions` (things that change data).
    This file merges them into one table, and stops at start-up if two features claim the same name.
    To add a feature: create its folder, then add one import line and one entry in FEATURE_LIST below. */
 
-const FEATURE_LIST = [homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature, requestsFeature, chatFeature, smartFeature];
+const FEATURE_LIST = [guideFeature, homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature, requestsFeature, chatFeature, smartFeature];
 
 function merge(kind) {
   const out = Object.create(null);
@@ -6392,6 +6604,11 @@ const Menu = {
         profile.querySelector('strong').textContent = user.name;
         profile.addEventListener('click', () => setTimeout(() => window.openProfile(), 110));
         hero.appendChild(profile);
+        /* the Guide, right under the profile card: search, questions and step-by-step help */
+        const find = el('button', 'mn-search'); find.type = 'button'; find.setAttribute('aria-label', 'Search or ask the Guide');
+        find.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search or ask “how do I…”</span><kbd>/</kbd>`;
+        find.addEventListener('click', () => { Menu.close(); setTimeout(() => __M_src_features_guide_js.Guide.show(), 220); });
+        hero.appendChild(find);
         scroll.appendChild(hero);
         const admin = __M_src_core_auth_js.Auth.isAdmin();
         scroll.appendChild(group([
