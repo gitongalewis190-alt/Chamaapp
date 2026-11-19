@@ -1,0 +1,275 @@
+<title>Chama Release Check</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap">
+<style>
+/* Layout: a working checklist. Sticky progress bar, then the fix list, then checks grouped by area (Supabase first). */
+:root {
+  --bg: #f2f4f1; --surface: #ffffff; --surface-2: #eef1ed; --ink: #142420; --ink-2: #44544e; --ink-3: #75837d;
+  --line: rgba(20, 36, 32, .1); --brand: #0b6b4d; --brand-soft: #dff0e7;
+  --pass: #17824f; --pass-soft: #def3e6; --fail: #c0392b; --fail-soft: #fbe5e2; --skip: #8a6a12; --skip-soft: #f7efd9; --db: #2f5fa8; --db-soft: #e3ebf8;
+  --display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b1210; --surface: #131c19; --surface-2: #1b2622; --ink: #e8efec; --ink-2: #b4c2bc; --ink-3: #85948e;
+  --line: rgba(255, 255, 255, .1); --brand: #3cbd8a; --brand-soft: rgba(60, 189, 138, .15);
+  --pass: #4cc58a; --pass-soft: rgba(76, 197, 138, .15); --fail: #ef6b5b; --fail-soft: rgba(239, 107, 91, .15); --skip: #e0b45f; --skip-soft: rgba(224, 180, 95, .15); --db: #7ea8ec; --db-soft: rgba(126, 168, 236, .15); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0b1210; --surface: #131c19; --surface-2: #1b2622; --ink: #e8efec; --ink-2: #b4c2bc; --ink-3: #85948e;
+  --line: rgba(255, 255, 255, .1); --brand: #3cbd8a; --brand-soft: rgba(60, 189, 138, .15);
+  --pass: #4cc58a; --pass-soft: rgba(76, 197, 138, .15); --fail: #ef6b5b; --fail-soft: rgba(239, 107, 91, .15); --skip: #e0b45f; --skip-soft: rgba(224, 180, 95, .15); --db: #7ea8ec; --db-soft: rgba(126, 168, 236, .15); color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header.top { padding-top: 22px; display: flex; flex-direction: column; gap: 6px; }
+h1 { font: 800 1.75em/1.15 var(--display); letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.lede { color: var(--ink-2); margin: 0; max-width: 65ch; }
+.lede code, .steps code { font: 600 .9em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.counts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.count { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); font-size: .86em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.count b { font: 700 1.1em var(--display); color: var(--ink); }
+.count.pass b { color: var(--pass); } .count.fail b { color: var(--fail); } .count.skip b { color: var(--skip); }
+.meter { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; display: flex; }
+.meter i { display: block; height: 100%; transition: width .3s ease; }
+.meter .p { background: var(--pass); } .meter .f { background: var(--fail); } .meter .s { background: var(--skip); }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); border-radius: 99px; padding: 6px 12px; font: 600 .84em var(--body); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip:focus-visible, button:focus-visible, textarea:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.save { margin-left: auto; font-size: .8em; color: var(--ink-3); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.panel h2 { font: 700 1.1em var(--display); margin: 0; }
+.panel .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.fixlist { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.fixlist li { min-width: 0; overflow-wrap: anywhere; }
+.fixlist .where { font-size: .8em; color: var(--ink-3); }
+.empty { color: var(--ink-3); margin: 0; }
+.btn { border: 0; border-radius: 12px; padding: 9px 14px; font: 600 .9em var(--body); cursor: pointer; background: var(--brand); color: #fff; }
+.btn.ghost { background: var(--surface-2); color: var(--ink); }
+textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--ink); padding: 10px 12px; font: inherit; }
+section.area { display: flex; flex-direction: column; gap: 10px; }
+.area > h2 { font: 700 1.2em var(--display); margin: 10px 0 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.area > h2 small { font: 500 .62em var(--body); color: var(--ink-3); }
+.area > p { margin: 0; color: var(--ink-2); max-width: 65ch; }
+.check { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 14px 12px; display: grid; grid-template-columns: 1fr; gap: 8px; border-left: 4px solid var(--line); }
+.check.st-pass { border-left-color: var(--pass); } .check.st-fail { border-left-color: var(--fail); } .check.st-skip { border-left-color: var(--skip); }
+.check h3 { font: 650 1em/1.35 var(--body); margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.check h3 .id { font: 600 .74em ui-monospace, Menlo, monospace; color: var(--ink-3); }
+.tag { font: 700 .68em var(--body); text-transform: uppercase; letter-spacing: .05em; padding: 2px 7px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); }
+.tag.db { background: var(--db-soft); color: var(--db); } .tag.sql { background: var(--skip-soft); color: var(--skip); }
+.steps { margin: 0; padding-left: 20px; color: var(--ink-2); font-size: .93em; display: flex; flex-direction: column; gap: 2px; }
+.expect { font-size: .9em; color: var(--ink); background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
+.expect b { color: var(--ink-3); font-size: .78em; text-transform: uppercase; letter-spacing: .05em; margin-right: 6px; }
+.status { display: flex; gap: 6px; flex-wrap: wrap; }
+.status button { flex: 1 1 90px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-2); border-radius: 10px; padding: 7px 10px; font: 600 .88em var(--body); cursor: pointer; }
+.status button[data-v="pass"][aria-pressed="true"] { background: var(--pass-soft); border-color: var(--pass); color: var(--pass); }
+.status button[data-v="fail"][aria-pressed="true"] { background: var(--fail-soft); border-color: var(--fail); color: var(--fail); }
+.status button[data-v="skip"][aria-pressed="true"] { background: var(--skip-soft); border-color: var(--skip); color: var(--skip); }
+.note { min-height: 44px; font-size: .9em; }
+.notice { font-size: .86em; padding: 10px 12px; border-radius: 12px; background: var(--skip-soft); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Chama Release Check</h1>
+    <p class="lede">Version 0.16.2 on <code>chama-livid.vercel.app</code>. Work down the list on your phone with the live app open. Mark each check Pass, Fail or Skip and say what you saw. Failed checks collect in Needs fix, which you can copy to Claude. Your marks are saved here, so Claude can read them too.</p>
+  </header>
+
+  <div class="bar" id="bar">
+    <div class="counts" id="counts"></div>
+    <div class="meter" id="meter" aria-hidden="true"><i class="p"></i><i class="f"></i><i class="s"></i></div>
+    <div class="filters" role="group" aria-label="Show">
+      <button type="button" class="chip" data-f="all" aria-pressed="true">All</button>
+      <button type="button" class="chip" data-f="todo" aria-pressed="false">Not tested</button>
+      <button type="button" class="chip" data-f="fail" aria-pressed="false">Failed</button>
+      <button type="button" class="chip" data-f="db" aria-pressed="false">Supabase only</button>
+      <span class="save" id="save" aria-live="polite">Loading saved marks…</span>
+    </div>
+  </div>
+
+  <div class="notice" id="local" hidden>Your marks are saved on this device only, because shared saving is not available here. Use Copy to send them to Claude.</div>
+
+  <section class="panel" aria-labelledby="fixH">
+    <h2 id="fixH">Needs fix</h2>
+    <ol class="fixlist" id="fixlist"></ol>
+    <p class="empty" id="fixEmpty">Nothing has failed yet.</p>
+    <div class="row"><button type="button" class="btn" id="copyFix">Copy the fix list</button><span class="save" id="copied" aria-live="polite"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="fbH">
+    <h2 id="fbH">General feedback</h2>
+    <label for="fb" class="empty">Anything else you noticed, ideas, or what you want next.</label>
+    <textarea id="fb" placeholder="e.g. The gold card looks great. The payout line should show amounts too."></textarea>
+  </section>
+
+  <div id="areas"></div>
+</div>
+
+<script>
+/* Each check: id, area, title, steps, what you should see, and tags: db (done in the Supabase dashboard) or sql (needs the database update first). */
+const AREAS = [
+  ['supabase', 'Supabase', 'Done in the Supabase dashboard, project My Chama (sgfvjsxmchohawhqraii). Claude could not reach the database from its session, so nothing below has been run yet. Do S1 first: many app checks depend on it.'],
+  ['version', 'Version and update', 'Open the live app on your phone.'],
+  ['signin', 'Sign-in and password', 'Use a real account you control. Sign out first.'],
+  ['lock', 'App lock', 'Settings → App lock.'],
+  ['home', 'Home card and payout', 'Use at least two accounts in different states (one paid, one not).'],
+  ['money', 'Money', 'As treasurer, in the test Chama.'],
+  ['mpesa', 'M-Pesa import', 'Have two or three real M-Pesa messages or screenshots ready, including one with hidden digits.'],
+  ['roles', 'Roles and removals', 'Needs the database update (S1). Use three accounts: treasurer, secretary, member.'],
+  ['join', 'Join requests', 'One treasurer phone and one phone that joins with a code.'],
+  ['chat', 'Chat and announcements', ''],
+  ['guide', 'Guide and search', 'The sparkle next to the bell.'],
+  ['onboard', 'New people and invitations', 'Use a fresh email for new-account checks.'],
+  ['reports', 'Reports and PDF', ''],
+  ['ux', 'Feel and finish', '']
+];
+const CHECKS = [
+  ['S1', 'supabase', 'Run the database update', ['Open SQL Editor → New query', 'Paste all of <code>supabase/RUN_THIS_IN_SQL_EDITOR.sql</code> from the repo', 'Run'], 'Success. No error. If there is an error, nothing changed: copy the error into the note.', ['db']],
+  ['S2', 'supabase', 'Run the after-update checks', ['New query → paste <code>supabase/AFTER_UPDATE_CHECKS.sql</code> → Run'], 'In the first result every row shows ok = true. Note any row that says false.', ['db']],
+  ['S3', 'supabase', 'Shared inbox check (the "same code for everyone" report)', ['Look at the last result of S2'], 'If rows appear, those sample accounts share one inbox. That explains everyone getting the same code. Paste the row count in the note.', ['db']],
+  ['S4', 'supabase', 'Security Advisor', ['Advisors → Security Advisor → Refresh'], 'No errors. Note every warning by name.', ['db']],
+  ['S5', 'supabase', 'Performance Advisor', ['Advisors → Performance Advisor → Refresh'], 'No errors. Note any warning about the new tables.', ['db']],
+  ['S6', 'supabase', 'Leaked-password protection', ['Authentication → Sign In / Providers → Email → Password security'], 'Leaked password protection is switched on.', ['db']],
+  ['S7', 'supabase', 'Site URL and redirects', ['Authentication → URL Configuration'], 'Site URL is https://chama-livid.vercel.app and it is also in Redirect URLs.', ['db']],
+  ['S8', 'supabase', 'Code email template', ['Authentication → Emails → Templates → Magic link'], 'The body shows {{ .Token }} and the "Fill it in for me" link to #otp=. Subject: "{{ .Token }} is your My Chama code".', ['db']],
+  ['S9', 'supabase', 'Invitation email secrets', ['Edge Functions → send-invitation → Secrets'], 'BREVO_API_KEY, BREVO_SENDER_EMAIL and the app URL are set; the function shows a recent deploy.', ['db']],
+  ['S10', 'supabase', 'Backups', ['Database → Backups'], 'Point-in-time recovery is on, or daily backups are listed.', ['db']],
+  ['V1', 'version', 'The new version loads', ['Open the app', 'Settings → About'], 'Version 0.16.2. If you see an older one, close the app fully and open it again.', []],
+  ['V2', 'version', 'Update panel for existing users', ['Open the app once after the update'], '"Your app has been updated" with What\'s new, theme, colour, text size. Done closes it, and it does not come back.', []],
+  ['A1', 'signin', 'Google is below the main buttons', ['Sign out', 'Look at the start screen'], 'Sign in, then Create an account, then "or", then Continue with Google.', []],
+  ['A2', 'signin', 'Forgot password shows the reset screen', ['Sign in → Forgot password', 'Enter your email', 'Open the email on your phone and tap "Fill it in for me" (it may open a new tab)'], '"Choose a new password" appears, with "Keep my current password" under it.', []],
+  ['A3', 'signin', 'Old password refused after reset', ['Finish A2 with a new password', 'Sign out', 'Sign in with the old password, then the new one'], 'The old password is refused, the new one works.', []],
+  ['A4', 'signin', 'Only you got the code', ['During A2, check the inboxes of the other sample accounts'], 'Nobody else received a code. If they did, see S3.', []],
+  ['A5', 'signin', 'Password box keeps what you typed', ['Type a wrong password with Show turned on', 'Tap Sign in'], 'An error shows, the password stays, and it stays visible.', []],
+  ['L1', 'lock', 'No flicker while typing the PIN', ['Turn on the lock', 'Lock now', 'Type the PIN slowly'], 'The lock screen stays solid. Nothing behind it shows through.', []],
+  ['L2', 'lock', 'Turning off keeps the PIN', ['Turn the lock off, then on again'], 'It turns on with your saved PIN and does not ask for a new one.', []],
+  ['L3', 'lock', 'Lock after inactivity', ['Choose 1 minute', 'Leave the app open untouched for over a minute'], 'The lock screen appears by itself.', []],
+  ['L4', 'lock', 'Fingerprint or face', ['Turn on Fingerprint or face (installed app on Android, or Safari on iPhone)', 'Lock now', 'Tap the hand button'], 'The phone asks for your fingerprint or face, and that unlocks the app. Note your phone model.', []],
+  ['H1', 'home', 'Card first, payout under it', ['Open Home'], 'Your coloured card is at the top. The payout is attached under it, with the next turns in a row.', []],
+  ['H2', 'home', 'Card colour matches your state', ['Check accounts in different states'], 'Late red, part paid amber, due soon silver, paid green, paid ahead purple, your payout month or a 6-month streak gold. Note any card in the wrong colour and why.', []],
+  ['H3', 'home', 'The card is live', ['Watch the card for 15 seconds'], 'The line under the amount changes every few seconds, the Live dot pulses, and the colour moves gently.', []],
+  ['H4', 'home', 'Amount counts up on a change', ['On one phone stay on Home', 'On another, record a payment for that member'], 'The amount counts to the new value without a reload.', []],
+  ['H5', 'home', 'No blinking', ['Stay on Home and Payments for a minute'], 'The page does not flash or replay its animations.', []],
+  ['M1', 'money', 'Pay extra (pays ahead)', ['Payments → tap a member who is paid', 'Choose "Extra: pays ahead", enter an amount'], 'It records. The member\'s next months show as paid, and their card turns purple.', []],
+  ['M2', 'money', 'WhatsApp reminders open', ['Home → Behind this month → Remind all → Send'], 'WhatsApp opens with the right amount for that person, and the button changes to Sent.', []],
+  ['M3', 'money', 'Fines list people who owe first', ['Fines → Add fine'], 'People who owe are at the top of the list, with the amount they owe.', []],
+  ['M4', 'money', 'Expense shows cash left as you type', ['Expenses → Add expense', 'Type an amount larger than cash on hand'], 'The bar turns red, says "Short by", and saving is refused.', []],
+  ['M5', 'money', 'Loan terms are signed', ['Home → New loan → Issue loan'], 'Terms show the instalments and last date. The borrower must tick the box, then sign. The loan then shows "Terms agreed".', []],
+  ['P1', 'mpesa', 'Screenshot import works', ['Payments → Import from M-Pesa', 'Add one or two screenshots → Find payments'], 'A progress bar shows, then each payment with its amount, code and sender.', []],
+  ['P2', 'mpesa', 'Hidden digits are matched', ['Use a message like 0712***678'], 'The right member is chosen, with a reason such as "phone starts 712, ends 678 · name matches".', []],
+  ['P3', 'mpesa', 'Money sent is ignored', ['Include a "sent to" message'], 'Only money received is listed.', []],
+  ['R1', 'roles', 'Offer the secretary role', ['Treasurer: People and access → a member → Secretary → Send the offer', 'Member: open the app'], 'The member gets "Become Secretary?" and can Accept or Decline. After Accept there is only one secretary.', ['sql']],
+  ['R2', 'roles', 'Hand over treasurer safely', ['Treasurer: a person → Make treasurer', 'Type their name and your password'], 'An offer is sent. When they accept, you become a member and everyone is told.', ['sql']],
+  ['R3', 'roles', 'Moving someone down needs a reason', ['Treasurer: a secretary → Member'], 'You must write a reason, and they see it.', ['sql']],
+  ['R4', 'roles', 'Stepping down and leaving need a reason', ['Secretary: Chama settings → Step down', 'Member: Leave this Chama'], 'Both ask for a reason of at least 10 characters. The officers see it.', ['sql']],
+  ['R5', 'roles', 'Removal with notice', ['Treasurer: a person → Remove access → choose "Stopped contributing", write a reason'], 'They get a notice with the reason and can Reply. You see it under Waiting, with Withdraw and later Finish.', ['sql']],
+  ['J1', 'join', 'Approval banner appears live', ['Joiner: enter a code → Ask to join', 'Treasurer: keep the app open'], 'The "Needs your answer" sheet opens within 20 seconds without a reload.', []],
+  ['J2', 'join', 'Cancelling closes the treasurer\'s sheet', ['Joiner: Cancel my request while the treasurer sees it'], 'The treasurer sees "… withdrew their request" and the sheet closes. The joiner goes back to the start, not one step back.', []],
+  ['J3', 'join', 'Declined is clear and remembered', ['Treasurer: Decline', 'Joiner: later, enter a code for the same Chama'], 'The joiner sees a dialog, then a card that stays. Using the code again shows "You asked before and were declined".', []],
+  ['C1', 'chat', 'New message opens the chat', ['Chat → New message → pick a person'], 'Their conversation opens, ready to type.', []],
+  ['C2', 'chat', 'Edit a pinned announcement', ['Tap a pinned announcement → Edit'], 'You can change it, and it shows "edited".', ['sql']],
+  ['G1', 'guide', 'Guide answers from your records', ['Tap the sparkle by the bell', 'Ask "who has not paid" or "what do I owe"'], 'A real answer with names or amounts from your Chama.', []],
+  ['G2', 'guide', 'Show me walks you through', ['Ask "how do I record a payment" → Show me'], 'A highlighted button with a card saying what to tap. Tapping it moves to the next step.', []],
+  ['G3', 'guide', 'Menu search', ['Open the menu (top left)', 'Tap the search box under your profile'], 'The Guide opens.', []],
+  ['N1', 'onboard', 'Invitation goes straight to the right screen', ['Send an email invitation to an address with an account, then to one without', 'Open each link'], 'With an account: sign-in with the email filled. Without: the code is sent and the code screen opens.', ['sql']],
+  ['N2', 'onboard', 'Username check', ['New account → setup screen → type a username'], 'A green tick when free, a reason when taken, and suggestions from your name.', ['sql']],
+  ['N3', 'onboard', 'Know your Chama', ['A member who has not seen it opens the Chama'], 'The walkthrough of money, payout turn, people, rules and privacy. It cannot be skipped, and agreeing lets them in.', []],
+  ['N4', 'onboard', 'Make it yours for a new account', ['Create a new account with no Chama'], 'Theme, colour, text size before create or join. The app follows the phone until you choose.', []],
+  ['D1', 'reports', 'My statement PDF', ['Reports → My statement (PDF) → Save as PDF'], 'A clean document in the app\'s colours with months, payments, loans and fines. Note how it worked on your phone.', []],
+  ['D2', 'reports', 'Chama report PDF', ['Treasurer: Reports → Chama report (PDF)'], 'Collections, members, loans, payouts, expenses and fines, with correct totals.', []],
+  ['X1', 'ux', 'Swipe down closes panels', ['Open any panel from the bottom (for example Add fine)', 'Drag it down'], 'It follows your finger and closes. Approval sheets do not close this way.', []],
+  ['X2', 'ux', 'Change payout turn', ['Members → a person → Change payout turn → pick a turn'], 'A confirmation shows who receives when. The order changes for everyone.', []],
+  ['X3', 'ux', 'Several savings goals', ['Home → Add another goal'], 'Two goals show. The new one starts from this month.', []],
+  ['X4', 'ux', 'Member photo and phone', ['Add member → add a photo and phone'], 'The photo shows in the list and in the payout line.', []]
+].map(([id, area, title, steps, expect, tags]) => ({ id, area, title, steps, expect, tags }));
+
+const state = { r: {}, fb: '', filter: 'all' };
+let db = null, local = false, saveTimer = null;
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+function render() {
+  const shown = CHECKS.filter(c => state.filter === 'all' ? true : state.filter === 'todo' ? !(state.r[c.id] && state.r[c.id].status) : state.filter === 'fail' ? (state.r[c.id] || {}).status === 'fail' : c.tags.includes('db'));
+  $('#areas').innerHTML = AREAS.map(([key, name, intro]) => {
+    const list = shown.filter(c => c.area === key); if (!list.length) return '';
+    const done = CHECKS.filter(c => c.area === key && (state.r[c.id] || {}).status).length, all = CHECKS.filter(c => c.area === key).length;
+    return `<section class="area"><h2>${esc(name)} <small>${done} of ${all} checked</small></h2>${intro ? `<p>${esc(intro)}</p>` : ''}${list.map(card).join('')}</section>`;
+  }).join('') || '<p class="empty">Nothing matches this filter.</p>';
+  summary();
+}
+function card(c) {
+  const r = state.r[c.id] || {}, st = r.status || '';
+  const tags = (c.tags.includes('db') ? '<span class="tag db">Supabase</span>' : '') + (c.tags.includes('sql') ? '<span class="tag sql">Needs database update</span>' : '');
+  return `<article class="check st-${st}" id="c-${c.id}"><h3><span class="id">${c.id}</span>${esc(c.title)} ${tags}</h3>
+<ol class="steps">${c.steps.map(s => `<li>${s}</li>`).join('')}</ol>
+<div class="expect"><b>You should see</b>${esc(c.expect)}</div>
+<div class="status" role="group" aria-label="Result for ${esc(c.id)}">${[['pass', 'Pass'], ['fail', 'Fail'], ['skip', 'Skip']].map(([v, t]) => `<button type="button" data-id="${c.id}" data-v="${v}" aria-pressed="${st === v}">${t}</button>`).join('')}</div>
+<textarea class="note" id="n-${c.id}" data-id="${c.id}" placeholder="What you saw (needed for a Fail)">${esc(r.note || '')}</textarea></article>`;
+}
+function summary() {
+  const n = CHECKS.length, cnt = s => CHECKS.filter(c => (state.r[c.id] || {}).status === s).length;
+  const p = cnt('pass'), f = cnt('fail'), s = cnt('skip'), t = n - p - f - s;
+  $('#counts').innerHTML = `<span class="count pass"><b>${p}</b>passed</span><span class="count fail"><b>${f}</b>failed</span><span class="count skip"><b>${s}</b>skipped</span><span class="count"><b>${t}</b>not tested</span>`;
+  const [ip, iff, is] = document.querySelectorAll('#meter i'); ip.style.width = (p / n * 100) + '%'; iff.style.width = (f / n * 100) + '%'; is.style.width = (s / n * 100) + '%';
+  const fails = CHECKS.filter(c => (state.r[c.id] || {}).status === 'fail');
+  $('#fixlist').innerHTML = fails.map(c => `<li><a href="#c-${c.id}">${c.id} ${esc(c.title)}</a>${state.r[c.id].note ? `: ${esc(state.r[c.id].note)}` : ' <span class="where">(no note yet)</span>'} <span class="where">· ${esc((AREAS.find(a => a[0] === c.area) || [])[1])}</span></li>`).join('');
+  $('#fixEmpty').hidden = fails.length > 0;
+}
+function fixText() {
+  const fails = CHECKS.filter(c => (state.r[c.id] || {}).status === 'fail');
+  const skipped = CHECKS.filter(c => (state.r[c.id] || {}).status === 'skip');
+  return ['Chama Release Check (0.16.2): needs fix', ...fails.map(c => `- ${c.id} ${c.title}: ${(state.r[c.id].note || 'no note').trim()}`), fails.length ? '' : '- Nothing failed.',
+    skipped.length ? 'Skipped: ' + skipped.map(c => c.id).join(', ') : '', state.fb.trim() ? 'Feedback: ' + state.fb.trim() : ''].filter(Boolean).join('\n');
+}
+function saved(t) { $('#save').textContent = t; }
+async function write(id) {
+  const r = state.r[id] || {};
+  if (local) { try { localStorage.setItem('crc', JSON.stringify(state)); saved('Saved on this device'); } catch (e) { saved('Could not save'); } return; }
+  try { await db.collection('results').doc(id).set({ status: r.status || '', note: r.note || '', at: new Date().toISOString() }); saved('Saved'); }
+  catch (e) { saved('Not saved: ' + (e && e.message ? e.message : 'try again')); }
+}
+async function writeFb() {
+  if (local) return write('_');
+  try { await db.doc('feedback/general').set({ text: state.fb, at: new Date().toISOString() }); saved('Saved'); } catch (e) { saved('Feedback not saved'); }
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('.status button');
+  if (b) { const id = b.dataset.id, v = b.dataset.v, r = state.r[id] = { ...(state.r[id] || {}) }; r.status = r.status === v ? '' : v; render(); write(id); if (v === 'fail' && r.status) { const n = document.getElementById('n-' + id); if (n) n.focus(); } return; }
+  const f = e.target.closest('.chip');
+  if (f) { state.filter = f.dataset.f; document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === f ? 'true' : 'false')); render(); return; }
+  if (e.target.id === 'copyFix') {
+    const t = fixText();
+    const done = ok => { $('#copied').textContent = ok ? 'Copied. Paste it to Claude.' : 'Copy was blocked: the list is selected below, copy it yourself.'; };
+    try { navigator.clipboard.writeText(t).then(() => done(true), () => { showText(t); done(false); }); } catch (err) { showText(t); done(false); }
+  }
+});
+function showText(t) { let ta = document.getElementById('fixText'); if (!ta) { ta = document.createElement('textarea'); ta.id = 'fixText'; ta.readOnly = true; $('#copyFix').closest('.panel').appendChild(ta); } ta.value = t; ta.select(); }
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('note')) { const id = e.target.dataset.id; state.r[id] = { ...(state.r[id] || {}), note: e.target.value }; saved('Saving…'); clearTimeout(saveTimer); saveTimer = setTimeout(() => { write(id); summary(); }, 700); }
+  if (e.target.id === 'fb') { state.fb = e.target.value; saved('Saving…'); clearTimeout(saveTimer); saveTimer = setTimeout(writeFb, 700); }
+});
+
+render();
+(async () => {
+  const fallback = () => { local = true; $('#local').hidden = false; try { const v = JSON.parse(localStorage.getItem('crc') || 'null'); if (v) { state.r = v.r || {}; state.fb = v.fb || ''; $('#fb').value = state.fb; } } catch (e) {} saved('Saved on this device'); render(); };
+  const timer = setTimeout(() => { if (!db) fallback(); }, 10000);
+  try { db = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch (e) { db = null; }
+  clearTimeout(timer);
+  if (!db) { if (!local) fallback(); return; }
+  local = false; $('#local').hidden = true;
+  let first = true;
+  db.collection('results').onSnapshot(snap => {
+    const editing = document.activeElement && document.activeElement.classList.contains('note') ? document.activeElement.dataset.id : null;
+    snap.docs.forEach(d => { if (d.id !== editing) state.r[d.id] = d.data() || {}; });
+    if (first) { saved(snap.size ? 'Marks loaded' : 'Ready'); first = false; }
+    const pos = editing ? document.getElementById('n-' + editing).selectionStart : 0;
+    render();
+    if (editing) { const n = document.getElementById('n-' + editing); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }
+  }, () => saved('Live updates paused. Reload to see the latest.'));
+  db.doc('feedback/general').onSnapshot(d => { if (document.activeElement && document.activeElement.id === 'fb') return; state.fb = (d.exists && d.data().text) || ''; $('#fb').value = state.fb; summary(); });
+})();
+</script>
