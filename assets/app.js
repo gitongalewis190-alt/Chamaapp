@@ -1939,6 +1939,54 @@ const GT = {
 const GL = () => GT[OB.lang()] || GT.en;
 const AUTH_T = GT;
 
+/* live username check: green tick when free, a clear reason when not, and suggestions made from the person's name */
+const UserCheck = {
+  t: null, seq: 0, server: true,
+  local(name) {
+    const p = String(name || '').toLowerCase().replace(/[^a-z ]/g, '').split(/\s+/).filter(Boolean); if (!p.length) return [];
+    const f = p[0].slice(0, 12), l = (p[p.length - 1] || '').slice(0, 12), n = String(10 + Math.floor(Math.random() * 89));
+    return [...new Set([f + '.' + l, f + l, f[0] + l, f + n].filter(x => /^[a-z0-9._-]{3,20}$/.test(x) && x !== f + '.'))].slice(0, 4);
+  },
+  show(state, text) { const el = document.getElementById('userSt'); if (!el) return; el.className = 'u-st ' + state; el.innerHTML = (state === 'ok' ? icon('check', 's') : state === 'bad' ? icon('alert', 's') : state === 'wait' ? '<span class="spin sm" aria-hidden="true"></span>' : '') + '<span>' + esc(text) + '</span>'; const f = document.getElementById('setUser'); if (f) f.setAttribute('aria-invalid', state === 'bad' ? 'true' : 'false'); },
+  async check(v) {
+    const u = String(v || '').trim().toLowerCase(), me = ++this.seq;
+    if (!u) return this.show('', GL().usernameHint);
+    if (!/^[a-z0-9._-]{3,20}$/.test(u)) return this.show('bad', u.length < 3 ? 'At least 3 characters' : u.length > 20 ? '20 characters at most' : 'Only letters, numbers, dot, dash or underscore');
+    if (!this.server || !Backend.sb) return this.show('', 'Looks fine. Checked again when you save.');
+    this.show('wait', 'Checking…');
+    try {
+      const { data, error } = await Backend.sb.rpc('username_available', { p_username: u });
+      if (me !== this.seq) return;
+      if (error) { if (/Could not find the function|PGRST202|schema cache/i.test(error.message || '')) this.server = false; return this.show('', 'Looks fine. Checked again when you save.'); }
+      if (data && data.available) return this.show('ok', '@' + u + ' is yours if you want it');
+      const why = { taken: 'Someone already has this username', retired: 'This username was used before and cannot be reused', reserved: 'This username is reserved', format: 'Only letters, numbers, dot, dash or underscore' };
+      this.show('bad', why[(data && data.reason) || 'taken'] || 'Not available');
+    } catch (e) { if (me === this.seq) this.show('', 'Could not check now. Checked again when you save.'); }
+  },
+  async suggest() {
+    const box = document.getElementById('userSugg'); if (!box) return;
+    const name = ((document.getElementById('setName') || {}).value || '').trim(); if (name.length < 2) { box.innerHTML = ''; return; }
+    let list = [];
+    if (this.server && Backend.sb) { try { const { data, error } = await Backend.sb.rpc('username_suggestions', { p_full_name: name }); if (!error && Array.isArray(data)) list = data; else if (error && /Could not find the function|PGRST202|schema cache/i.test(error.message || '')) this.server = false; } catch (e) {} }
+    if (!list.length) list = this.local(name);
+    box.innerHTML = list.length ? `<span>Try:</span>${list.map(x => `<button type="button" class="u-chip" data-uname="${esc(x)}">${esc(x)}</button>`).join('')}` : '';
+  },
+  init() {
+    const f = document.getElementById('setUser'); if (!f) return;
+    if (f.value) this.check(f.value);
+    this.suggest();
+  }
+};
+document.addEventListener('input', e => {
+  if (!e.target) return;
+  if (e.target.id === 'setUser') { const v = e.target.value.toLowerCase().replace(/\s+/g, ''); if (v !== e.target.value) e.target.value = v; clearTimeout(UserCheck.t); UserCheck.t = setTimeout(() => UserCheck.check(v), 350); }
+  if (e.target.id === 'setName') { clearTimeout(UserCheck.tn); UserCheck.tn = setTimeout(() => UserCheck.suggest(), 600); }
+});
+document.addEventListener('click', e => {
+  const c = e.target.closest && e.target.closest('[data-uname]'); if (!c) return;
+  const f = document.getElementById('setUser'); if (!f) return; f.value = c.dataset.uname; UserCheck.check(f.value); f.focus();
+});
+
 const Gate = {
   email: gateSaved().email || '', sent: !!gateSaved().sent, sending: false, signing: false, stage: 'entry', pw: null, id: '', signPw: '', coolUntil: 0, coolTimer: null, sub: null, joinMsg: '', notice: '', draft: { name: '', listed: true, link: '' }, nameErr: '', formErr: '', joinBusy: false, opening: false, mode: (function () { let m = gateSaved().mode; if (!m) { try { m = sessionStorage.getItem('mca-intent'); } catch (e) {} } return m === 'up' || m === 'forgot' || m === 'in' ? m : 'start'; })(),
   navRow(x) { return `<div class="btns">${x}</div>`; },
@@ -2027,7 +2075,7 @@ ${this.agreeLine()}
     const googleNew = isNew && Session.usesGoogle();
     const nameNow = acct.full_name || (googleNew ? Session.googleName() : '');
     const fields = isNew ? `<label class="f" for="setName">${esc(G.fullName)}<span class="field">${icon('profile')}<input id="setName" autocomplete="name" autocapitalize="words" maxlength="120" value="${esc(nameNow)}" placeholder="e.g. Wanjiku Kamau"></span></label>
-<label class="f" for="setUser">${esc(G.username)}<span class="field">${icon('tag')}<input id="setUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(acct.username || '') ? '' : (acct.username || ''))}" placeholder="e.g. wanjiku.k"></span><small>${esc(G.usernameHint)}</small></label>` : '';
+<label class="f" for="setUser">${esc(G.username)}<span class="field">${icon('tag')}<input id="setUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(acct.username || '') ? '' : (acct.username || ''))}" placeholder="e.g. wanjiku.k"></span><small class="u-st" id="userSt" aria-live="polite">${esc(G.usernameHint)}</small></label><div class="u-sugg" id="userSugg" aria-label="Suggested usernames"></div>` : '';
     return shell(`<h1 class="auth-t" style="margin-top:0">${esc(isNew ? G.setupTitle : G.resetTitle)}</h1><p class="auth-s">${esc(isNew ? (googleNew ? G.setupSubGoogle : G.setupSub) : G.resetSub)}</p>
 <p class="tag brand" style="margin-top:14px">${icon('mail', 's')}${esc(Session.email)}</p>${note}
 <div class="auth-form">${fields}${googleNew ? '' : this.pwFields(false)}
@@ -2253,7 +2301,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
 <div class="kv"><span>Sent to</span><b>${esc(I.email_hint || '')}</b></div>
 <div class="kv"><span>Expires</span><b>${esc(when(I.expires_at))}</b></div></div>`;
     const note = '<p class="fhelp" style="margin-top:12px">Joining lets you see this Chama’s records for your role. You can leave later.</p>';
-    if (!signedIn) return this.card('You’re invited', rows + note + '<div class="btns col" style="margin-top:22px"><button class="btn pri block" data-act="inviteContinue">Sign in or create an account to accept</button></div>', 'invite');
+    if (!signedIn) return this.card('You’re invited', rows + note + `<div class="btns col" style="margin-top:22px"><button class="btn pri block" data-act="inviteContinue"${Invite.busy ? ' disabled aria-busy="true"' : ''}>Continue${I.email_hint ? ' as ' + esc(I.email_hint) : ''}</button><p class="fhelp" style="text-align:center">We check for your account, then take you to sign in, or set one up with a code.</p></div>`, 'invite');
     const msg = Invite.msg ? `<p class="notice" role="alert">${icon('alert', 's')}<span>${esc(Invite.msg)}</span></p>` : '';
     return this.card('You’re invited', `<p class="auth-s">Signed in as <b>${esc(Session.email)}</b></p>${rows}${note}${msg}<div class="btns col" style="margin-top:22px"><button class="btn pri block" data-act="inviteAccept"${Invite.busy ? ' disabled' : ''}>Accept invitation</button><button class="btn block" data-act="inviteDecline">Decline</button><button class="btn ghost block" data-act="gateSignOut">Use another email</button></div>`, 'invite');
   },
@@ -2280,7 +2328,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
         ? shell(`<div class="auth-art">${art('mail')}</div><h1 class="auth-t" style="margin-top:6px">${esc(G.codeTitle)}</h1><p class="auth-s">${G.codeSub(Otp.len, esc(this.email))}</p>${Otp.html({ change: true })}`, { back: 'data-act="gateReset"', lang: false })
         : this.authCard();
     }
-    else if (st === 'setup') html = this.setupCard();
+    else if (st === 'setup') { html = this.setupCard(); setTimeout(() => UserCheck.init(), 0); }
     else if (st === 'welcome') html = this.welcomeCard();
     else if (st === 'choose') html = this.chooseCard();
     else html = this.card('Something went wrong', `<p class="auth-s">${esc(Session.error || 'We could not reach the server.')}</p><div class="btns col" style="margin-top:24px"><button class="btn pri block" data-act="gateRetry">Try again</button>${Session.user ? '<button class="btn ghost block" data-act="gateSignOut">Sign out</button>' : ''}</div>`, 'lost');
@@ -4718,7 +4766,21 @@ const actions = {
   },
   gateRestore: async () => { const A = __M_src_features_account_deletion_js.Account; await A.restore(); Gate.paint(); },
   gateRetry: () => (Session.user ? Session.after(Session.user) : Session.boot()),
-  inviteContinue: () => { Invite.signin = true; Gate.paint(); },
+  /* straight to the right screen: sign in if the invited email has an account, otherwise create it and send the code */
+  inviteContinue: async () => {
+    if (Invite.busy) return; Invite.busy = true;
+    const b = document.querySelector('[data-act="inviteContinue"]'); if (b) { b.disabled = true; b.setAttribute('aria-busy', 'true'); }
+    let r = null;
+    try { const { data, error } = await Backend.sb.rpc('invitation_account', { p_token: Invite.token }); if (!error) r = data; } catch (e) { r = null; }
+    Invite.busy = false; Invite.signin = true; Gate.sent = false;
+    if (r && r.ok && r.email) {
+      if (r.has_account) { Gate.mode = 'in'; Gate.id = r.email; Gate.notice = ''; Gate.paint(); setTimeout(() => { const p = document.getElementById('gatePw'); if (p) p.focus(); }, 120); return; }
+      Gate.mode = 'up'; Gate.email = r.email; Gate.notice = ''; OB.agree('continue:create-account');
+      return gateSendCode(r.email, null);
+    }
+    const hint = (Invite.info && Invite.info.email_hint) || '';
+    Gate.mode = 'in'; Gate.notice = 'Sign in with the email this invitation was sent to' + (hint ? ' (' + hint + ')' : '') + '. New here? Tap Create an account below.'; Gate.paint();
+  },
   inviteAccept: () => Invite.accept(),
   inviteDecline: () => Invite.decline(),
   inviteDismiss: () => { Invite.clear(); if (Session.user) { Session.status = 'loading'; Session.after(Session.user); } else Gate.paint(); },

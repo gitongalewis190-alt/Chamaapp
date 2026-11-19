@@ -352,6 +352,29 @@ const TESTS = {
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();
   },
+  async inviteRouting(b) {
+    /* the invitation goes straight to sign-in when the invited email has an account */
+    let o = await open(b, 'invite', { mock: { ...require('./fixtures').scenarios.invite.mock, invitationAccount: { ok: true, email: 'faith@example.com', has_account: true } } });
+    await o.page.click('[data-act="inviteContinue"]'); await o.page.waitForTimeout(500);
+    ok(await o.page.isVisible('#gatePw') && (await o.page.inputValue('#gateId')) === 'faith@example.com', 'invitation with an account goes straight to sign-in with the email filled in');
+    ok(!o.errors.length, 'no page errors ' + o.errors.join(' | ')); await o.ctx.close();
+    /* and straight to the code when there is no account yet */
+    o = await open(b, 'invite', { mock: { ...require('./fixtures').scenarios.invite.mock, invitationAccount: { ok: true, email: 'new@example.com', has_account: false } } });
+    await o.page.click('[data-act="inviteContinue"]'); await o.page.waitForTimeout(1500);
+    ok((await calls(o.page)).some(x => x.kind === 'otp' && x.email === 'new@example.com'), 'invitation without an account sends the code to the invited email at once');
+    ok(!o.errors.length, 'no page errors ' + o.errors.join(' | ')); await o.ctx.close();
+  },
+  async usernameCheck(b) {
+    const { page, ctx, errors } = await open(b, 'setup');
+    if (!(await page.locator('#setUser').count())) { ok(false, 'setup screen shows the username box'); await ctx.close(); return; }
+    await page.fill('#setName', 'Faith Mwangi'); await page.waitForTimeout(900);
+    ok((await page.locator('.u-chip').count()) >= 2, 'usernames are suggested from the name');
+    await page.fill('#setUser', 'taken1'); await page.waitForTimeout(700);
+    ok(/already has/i.test(await page.textContent('#userSt')), 'a taken username is flagged as you type');
+    await page.click('.u-chip >> nth=0'); await page.waitForTimeout(600);
+    ok(await page.locator('#userSt.ok').count() === 1, 'picking a suggestion shows the green tick');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
   async leftAndLive(b) {
     const data = require('./fixtures').chama(); data.members[7].left = data.members[0].joined;   // Baraka left in the first month
     const notes = [{ id: 'n-old', kind: 'join_approved', title: 'Welcome to Umoja Savings', body: '', link: '#/home', priority: 'important', created_at: new Date().toISOString(), read_at: null, data: {} }];
