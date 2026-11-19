@@ -54,7 +54,7 @@ const ICONS = {
   sign: '<path d="M3.5 18c2.5 0 3.5-6 5.5-6s1 4 3 4 2-3 3.5-3 1.5 2 5 2"/><path d="M3.5 21h17"/>',
   tag: '<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.5 1.5 0 0 1 0 2.1l-6.3 6.3a1.5 1.5 0 0 1-2.1 0z"/><circle cx="8" cy="8" r="1.4"/>',
   sparkle: '<path d="M12 20.5v-7.5"/><path d="M12 13c0-4.2 3-6.8 7.2-6.8 0 4.2-3 6.8-7.2 6.8z"/><path d="M12 15.8c0-3.1-2.3-5.3-5.7-5.3 0 3.1 2.3 5.3 5.7 5.3z"/>',
-  guide: '<path d="M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v8a2.5 2.5 0 0 1-2.5 2.5h-5.2L8.5 21v-3.5H6A2.5 2.5 0 0 1 3.5 15V7A2.5 2.5 0 0 1 6 4.5z"/><path d="M14.6 8.4l-1.5 4.1-4.1 1.5 1.5-4.1z"/>',
+  guide: '<circle cx="13.7" cy="13.1" r="8.2"/><path d="M15.7 11.2c.6-.8 1.7-.8 2.3 0"/><path d="M13.3 16.5c1.2 1 3 .9 4-.4"/><circle class="gh" cx="5.6" cy="12.8" r="2.15"/><path class="ghs" d="M6.7 9.9 3.9 6.4M8 9.1 6.3 4.3M9.6 8.9 9.3 3.6" style="stroke-width:2.35"/><circle class="ghs" cx="9.1" cy="11.4" r="2.45" style="stroke-width:2.1"/><circle class="gp" cx="9.1" cy="11.4" r="1"/>',
   up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
   more: '<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>',
   speaker: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/>',
@@ -2781,7 +2781,7 @@ ${(() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 &&
     /* the borrower signs loan terms on their own phone */
     const mineUnsigned = meId ? (s.loans || []).filter(l => l.memberId === meId && !l.agreement && Domain.loan(l).balance > 0) : [];
     const terms = mineUnsigned.map(l => `<button type="button" class="sign-card" data-act="signLoanMine" data-id="${esc(l.id)}"><span class="sign-ic">${icon('sign')}</span><span class="sign-t"><b>Loan terms to sign</b><small>${esc(kes(l.principal))} loan · read what you pay back, then sign</small></span>${icon('chev', 'chev')}</button>`).join('');
-    const help = `<button type="button" class="simple-help only-simple" data-act="guide">${icon('guide')}<span><b>Need help?</b><small>Ask me, or let me show you how</small></span></button>`;
+    const help = `<button type="button" class="simple-help only-simple" data-act="guide"><span class="gd-chip">${icon('guide')}</span><span><b>Need help?</b><small>Ask me, or let me show you how</small></span></button>`;
     return `${greet}${terms}<div class="home-top">${hero}${payout}</div>${help}${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
   }
 };
@@ -3937,7 +3937,7 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.18.1', released: '2026-11-20',
+  name: 'My Chama App', version: '0.18.2', released: '2026-11-20',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
