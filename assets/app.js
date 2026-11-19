@@ -370,10 +370,14 @@ const { addMonths, monthDiff, monthKey, sum } = __M_src_core_utils_js;
 const Domain = {
   now: () => monthKey(new Date()),
   joinMonth: (s, mid) => { const m = s.members.find(x => x.id === mid); return (m && m.joined) || s.chama.startMonth; },
-  dueFor: (s, mid) => s.chama.monthly * ((s.members.find(m => m.id === mid) || {}).shares || 1),
+  /* a member who left is owed nothing for months after they left (their past stays in the books) */
+  leftMonth: (s, mid) => ((s.members.find(m => m.id === mid) || {}).left) || null,
+  active: s => (s.members || []).filter(m => !m.left),
+  rate: (s, mid) => s.chama.monthly * ((s.members.find(m => m.id === mid) || {}).shares || 1),
+  dueFor(s, mid, mk = Domain.now()) { const l = this.leftMonth(s, mid); return l && mk > l ? 0 : this.rate(s, mid); },
   paidIn: (s, mid, mk) => sum(s.payments.filter(p => p.memberId === mid && p.month === mk), p => p.amount),
   /* cumulative: everything owed from joining through month mk, and everything paid for months up to mk */
-  dueThrough(s, mid, mk) { const j = this.joinMonth(s, mid); return mk < j ? 0 : this.dueFor(s, mid) * (monthDiff(j, mk) + 1); },
+  dueThrough(s, mid, mk) { const j = this.joinMonth(s, mid), l = this.leftMonth(s, mid), end = l && l < mk ? l : mk; return end < j ? 0 : this.rate(s, mid) * (monthDiff(j, end) + 1); },
   paidThrough: (s, mid, mk) => sum(s.payments.filter(p => p.memberId === mid && p.month <= mk), p => p.amount),
   outstanding(s, mid, mk) { return Math.max(0, this.dueThrough(s, mid, mk) - this.paidThrough(s, mid, mk)); },
   isOverdue(s, mk) {
@@ -382,6 +386,7 @@ const Domain = {
   },
   status(s, mid, mk) {
     if (mk < this.joinMonth(s, mid)) return 'na';
+    { const l = this.leftMonth(s, mid); if (l && mk > l) return 'na'; }
     if (this.paidThrough(s, mid, mk) >= this.dueThrough(s, mid, mk)) return 'paid';
     if (mk > this.now()) return 'future';
     const paid = this.paidIn(s, mid, mk);
@@ -390,7 +395,7 @@ const Domain = {
   },
   lateMembers(s, mk = this.now()) {
     if (s.shared || !this.isOverdue(s, mk)) return [];   /* members never see who else is late (D3) */
-    return s.members.filter(m => this.outstanding(s, m.id, mk) > 0);
+    return s.members.filter(m => !(m.left && mk > m.left) && this.outstanding(s, m.id, mk) > 0);
   },
   memberSaved: (s, mid) => sum(s.payments.filter(p => p.memberId === mid), p => p.amount),
   /* money is rounded to the cent, so 3,000 at 5% for 2 months is exactly 3,300 and a full repayment clears it */
@@ -409,7 +414,8 @@ const Domain = {
     const p = s.payouts.find(x => x.month === mk);
     if (p) return s.members.find(m => m.id === p.memberId) || { id: p.memberId, name: 'Removed member' };
     const n = s.members.length; if (!n) return null;
-    const i = ((monthDiff(s.chama.startMonth, mk) % n) + n) % n;
+    let i = ((monthDiff(s.chama.startMonth, mk) % n) + n) % n;
+    for (let k = 0; k < n && s.members[i].left && mk > s.members[i].left; k++) i = (i + 1) % n;
     return s.members[i];
   },
   memberName: (s, id) => (s.members.find(m => m.id === id) || { name: 'Removed member' }).name,
@@ -596,7 +602,7 @@ const Store = (() => {
           }
         } catch (e) { setSync('offline'); }
       };
-      setInterval(() => { if (!document.hidden) refresh(); }, 45000);
+      setInterval(() => { if (!document.hidden) refresh(); }, 20000);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
       addEventListener('online', refresh);
     } else {
@@ -1035,6 +1041,19 @@ const Session = {
     await this.loadRequests();
     if (approve) { try { await Store.reload(); } catch (e) {} this.loadAccess().catch(() => {}); this.loadMemberPics().catch(() => {}); }
     return data;
+  },
+  /* role or access changed on the server: apply it in place, no reload */
+  async refreshRole() {
+    if (!Backend.sb || !this.user || !Store.chamaId) return;
+    const { data: m, error } = await Backend.sb.from('chama_members').select('role,member_id,status').eq('chama_id', Store.chamaId).eq('user_id', this.user.id).eq('status', 'active').maybeSingle();
+    if (error) return;
+    if (!m) { toast('You no longer have access to this Chama', 'info'); this.chooserOpen = false; this.role = null; return this.openWorkspace(this.user); }
+    const changed = m.role !== this.role || (m.member_id || null) !== this.memberId;
+    this.role = m.role; this.memberId = m.member_id || null;
+    if (!changed) return;
+    try { await Store.reload(); } catch (e) {}
+    this.loadRequests().catch(() => {}); if (Perm.can(this.role, 'members.invite')) { this.loadAccess().catch(() => {}); this.loadInvites().catch(() => {}); }
+    toast('You are now ' + Perm.label(this.role) + '. The app has updated.', 'ok'); render();
   },
   async linkRecord(email, record, name) {
     const { error } = await Backend.sb.rpc('link_member_record', { p_cid: Store.chamaId, p_email: email, p_record: record || 'new', p_name: name || null });
@@ -1681,7 +1700,7 @@ function shell(inner, o = {}) {
   </section>`;
 }
 const pwField = (id, label, ac, ph, eye) => `<label class="f" for="${id}">${esc(label)}
-  <span class="field pw">${icon('lock')}<input id="${id}" name="${id}" type="password" autocomplete="${ac}" placeholder="${esc(ph || '')}" autocapitalize="none" spellcheck="false">${eye ? `<button type="button" class="eye" data-act="togglePw" aria-pressed="false">${esc(GL().show)}</button>` : ''}</span></label>`;
+  <span class="field pw">${icon('lock')}<input id="${id}" name="${id}" type="password" autocomplete="${ac}" placeholder="${esc(ph || '')}" autocapitalize="none" spellcheck="false">${eye ? `<button type="button" class="eye" data-act="togglePw" data-for="${id}" aria-pressed="false">${esc(GL().show)}</button>` : ''}</span></label>`;
 
 const OB = {
   pick: null, slide: 0, ag1: false, ag2: false, revisit: false, sheet: false, langPick: null, langQ: '',
@@ -1953,7 +1972,7 @@ ${this.agreeLine()}
 <label class="f" for="setUser">${esc(G.username)}<span class="field">${icon('tag')}<input id="setUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" value="${esc(/^user[0-9a-f]{8}$/.test(acct.username || '') ? '' : (acct.username || ''))}" placeholder="e.g. wanjiku.k"></span><small>${esc(G.usernameHint)}</small></label>` : '';
     return shell(`<h1 class="auth-t" style="margin-top:0">${esc(isNew ? G.setupTitle : G.resetTitle)}</h1><p class="auth-s">${esc(isNew ? (googleNew ? G.setupSubGoogle : G.setupSub) : G.resetSub)}</p>
 <p class="tag brand" style="margin-top:14px">${icon('mail', 's')}${esc(Session.email)}</p>${note}
-<div class="auth-form">${fields}${googleNew ? '' : this.pwFields(true)}
+<div class="auth-form">${fields}${googleNew ? '' : this.pwFields(false)}
 <button type="button" class="btn pri block" data-act="gateSetup"${this.signing ? ' disabled aria-busy="true"' : ''}>${this.signing ? '<span class="spin" aria-hidden="true"></span>' : ''}<span>${esc(G.saveCont)}</span></button>
 <button type="button" class="btn ghost block" style="margin-top:8px" data-act="gateSignOut">${esc(G.signOut)}</button></div>`, { top: true, lang: false });
   },
@@ -2199,6 +2218,13 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
     if (OB.sheet) { const q = document.getElementById('lgSearch'); if (q) setTimeout(() => q.focus(), 280); }
     /* while a join request waits, look again every 20 seconds and open the Chama as soon as it is approved */
     clearInterval(this._pendTimer);
+    if ((st === 'welcome' || st === 'choose') && (Session.pending || []).length && !this._pendChan && Backend.sb && Session.user) {
+      try { this._pendChan = Backend.sb.channel('jr-' + Session.user.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chama_join_requests', filter: 'user_id=eq.' + Session.user.id }, p => {
+        if (!p.new) return;
+        if (p.new.status === 'approved') { flashNext('dialog:You were approved. Welcome to the Chama.'); Session.switchTo(p.new.chama_id); }
+        else if (p.new.status === 'declined') { Session.loadMyRequests().then(() => { this.paint(); toast('Your request to join was declined', 'info'); }); }
+      }).subscribe(); } catch (e) { /* the timer below still checks */ }
+    }
     if ((st === 'welcome' || st === 'choose') && (Session.pending || []).length) {
       this._pendTimer = setInterval(async () => {
         if (document.hidden || !['welcome', 'choose'].includes(Session.status)) return;
@@ -2210,7 +2236,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
           await Session.loadMyRequests();
           if ((Session.pending || []).length !== before.length) this.paint();
         } catch (e) { /* offline: try again next time */ }
-      }, 20000);
+      }, 12000);
     }
     if (st === 'signed-out' && this.sent) {
       try { const d = sessionStorage.getItem('mca-otp') || ''; const inp = document.getElementById('otpIn'); if (inp && d) { inp.value = d; inp._prev = d; Otp.paint(d); } else Otp.paint(''); } catch (e) {}
@@ -2285,7 +2311,7 @@ const av = (m, n = 32) => {
   /* only a plain base64 JPEG is ever put in src: a photo is data from another person's account */
   const tone = ['', ' c1', ' c2', ' c3'][(nm.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 4];
   return typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)
-    ? `<img class="av" style="--n:${Number(n) || 32}px" src="${photo}" alt="">` : `<span class="av${tone}" style="--n:${Number(n) || 32}px" aria-hidden="true">${esc(ini)}</span>`;
+    ? `<img class="av" style="--n:${Number(n) || 32}px" src="${photo}" alt="Photo of ${esc(nm)}" data-name="${esc(nm)}">` : `<span class="av${tone}" style="--n:${Number(n) || 32}px" aria-hidden="true">${esc(ini)}</span>`;
 };
 
 const memberChip = (s, id, n = 28) => { const m = (s.members || []).find(x => x.id === id); return `<span class="who">${av(m || { name: 'Removed member' }, n)}<span>${esc(m ? m.name : 'Removed member')}</span></span>`; };
@@ -2462,7 +2488,7 @@ const views = {
 
     const stats = s.shared
       ? `<div class="stats"><div><span>Saved</span><b>${esc(kes(me ? Domain.memberSaved(s, me.id) : 0))}</b></div><div><span>Your loan</span><b>${esc(kes(me ? Domain.memberLoanBalance(s, me.id) : 0))}</b></div><div><span>Group cash</span><b>${esc(kes(Domain.cashOnHand(s)))}</b></div></div>`
-      : `<div class="stats"><div><span>Loans out</span><b>${esc(kes(loansOut))}</b></div><div><span>Unpaid fines</span><b>${esc(kes(finesDue))}</b></div><div><span>Paid up</span><b class="num">${s.members.length - late.length}/${s.members.length}</b></div></div>`;
+      : `<div class="stats"><div><span>Loans out</span><b>${esc(kes(loansOut))}</b></div><div><span>Unpaid fines</span><b>${esc(kes(finesDue))}</b></div><div><span>Paid up</span><b class="num">${Domain.active(s).length - late.length}/${Domain.active(s).length}</b></div></div>`;
 
     /* this month: the payout (merry-go-round) and, for the treasurer, who is behind */
     const rows = [];
@@ -2690,16 +2716,17 @@ const views = {
     const cur = Domain.now(), months = Array.from({ length: 6 }, (_, i) => addMonths(cur, i - 5));
     if (!cgMonth || !months.includes(cgMonth)) cgMonth = cur;
     const mo = cgMonth, idx = months.indexOf(mo);
-    const people = s.shared ? s.members.filter(m => m.id === s.shared.me) : s.members;
+    const inMonth = m => !(m.left && mo > m.left);
+    const people = s.shared ? s.members.filter(m => m.id === s.shared.me) : s.members.filter(inMonth);
     const total = s.shared ? ((s.shared.monthCollected || {})[mo] || 0) : sum(s.payments.filter(p => p.month === mo), p => p.amount);
-    const expected = sum(s.members.filter(m => Domain.joinMonth(s, m.id) <= mo), m => Domain.dueFor(s, m.id));
+    const expected = sum(s.members.filter(m => Domain.joinMonth(s, m.id) <= mo), m => Domain.dueFor(s, m.id, mo));
     const pct = expected ? Math.min(100, Math.round(total / expected * 100)) : 0;
     const label = { paid: 'Paid', late: 'Late', due: 'Record', future: 'Not due', na: 'Not due', partial: 'Part paid' };
     const memberLabel = { paid: 'Paid', late: 'Late', due: 'Due', future: 'Not due', na: 'Not due', partial: 'Part paid' };
-    const paidCount = s.shared ? null : s.members.filter(m => Domain.status(s, m.id, mo) === 'paid').length;
+    const paidCount = s.shared ? null : s.members.filter(inMonth).filter(m => Domain.status(s, m.id, mo) === 'paid').length;
 
     const rows = people.map(m => {
-      const st = Domain.status(s, m.id, mo), paid = Domain.paidIn(s, m.id, mo), due = Domain.dueFor(s, m.id);
+      const st = Domain.status(s, m.id, mo), paid = Domain.paidIn(s, m.id, mo), due = Domain.dueFor(s, m.id, mo);
       const can = admin && !['future', 'na'].includes(st);
       const sub = ['future', 'na'].includes(st) ? 'Not due this month' : `${kes(paid)} of ${kes(due)}`;
       const text = st === 'partial' ? kes(paid) : (admin ? label[st] : memberLabel[st]);
@@ -2714,7 +2741,7 @@ const views = {
       ${admin ? `<div class="btns" style="margin-top:0"><button class="btn tint sm" data-act="importPay">${icon('import')}Import from M-Pesa</button></div>` : ''}
       <div class="months" role="tablist" aria-label="Month" style="--n:6;--i:${idx}"><span class="pill" aria-hidden="true"></span>${pills}</div>
       <div class="card" style="padding:16px 18px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span class="mute small">${s.shared ? 'Group total' : 'Collected'} · ${esc(monthLabel(mo))}</span>${paidCount != null ? `<span class="tag ${paidCount === s.members.length ? 'ok' : ''}">${paidCount} of ${s.members.length} paid</span>` : ''}</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span class="mute small">${s.shared ? 'Group total' : 'Collected'} · ${esc(monthLabel(mo))}</span>${paidCount != null ? `<span class="tag ${paidCount === people.length ? 'ok' : ''}">${paidCount} of ${people.length} paid</span>` : ''}</div>
         <div class="num" style="font:700 1.6em/1.2 var(--font-display);margin-top:4px">${esc(kes(total))}</div>
         <div class="bar" style="margin-top:10px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Share of expected collected"><i style="width:${pct}%"></i></div>
         <p class="mute small" style="margin-top:8px">${pct}% of ${esc(kes(expected))} expected</p>
@@ -2950,26 +2977,35 @@ const maskPhone = p => (p ? '•••• ' + String(p).replace(/\D/g, '').slice
 const views = {
   members(s) {
     const admin = Auth.isAdmin(), meId = s.shared ? s.shared.me : null;
-    const head = `<h1 class="lt">Members</h1><p class="lt-sub">${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}${s.chama.mode === 'savings' ? '' : ' · listed in payout order'}</p>`;
-    const btn = admin ? `<div class="btns" style="margin-top:0"><button class="btn pri grow" data-act="addMember">${icon('userPlus')}Add a name</button><button type="button" class="btn tint grow" data-act="inviteSheet" data-v="code">${icon('key')}Invite</button></div>` : '';
-    if (!s.members.length) return head + btn + joinedCard(s) + `<div class="card" style="margin-top:14px">${s.shared ? emptyState('people', 'No member list yet', 'Your treasurer has not shared the member list yet.') : emptyState('people', 'No members yet', 'Add the people in your chama. You can invite them to sign in afterwards.')}</div>`;
-    const rows = s.members.map((m, i) => {
-      const rel = s.shared ? null : Domain.reliability(s, m.id);
-      const mine = meId && m.id === meId;
-      const sub = s.shared
-        ? (mine ? 'You · saved ' + kes(Domain.memberSaved(s, m.id)) : s.chama.mode === 'savings' ? 'Member' : 'Turn ' + (i + 1))
+    const act = s.members.filter(m => !m.left), gone = s.members.filter(m => m.left);
+    const head = `<h1 class="lt">Members</h1><p class="lt-sub">${act.length} ${act.length === 1 ? 'member' : 'members'}${s.chama.mode === 'savings' ? '' : ' · listed in payout order'}</p>`;
+    const btn = admin ? `<button type="button" class="btn pri block lg" style="margin-top:0" data-act="addChooser">${icon('userPlus')}Add a member</button>` : '';
+    if (!s.members.length) return head + btn + joinedCard(s) + `<div class="card" style="margin-top:14px">${s.shared ? emptyState('people', 'No member list yet', 'Your treasurer has not shared the member list yet.') : emptyState('people', 'No members yet', 'Add the people in your chama. Invite those with a phone to the app so they can see their own money.')}</div>`;
+    const row = (m, i, left) => {
+      const rel = s.shared ? null : Domain.reliability(s, m.id), mine = meId && m.id === meId;
+      const sub = left ? 'Left in ' + monthLabel(m.left) + ' · saved ' + kes(Domain.memberSaved(s, m.id))
+        : s.shared ? (mine ? 'You · saved ' + kes(Domain.memberSaved(s, m.id)) : s.chama.mode === 'savings' ? 'Member' : 'Turn ' + (i + 1))
         : `Saved ${kes(Domain.memberSaved(s, m.id))}${Domain.memberLoanBalance(s, m.id) ? ' · loan ' + kes(Domain.memberLoanBalance(s, m.id)) : ''}${rel != null ? ' · ' + rel + '% on time' : ''}`;
-      const stk = s.shared ? 0 : __M_src_features_smart_js.Smart.streak(s, m.id);
+      const stk = s.shared || left ? 0 : __M_src_features_smart_js.Smart.streak(s, m.id);
       const tags = `${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}${m.role && !s.shared ? ` <span class="tag brand">${esc(m.role)}</span>` : ''}${stk >= 3 ? ` <span class="streak sm" title="${stk} months paid on time in a row">${stk}</span>` : ''}`;
-      const inner = `${av(m, 42)}<span class="li-main"><b>${esc(m.name)}${tags}</b><small class="num">${esc(sub)}</small></span>`;
-      return (admin || mine) ? `<button type="button" class="li has-av" data-act="memberMenu" data-id="${esc(m.id)}">${inner}<span class="li-end">${icon('chev', 'chev')}</span></button>` : `<div class="li has-av">${inner}</div>`;
-    }).join('');
-    return `${head}${btn}${joinedCard(s)}<section class="sec"><div class="sec-h"><h2>${s.chama.mode === 'savings' ? 'Everyone' : 'Payout order'}</h2></div><div class="list">${rows}</div>
-      <p class="foot-note">${s.shared ? 'You see other members’ names only. Their money stays private.' : 'Tap a member for their statement, phone and payout position.'}</p></section>`;
+      const inner = `${av(m, 42)}<span class="li-main"><b>${esc(m.name)}${mine ? ' <span class="tag">You</span>' : ''}${tags}</b><small class="num">${esc(sub)}</small></span>`;
+      return (admin || mine) ? `<button type="button" class="li has-av${left ? ' gone' : ''}" data-act="memberMenu" data-id="${esc(m.id)}">${inner}<span class="li-end">${icon('chev', 'chev')}</span></button>` : `<div class="li has-av${left ? ' gone' : ''}">${inner}</div>`;
+    };
+    return `${head}${btn}${joinedCard(s)}<section class="sec"><div class="sec-h"><h2>${s.chama.mode === 'savings' ? 'Everyone' : 'Payout order'}</h2></div><div class="list">${act.map((m, i) => row(m, i)).join('')}</div>
+      <p class="foot-note">${s.shared ? 'You see other members’ names only. Their money stays private.' : 'Tap a member for their statement, phone and payout position.'}</p></section>
+      ${gone.length ? `<section class="sec"><div class="sec-h"><h2>Left the Chama</h2></div><div class="list">${gone.map(m => row(m, 0, true)).join('')}</div><p class="foot-note">Their records stay in the books. They are not counted for new months. If they rejoin, they get the same entry back.</p></section>` : ''}`;
   }
 };
 
 const actions = {
+  addChooser: { admin: true, run() {
+    __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('userPlus')}</span><h3>Add a member</h3><p>Choose how this person will take part.</p></div>
+<div class="choice-list">
+<button type="button" class="choice" data-act="inviteSheet" data-v="code"><span class="ch-ic">${icon('key')}</span><span class="ch-t"><b>They will use the app</b><small>Recommended. Send them a code or an email link. They sign in, see their own savings and the group chat, and appear on the list once you let them in.</small></span>${icon('chev', 'chev')}</button>
+<button type="button" class="choice" data-act="addNameOnly"><span class="ch-ic t-ink">${icon('profile')}</span><span class="ch-t"><b>Only add their name</b><small>For someone without a smartphone. You record their money for them. You can invite them to the app later and they keep the same entry.</small></span>${icon('chev', 'chev')}</button>
+</div>`, { key: 'add', label: 'Add a member' });
+  } },
+  addNameOnly: { admin: true, run() { __M_src_features_requests_js.Sheet.close(); setTimeout(() => memberForm(), 260); } },
   addMember: { admin: true, run: () => memberForm() },
   editMember: { admin: true, run: d => memberForm(S().members.find(m => m.id === d.id)) },
   moveMember: { admin: true, run(d) {
@@ -3259,9 +3295,8 @@ const editSheet = f => {
   }[f];
   if (!F) return;
   if (f === 'password') return Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('lock')}</span><h3>Change password</h3><p>At least 6 characters, with a capital letter, a number and a symbol.</p></div>
-<label class="fgrp" for="pwCur"><span class="flab">Current password</span><span class="field">${icon('lock')}<input id="pwCur" type="password" autocomplete="current-password" autofocus></span></label>
-<label class="fgrp" for="pwNew"><span class="flab">New password</span><span class="field">${icon('lock')}<input id="pwNew" type="password" autocomplete="new-password"></span></label>
-<label class="fgrp" for="pwAgain"><span class="flab">Confirm new password</span><span class="field">${icon('lock')}<input id="pwAgain" type="password" autocomplete="new-password"></span></label>
+<label class="fgrp" for="pwCur"><span class="flab">Current password</span><span class="field pw">${icon('lock')}<input id="pwCur" type="password" autocomplete="current-password" autofocus><button type="button" class="eye" data-act="togglePw" data-for="pwCur" aria-pressed="false">Show</button></span></label>
+<label class="fgrp" for="pwNew"><span class="flab">New password</span><span class="field pw">${icon('lock')}<input id="pwNew" type="password" autocomplete="new-password"><button type="button" class="eye" data-act="togglePw" data-for="pwNew" aria-pressed="false">Show</button></span></label>
 <button type="button" class="btn pri block lg" data-act="changePassword">Change password</button>`, { key: 'edit', label: 'Change password' });
   Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon(F[1])}</span><h3>${esc(F[0])}</h3><p>${esc(F[3])}</p></div>
 <label class="fgrp" for="edV"><span class="field">${icon(F[1])}${F[2]}</span></label>
@@ -3321,7 +3356,7 @@ const actions = {
   async changePassword() {
     const btn = document.querySelector('[data-act="changePassword"]');
     try {
-      const cur = $('#pwCur').value, next = $('#pwNew').value, again = $('#pwAgain').value;
+      const cur = $('#pwCur').value, next = $('#pwNew').value, again = next;
       if (!cur) throw new Error('Type your current password');
       const bad = Gate.pwProblem(next); if (bad) throw new Error(bad);
       if (next !== again) throw new Error('The new passwords do not match');
@@ -3356,13 +3391,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.15.0', released: '2026-11-19',
+  name: 'My Chama App', version: '0.15.1', released: '2026-11-19',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.15.1', 'Fixed a sign-in loop after being approved. Changes now arrive live, without reloading. Leaving and rejoining keeps your old entry, and people who left are no longer asked to pay. One clear "Add a member" button. One password box with a show button. Tap a photo to see it large.'],
     ['0.15.0', 'The app now notices things for you. Treasurers get "Needs you today", a cash forecast, members to watch, suggested loan limits and a check for unusual payments. Everyone gets streaks, a payout countdown, a savings projection and a group goal. Search everything with /, hide amounts in public, lock the app with a PIN, add due dates and meetings to your calendar, share receipts and send feedback. Secretaries get a member register. Code emails can fill themselves in.'],
     ['0.14.0', 'Chat for your Chama: group and private messages, announcements, meetings with replies and an attendance register, minutes, votes, payment requests and statements. Joining with a code now asks the treasurer to approve you, and the Chama is shown before you join. Invites, People and access, your profile and Chama settings were rebuilt so each change is one tap away. Sounds are off unless you turn them on.'],
     ['0.13.0', 'A full redesign. A calmer Home with the one number that matters most to you, quick actions for the treasurer, and a simpler month view. Tap any payment, loan, fine or member to see details and act on it. A new code screen, a new opening mark, and simple line drawings throughout. Dark mode follows your phone. Clear Terms of Use and Privacy Policy pages, which everyone is asked to accept once. Fixes: recording a payment, saving your consent, the language search, and Enter to sign in.'],
@@ -3897,15 +3933,19 @@ const Notify = {
     const { data, error } = await Backend.sb.from('chama_notifications').select('id,kind,title,body,link,priority,created_at,read_at,data')
       .eq('chama_id', Store.chamaId).order('created_at', { ascending: false }).limit(150);
     if (error) return;
-    const before = new Set(this.server.map(n => n.id));
-    this.server = data || [];
-    const fresh = this.server.filter(n => !before.has(n.id) && !n.read_at);
-    if (before.size && fresh.length) {
+    const before = new Set(this.server.map(n => n.id)), first = !this._loaded;
+    this.server = data || []; this._loaded = true;
+    /* only what arrived while the app was open is acted on; old unread items never trigger anything (that caused a reload loop) */
+    const fresh = first ? [] : this.server.filter(n => !before.has(n.id) && !n.read_at);
+    if (fresh.length) {
       const top = fresh[0];
       toast(top.title, 'info', top.link && /^#\/[\w/-]*$/.test(top.link) ? { label: 'View', run: () => { location.hash = top.link; } } : null);
+      if (fresh.some(n => n.kind === 'join_request')) { try { __M_src_features_requests_js.Requests.refresh(true); } catch (e) {} }
+      if (fresh.some(n => /^(role_changed|access_removed|ownership)$/.test(n.kind))) { try { __M_src_core_session_js.Session.refreshRole(); } catch (e) {} }
+      /* someone changed the books, the people or the list: fetch the latest without a reload */
+      try { Store.reload().catch(() => {}); } catch (e) {}
+      try { __M_src_core_session_js.Session.loadAccess().catch(() => {}); __M_src_core_session_js.Session.loadMemberPics().catch(() => {}); } catch (e) {}
     }
-    if (fresh.some(n => n.kind === 'join_request')) { try { __M_src_features_requests_js.Requests.refresh(true); } catch (e) {} }
-    if (fresh.some(n => /^(role_changed|access_removed|join_approved)$/.test(n.kind))) { try { setTimeout(() => location.reload(), 2600); } catch (e) {} }
     render();
   },
   watch() {
@@ -4192,7 +4232,7 @@ const lowerNoSpace = v => String(v || '').trim().toLowerCase();
 const actions = {
   conflictTheirs: () => { const c = Store._conflict; Modal.close(); if (c) c.useTheirs(); },
   conflictMine: () => { const c = Store._conflict; Modal.close(); if (c) c.keepMine(); },
-  togglePw: () => { const i = document.getElementById('gatePw'); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector('[data-act="togglePw"]'); if (b) { b.textContent = show ? GL().hide : GL().show; b.setAttribute('aria-pressed', show ? 'true' : 'false'); } },
+  togglePw: d => { const id = (d && d.for) || 'gatePw', i = document.getElementById(id); if (!i) return; const show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = document.querySelector(`[data-act="togglePw"][data-for="${id}"]`) || document.querySelector('[data-act="togglePw"]'); if (b) { b.textContent = show ? GL().hide : GL().show; b.setAttribute('aria-pressed', show ? 'true' : 'false'); } },
   gateSignIn: async () => {
     if (Gate.signing) return;
     OB.agree('continue:sign-in');
@@ -4243,20 +4283,29 @@ const actions = {
   gateSetup: async () => {
     const G = GL(), isNew = Session.setupMode === 'new';
     const name = (($('#setName') && $('#setName').value) || '').trim().replace(/\s+/g, ' '), user = lowerNoSpace($('#setUser') && $('#setUser').value);
-    const pw = (($('#gatePw') && $('#gatePw').value) || ''), pw2 = (($('#gatePw2') && $('#gatePw2').value) || '');
-    const fail = m => { Gate.notice = m; Gate.signing = false; Gate.paint(); };
+    const pw = (($('#gatePw') && $('#gatePw').value) || '');
+    /* the message appears above the button; the boxes keep what was typed */
+    const fail = (m, field) => {
+      Gate.signing = false; Gate.notice = '';
+      let el = document.getElementById('setupErr');
+      const btn = document.querySelector('[data-act="gateSetup"]');
+      if (!el && btn) { el = document.createElement('p'); el.id = 'setupErr'; el.className = 'ferr'; el.setAttribute('role', 'alert'); btn.parentNode.insertBefore(el, btn); }
+      if (el) el.textContent = m;
+      if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); const sp = btn.querySelector('.spin'); if (sp) sp.remove(); }
+      const f = field && document.getElementById(field); if (f) { f.focus(); f.setAttribute('aria-invalid', 'true'); }
+    };
     if (isNew) {
-      if (name.length < 2) return fail('Type your full name');
-      if (!/^[a-z0-9._-]{3,20}$/.test(user)) return fail(G.usernameHint);
+      if (name.length < 2) return fail('Type your full name', 'setName');
+      if (!/^[a-z0-9._-]{3,20}$/.test(user)) return fail(G.usernameHint, 'setUser');
     }
     const googleNew = isNew && Session.usesGoogle();
     if (!googleNew) {
-      const why = Gate.pwProblem(pw); if (why) return fail(why);
-      if (pw !== pw2) return fail('The two passwords do not match');
+      const why = Gate.pwProblem(pw); if (why) return fail(why, 'gatePw');
     }
-    Gate.notice = ''; Gate.signing = true; Gate.paint();
+    Gate.notice = ''; Gate.signing = true;
+    { const btn = document.querySelector('[data-act="gateSetup"]'); if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); } const e0 = document.getElementById('setupErr'); if (e0) e0.textContent = ''; }
     try { await Session.finishSetup(name, user, googleNew ? '' : pw); Gate.signing = false; }
-    catch (e) { fail(e.message); const n = document.getElementById('setName'); if (n) n.value = name; const u = document.getElementById('setUser'); if (u) u.value = user; }
+    catch (e) { fail(e.message, /username/i.test(e.message) ? 'setUser' : /password/i.test(e.message) ? 'gatePw' : null); }
   },
   wsSub: d => {
     Gate.sub = d.s || null; Gate.joinMsg = ''; Gate.joinPreview = null; Gate.joinDone = null; Gate.nameErr = ''; Gate.formErr = ''; Gate.paint();
@@ -4430,7 +4479,7 @@ const ROLE = {
 const roleCards = (cur, act, allowTreasurer = true) => `<div class="rolepick" role="radiogroup" aria-label="Role">${Object.keys(ROLE).filter(r => allowTreasurer || r !== 'treasurer').map(r => `<button type="button" class="rp${cur === r ? ' on' : ''}" role="radio" aria-checked="${cur === r}" data-act="${act}" data-v="${r}"><span class="rp-ic">${icon(ROLE[r].ic)}</span><b>${ROLE[r].t}</b><small>${ROLE[r].d}</small></button>`).join('')}</div>`;
 const initials = n => String(n || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 const pav = (name, photo, n = 44) => typeof photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)
-  ? `<img class="av" style="--n:${n}px" src="${photo}" alt="">` : `<span class="av c${(String(name || '').length % 3) + 1}" style="--n:${n}px" aria-hidden="true">${esc(initials(name))}</span>`;
+  ? `<img class="av" style="--n:${n}px" src="${photo}" alt="Photo of ${esc(name)}" data-name="${esc(name)}">` : `<span class="av c${(String(name || '').length % 3) + 1}" style="--n:${n}px" aria-hidden="true">${esc(initials(name))}</span>`;
 const ago = d => { const m = Math.max(1, Math.round((Date.now() - new Date(d).getTime()) / 60000)); return m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
 const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');
 const unlinkedMembers = s => { const used = new Set((Session.access || []).filter(a => a.status === 'active' && a.member_id).map(a => a.member_id)); return (s.members || []).filter(m => !used.has(m.id)); };
@@ -4443,7 +4492,9 @@ const Inv = {
     const s = Store.get() || { members: [], chama: {} }, name = (s.chama && s.chama.name) || 'your Chama';
     if (this.result) return this.resultHtml(name);
     const tabs = `<div class="seg2" role="tablist"><button type="button" role="tab" aria-selected="${this.tab === 'code'}" data-act="invTab" data-v="code">${icon('key', 's')}Share a code</button><button type="button" role="tab" aria-selected="${this.tab === 'email'}" data-act="invTab" data-v="email">${icon('mail', 's')}Send an email</button></div>`;
-    const lead = this.tab === 'code' ? 'Anyone with the code can ask to join. You approve each person before they get in.' : 'They get a link by email. It only works for that address, so they are in as soon as they accept.';
+    const lead = this.tab === 'code'
+      ? '<b>Code:</b> share it on WhatsApp or SMS. Anyone who has it can <b>ask</b> to join, and you approve each person before they get in.'
+      : '<b>Email:</b> we send a private link to one address. Only that person can use it, so they are <b>in as soon as they accept</b>, with no approval step.';
     let body = '';
     if (this.tab === 'code') {
       body = `<div class="fgrp"><span class="flab">Valid for</span><div class="chips2">${[[24, '1 day'], [168, '7 days'], [720, '30 days']].map(([h, t]) => `<button type="button" class="chip2${this.hours === h ? ' on' : ''}" data-act="invHours" data-v="${h}">${t}</button>`).join('')}</div></div>
@@ -4453,7 +4504,7 @@ const Inv = {
       body = `<label class="fgrp" for="invEmail2"><span class="flab">Their email address</span><span class="field">${icon('mail')}<input id="invEmail2" type="email" inputmode="email" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="name@example.com" value="${esc(this.email)}" autofocus></span></label>
 ${this.role !== 'treasurer' || true ? `<label class="fgrp" for="invRecord"><span class="flab">On the member list</span><span class="field">${icon('members')}<select id="invRecord"><option value="new"${this.record === 'new' ? ' selected' : ''}>Add them as a new member</option>${opts ? `<optgroup label="They are already on the list as">${opts}</optgroup>` : ''}<option value=""${this.record === '' ? ' selected' : ''}>Officer only, not a member</option></select></span></label>` : ''}`;
     }
-    return `<div class="sx-head"><span class="sx-badge">${icon('userPlus')}</span><h3>Invite to ${esc(name)}</h3><p>${esc(lead)}</p></div>${tabs}
+    return `<div class="sx-head"><span class="sx-badge">${icon('userPlus')}</span><h3>Invite to ${esc(name)}</h3><p>Two ways to bring someone into the app. Pick one.</p></div>${tabs}<p class="sx-note">${icon('info', 's')}<span>${lead}</span></p>
 <div class="fgrp"><span class="flab">Their role</span>${roleCards(this.role, 'invRole', Session.role === 'treasurer')}</div>${body}
 <p class="ferr" role="alert">${esc(this.err)}</p>
 <button type="button" class="btn pri block lg" data-act="invGo"${this.busy ? ' disabled aria-busy="true"' : ''}>${this.busy ? '<span class="spin" aria-hidden="true"></span>' : icon(this.tab === 'code' ? 'key' : 'mail')}<span>${this.busy ? (this.tab === 'code' ? 'Creating…' : 'Sending…') : this.tab === 'code' ? 'Create code' : 'Send invitation'}</span></button>`;
@@ -6338,3 +6389,21 @@ function loanAdvice() {
   box.className = 'advice' + (over || r.level === 'high' ? ' warn' : '');
   box.innerHTML = `<b>Suggested limit ${e(k(lim))}</b><span>Saved ${e(k(D.memberSaved(s, mid)))} · ${rel == null ? 'no history yet' : rel + '% on time'} · owes ${e(k(D.memberLoanBalance(s, mid)))}${r.level !== 'low' ? ' · ' + (r.level === 'high' ? 'high risk' : 'worth watching') : ''}</span>${amt ? `<span>Repays ${e(k(total))} in total, about ${e(k(inst))} a month${over ? '. This is above the suggested limit.' : '.'}</span>` : ''}`;
 }
+
+/* tap a profile photo to see it large; tap again, swipe down or press Escape to close */
+document.addEventListener('click', e => {
+  const img = e.target && e.target.closest && e.target.closest('img.av');
+  if (!img || img.closest('#nav, #drawer, header') || !/^data:image\/jpeg;base64,/.test(img.getAttribute('src') || '')) return;
+  e.preventDefault(); e.stopPropagation();
+  let root = document.getElementById('photoRoot'); if (!root) { root = document.createElement('div'); root.id = 'photoRoot'; document.body.appendChild(root); }
+  const r = img.getBoundingClientRect();
+  root.innerHTML = '<div class="pv" role="dialog" aria-modal="true" aria-label="' + __M_src_core_utils_js.esc(img.alt || 'Photo') + '"><img src="' + img.getAttribute('src') + '" alt=""><p>' + __M_src_core_utils_js.esc(img.dataset.name || '') + '</p><button type="button" class="pv-x" aria-label="Close">' + icon('close') + '</button></div>';
+  const big = root.querySelector('img');
+  big.style.setProperty('--fx', (r.left + r.width / 2 - innerWidth / 2) + 'px'); big.style.setProperty('--fy', (r.top + r.height / 2 - innerHeight / 2) + 'px'); big.style.setProperty('--fs', String(r.width / Math.min(innerWidth * 0.86, 420)));
+  const close = () => { const v = root.querySelector('.pv'); if (!v) return; v.classList.add('out'); setTimeout(() => { root.innerHTML = ''; }, 220); document.removeEventListener('keydown', esc); };
+  const esc = ev => { if (ev.key === 'Escape') close(); };
+  document.addEventListener('keydown', esc);
+  root.querySelector('.pv').addEventListener('click', close);
+  let y0 = null; root.addEventListener('touchstart', ev => { y0 = ev.touches[0].clientY; }, { passive: true, once: true });
+  root.addEventListener('touchend', ev => { if (y0 != null && ev.changedTouches[0].clientY - y0 > 80) close(); }, { passive: true, once: true });
+}, true);

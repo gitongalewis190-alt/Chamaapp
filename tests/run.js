@@ -106,8 +106,8 @@ const TESTS = {
     await page.waitForTimeout(1600);
     ok(await page.isVisible('#setName'), 'correct code leads to finish-your-account');
     await shot(page, '09-setup');
-    await page.fill('#setName', 'Fresh Person'); await page.fill('#setUser', 'fresh'); await page.fill('#gatePw', 'Strong#1'); await page.fill('#gatePw2', 'Strong#1');
-    ok((await page.locator('#pwRules li.ok').count()) === 5, 'password rules all tick');
+    await page.fill('#setName', 'Fresh Person'); await page.fill('#setUser', 'fresh'); await page.fill('#gatePw', 'Strong#1');
+    ok((await page.locator('#pwRules li.ok').count()) === 4 && !(await page.locator('#gatePw2').count()), 'one password box, all rules tick');
     await page.click('[data-act="gateSetup"]'); await page.waitForTimeout(1200);
     ok(/Welcome/i.test(await text(page)), 'new account without a Chama sees the welcome hub');
     await shot(page, '10-welcome-hub');
@@ -334,6 +334,26 @@ const TESTS = {
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();
   },
+  async leftAndLive(b) {
+    const data = require('./fixtures').chama(); data.members[7].left = data.members[0].joined;   // Baraka left in the first month
+    const notes = [{ id: 'n-old', kind: 'join_approved', title: 'Welcome to Umoja Savings', body: '', link: '#/home', priority: 'important', created_at: new Date().toISOString(), read_at: null, data: {} }];
+    const photo = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
+    const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1600, mock: { ...scenarios.treasurer.mock, chamas: { umoja: { data, version: 7 } }, notifications: notes, memberProfiles: [{ member_id: 'm2', name: 'Otieno Odhiambo', photo }] } });
+    await page.waitForTimeout(3200);
+    ok(await page.evaluate(() => performance.getEntriesByType('navigation').length === 1 && !sessionStorage.getItem('reloaded')), 'an old unread approval does not reload the page');
+    ok(await page.isVisible('#nav'), 'still in the Chama after the old notification');
+    await page.goto(page.url().split('#')[0] + '#/members'); await page.waitForTimeout(500);
+    const t = await text(page);
+    ok(/Left the Chama/i.test(t) && /Baraka Mutua/.test(t), 'members who left are listed apart');
+    await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(400);
+    ok(!(await page.locator('button.st[data-m="m8"], button.st[aria-label^="Baraka"]').count()), 'a member who left is not asked to pay new months');
+    await page.goto(page.url().split('#')[0] + '#/members'); await page.waitForTimeout(400);
+    const img = page.locator('#view img.av').first();
+    if (await img.count()) { await img.click(); await page.waitForTimeout(400); ok(await page.isVisible('#photoRoot .pv img'), 'tapping a photo opens it large'); await page.keyboard.press('Escape'); }
+    else ok(false, 'a member photo is shown');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+  },
   async deadSession(b) {
     const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, mock: { ...scenarios.treasurer.mock, sessionDead: true } });
     await shot(page, '65-dead-session');
@@ -396,7 +416,9 @@ const TESTS = {
   async offline(b) {
     const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1200, mock: { ...scenarios.treasurer.mock, failSave: true } });
     await page.click('#nav a[data-k="members"]'); await page.waitForTimeout(300);
-    await page.click('[data-act="addMember"] >> nth=0'); await page.waitForTimeout(300);
+    await page.click('[data-act="addChooser"]'); await page.waitForTimeout(300);
+    ok(/They will use the app/.test(await page.textContent('#modalRoot')) && /Only add their name/.test(await page.textContent('#modalRoot')), 'adding a member explains the two ways');
+    await page.click('[data-act="addNameOnly"]'); await page.waitForTimeout(600);
     await page.fill('#modalRoot input[name="name"]', 'Offline Person'); await page.click('#modalRoot .btn.pri'); await page.waitForTimeout(700);
     ok(await page.isVisible('#syncBar'), 'a failed save shows the offline bar (no false success)');
     ok(await page.evaluate(() => !!localStorage.getItem('chama:umoja:dirty')), 'unsent change is kept on the phone');
