@@ -101,6 +101,8 @@
     submit_feedback: () => ok({ ok: true }),
     verify_invitation: () => ok(M.invitation || { ok: false, code: 'invalid' }),
     invitation_account: () => M.invitationAccount ? ok(M.invitationAccount) : err('Could not find the function public.invitation_account'),
+    sign_loan_terms: a => ok({ ok: true }),
+    request_loan_signature: a => ok({ ok: true }),
     username_available: a => ok(/^taken/.test(a.p_username || '') ? { available: false, reason: 'taken' } : { available: true }),
     username_suggestions: a => ok(String(a.p_full_name || '').trim() ? ['faith.mwangi', 'faithmwangi', 'fmwangi'] : []),
     accept_invitation: () => ok({ ok: true, chama_id: 'umoja' }),

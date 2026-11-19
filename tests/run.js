@@ -499,6 +499,22 @@ const TESTS = {
     ok((await calls(page)).some(x => x.kind === 'rpc' && (x.name === 'set_my_details' || x.name === 'set_my_profile')), 'the answers are saved');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
+  async loanSignMine(b) {
+    const fx = require('./fixtures'), data = fx.chama();
+    data.loans.push({ id: 'l9', memberId: 'm3', principal: 3000, rate: 10, months: 3, date: new Date().toISOString().slice(0, 10), repayments: [] });
+    const mock = { ...fx.scenarios.member.mock, chamas: { umoja: { data, version: 7 } } };
+    const { page, ctx, errors } = await open(b, 'member', { mock, wait: 1800 });
+    ok(await page.isVisible('[data-act="signLoanMine"]'), 'the borrower sees "Loan terms to sign" on Home');
+    await page.click('[data-act="signLoanMine"]'); await page.waitForTimeout(400);
+    ok(/You pay back/.test(await page.textContent('#modalRoot')) && await page.locator('#modalRoot .lt-row').count() === 3, 'the terms show what they pay back and each instalment date');
+    await page.check('#modalRoot input[name="agree"]'); await page.click('#modalRoot form .actions .btn.pri'); await page.waitForTimeout(500);
+    const pad = await page.locator('#sigPad').boundingBox();
+    await page.mouse.move(pad.x + 30, pad.y + 40); await page.mouse.down(); await page.mouse.move(pad.x + 160, pad.y + 90, { steps: 8 }); await page.mouse.up();
+    await page.click('#modalRoot form .actions .btn.pri'); await page.waitForTimeout(600);
+    const c = (await calls(page)).find(x => x.kind === 'rpc' && x.name === 'sign_loan_terms');
+    ok(c && c.args.p_loan === 'l9' && /^data:image\/png;base64,/.test(c.args.p_sig) && c.args.p_total === 3900, 'signing on their own phone sends the signature and the agreed total to the treasurer');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
   async leftAndLive(b) {
     const data = require('./fixtures').chama(); data.members[7].left = data.members[0].joined;   // Baraka left in the first month
     const notes = [{ id: 'n-old', kind: 'join_approved', title: 'Welcome to Umoja Savings', body: '', link: '#/home', priority: 'important', created_at: new Date().toISOString(), read_at: null, data: {} }];

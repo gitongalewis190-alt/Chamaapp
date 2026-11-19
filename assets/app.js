@@ -880,6 +880,16 @@ const Session = {
   status: 'loading', user: null, role: null, memberId: null, email: '', error: '', busy: false, verifying: false, viaCode: false, resetOffered: false, hydrating: false, access: [], invites: null, account: null, workspaces: [], setupMode: 'new', chooserOpen: false, groupName: null, memberPics: {},
   ready() { return this.status === 'ready' || this.status === 'demo'; },
   markReset(email) { markReset(email); },
+  /* each Chama's own photo, for the chooser (needs migration 026; without it the initials show) */
+  async loadFaces() {
+    if (!Backend.sb || !this.user) return;
+    try {
+      const { data, error } = await Backend.sb.rpc('my_chama_faces'); if (error || !data) return;
+      const map = {}; data.forEach(r => { if (/^data:image\/jpeg;base64,/.test(r.photo || '')) map[r.chama_id] = r.photo; });
+      let changed = false; (this.workspaces || []).forEach(w => { if (map[w.chama_id] && w.photo !== map[w.chama_id]) { w.photo = map[w.chama_id]; changed = true; } });
+      if (changed && !this.ready()) { try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {} }
+    } catch (e) { /* initials stay */ }
+  },
   markCodeAsked(email) { markCodeAsked(email); },
   codeAskedHere(email) { return codeAskedHere(email); },
   /* the person signed in with an email code but wants to keep the password they already have */
@@ -1054,6 +1064,7 @@ const Session = {
     const { data: ws, error } = await Backend.sb.rpc('my_workspaces');
     if (error) throw error;
     this.workspaces = ws || [];
+    this.loadFaces();
     await this.loadMyRequests();
     const here = this.workspaces.find(w => w.chama_id === Store.chamaId);
     this.groupName = here ? here.chama_name : null;
@@ -1157,7 +1168,7 @@ const Session = {
   async openChooser() {
     if (!Backend.sb || !this.user) return;
     this.chooserOpen = true;
-    try { const { data } = await Backend.sb.rpc('my_workspaces'); this.workspaces = data || this.workspaces; } catch (e) { /* show the list we already have */ }
+    try { const { data } = await Backend.sb.rpc('my_workspaces'); this.workspaces = data || this.workspaces; this.loadFaces(); } catch (e) { /* show the list we already have */ }
     this.set('choose');
   },
   closeChooser() { this.chooserOpen = false; this.set(this.role ? 'ready' : 'welcome'); },
@@ -2153,7 +2164,7 @@ ${this.accountFoot()}`, { lang: false });
       const safePhoto = /^(https:\/\/|data:image\/(png|jpeg|webp);base64,)[^"'<>\s]+$/.test(photo) ? photo : '';
       const alt = ['', ' alt-1', ' alt-2', ' alt-3'][i % 4];
       const av = safePhoto
-        ? `<span class="pk-av${alt}"><img alt="" data-name="${esc(w.chama_name || '')}" src="${esc(safePhoto)}"></span>`
+        ? `<span class="pk-av${alt}"><img class="av" alt="Photo of ${esc(w.chama_name || 'the Chama')}" data-name="${esc(w.chama_name || '')}" src="${esc(safePhoto)}"></span>`
         : `<span class="pk-av${alt}">${esc(this.pkInitials(w.chama_name))}</span>`;
       const meta = [G.roleWord(w.role), w.display_tag, typeof w.member_count === 'number' ? H.members(w.member_count) : ''].filter(Boolean).map(esc).join(' · ');
       const last = w.chama_id === lastId ? `<span class="tag brand">${sw ? 'Iliyofunguliwa mwisho' : 'Open now'}</span>` : '';
@@ -2543,6 +2554,7 @@ const Modal = {
       const v = esc(x.value ?? '');
       let input;
       if (x.type === 'select') input = `<select name="${x.name}">${x.options.map(([val, lab]) => `<option value="${esc(val)}" ${val == x.value ? 'selected' : ''}>${esc(lab)}</option>`).join('')}</select>`;
+      else if (x.type === 'checkbox') input = `<input name="${x.name}" type="checkbox" value="on"${x.checked ? ' checked' : ''}>`;   /* a ticked box sends "on" */
       else if (x.type === 'textarea') input = `<textarea name="${x.name}" rows="${x.rows || 3}" maxlength="${x.max || 600}" placeholder="${esc(x.placeholder || '')}" ${x.required ? 'required' : ''}>${v}</textarea>`;
       else input = `<input name="${x.name}" type="${x.type || 'text'}" value="${v}" ${x.required ? 'required' : ''} ${x.min != null ? `min="${x.min}"` : ''} ${x.type === 'number' ? 'step="any" inputmode="decimal"' : ''} placeholder="${esc(x.placeholder || '')}" autocomplete="off">`;
       return `<label>${esc(x.label)}${input}${x.help ? `<small class="fhelp">${esc(x.help)}</small>` : ''}</label>`;
@@ -2765,7 +2777,10 @@ ${(() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 &&
     const reqs = Sess.role !== 'member' ? __M_src_features_requests_js.Requests.listHtml(true) : '';
     const smart = __M_src_features_smart_js.homeBlocks(s);
     /* order: who you are this month, then the pot, then what to do, then what needs attention, then the record */
-    return `${greet}<div class="home-top">${hero}${payout}</div>${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
+    /* the borrower signs loan terms on their own phone */
+    const mineUnsigned = meId ? (s.loans || []).filter(l => l.memberId === meId && !l.agreement && Domain.loan(l).balance > 0) : [];
+    const terms = mineUnsigned.map(l => `<button type="button" class="sign-card" data-act="signLoanMine" data-id="${esc(l.id)}"><span class="sign-ic">${icon('sign')}</span><span class="sign-t"><b>Loan terms to sign</b><small>${esc(kes(l.principal))} loan · read what you pay back, then sign</small></span>${icon('chev', 'chev')}</button>`).join('');
+    return `${greet}${terms}<div class="home-top">${hero}${payout}</div>${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
   }
 };
 
@@ -3119,10 +3134,46 @@ const { Modal } = __M_src_ui_modal_js;
 const { Signature, sigImg } = __M_src_ui_signature_js;
 const { toast } = __M_src_ui_toast_js;
 
+/* one terms screen for both ways of signing. mode 'here': the treasurer hands over the phone; 'mine': the borrower signs. */
+function loanTerms(s, id, mode) {
+  const l = (s.loans || []).find(x => x.id === id); if (!l) return;
+  const c = Domain.loan(l), who = Domain.memberName(s, l.memberId), start = new Date(l.date || Date.now());
+  const due = Array.from({ length: l.months }, (_, i) => { const x = new Date(start); x.setMonth(x.getMonth() + i + 1); return x; });
+  const fmt = x => x.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
+  const last = due[due.length - 1];
+  const rows = due.slice(0, 12).map((x, i) => `<div class="lt-row"><span>${i + 1}</span><b>${esc(fmt(x))}</b><em class="num">${esc(kes(i === due.length - 1 ? Math.round((c.total - c.installment * (due.length - 1)) * 100) / 100 : c.installment))}</em></div>`).join('') + (due.length > 12 ? `<p class="fhelp">and ${due.length - 12} more monthly instalments.</p>` : '');
+  Modal.open({ title: mode === 'mine' ? 'Your loan terms' : 'Loan terms for ' + who, submitLabel: 'I agree, sign now',
+    body: `<div class="loan-terms">${mode === 'here' ? `<p class="lt-hand">${icon('hand', 's')}Hand the phone to <b>${esc(who)}</b></p>` : ''}
+<div class="lt-big"><div><span>You borrow</span><b class="num">${esc(kes(l.principal))}</b></div><div class="lt-pay"><span>You pay back</span><b class="num">${esc(kes(c.total))}</b></div></div>
+<p class="lt-line">${esc(String(l.rate))}% a month for ${esc(String(l.months))} ${l.months === 1 ? 'month' : 'months'} · last day <b>${esc(fmt(last))}</b></p>
+<div class="lt-sched">${rows}</div>
+<p class="fhelp">Late instalments may be fined under the Chama rules.</p></div>`,
+    fields: [{ name: 'agree', label: 'I understand how much I pay back and by when, and I agree.', type: 'checkbox' }],
+    onSubmit: v => {
+      if (v.agree !== 'on') throw new Error('Tick the box to show you understand and agree');
+      const terms = { total: c.total, installment: c.installment, lastDue: last.toISOString().slice(0, 10) };
+      setTimeout(() => Signature.open(mode === 'mine' ? 'Your signature' : 'Signature of ' + who, async sig => {
+        if (mode === 'mine') {
+          const B = __M_src_core_backend_js.Backend;
+          const { error } = await B.sb.rpc('sign_loan_terms', { p_cid: Store.chamaId, p_loan: l.id, p_sig: sig, p_total: terms.total, p_installment: terms.installment, p_last_due: terms.lastDue });
+          if (error) return toast(/Could not find the function|PGRST202|schema cache/i.test(error.message || '') ? 'Signing on your phone needs the latest server update. Ask the treasurer to sign with you.' : error.message);
+          try { await Store.reload(); } catch (e) {}
+          return __M_src_ui_toast_js.Pop.alert('Your signed terms were sent to the treasurer and are kept with the loan.', { title: 'Signed', html: `<div class="sx-tick big-tick">${icon('check')}</div><p>You agreed to pay back ${esc(kes(terms.total))} by ${esc(fmt(last))}. Your signed terms were sent to the treasurer and are kept with the loan.</p>`, label: 'Done' });
+        }
+        Store.commit(st => { const x = st.loans.find(y => y.id === l.id); if (x) x.agreement = { at: new Date().toISOString(), sig, ...terms, on: 'treasurer phone' }; });
+        __M_src_ui_toast_js.Pop.alert(who + ' agreed to pay back ' + kes(c.total) + ' by ' + fmt(last) + '. The signed terms are kept with the loan.', { title: 'Loan agreement signed', label: 'OK' });
+      }), 80);
+    } });
+}
+/* the borrower's own unsigned loans */
+const unsignedMine = s => { const me = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId; return me ? (s.loans || []).filter(l => l.memberId === me && !l.agreement && Domain.loan(l).balance > 0) : []; };
+
 const views = {
   loans(s) {
     const admin = Auth.isAdmin();
-    const head = `<h1 class="lt">Loans</h1><p class="lt-sub">${s.shared ? 'Your loans and repayments' : 'Money lent to members and paid back'}</p>`;
+    const head = `<h1 class="lt">Loans</h1><p class="lt-sub">${s.shared ? 'Your loans and repayments' : 'Money lent to members and paid back'}</p>`
+      + unsignedMine(s).map(l => `<button type="button" class="sign-card" data-act="signLoanMine" data-id="${esc(l.id)}"><span class="sign-ic">${icon('sign')}</span><span class="sign-t"><b>Loan terms to sign</b><small>${esc(kes(l.principal))} loan · read what you pay back, then sign</small></span>${icon('chev', 'chev')}</button>`).join('')
+      + (admin ? s.loans.filter(l => !l.agreement && Domain.loan(l).balance > 0).map(l => `<div class="sign-card wait"><span class="sign-ic">${icon('clock')}</span><span class="sign-t"><b>${esc(Domain.memberName(s, l.memberId))} has not signed yet</b><small>${esc(kes(l.principal))} loan</small></span><button type="button" class="btn sm tint" data-act="loanSend" data-id="${esc(l.id)}">Send again</button></div>`).join('') : '');
     const all = s.loans.map(l => ({ l, c: Domain.loan(l) }));
     const active = all.filter(x => x.c.balance > 0), done = all.filter(x => x.c.balance <= 0);
     const stats = `<div class="stats"><div><span>Outstanding</span><b>${esc(kes(sum(all, x => x.c.balance)))}</b></div><div><span>Active</span><b class="num">${active.length}</b></div><div><span>Repaid</span><b>${esc(kes(sum(all, x => x.c.paid)))}</b></div></div>`;
@@ -3185,31 +3236,23 @@ const actions = {
         if (principal > Domain.cashOnHand(S())) throw new Error('Not enough cash on hand for this loan');
         const id = uid();
         Store.commit(st => st.loans.push({ id, memberId: v.memberId, principal, rate, months, date: todayISO(), repayments: [] })); toast('Loan issued. Now the borrower reads and signs the terms.', 'ok');
-        setTimeout(() => actions.loanAgree({ id }), 80);
+        setTimeout(() => {
+          const who = Domain.memberName(S(), v.memberId);
+          __M_src_ui_toast_js.Pop.confirm({ title: 'How will ' + who.split(' ')[0] + ' sign?', text: 'Best: they read and sign on their own phone, and you are told when they do. Or hand them this phone now.', confirmLabel: 'Send to their phone', cancelLabel: 'Sign on this phone', onYes: () => actions.loanSend.run({ id }), onNo: () => loanTerms(S(), id, 'here') });
+        }, 80);
       } });
   } },
   /* the borrower reads what they must bring back and when, ticks that they understand, then signs. Kept with the loan. */
-  loanAgree: { admin: true, run(d) {
-    const s = S(), l = s.loans.find(x => x.id === d.id); if (!l) return;
-    const c = Domain.loan(l), who = Domain.memberName(s, l.memberId), start = new Date(l.date || Date.now());
-    const due = Array.from({ length: l.months }, (_, i) => { const x = new Date(start); x.setMonth(x.getMonth() + i + 1); return x; });
-    const fmt = x => x.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
-    const rows = due.slice(0, 12).map((x, i) => `<div class="kv"><span>Instalment ${i + 1} · by ${esc(fmt(x))}</span><b class="num">${esc(kes(i === due.length - 1 ? Math.round((c.total - c.installment * (due.length - 1)) * 100) / 100 : c.installment))}</b></div>`).join('') + (due.length > 12 ? `<p class="fhelp">and ${due.length - 12} more monthly instalments.</p>` : '');
-    Modal.open({ title: 'Loan terms for ' + who, submitLabel: 'I agree, sign now',
-      body: `<div class="loan-terms"><p class="plain">Please hand the phone to <b>${esc(who)}</b> to read.</p>
-<div class="lt-big"><div><span>Borrowed</span><b class="num">${esc(kes(l.principal))}</b></div><div><span>To pay back</span><b class="num">${esc(kes(c.total))}</b></div></div>
-<div class="kv"><span>Interest</span><b>${esc(String(l.rate))}% a month, flat, for ${esc(String(l.months))} ${l.months === 1 ? 'month' : 'months'}</b></div>${rows}
-<div class="kv"><span>Last day to finish</span><b>${esc(fmt(due[due.length - 1]))}</b></div>
-<p class="fhelp">Late instalments may be fined under the Chama rules. Your savings may be used to recover an unpaid loan if the group agreed to this.</p></div>`,
-      fields: [{ name: 'agree', label: 'I have read these terms. I understand how much I must pay back and by when, and I agree.', type: 'checkbox' }],
-      onSubmit: v => {
-        if (v.agree !== 'on') throw new Error('Tick the box to show you understand and agree');
-        setTimeout(() => Signature.open('Signature of ' + who, sig => {
-          Store.commit(st => { const x = st.loans.find(y => y.id === l.id); if (x) x.agreement = { at: new Date().toISOString(), sig, total: c.total, installment: c.installment, lastDue: due[due.length - 1].toISOString().slice(0, 10) }; });
-          __M_src_ui_toast_js.Pop.alert(who + ' agreed to pay back ' + kes(c.total) + ' by ' + fmt(due[due.length - 1]) + '. The signed terms are kept with the loan.', { title: 'Loan agreement signed', label: 'OK' });
-        }), 80);
-      } });
+  /* the borrower reads what they must bring back and when, ticks that they understand, then signs. Kept with the loan.
+     On the treasurer's phone (hand it over) or, better, on the borrower's own phone (signLoanMine). */
+  loanAgree: { admin: true, run(d) { loanTerms(S(), d.id, 'here'); } },
+  loanSend: { admin: true, async run(d) {
+    const B = __M_src_core_backend_js.Backend, { data, error } = await B.sb.rpc('request_loan_signature', { p_cid: Store.chamaId, p_loan: d.id });
+    if (error) return toast(/Could not find the function|PGRST202|schema cache/i.test(error.message || '') ? 'Sending to their phone needs the latest server update. Sign on this phone for now.' : error.message);
+    if (data && data.reason === 'no_account') return __M_src_ui_toast_js.Pop.confirm({ title: 'They are not in the app yet', text: 'This member has no sign-in linked, so the terms cannot reach their phone. Sign on this phone instead?', confirmLabel: 'Sign here', onYes: () => loanTerms(S(), d.id, 'here') });
+    __M_src_ui_toast_js.Pop.alert('They get a message to read the terms and sign on their own phone. You are told when they sign, and the signed terms are kept with the loan.', { title: 'Sent for signing', label: 'OK', calm: true });
   } },
+  signLoanMine: d => loanTerms(S(), d.id, 'mine'),
   repay: { admin: true, run(d) {
     const l = S().loans.find(x => x.id === d.id); if (!l) return; const c = Domain.loan(l);
     Modal.open({ title: 'Record repayment', submitLabel: 'Save repayment', fields: [{ name: 'amount', label: `Amount (balance ${kes(c.balance)})`, type: 'number', value: Math.round(Math.min(c.installment, c.balance)), placeholder: 'e.g. ' + kes(Math.round(Math.min(c.installment, c.balance))) }],
@@ -3306,7 +3349,7 @@ const Doc = {
     if (!rows.length) return `<p class="none">${Doc.e(opts.empty || 'Nothing recorded.')}</p>`;
     return `<table><thead><tr>${head.map((h, i) => `<th${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${Doc.e(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${c && c.html ? c.html : Doc.e(c)}</td>`).join('')}</tr>`).join('')}</tbody>${opts.foot ? `<tfoot><tr>${opts.foot.map((c, i) => `<td${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${Doc.e(c)}</td>`).join('')}</tr></tfoot>` : ''}</table>`;
   },
-  html(title, sub, chamaName, body) {
+  html(title, sub, chamaName, body, photo) {
     const { c } = this.brand(), when = new Date().toLocaleString('en-KE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${Doc.e(title)}</title><style>
 @page { size: A4; margin: 16mm 14mm 18mm; }
@@ -3325,7 +3368,7 @@ tfoot td { font-weight: 700; border-top: 1.5px solid #cfd6d2; border-bottom: 0; 
 .tag { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 8pt; font-weight: 700; } .ok { background: #e1f3e8; color: #17824f; } .late { background: #fbe6e3; color: #b42318; } .part { background: #fbf0dc; color: #8f5a0b; } .ahead { background: #ece6fa; color: #5b34b8; } .gold { background: #fbf1d0; color: #7a5410; }
 .note { margin-top: 22px; padding: 10px 12px; border-radius: 10px; background: #f3f5f4; color: #3b4a44; font-size: 9pt; }
 .foot { margin-top: 26px; color: #8a958f; font-size: 8pt; border-top: 1px solid #e3e7e4; padding-top: 8px; display: flex; justify-content: space-between; }
-</style></head><body><div class="top"><div class="brand"><span class="mark">${Doc.e(String(chamaName || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span><div><b>${Doc.e(chamaName)}</b><small>My Chama</small></div></div><div class="meta">Prepared ${Doc.e(when)}</div></div>
+</style></head><body><div class="top"><div class="brand"><span class="mark">${/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo || '') ? `<img src="${photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px">` : Doc.e(String(chamaName || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span><div><b>${Doc.e(chamaName)}</b><small>My Chama</small></div></div><div class="meta">Prepared ${Doc.e(when)}</div></div>
 <h1>${Doc.e(title)}</h1><p class="sub">${Doc.e(sub)}</p>${body}
 <div class="foot"><span>Figures come from the records in My Chama at the time shown above.</span><span>${Doc.e(chamaName)}</span></div></body></html>`;
   },
@@ -3350,7 +3393,7 @@ tfoot td { font-weight: 700; border-top: 1.5px solid #cfd6d2; border-bottom: 0; 
 <h2>Fines</h2>${Doc.table(['Date', 'Reason', 'Amount', 'Status'], fines.map(f => [f.date || '', f.reason || '', kes(f.amount), { html: `<span class="tag ${f.paid ? 'ok' : 'late'}">${f.paid ? 'Paid' : 'Unpaid'}</span>` }]), { num: [2], empty: 'No fines.' })}
 ${outs.length ? `<h2>Payouts received</h2>${Doc.table(['Month', 'Date', 'Amount'], outs.map(p => [monthLabel(p.month), p.date || '', kes(p.amount)]), { num: [2] })}` : ''}
 <div class="note">Status for ${Doc.e(monthLabel(cur))}: <span class="tag ${stTag[0]}">${Doc.e(stTag[1])}</span>. Contributions are due by day ${Doc.e(s.chama.dueDay)} of each month${s.chama.payTo ? ', paid to ' + Doc.e(s.chama.payTo) : ''}. If anything here looks wrong, tell the treasurer: every change is kept in the Chama's history.</div>`;
-    return this.html('Statement for ' + m.name, (m.shares || 1) > 1 ? m.shares + ' shares · joined ' + monthLabel(Domain.joinMonth(s, m.id)) : 'Joined ' + monthLabel(Domain.joinMonth(s, m.id)), s.chama.name, body);
+    return this.html('Statement for ' + m.name, (m.shares || 1) > 1 ? m.shares + ' shares · joined ' + monthLabel(Domain.joinMonth(s, m.id)) : 'Joined ' + monthLabel(Domain.joinMonth(s, m.id)), s.chama.name, body, s.chama.photo);
   },
   chamaReport(s) {
     const cur = Domain.now(), U = __M_src_core_utils_js, active = s.members.filter(m => !m.left);
@@ -3364,7 +3407,7 @@ ${outs.length ? `<h2>Payouts received</h2>${Doc.table(['Month', 'Date', 'Amount'
 <h2>Expenses</h2>${Doc.table(['Date', 'For', 'Type', 'Amount'], s.expenses.map(x => [x.date || '', x.title || '', x.category || '', kes(x.amount)]), { num: [3], empty: 'No expenses.', foot: s.expenses.length ? ['', '', 'Total', kes(sum(s.expenses, x => x.amount))] : null })}
 <h2>Fines</h2>${Doc.table(['Date', 'Member', 'Reason', 'Amount', 'Status'], s.fines.map(f => [f.date || '', Domain.memberName(s, f.memberId), f.reason || '', kes(f.amount), f.paid ? 'Paid' : 'Unpaid']), { num: [3], empty: 'No fines.' })}
 <div class="note">Cash on hand = contributions + fines paid + loan repayments − loans given − payouts − expenses. This report contains members' personal data: share it only with the Chama's officials.</div>`;
-    return this.html(s.chama.name + ' report', monthLabel(months[0] || cur) + ' to ' + monthLabel(cur) + ' · ' + (s.chama.mode === 'savings' ? 'Savings' : 'Merry-go-round') + ' · ' + kes(s.chama.monthly) + ' a share each month', s.chama.name, body);
+    return this.html(s.chama.name + ' report', monthLabel(months[0] || cur) + ' to ' + monthLabel(cur) + ' · ' + (s.chama.mode === 'savings' ? 'Savings' : 'Merry-go-round') + ' · ' + kes(s.chama.monthly) + ' a share each month', s.chama.name, body, s.chama.photo);
   }
 };
 
@@ -4159,7 +4202,8 @@ const views = {
       const row = (f, ic, tone, k, v) => admin
         ? `<button type="button" class="li has-ic" data-act="chamaEdit" data-f="${f}"><span class="li-ic ${tone}">${icon(ic)}</span><span class="li-main"><small>${esc(k)}</small><b>${esc(v)}</b></span>${icon('chev', 'chev')}</button>`
         : `<div class="li has-ic"><span class="li-ic ${tone}">${icon(ic)}</span><span class="li-main"><small>${esc(k)}</small><b>${esc(v)}</b></span></div>`;
-      return `<section class="chama-hero"><span class="jn-tile lg">${esc(String(c.name || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span><div><h1>${esc(c.name)}</h1><p>${c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round'}${ws.display_tag ? ' · ' + esc(ws.display_tag) : ''} · ${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}</p></div></section>
+      const face = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(c.photo || '') ? c.photo : '';
+      return `<section class="chama-hero"><span class="jn-tile lg ch-face">${face ? `<img class="av" src="${face}" alt="Photo of ${esc(c.name)}" data-name="${esc(c.name)}">` : esc(String(c.name || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}${admin ? `<button type="button" class="ch-cam" data-act="chamaPhoto" aria-label="${face ? 'Change' : 'Add'} the Chama photo">${icon('camera', 's')}</button>` : ''}</span><div><h1>${esc(c.name)}</h1><p>${c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round'}${ws.display_tag ? ' · ' + esc(ws.display_tag) : ''} · ${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}</p></div></section>
       <p class="lt-sub" style="margin-top:12px">${admin ? 'Tap a rule to change it. Every change is kept in History, and you can undo the last one.' : 'Only the treasurer can change these.'}</p>
       <section class="sec" style="margin-top:0"><div class="sec-h"><h2>Basics</h2></div><div class="list">${row('name', 'pencil', 't-ink', 'Name', c.name)}${row('mode', 'swap', 't-gold', 'Type', c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round')}${c.mode === 'savings' ? '' : row('startMonth', 'clock', 't-info', 'First payout month', c.startMonth ? monthLabelLong(c.startMonth) : 'Not set')}</div></section>
       <section class="sec"><div class="sec-h"><h2>Money rules</h2></div><div class="list">${row('monthly', 'coins', '', 'Monthly contribution per share', kes(c.monthly))}${row('dueDay', 'clock', 't-info', 'Due by', 'Day ' + c.dueDay + ' of the month')}${row('finePerLate', 'receipt', 't-bad', 'Late fine', kes(c.finePerLate))}${row('loanRate', 'loans', 't-gold', 'Loan interest', c.loanRate + '% a month, flat')}${row('payTo', 'wallet', 't-ink', 'Members pay to', c.payTo || 'Not set')}${row('rules', 'doc', 't-info', 'Group rules', c.rules ? String(c.rules).split('\n')[0].slice(0, 60) + (String(c.rules).length > 60 ? '…' : '') : 'Not written yet')}</div></section>
@@ -4307,6 +4351,24 @@ const actions = {
   },
   chamaEdit: { admin: true, run: d => chamaEditSheet(d.f) },
   rulesEdit: { admin: true, run: () => chamaEditSheet('rules') },
+  /* the Chama's own photo: only the treasurer sets or removes it; members see it in the chooser, settings and documents */
+  chamaPhoto: { admin: true, run() {
+    const c = S().chama, has = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(c.photo || '');
+    __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('camera')}</span><h3>Chama photo</h3><p>It shows when people choose a Chama, on the Chama page and on statements.</p></div>
+<div class="ch-pick">${has ? `<img src="${c.photo}" alt="Current Chama photo">` : `<span>${esc(String(c.name || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span>`}</div>
+<label class="btn pri block lg" for="chPhotoIn">${icon('camera')}${has ? 'Choose a new photo' : 'Choose a photo'}<input type="file" id="chPhotoIn" accept="image/*" hidden></label>
+${has ? '<button type="button" class="btn ghost block" style="margin-top:8px" data-act="chamaPhotoRemove">Remove the photo</button>' : ''}`, { key: 'chamaPhoto', label: 'Chama photo' });
+    const inp = document.getElementById('chPhotoIn');
+    if (inp) inp.addEventListener('change', async () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      try {
+        const url = await new Promise((ok, no) => { const img = new Image(), u = URL.createObjectURL(f); img.onload = () => { URL.revokeObjectURL(u); const n = Math.min(img.width, img.height); if (!n) return no(new Error('That picture is empty')); const cv = document.createElement('canvas'); cv.width = cv.height = 240; cv.getContext('2d').drawImage(img, (img.width - n) / 2, (img.height - n) / 2, n, n, 0, 0, 240, 240); let q = .82, d = cv.toDataURL('image/jpeg', q); while (d.length > 40000 && q > .4) { q -= .1; d = cv.toDataURL('image/jpeg', q); } ok(d); }; img.onerror = () => { URL.revokeObjectURL(u); no(new Error('That file is not a picture. Try a JPG or PNG.')); }; img.src = u; });
+        Store.commit(st => { st.chama = { ...st.chama, photo: url }; });
+        __M_src_features_requests_js.Sheet.close(); toast('Chama photo saved. Everyone sees it now.', 'ok');
+      } catch (e) { toast(e.message); }
+    });
+  } },
+  chamaPhotoRemove: { admin: true, run() { Store.commit(st => { const c = { ...st.chama }; delete c.photo; st.chama = c; }); __M_src_features_requests_js.Sheet.close(); toast('Chama photo removed', 'info'); } },
   aboutEdit: () => { try { localStorage.removeItem('mca-about-v1:' + ((Session.user && Session.user.id) || '')); } catch (e) {} __M_src_features_guide_js.About.check(); },
   aboutClear: () => __M_src_ui_toast_js.Pop.confirm({ title: 'Remove these details?', text: 'Your date of birth, gender and phone number are deleted. Simple view stays as it is.', confirmLabel: 'Remove', danger: true,
     onYes: async () => {
@@ -6703,7 +6765,7 @@ const Aware = {
     const rules = String(c.rules || '').trim();
     const people = active.slice(0, 15).map(m => `<span class="aw-p">${__M_src_ui_avatar_js.av(m, 44)}<small>${esc(m.name.split(' ')[0])}${m.role ? '<em>' + esc(m.role) + '</em>' : ''}</small></span>`).join('');
     return [
-      { ic: 'group', t: 'Welcome to ' + (c.name || 'the Chama'), b: `<p>Before you start, take a minute to know how this Chama works. You can come back to this any time from the Guide.</p><div class="aw-facts"><div><b>${esc(role)}</b><span>Your role</span></div><div><b>${active.length}</b><span>Members</span></div><div><b>${esc(c.mode === 'savings' ? 'Savings' : 'Merry-go-round')}</b><span>Type</span></div></div>` },
+      { ic: 'group', t: 'Welcome to ' + (c.name || 'the Chama'), b: `${/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(c.photo || '') ? `<img class="av aw-face" src="${c.photo}" alt="Photo of ${esc(c.name || 'the Chama')}" data-name="${esc(c.name || '')}">` : ''}<p>Before you start, take a minute to know how this Chama works. You can come back to this any time from the Guide.</p><div class="aw-facts"><div><b>${esc(role)}</b><span>Your role</span></div><div><b>${active.length}</b><span>Members</span></div><div><b>${esc(c.mode === 'savings' ? 'Savings' : 'Merry-go-round')}</b><span>Type</span></div></div>` },
       { ic: 'coins', t: 'Your money', b: `<div class="aw-money"><div class="aw-big num">${esc(kes(mine))}</div><p>is your contribution every month${me && (me.shares || 1) > 1 ? ' (' + me.shares + ' shares)' : ''}.</p></div><ul class="aw-list"><li>${icon('clock', 's')}Due by <b>day ${esc(c.dueDay)}</b> of each month</li>${c.payTo ? `<li>${icon('wallet', 's')}Pay to <b>${esc(c.payTo)}</b></li>` : ''}${Number(c.finePerLate) > 0 ? `<li>${icon('receipt', 's')}Paying late costs a fine of <b>${esc(kes(c.finePerLate))}</b></li>` : ''}<li>${icon('loans', 's')}Loans cost <b>${esc(c.loanRate)}%</b> a month, and you sign the terms</li></ul>` },
       { ic: 'swap', t: c.mode === 'savings' ? 'How the pool grows' : 'Your turn for the pot', b: c.mode === 'savings' ? '<p>Money stays in the pool. It is lent to members, and what you saved stays yours. Your savings show on Home and in your statement.</p>' : `<div class="aw-money"><div class="aw-big">${esc(turn || 'Not set yet')}</div><p>${turn ? 'is when you receive the pot, if the order does not change. Any change is shown to everyone.' : 'The treasurer will place you in the payout order.'}</p></div><p class="aw-note">Each month one member receives what everyone paid. If someone has not paid, the pot is smaller, so paying on time keeps it fair.</p>` },
       { ic: 'people', t: 'The people', b: `<p>These are the members. The treasurer keeps the books and the secretary keeps the register and meetings.</p><div class="aw-people">${people}</div>${active.length > 15 ? `<p class="aw-note">and ${active.length - 15} more.</p>` : ''}` },
