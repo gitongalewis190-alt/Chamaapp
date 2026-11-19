@@ -99,3 +99,29 @@ grant execute on function public.username_available(text), public.username_sugge
 -- select public.invitation_account('<a real pending token>');            -- ok, email, has_account
 -- update public.profiles set username = 'newname1' where id = '<uid>';     -- old name goes to retired_usernames
 -- then, as another user: select public.username_available('<old name>');  -- available false, reason retired
+
+-- 4. "I understand this Chama": the walkthrough every member completes once per Chama (kept on the server so it follows
+--    them to a new phone). One row per person per Chama and version of the walkthrough.
+create table if not exists public.chama_awareness (
+  chama_id text not null references public.chamas(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  version text not null,
+  agreed_at timestamptz not null default now(),
+  primary key (chama_id, user_id, version)
+);
+alter table public.chama_awareness enable row level security;
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'chama_awareness' and policyname = 'awareness_read_own') then
+    create policy awareness_read_own on public.chama_awareness for select using (user_id = (select auth.uid()));
+  end if;
+end $$;
+create or replace function public.record_awareness(p_cid text, p_version text)
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if auth.uid() is null then raise exception 'Sign in first' using errcode = '28000'; end if;
+  if private.my_role(p_cid) is null then raise exception 'You are not in this Chama'; end if;
+  insert into public.chama_awareness (chama_id, user_id, version) values (p_cid, auth.uid(), left(coalesce(p_version, 'v1'), 20)) on conflict do nothing;
+  perform public.audit_log(p_cid, auth.uid(), 'member.aware', null, jsonb_build_object('version', p_version));
+end $$;
+revoke all on function public.record_awareness(text, text) from public, anon;
+grant execute on function public.record_awareness(text, text) to authenticated;

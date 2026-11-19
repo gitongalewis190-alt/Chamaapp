@@ -375,6 +375,17 @@ const TESTS = {
     ok(await page.locator('#userSt.ok').count() === 1, 'picking a suggestion shows the green tick');
     ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
   },
+  async awareness(b) {
+    const { page, ctx, errors } = await open(b, 'member', { mock: { ...require('./fixtures').scenarios.member.mock, unaware: true }, wait: 1800 });
+    ok(await page.isVisible('#awRoot .aw'), 'a member who has not been through it sees the Know your Chama walkthrough');
+    ok(!(await page.locator('#awRoot [data-aw="skip"]').count()), 'the walkthrough cannot be skipped');
+    for (let i = 0; i < 6; i++) { await page.click('#awRoot [data-aw="next"]'); await page.waitForTimeout(120); }
+    await shot(page, '90-aware-agree');
+    ok(await page.isDisabled('#awRoot [data-aw="agree"]'), 'entering needs the agreement ticked');
+    await page.check('#awAgree'); await page.click('#awRoot [data-aw="agree"]'); await page.waitForTimeout(400);
+    ok(!(await page.locator('#awRoot .aw').count()) && (await calls(page)).some(x => x.kind === 'rpc' && x.name === 'record_awareness'), 'agreeing lets them in and is recorded on the server');
+    ok(!errors.length, 'no page errors ' + errors.join(' | ')); await ctx.close();
+  },
   async leftAndLive(b) {
     const data = require('./fixtures').chama(); data.members[7].left = data.members[0].joined;   // Baraka left in the first month
     const notes = [{ id: 'n-old', kind: 'join_approved', title: 'Welcome to Umoja Savings', body: '', link: '#/home', priority: 'important', created_at: new Date().toISOString(), read_at: null, data: {} }];

@@ -1045,6 +1045,7 @@ const Session = {
     if (m.role !== 'member') this.loadRequests().then(r => { if (r.length) { render(); try { __M_src_features_requests_js.Requests.prompt(); } catch (e) {} } }).catch(() => {});
     try { __M_src_features_requests_js.Requests.watch(); } catch (e) {}
     setTimeout(() => { try { __M_src_features_requests_js.Roles.check(); } catch (e) {} }, 1500);
+    setTimeout(() => { try { __M_src_features_guide_js.Aware.check(); } catch (e) {} }, 700);
     Store.startSync().catch(() => {}).then(() => this.loadMemberPics().catch(() => {}));
   },
   switchTo(id) {
@@ -3991,7 +3992,7 @@ const views = {
       return `<section class="chama-hero"><span class="jn-tile lg">${esc(String(c.name || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span><div><h1>${esc(c.name)}</h1><p>${c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round'}${ws.display_tag ? ' · ' + esc(ws.display_tag) : ''} · ${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}</p></div></section>
       <p class="lt-sub" style="margin-top:12px">${admin ? 'Tap a rule to change it. Every change is kept in History, and you can undo the last one.' : 'Only the treasurer can change these.'}</p>
       <section class="sec" style="margin-top:0"><div class="sec-h"><h2>Basics</h2></div><div class="list">${row('name', 'pencil', 't-ink', 'Name', c.name)}${row('mode', 'swap', 't-gold', 'Type', c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round')}${c.mode === 'savings' ? '' : row('startMonth', 'clock', 't-info', 'First payout month', c.startMonth ? monthLabelLong(c.startMonth) : 'Not set')}</div></section>
-      <section class="sec"><div class="sec-h"><h2>Money rules</h2></div><div class="list">${row('monthly', 'coins', '', 'Monthly contribution per share', kes(c.monthly))}${row('dueDay', 'clock', 't-info', 'Due by', 'Day ' + c.dueDay + ' of the month')}${row('finePerLate', 'receipt', 't-bad', 'Late fine', kes(c.finePerLate))}${row('loanRate', 'loans', 't-gold', 'Loan interest', c.loanRate + '% a month, flat')}${row('payTo', 'wallet', 't-ink', 'Members pay to', c.payTo || 'Not set')}</div></section>
+      <section class="sec"><div class="sec-h"><h2>Money rules</h2></div><div class="list">${row('monthly', 'coins', '', 'Monthly contribution per share', kes(c.monthly))}${row('dueDay', 'clock', 't-info', 'Due by', 'Day ' + c.dueDay + ' of the month')}${row('finePerLate', 'receipt', 't-bad', 'Late fine', kes(c.finePerLate))}${row('loanRate', 'loans', 't-gold', 'Loan interest', c.loanRate + '% a month, flat')}${row('payTo', 'wallet', 't-ink', 'Members pay to', c.payTo || 'Not set')}${row('rules', 'doc', 't-info', 'Group rules', c.rules ? String(c.rules).split('\n')[0].slice(0, 60) + (String(c.rules).length > 60 ? '…' : '') : 'Not written yet')}</div></section>
       ${admin ? `<section class="sec"><div class="list"><button type="button" class="li has-ic" data-act="undo"><span class="li-ic t-ink">${icon('undo')}</span><span class="li-main"><b>Undo last change</b></span>${icon('chev', 'chev')}</button></div></section>` : ''}
       <section class="sec"><div class="list">${Session.role === 'secretary' ? `<button type="button" class="li has-ic" data-act="stepDown"><span class="li-ic t-warn">${icon('undo')}</span><span class="li-main"><b>Step down as secretary</b><small>Stay in the Chama as a member. A reason is needed.</small></span>${icon('chev', 'chev')}</button>` : ''}<button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
     }
@@ -4056,12 +4057,13 @@ const CHAMA_FIELDS = {
   dueDay: ['Due by day of the month', 'clock', 'number', 'From 1 to 28. After this day a payment counts as late.'],
   finePerLate: ['Late fine', 'receipt', 'number', 'In KES. 0 means no fine.'],
   loanRate: ['Loan interest', 'loans', 'number', 'Percent a month, flat. New loans start with this rate.'],
-  payTo: ['Members pay to', 'wallet', 'text', 'Till, paybill or phone number. It is shown in reminders and payment requests.']
+  payTo: ['Members pay to', 'wallet', 'text', 'Till, paybill or phone number. It is shown in reminders and payment requests.'],
+  rules: ['Group rules', 'doc', 'textarea', 'The rules everyone agreed to. New members read them before they enter.']
 };
 const chamaEditSheet = f => {
   const F = CHAMA_FIELDS[f], c = S().chama; if (!F) return;
   const v = c[f] == null ? '' : c[f];
-  const input = F[2] === 'select' ? `<select id="chV"><option value="rotation"${v === 'rotation' ? ' selected' : ''}>Merry-go-round (the pot rotates)</option><option value="savings"${v === 'savings' ? ' selected' : ''}>Savings or table banking</option></select>`
+  const input = F[2] === 'textarea' ? `<textarea id="chV" rows="8" maxlength="1500" placeholder="e.g. 1. Contributions are due by the 10th.\n2. A late payment is fined KES 100.\n3. Loans are repaid within 3 months.">${esc(v)}</textarea>` : F[2] === 'select' ? `<select id="chV"><option value="rotation"${v === 'rotation' ? ' selected' : ''}>Merry-go-round (the pot rotates)</option><option value="savings"${v === 'savings' ? ' selected' : ''}>Savings or table banking</option></select>`
     : `<input id="chV" type="${F[2]}" value="${esc(v)}"${F[2] === 'number' ? ' inputmode="decimal" step="any"' : ''} autofocus>`;
   __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon(F[1])}</span><h3>${esc(F[0])}</h3><p>${esc(F[3])}</p></div>
 <label class="fgrp" for="chV"><span class="field">${icon(F[1])}${input}</span></label>
@@ -4137,6 +4139,7 @@ const actions = {
     else if (f === 'mode') val = raw === 'savings' ? 'savings' : 'rotation';
     else if (f === 'startMonth') { if (!/^\d{4}-\d{2}$/.test(raw)) throw new Error('Choose a month'); val = raw; }
     else if (f === 'payTo') val = raw.slice(0, 60);
+    else if (f === 'rules') val = raw.slice(0, 1500);
     else if (f === 'dueDay') { val = Math.round(num(raw, 'Due day', { min: 1 })); if (val > 28) throw new Error('Due day must be 1 to 28'); }
     else if (f === 'loanRate') { val = num(raw, 'Rate', { allowZero: true }); if (val > 100) throw new Error('Interest above 100% a month is not allowed'); }
     else if (f === 'finePerLate') val = num(raw, 'Fine', { allowZero: true });
@@ -6198,6 +6201,7 @@ const TASKS = [
     { go: '#/profile', sel: '[data-act="pickPhoto"]', text: 'Tap the camera to choose a photo.', click: true }] },
   { id: 'leave', t: 'Leave the Chama', k: 'leave', tour: [
     { go: '#/settings/chama', sel: '[data-act="leaveChama"]', text: 'Leaving is here. You will be asked for your reason. Your past records stay with the group.' }] },
+  { id: 'aware', t: 'How this Chama works (rules, money, people)', k: 'rule member how works chama payment payout', act: 'awareShow' },
   { id: 'report', t: 'Download a report', k: 'report', tour: [
     { go: '#/reports', sel: '#view .card, #view .sec', text: 'Choose a report or a full backup here.' }] }
 ];
@@ -6323,12 +6327,72 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target && e.target.id === 'gdQ') { const r = Guide.results(); if (!r.ans && r.tasks[0] && r.tasks[0].tour && /\b(how|show|jinsi)\b/i.test(Guide.q)) Tour.start(r.tasks[0].id); }
 });
 
+/* ---- "Know your Chama": a walkthrough every member completes once per Chama, before Home. It cannot be skipped. ---- */
+const AWARE_V = 'v1';
+const Aware = {
+  i: 0, agree: false,
+  key() { return 'mca-aware:' + Store.chamaId + ':' + ((Session.user && Session.user.id) || '') + ':' + AWARE_V; },
+  done() { try { return !!localStorage.getItem(this.key()); } catch (e) { return false; } },
+  async check() {
+    if (!Session.ready() || !Store.chamaId || !Session.user || Session.role === 'treasurer' || this.done()) return;
+    const s = Store.get(); if (!s || !s.chama) return;
+    try {
+      const { data, error } = await __M_src_core_backend_js.Backend.sb.from('chama_awareness').select('version').eq('chama_id', Store.chamaId).eq('user_id', Session.user.id).eq('version', AWARE_V).limit(1);
+      if (!error && data && data.length) { try { localStorage.setItem(this.key(), 'server'); } catch (e) {} return; }
+    } catch (e) { /* table not there yet: the walkthrough still runs and is kept on this phone */ }
+    this.i = 0; this.agree = false; this.show();
+  },
+  slides(s) {
+    const c = s.chama || {}, U = __M_src_core_utils_js, cur = Domain.now(), meId = s.shared ? s.shared.me : Session.memberId, me = meId ? (s.members || []).find(m => m.id === meId) : null;
+    const mine = me ? Domain.rate(s, me.id) : c.monthly, active = (s.members || []).filter(m => !m.left);
+    let turn = ''; if (me && c.mode !== 'savings') for (let i = 0; i < 48; i++) { const mk = U.addMonths(cur, i), r = Domain.recipient(s, mk); if (r && r.id === me.id) { turn = U.monthLabel(mk); break; } }
+    const role = Session.role === 'secretary' ? 'Secretary' : 'Member';
+    const rules = String(c.rules || '').trim();
+    const people = active.slice(0, 15).map(m => `<span class="aw-p">${__M_src_ui_avatar_js.av(m, 44)}<small>${esc(m.name.split(' ')[0])}${m.role ? '<em>' + esc(m.role) + '</em>' : ''}</small></span>`).join('');
+    return [
+      { ic: 'group', t: 'Welcome to ' + (c.name || 'the Chama'), b: `<p>Before you start, take a minute to know how this Chama works. You can come back to this any time from the Guide.</p><div class="aw-facts"><div><b>${esc(role)}</b><span>Your role</span></div><div><b>${active.length}</b><span>Members</span></div><div><b>${esc(c.mode === 'savings' ? 'Savings' : 'Merry-go-round')}</b><span>Type</span></div></div>` },
+      { ic: 'coins', t: 'Your money', b: `<div class="aw-money"><div class="aw-big num">${esc(kes(mine))}</div><p>is your contribution every month${me && (me.shares || 1) > 1 ? ' (' + me.shares + ' shares)' : ''}.</p></div><ul class="aw-list"><li>${icon('clock', 's')}Due by <b>day ${esc(c.dueDay)}</b> of each month</li>${c.payTo ? `<li>${icon('wallet', 's')}Pay to <b>${esc(c.payTo)}</b></li>` : ''}${Number(c.finePerLate) > 0 ? `<li>${icon('receipt', 's')}Paying late costs a fine of <b>${esc(kes(c.finePerLate))}</b></li>` : ''}<li>${icon('loans', 's')}Loans cost <b>${esc(c.loanRate)}%</b> a month, and you sign the terms</li></ul>` },
+      { ic: 'swap', t: c.mode === 'savings' ? 'How the pool grows' : 'Your turn for the pot', b: c.mode === 'savings' ? '<p>Money stays in the pool. It is lent to members, and what you saved stays yours. Your savings show on Home and in your statement.</p>' : `<div class="aw-money"><div class="aw-big">${esc(turn || 'Not set yet')}</div><p>${turn ? 'is when you receive the pot, if the order does not change. Any change is shown to everyone.' : 'The treasurer will place you in the payout order.'}</p></div><p class="aw-note">Each month one member receives what everyone paid. If someone has not paid, the pot is smaller, so paying on time keeps it fair.</p>` },
+      { ic: 'people', t: 'The people', b: `<p>These are the members. The treasurer keeps the books and the secretary keeps the register and meetings.</p><div class="aw-people">${people}</div>${active.length > 15 ? `<p class="aw-note">and ${active.length - 15} more.</p>` : ''}` },
+      { ic: 'doc', t: 'The rules', b: rules ? `<div class="aw-rules">${esc(rules).replace(/\n/g, '<br>')}</div>` : `<ul class="aw-list"><li>${icon('check', 's')}Pay your contribution on time, every month</li><li>${icon('check', 's')}Repay loans as agreed in what you signed</li><li>${icon('check', 's')}Attend meetings, or say if you cannot</li><li>${icon('check', 's')}Respect every member in the chat</li><li>${icon('check', 's')}Leaving needs a reason, and your past records stay with the group</li></ul><p class="aw-note">The treasurer has not written special rules yet. These are the usual ones.</p>` },
+      { ic: 'shield', t: 'Your privacy', b: `<ul class="aw-list"><li>${icon('eye', 's')}You see your own money and the group totals</li><li>${icon('lock', 's')}Other members do not see your payments or loans</li><li>${icon('shield', 's')}The treasurer sees everyone’s records, and every change is kept in History</li><li>${icon('out', 's')}You can leave, or ask for your data, at any time</li></ul>` },
+      { ic: 'check', t: 'Ready?', last: true, b: `<p>Tick to confirm you have read how ${esc(c.name || 'this Chama')} works.</p><label class="aw-agree"><input type="checkbox" id="awAgree"${this.agree ? ' checked' : ''}><span>I understand the contributions, the payout order, the rules and what I am responsible for, and I agree to them.</span></label>` }
+    ];
+  },
+  show() {
+    const s = Store.get(); if (!s) return;
+    let root = document.getElementById('awRoot'); if (!root) { root = document.createElement('div'); root.id = 'awRoot'; document.body.appendChild(root); }
+    const sl = this.slides(s), x = sl[this.i], n = sl.length;
+    root.innerHTML = `<div class="aw" role="dialog" aria-modal="true" aria-labelledby="awT"><div class="aw-in">
+<div class="aw-dots" aria-hidden="true">${sl.map((_, k) => `<i class="${k < this.i ? 'done' : k === this.i ? 'on' : ''}"></i>`).join('')}</div>
+<div class="aw-card" key="${this.i}"><span class="aw-ic">${icon(x.ic)}</span><small>${this.i + 1} of ${n}</small><h2 id="awT">${esc(x.t)}</h2><div class="aw-b">${x.b}</div></div>
+<div class="aw-nav">${this.i > 0 ? '<button type="button" class="btn ghost" data-aw="back">Back</button>' : '<span></span>'}<button type="button" class="btn pri" data-aw="${x.last ? 'agree' : 'next'}"${x.last && !this.agree ? ' disabled' : ''}>${x.last ? 'I agree, take me in' : 'Next'}</button></div></div></div>`;
+    document.body.classList.add('aw-on');
+    const f = root.querySelector('[data-aw="next"],[data-aw="agree"]'); if (f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) {} }, 60);
+  },
+  async finish() {
+    try { localStorage.setItem(this.key(), new Date().toISOString()); } catch (e) {}
+    try { await __M_src_core_backend_js.Backend.sb.rpc('record_awareness', { p_cid: Store.chamaId, p_version: AWARE_V }); } catch (e) { /* kept on this phone */ }
+    const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on');
+    toast('Welcome. Ask the Guide (the sparkle at the top) whenever you need help.', 'ok');
+  }
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-aw]'); if (!b) return;
+  const k = b.dataset.aw, n = Aware.slides(Store.get() || { chama: {}, members: [] }).length;
+  if (k === 'next') { Aware.i = Math.min(n - 1, Aware.i + 1); Aware.show(); }
+  else if (k === 'back') { Aware.i = Math.max(0, Aware.i - 1); Aware.show(); }
+  else if (k === 'agree' && Aware.agree) Aware.finish();
+});
+document.addEventListener('change', e => { if (e.target && e.target.id === 'awAgree') { Aware.agree = e.target.checked; const b = document.querySelector('[data-aw="agree"]'); if (b) b.disabled = !Aware.agree; } });
+
 const actions = {
   guide: d => Guide.show((d && d.q) || ''),
+  awareShow: () => { Aware.i = 0; Aware.agree = false; Aware.show(); },
   guideTour: d => Tour.start(d.id)
 };
 
-return { get Guide() { return Guide; }, get Tour() { return Tour; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
+return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
 })();
 
 /* ---- src/features/index.js ---- */

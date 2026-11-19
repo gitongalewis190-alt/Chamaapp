@@ -119,6 +119,9 @@
       if (table === 'chama_messages') return ok(clone(db.messages).reverse());
       if (table === 'chama_message_responses') return ok(clone(db.responses));
       if (table === 'chama_notifications') return ok(clone(db.notifications));
+      /* most scenarios have already been through the "know your Chama" walkthrough; M.unaware shows it */
+      if (table === 'chama_awareness') return ok(M.unaware ? [] : [{ version: 'v1' }]);
+      if (table === 'chama_join_requests') return ok(clone(M.declinedRequests || []));
       if (table === 'chama_members') {
         const r = db.roles[st.filters.chama_id];
         return ok(r ? { role: r.role, member_id: r.member_id } : null);
