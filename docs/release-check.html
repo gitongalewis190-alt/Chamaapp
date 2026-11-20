@@ -112,7 +112,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 <script>
 /* Each check: id, area, title, steps, what you should see, and tags: db (done in the Supabase dashboard) or sql (needs the database update first). */
 const AREAS = [
-  ['sb', 'Supabase: do this first', 'Project My Chama (sgfvjsxmchohawhqraii), not "The lees app". Claude\'s connector was signed in to the other account, so none of the database work has been run by Claude. One file holds all of it: supabase/APPLY_ALL_PENDING.sql. Your next agent can follow docs/SUPABASE_FOR_NEXT_AGENT.md.'],
+  ['sb', 'Supabase: do this first', 'Project My Chama (sgfvjsxmchohawhqraii), not "The lees app". All database work is applied: supabase/APPLY_ALL_PENDING.sql (023-027) and 029 for 0.19. Nothing left to run. Optional only: 028 (one line, clears an advisor warning).'],
   ['sec', 'Sign-in and safety', 'Critical. Use real accounts and real inboxes.'],
   ['money', 'Money records', 'Critical. Check the figures against your own records.'],
   ['people', 'Roles, joining and removal', 'Critical. Needs F-S1. Use three accounts: treasurer, secretary, member.'],
