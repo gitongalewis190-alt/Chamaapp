@@ -133,7 +133,7 @@ const TESTS = {
     await page.fill('#modalRoot input[name="code"]', 'QWE123RTY9');
     await page.click('#modalRoot .btn.pri'); await page.waitForTimeout(900);
     const c = await calls(page);
-    ok(c.some(x => x.kind === 'rpc' && x.name === 'record_payment' && /^[0-9a-f-]{36}$/.test(x.args.p_idem)), 'payment goes to record_payment with a request key (was broken: savePayments undefined)');
+    ok(c.some(x => x.kind === 'rpc' && /^record_payment(_v2)?$/.test(x.name) && /^[0-9a-f-]{36}$/.test(x.args.p_idem)), 'payment goes to record_payment with a request key (was broken: savePayments undefined)');
     ok(c.some(x => x.kind === 'from' && x.op === 'update'), 'Chama document saved with version check');
     ok(/QWE123RTY9/.test(await text(page)), 'recorded payment appears in the list');
     // duplicate code is refused locally
@@ -543,6 +543,99 @@ const TESTS = {
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();
   },
+  async v020AuthSessions(b) {
+    /* AUTH 0.20: a password change signs the other phones out; coming back to the app asks the server; offline never signs out */
+    const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1600 });
+    const vis = () => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.goto(page.url().split('#')[0] + '#/profile'); await page.waitForTimeout(400);
+    await page.click('[data-act="meEdit"][data-f="password"]'); await page.waitForTimeout(400);
+    await page.fill('#pwCur', 'Right#123'); await page.fill('#pwNew', 'Better#456');
+    await page.click('[data-act="changePassword"]'); await page.waitForTimeout(900);
+    const c = await calls(page);
+    ok(c.some(x => x.kind === 'updateUser' && x.password) && c.some(x => x.kind === 'signOut' && x.scope === 'others'), 'changing the password signs out every other device (scope others)');
+    ok(!c.some(x => x.kind === 'signOut' && x.scope !== 'others') && !(await page.isVisible('#gatePw')), 'this phone stays signed in after changing the password');
+    await page.evaluate(() => window.__setOffline(true)); await vis(); await page.waitForTimeout(600);
+    ok(!(await page.isVisible('#gatePw')) && await page.evaluate(() => __M_src_core_session_js.Session.status === 'ready'), 'no internet when coming back to the app never signs out');
+    await page.evaluate(() => window.__setOffline(false));
+    const n0 = await page.evaluate(() => window.__getUserN || 0);
+    await page.evaluate(() => window.__revokeSession()); await vis(); await page.waitForTimeout(900);
+    ok((await page.evaluate(() => window.__getUserN || 0)) > n0, 'coming back to the app asks the server (getUser), not only this phone');
+    await shot(page, 'v020-auth-revoked');
+    ok(/password was changed on another device/i.test(await text(page)) && await page.isVisible('#gatePw'), 'a session ended on another phone shows the reason and the sign-in screen');
+    ok((await calls(page)).some(x => x.kind === 'signOut' && x.scope === 'local'), 'the dead session is cleared on this phone only');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+  },
+  async v020AuthEyeToast(b) {
+    for (const dark of [false, true]) {
+      const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, dark });
+      await page.evaluate(() => __M_src_ui_modal_js.Modal.open({ title: 'Check', fields: [{ name: 'pw', label: 'Your password', type: 'password' }], onSubmit: () => {} }));
+      await page.waitForTimeout(400);
+      ok(await page.isVisible('#modalRoot .pw-eye[aria-label="Show password"]'), 'a password box in a sheet gets an eye button' + (dark ? ' (dark)' : ''));
+      await page.fill('#modalRoot input[name="pw"]', 'Secret#1');
+      await page.click('#modalRoot .pw-eye'); await page.waitForTimeout(100);
+      ok(await page.evaluate(() => { const i = document.querySelector('#modalRoot input[name="pw"]'), btn = document.querySelector('#modalRoot .pw-eye'); return i.type === 'text' && btn.getAttribute('aria-pressed') === 'true' && btn.getAttribute('aria-label') === 'Hide password'; }), 'the eye shows the password');
+      await page.click('#modalRoot .pw-eye'); await page.waitForTimeout(100);
+      ok(await page.evaluate(() => document.querySelector('#modalRoot input[name="pw"]').type === 'password' && !!document.querySelector('#modalRoot .sheet')), 'tapping again hides it, and the sheet stays open');
+      ok(await page.evaluate(() => { const r = document.querySelector('#modalRoot .pw-eye').getBoundingClientRect(); return r.width >= 44 && r.height >= 44; }), 'the eye is a big tap target');
+      await page.evaluate(() => __M_src_ui_toast_js.toast('Saved', 'ok')); await page.waitForTimeout(500);
+      await shot(page, 'v020-auth-toast-sheet' + (dark ? '-dark' : ''));
+      ok(await page.evaluate(() => { const t = document.getElementById('toast').getBoundingClientRect(), s = document.querySelector('#modalRoot .sheet').getBoundingClientRect(); return document.getElementById('toast').classList.contains('t-top') && t.bottom <= s.top + 1; }), 'a toast never covers an open sheet');
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+    const { page, ctx, errors } = await open(b, 'signedOut');
+    await page.click('[data-gm="in"]').catch(() => {}); await page.waitForTimeout(200);
+    ok(await page.isVisible('#gatePw') && (await page.locator('#gatePw ~ .eye, #gatePw ~ .pw-eye').count()) === 1, 'the sign-in password has exactly one show/hide button');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+  },
+  async v020AuthLinks(b) {
+    /* a code link for another email, opened while someone is signed in on this phone */
+    const sc = scenarios.treasurer;
+    let { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, mock: { ...sc.mock, otpOk: '12345678' } });
+    await page.evaluate(() => localStorage.setItem('mca-otp-req', JSON.stringify({ 'brilliance@example.com': Date.now() })));
+    const link = page.url().split('#')[0] + '#otp=12345678&e=' + encodeURIComponent('brilliance@example.com');
+    await page.goto(link); await page.reload(); await page.waitForTimeout(2200);
+    await shot(page, 'v020-auth-link-clash');
+    const pop = (await page.textContent('#popRoot').catch(() => '')) || '';
+    ok(/This code is for another account/.test(pop) && /b•••@example\.com/.test(pop) && /wanjiku@example\.com/.test(pop), 'it says who the code is for and who is signed in');
+    ok(!(await calls(page)).some(x => x.kind === 'verify'), 'the code is not used while the other account is signed in');
+    await page.click('#popRoot .pop-btn:not(.pri)'); await page.waitForTimeout(500);
+    ok(await page.evaluate(() => __M_src_core_session_js.Session.status === 'ready' && __M_src_core_session_js.Session.email === 'wanjiku@example.com'), 'Stay keeps the current account');
+    await page.goto(link); await page.reload(); await page.waitForTimeout(2200);
+    await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(4500);
+    const c = await calls(page);
+    ok(c.some(x => x.kind === 'signOut' && x.scope === 'local') && c.some(x => x.kind === 'verify' && x.token === '12345678'), 'Switch account signs out here, then fills in the code for that email');
+    ok(/new password/i.test(await text(page)), 'a code sign-in lands on "Choose a new password"');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+    /* the same account is signed in and its forgot-password link opens: the reset screen, not Home */
+    ({ page, ctx, errors } = await open(b, 'treasurer', { wait: 1400 }));
+    await page.evaluate(() => { localStorage.setItem('mca-otp-req', JSON.stringify({ 'wanjiku@example.com': Date.now() })); localStorage.setItem('mca-reset', JSON.stringify({ e: 'wanjiku@example.com', t: Date.now() })); });
+    await page.goto(page.url().split('#')[0] + '#otp=12345678&e=' + encodeURIComponent('wanjiku@example.com')); await page.reload(); await page.waitForTimeout(2600);
+    ok(/new password/i.test(await text(page)), 'a forgot-password link for the signed-in account opens "Choose a new password"');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+    /* Google linked, the forgot-password code finished in another tab: this tab hears a plain sign-in and must still offer the reset */
+    ({ page, ctx, errors } = await open(b, 'signedOut', { mock: { ...scenarios.signedOut.mock, otpOk: '12345678', otpIdentities: [{ provider: 'email' }, { provider: 'google' }] } }));
+    await page.evaluate(() => localStorage.setItem('mca-reset', JSON.stringify({ e: 'wanjiku@example.com', t: Date.now() })));
+    await page.evaluate(() => __M_src_core_backend_js.Backend.sb.auth.verifyOtp({ email: 'wanjiku@example.com', token: '12345678', type: 'email' }));
+    await page.waitForTimeout(2500);
+    ok(/new password/i.test(await text(page)), 'a forgot-password code finished in another tab still lands on the reset screen (Google linked)');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+  },
+  async v020AuthSigning(b) {
+    const { page, ctx, errors } = await open(b, 'treasurer', { wait: 100 });
+    const html = await page.evaluate(() => __M_src_features_auth_gate_js.Gate.signingIn('Signing you in…'));
+    ok(/class="sgn"/.test(html) && /Signing you in/.test(html) && /data-act="gateCancel"/.test(html), 'the Signing you in screen has the brand mark and a Cancel');
+    await page.evaluate(h => { const v = document.getElementById('view'); v.innerHTML = h; }, html); await page.waitForTimeout(300);
+    await shot(page, 'v020-auth-signing');
+    ok(await page.evaluate(() => { const bg = getComputedStyle(document.querySelector('.sgn')).backgroundImage; return /gradient/.test(bg); }), 'it paints with theme colours (no white flash)');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+  },
   async deadSession(b) {
     const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, mock: { ...scenarios.treasurer.mock, sessionDead: true } });
     await shot(page, '65-dead-session');
@@ -601,6 +694,71 @@ const TESTS = {
       ok(!errors.length, 'no page errors ' + errors.join(' | '));
       await ctx.close();
     }
+  },
+  /* CHATDOCS: numbered PDFs into the chat, the real file picker for every role, denser reports with a footer serial */
+  async v020ChatDocs(b) {
+    for (const dark of [false, true]) {
+      const sfx = dark ? '-dark' : '';
+      const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, dark });
+      await page.goto(page.url().split('#')[0] + '#/chat/group'); await page.waitForTimeout(800);
+      await page.click('[data-act="chatAttach"]'); await page.waitForTimeout(400);
+      ok(await page.isVisible('.att-d[data-act="docToChat"][data-v="chama"]') && await page.isVisible('.att-d[data-act="docToChat"][data-v="mine"]'), 'treasurer attach menu offers Chama report and My statement PDFs' + sfx);
+      const acc = await page.getAttribute('#attFile', 'accept');
+      ok(/application\/pdf/.test(acc) && /image\/\*/.test(acc) && /\.docx/.test(acc) && /\.xlsx/.test(acc) && /\.csv/.test(acc), 'file input accepts PDFs, photos and office files (iOS does not grey them out)' + sfx);
+      ok(!(await page.getAttribute('#attFile', 'hidden') !== null), 'file input is not display:none (old iOS ignores labels for hidden inputs)' + sfx);
+      const fc = await Promise.all([page.waitForEvent('filechooser', { timeout: 2500 }), page.click('label.att-b:has(#attFile)')]).then(r => r[0]).catch(() => null);
+      ok(!!fc, 'tapping File opens the phone file picker straight away (treasurer)' + sfx);
+      await shot(page, 'cd1-attach' + sfx);
+      await page.click('.att-d[data-v="chama"]'); await page.waitForTimeout(400);
+      ok(/everyone/i.test(await page.textContent('#popRoot')), 'sending the report to the group asks first' + sfx);
+      await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(1800);
+      const cs = await calls(page);
+      ok(cs.some(x => x.name === 'issue_serial' && x.args.p_kind === 'document' && x.args.p_member === null), 'the report gets a document serial' + sfx);
+      ok(cs.some(x => x.kind === 'upload' && x.bucket === 'chat-media' && /^umoja\/u1\/.+\.pdf$/.test(x.path) && x.type === 'application/pdf' && x.size > 2000), 'the PDF uploads to chat-media like any file' + sfx);
+      ok(cs.some(x => x.name === 'send_chama_message' && x.args.p_kind === 'file' && /\.pdf$/.test(x.args.p_meta.name) && /^MC-/.test(x.args.p_meta.serial) && x.args.p_meta.doc === 'report'), 'a file message is posted with the serial' + sfx);
+      ok(await page.isVisible('.bub-file .bf-sn'), 'the file bubble shows the PDF and its serial' + sfx);
+      await shot(page, 'cd2-thread' + sfx);
+      if (!dark) {
+        const r = await page.evaluate(async () => { const R = __M_src_lib_reports_js, s = __M_src_core_store_js.Store.get(); const d = await R.Doc.make('chama', s); const st = await R.Doc.make('mine', s, s.members[0]); const blob = R.Pdf.make(d.html), t = await blob.text(); const t2 = await R.Pdf.make(st.html).text();
+          const bytes = new Uint8Array(await blob.arrayBuffer()); let bin = ''; bytes.forEach(c => { bin += String.fromCharCode(c); });
+          return { html: d.html, st: st.html, serial: d.serial, head: t.slice(0, 8), pages: (t.match(/\/Type \/Page\b/g) || []).length, foot: (t.match(new RegExp('Serial ' + d.serial, 'g')) || []).length, eof: /%%EOF\s*$/.test(t), t2: t2.slice(0, 5), b64: btoa(bin) }; });
+        ok(/<table class="grid">/.test(r.html) && /Wanjiku Kamau<\/td>(<td class="n c-[a-z]+">[^<]*<\/td>){2,}/.test(r.html), 'report HTML has the member × month grid' + sfx);
+        ok(new RegExp('class="sn doc-serial">Serial ' + r.serial).test(r.html) && new RegExp('@bottom-left \\{ content: "Serial ' + r.serial).test(r.html), 'report HTML carries the footer serial on every printed page');
+        ok(/Cash flow/.test(r.html) && /Next due/.test(r.html) && /Owed /.test(r.html) && /Category/.test(r.html), 'report has cash flow, loan next due, fines owed/paid and expenses by category');
+        ok(/Contribution account/.test(r.st) && /owes |ahead |>0</.test(r.st), 'statement has a running-balance contribution account');
+        ok(r.head.startsWith('%PDF-1.4') && r.eof && r.pages >= 2 && r.foot === r.pages + 1 && r.t2 === '%PDF-', 'a real multi-page PDF with the serial in every page footer (' + r.pages + ' pages)');
+        if (SHOTS) fs.writeFileSync(path.join(SHOTS, 'cd-report.pdf'), Buffer.from(r.b64, 'base64'));
+        await page.goto(page.url().split('#')[0] + '#/reports'); await page.waitForTimeout(500);
+        ok(await page.isVisible('[data-act="docSendSheet"][data-v="chama"]') && await page.isVisible('[data-act="docSendSheet"][data-v="mine"]'), 'Reports offers Send to chat for both PDFs');
+        await shot(page, 'cd3-reports');
+        await page.click('[data-act="docSendSheet"][data-v="mine"]'); await page.waitForTimeout(600);
+        ok(await page.isVisible('#modalRoot [data-act="docToChat"][data-th="group"]'), 'Send to chat lets you pick the group or a person');
+        await shot(page, 'cd4-dest');
+      }
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+    /* a member: statement only, real file picker, sends privately without a question */
+    const { page, ctx, errors } = await open(b, 'member', { wait: 1400 });
+    await page.goto(page.url().split('#')[0] + '#/chat/group'); await page.waitForTimeout(800);
+    await page.click('[data-act="chatAttach"]'); await page.waitForTimeout(400);
+    ok(await page.isVisible('.att-d[data-v="mine"]') && !(await page.locator('.att-d[data-v="chama"]').count()), 'member attach menu offers only My statement');
+    const fc = await Promise.all([page.waitForEvent('filechooser', { timeout: 2500 }), page.click('label.att-b:has(#attFile)')]).then(r => r[0]).catch(() => null);
+    ok(!!fc, 'tapping File opens the phone file picker for a member too');
+    await shot(page, 'cd5-member-attach');
+    await page.click('.att-d[data-v="mine"]'); await page.waitForTimeout(400);
+    await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(1800);
+    const cs = await calls(page);
+    ok(cs.some(x => x.name === 'issue_serial' && x.args.p_kind === 'document' && x.args.p_member === 'm3') && cs.some(x => x.name === 'send_chama_message' && x.args.p_kind === 'file' && x.args.p_meta.doc === 'statement'), 'a member sends their numbered statement as a file');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+    /* an old server: nothing is made, the NOTREADY message shows */
+    const o = await open(b, 'treasurer', { wait: 1400, mock: { ...scenarios.treasurer.mock, serverOld: true } });
+    await o.page.goto(o.page.url().split('#')[0] + '#/reports'); await o.page.waitForTimeout(500);
+    await o.page.click('[data-act="pdfChama"]'); await o.page.waitForTimeout(600);
+    ok(/server update/i.test(await o.page.textContent('#popRoot')), 'without issue_serial on the server the report is not made (needs the server update)');
+    ok(!o.errors.length, 'no page errors ' + o.errors.join(' | '));
+    await o.ctx.close();
   },
   async v019(b) {
     const msgs = [{ id: '33333333-3333-4333-8333-333333333333', chama_id: 'umoja', sender: '22222222-2222-4222-8222-222222222222', sender_name: 'Faith Mwende', sender_role: 'member', recipient: null, kind: 'text', body: 'Good morning everyone', meta: {}, pinned: false, created_at: new Date(Date.now() - 3600e3).toISOString() },
@@ -712,8 +870,8 @@ const TESTS = {
           }
           if (!info) { bad.push(tag + ' missing'); break; }
           if (!info.vis) bad.push(tag + ' hidden');
-          const named = /\[data-act="([^"]+)"\]/.exec(st.sel);
-          if (named && info.act !== named[1]) bad.push(tag + ' hits ' + info.act);
+          const named = [...st.sel.matchAll(/\[data-act="([^"]+)"\]/g)].map(x => x[1]), plain = st.sel.split(' || ').some(x => !/data-act=/.test(x));
+          if (named.length && !(named.includes(info.act) || plain)) bad.push(tag + ' hits ' + info.act);
           if (BAD.test(info.act) && OK_EDIT[t.id] !== info.act) bad.push(tag + ' is an edit/delete action: ' + info.act);
           if (t.id === 'goal' && i === 0 && (info.id || !/goal/i.test(info.txt))) bad.push(tag + ' does not point at Add goal: ' + info.txt);
           if (i < t.tour.length - 1) {
@@ -851,7 +1009,8 @@ const TESTS = {
       ok(await page.evaluate(() => { const f = __M_src_core_store_js.Store.get().fines; const x = f[f.length - 1]; return x.memberId === 'm7' && x.reason === 'Missed meeting'; }), 'a missed-meeting fine for a paid-up member is allowed' + v.sfx);
       /* the same picker chooses the borrower */
       await page.evaluate(() => { location.hash = '#/loans'; }); await page.waitForTimeout(500);
-      await page.click('#view [data-act="addLoan"]'); await page.waitForTimeout(400);
+      await page.evaluate(() => { const t = document.getElementById('toast'); if (t) t.classList.remove('on'); }); await page.waitForTimeout(300);
+      await page.click('#view [data-act="addLoan"]'); await page.waitForTimeout(600);
       await page.click('#modalRoot .mpk-card'); await page.waitForTimeout(300);
       ok((await ids()).split(',').length === 8, 'New loan lists every member');
       await page.fill('#mpkQ', 'otie'); await page.waitForTimeout(150);
@@ -934,8 +1093,9 @@ const TESTS = {
     let page = r.page;
     await page.evaluate(() => { location.hash = '#/profile'; }); await page.waitForTimeout(900);
     const sec = await page.evaluate(() => (document.getElementById('aboutYou') || {}).innerText || '');
-    ok(/About you/.test(sec) && /15 June 1990/.test(sec) && /\b3[56] years/.test(sec) && /Female/.test(sec) && /Shared with my Chama/.test(sec) && /Self-declared/.test(sec), 'My profile lists name, phone, date of birth with age, gender, sharing and where the date came from');
+    ok(/About you/i.test(sec) && /15 June 1990/.test(sec) && /\b3[56] years/.test(sec) && /Female/.test(sec) && /Shared with my Chama/.test(sec) && /Self-declared/.test(sec), 'My profile lists name, phone, date of birth with age, gender, sharing and where the date came from');
     ok(!(await page.evaluate(() => document.documentElement.classList.contains('a-simple'))), 'at 36 the app is standard');
+    await page.evaluate(() => document.getElementById('aboutYou').scrollIntoView()); await page.waitForTimeout(200);
     await shot(page, 'v020-profile-about');
     await page.click('[data-act="aboutDob"]'); await page.waitForTimeout(400);
     await shot(page, 'v020-profile-dob');
@@ -1008,6 +1168,209 @@ const TESTS = {
       await r.page.click('[data-act="aboutDob"]'); await r.page.waitForTimeout(400); await shot(r.page, 'v020-profile-dob-' + tag);
       await r.page.click('[data-act="aboutIdScan"]'); await r.page.waitForTimeout(300); await shot(r.page, 'v020-profile-idscan-' + tag);
       ok(!r.errors.length, 'no page errors ' + r.errors.join(' | ')); await r.ctx.close();
+    }
+  },
+  /* 0.20.0 MONEY: M-Pesa import (paste first, live screenshot reading, fall back to paste), treasurer's own payment needs
+     proof (record_payment_v2), Awaiting check, the secretary confirms */
+  async v020Money(b) {
+    const stubOcr = page => page.evaluate(() => { window.Tesseract = { createWorker: async (l, o, opt) => ({ setParameters: async () => {}, recognize: async () => { if (opt && opt.logger) opt.logger({ status: 'recognizing text', progress: 0.4 }); await new Promise(r => setTimeout(r, 700)); return { data: { text: 'a photo of a cat' } }; } }) }; });
+    const PNG = { name: 'shot.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') };
+    const OWN = 'TKA1B2C3D4 Confirmed. Ksh2,000.00 sent to UMOJA SAVINGS for account 123 on 3/11/26 at 9:00 AM. New M-PESA balance is Ksh5,000.00.';
+    for (const v of [{ sfx: '' }, { sfx: '-dark', dark: true }, { sfx: '-simple', a11y: { simple: 1 } }]) {
+      const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1300, dark: v.dark, a11y: v.a11y });
+      await stubOcr(page);
+      await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(500); await stubOcr(page);
+      await page.click('[data-act="importPay"]'); await page.waitForTimeout(500);
+      const tabs = await page.$$eval('.im-tab', els => els.map(e => e.dataset.v + ':' + e.innerText.replace(/\s+/g, ' ').trim()));
+      ok(tabs.length === 2 && /^paste:Recommended Paste the M-Pesa SMS/i.test(tabs[0]) && /May miss some/i.test(tabs[1]) && await page.isVisible('.im-tab.on[data-v="paste"]') && await page.isVisible('#imText'), 'paste is the first tab and recommended; screenshot says it may miss some' + v.sfx);
+      await shot(page, 'm01-import-paste' + v.sfx);
+      await page.click('.im-tab[data-v="shot"]'); await page.waitForTimeout(300);
+      await page.setInputFiles('#imFiles', PNG); await page.waitForTimeout(250);
+      ok(await page.isVisible('.im-shot img') && /Reading|Getting ready/.test(await page.textContent('.im-shot figcaption')) && await page.isVisible('.im-shot .im-spin'), 'a chosen screenshot shows at once with a Reading state' + v.sfx);
+      await shot(page, 'm02-import-reading' + v.sfx);
+      await page.waitForTimeout(2000);
+      ok(await page.isVisible('.im-tab.on[data-v="paste"]') && /We could not read that picture\. Copy the M-Pesa message and paste it here\./.test(await page.textContent('.im-note')) && await page.evaluate(() => document.activeElement && document.activeElement.id === 'imText'), 'nothing read: moves to Paste with a clear message and the box ready' + v.sfx);
+      await shot(page, 'm03-import-fallback' + v.sfx);
+      await page.fill('#imText', 'SKB7H2LQ4P Confirmed. You have received Ksh2,O00.00 from BARAKA MUTUA 0717***765 on 5/11/26 at 10:00 AM New M-PESA balance is Ksh9,000.00'); await page.waitForTimeout(200);
+      ok(/1 payment found/.test(await page.textContent('#imLive')), 'pasted message is read live (OCR-style O for 0 is tolerated)' + v.sfx);
+      await page.click('[data-im="go"]'); await page.waitForTimeout(700);
+      ok(/1 payment found/.test(await page.textContent('#modalRoot')) && /KES\s?2,000/.test(await page.textContent('#modalRoot')), 'review opens with the payment' + v.sfx);
+      await page.click('#modalRoot [data-act="closeModal"] >> nth=-1'); await page.waitForTimeout(400);
+      /* the treasurer (member m1) records their own payment */
+      await page.click('[data-act="pay"][data-m="m1"]'); await page.waitForTimeout(500);
+      ok(await page.isVisible('#evBox') && /needs proof/.test(await page.textContent('#evBox')), 'own payment asks for proof' + v.sfx);
+      await page.fill('#modalRoot input[name="amount"]', '2000');
+      await page.click('#modalRoot .actions .btn.pri'); await page.waitForTimeout(400);
+      ok(/needs proof/.test((await page.textContent('#popRoot').catch(() => '')) + (await page.textContent('#toast').catch(() => ''))) && await page.isVisible('#evBox') && !(await calls(page)).some(x => x.name === 'record_payment_v2'), 'own payment without proof is blocked before anything is sent' + v.sfx);
+      if (await page.isVisible('#popRoot .pop-btn')) { await page.click('#popRoot .pop-btn'); await page.waitForTimeout(300); }
+      await page.fill('#modalRoot textarea[name="evsms"]', OWN); await page.waitForTimeout(200);
+      ok(/matches/.test(await page.textContent('#evLive')) && (await page.inputValue('#modalRoot input[name="code"]')) === 'TKA1B2C3D4', 'pasted SMS fills the code and shows it matches' + v.sfx);
+      await shot(page, 'm04-own-proof' + v.sfx);
+      await page.click('#modalRoot .actions .btn.pri'); await page.waitForTimeout(900);
+      const c = (await calls(page)).find(x => x.name === 'record_payment_v2' && x.args.p_member === 'm1');
+      ok(c && c.args.p_evidence && c.args.p_evidence.kind === 'sms' && c.args.p_code === 'TKA1B2C3D4' && /UMOJA/.test(c.args.p_evidence.text), 'own payment goes to record_payment_v2 with the SMS as proof' + v.sfx);
+      ok(/Awaiting check/.test(await page.textContent('#popRoot')), 'the treasurer is told it awaits a check' + v.sfx);
+      await page.click('#popRoot .pop-btn'); await page.waitForTimeout(500);
+      const jp = await page.evaluate(() => (window.__DB.chamas.umoja.data.payments || []).find(p => p.code === 'TKA1B2C3D4'));
+      ok(jp && jp.sid && jp.serial && jp.selfRec === true && jp.ev && jp.ev.kind === 'sms' && /UMOJA/.test(jp.sms || ''), 'saved payment keeps sid, serial, selfRec, proof and the message' + v.sfx);
+      ok(/Awaiting check/.test(await text(page)), 'the payment shows Awaiting check' + v.sfx);
+      await shot(page, 'm05-awaiting' + v.sfx);
+      await page.click('.cg-pay:has-text("TKA1B2C3D4")'); await page.waitForTimeout(400);
+      ok(/Awaiting check by the secretary/.test(await page.textContent('#modalRoot')) && await page.isVisible('#modalRoot details.pay-sms'), 'payment detail shows the check state and the M-Pesa message' + v.sfx);
+      await shot(page, 'm06-pay-detail' + v.sfx);
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+    /* the server is not updated yet: the treasurer's own payment is never sent the old way */
+    {
+      const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1300, mock: { ...scenarios.treasurer.mock, serverOld: true } });
+      await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(500);
+      await page.click('[data-act="pay"][data-m="m1"]'); await page.waitForTimeout(500);
+      await page.fill('#modalRoot input[name="amount"]', '2000'); await page.fill('#modalRoot textarea[name="evsms"]', OWN);
+      await page.click('#modalRoot .actions .btn.pri'); await page.waitForTimeout(900);
+      const cs = await calls(page);
+      ok(/server update/.test(await page.textContent('#toast')) && !cs.some(x => x.name === 'record_payment') && !(await page.evaluate(() => window.__DB.chamas.umoja.data.payments.some(p => p.code === 'TKA1B2C3D4'))), 'without the server update the own payment is not saved (NOTREADY), no fallback');
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+    /* the secretary sees the payment to check, with the proof, and confirms it */
+    const sid = '9b2f7c1e-1111-4222-8333-444455556666';
+    const ch = JSON.parse(JSON.stringify(scenarios.secretary.mock.chamas));
+    ch.umoja.data.payments.push({ id: 'pz', sid, serial: 'MC-UMOJ-2611-7K3Q-9X', memberId: 'm1', month: ch.umoja.data.payments[0].month, amount: 2000, code: 'TKA1B2C3D4', date: new Date().toISOString().slice(0, 10), selfRec: true, flags: ['large'], ev: { kind: 'sms', code: 'TKA1B2C3D4' }, sms: OWN });
+    const payRows = [{ id: sid, chama_id: 'umoja', member_id: 'm1', month: ch.umoja.data.payments[0].month, amount: 2000, mpesa_code: 'TKA1B2C3D4', date: new Date().toISOString().slice(0, 10), evidence: { kind: 'sms', text: OWN, code: 'TKA1B2C3D4' }, self_recorded: true, flags: ['large'], serial: 'MC-UMOJ-2611-7K3Q-9X', recorded_by: 'u1', recorded_by_name: 'Wanjiku Kamau', checked_at: null, checked_by_name: null }];
+    for (const v of [{ sfx: '' }, { sfx: '-dark', dark: true }]) {
+      const { page, ctx, errors } = await open(b, 'secretary', { wait: 1600, dark: v.dark, mock: { ...scenarios.secretary.mock, chamas: JSON.parse(JSON.stringify(ch)), payRows: JSON.parse(JSON.stringify(payRows)) } });
+      if (await page.isVisible('.urgent.on [data-u="later"]')) { await page.click('.urgent.on [data-u="later"]'); await page.waitForTimeout(500); }
+      ok(await page.isVisible('.pc-card') && /1 payment to check/.test(await page.textContent('.pc-card')), 'the secretary gets a card: payments to check' + v.sfx);
+      await shot(page, 'm07-sec-card' + v.sfx);
+      await page.click('.pc-card'); await page.waitForTimeout(500);
+      const sh = await page.textContent('#modalRoot');
+      ok(/TKA1B2C3D4/.test(sh) && /Large amount/.test(sh) && /Wanjiku Kamau/.test(sh), 'the check list shows code, warning chip and who recorded it' + v.sfx);
+      ok(/sent to UMOJA SAVINGS/.test(sh), 'the check list shows the SMS proof' + v.sfx);
+      await shot(page, 'm08-sec-check' + v.sfx);
+      await page.click('[data-act="pcConfirm"]'); await page.waitForTimeout(800);
+      ok((await calls(page)).some(x => x.name === 'confirm_payment' && x.args.p_payment === sid) && /All checked/.test(await page.textContent('#modalRoot')), 'Confirm calls confirm_payment and clears the list' + v.sfx);
+      ok(await page.evaluate(sid => { const p = window.__DB.chamas.umoja.data.payments.find(x => x.sid === sid); return p && p.chk === true; }, sid), 'the payment is marked checked on the server copy' + v.sfx);
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+  },
+  /* DOCS 0.20: serials on detail views, receipts with a QR that decodes and fixed-size signatures, Verify */
+  async v020Docs(b) {
+    const SR = /^MC-[A-Z0-9]{4}-\d{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{2}$/;
+    const ALPHA = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+    const cc = body => { const t = body.replace(/-/g, ''); let a = 0, c = 0; for (let i = 0; i < t.length; i++) { a += (i + 1) * t.charCodeAt(i); c += (2 * i + 3) * t.charCodeAt(i); } return ALPHA[a % 31] + ALPHA[c % 31]; };
+    /* read a QR matrix back: format bits, finder/timing patterns, unmask, codewords, Reed-Solomon syndromes, byte-mode text */
+    const decodeQR = q => {
+      const n = q.size, g = q.rows, EXP = [], LOG = [];
+      for (let i = 0, x = 1; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 256) x ^= 0x11d; } for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+      const mul = (a, c) => a && c ? EXP[LOG[a] + LOG[c]] : 0;
+      const finderOk = (cx, cy) => { for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const d = Math.max(Math.abs(dx), Math.abs(dy)); if (g[cy + dy][cx + dx] !== (d !== 2 ? 1 : 0)) return false; } return true; };
+      if (!finderOk(3, 3) || !finderOk(n - 4, 3) || !finderOk(3, n - 4)) return { err: 'finder' };
+      for (let i = 8; i < n - 8; i++) if (g[6][i] !== (i % 2 ? 0 : 1) || g[i][6] !== (i % 2 ? 0 : 1)) return { err: 'timing' };
+      if (g[n - 8][8] !== 1) return { err: 'dark module' };
+      let f = 0; for (let i = 0; i <= 5; i++) f |= g[i][8] << i; f |= g[7][8] << 6; f |= g[8][8] << 7; f |= g[8][7] << 8; for (let i = 9; i < 15; i++) f |= g[8][14 - i] << i;
+      f ^= 0x5412; const ec = f >> 13, mask = (f >> 10) & 7;
+      let r = f >> 10; for (let i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537); if (((f >> 10) << 10 | r) !== f) return { err: 'format bch' };
+      const MASKS = [(x, y) => (x + y) % 2 === 0, (x, y) => y % 2 === 0, x => x % 3 === 0, (x, y) => (x + y) % 3 === 0, (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x, y) => x * y % 2 + x * y % 3 === 0, (x, y) => (x * y % 2 + x * y % 3) % 2 === 0, (x, y) => ((x + y) % 2 + x * y % 3) % 2 === 0];
+      const fn = (x, y) => (x < 9 && y < 9) || (x >= n - 8 && y < 9) || (x < 9 && y >= n - 8) || x === 6 || y === 6 || (q.ver > 1 && Math.abs(x - (n - 7)) <= 2 && Math.abs(y - (n - 7)) <= 2);
+      const bits = []; for (let right = n - 1; right >= 1; right -= 2) { if (right === 6) right = 5; for (let v = 0; v < n; v++) for (let j = 0; j < 2; j++) { const x = right - j, y = ((right + 1) & 2) === 0 ? n - 1 - v : v; if (!fn(x, y)) bits.push(g[y][x] ^ (MASKS[mask](x, y) ? 1 : 0)); } }
+      const SPEC = { 1: [16, 1, 10], 2: [28, 1, 16], 3: [44, 1, 26], 4: [32, 2, 18] }[q.ver], [dc, nb, ecn] = SPEC, total = (dc + ecn) * nb;
+      const cw = []; for (let i = 0; i < total; i++) cw.push(bits.slice(i * 8, i * 8 + 8).reduce((a, c) => a * 2 + c, 0));
+      const blocks = Array.from({ length: nb }, (_, k) => [...Array.from({ length: dc }, (_, i) => cw[i * nb + k]), ...Array.from({ length: ecn }, (_, i) => cw[dc * nb + i * nb + k])]);
+      for (const bl of blocks) for (let j = 0; j < ecn; j++) { let s = 0; for (const c of bl) s = mul(s, EXP[j]) ^ c; if (s) return { err: 'rs syndrome' }; }
+      const data = blocks.flatMap(bl => bl.slice(0, dc)), db = data.flatMap(c => Array.from({ length: 8 }, (_, i) => (c >> (7 - i)) & 1)), rd = (o, l) => db.slice(o, o + l).reduce((a, c) => a * 2 + c, 0);
+      if (rd(0, 4) !== 4) return { err: 'mode' };
+      const len = rd(4, 8); return { ec, mask, text: Buffer.from(Array.from({ length: len }, (_, i) => rd(12 + i * 8, 8))).toString('utf8') };
+    };
+    for (const dark of [false, true]) {
+      const sfx = dark ? '-dark' : '';
+      const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, dark });
+      await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(700);
+      await page.click('.cg-pay[data-act="payMenu"] >> nth=0'); await page.waitForTimeout(700);
+      const serial = (await page.textContent('#modalRoot .sr-val .sr-code').catch(() => '')).trim();
+      ok(SR.test(serial) && await page.isVisible('#modalRoot .sr-copy'), 'payment detail shows a server serial with a copy button' + sfx);
+      ok((await calls(page)).some(x => x.name === 'issue_serial' && x.args.p_kind === 'payment'), 'an older payment gets its serial when the treasurer opens it' + sfx);
+      ok(await page.evaluate(() => getComputedStyle(document.querySelector('#modalRoot .sr-code')).fontFamily.includes('monospace')), 'the serial is monospace' + sfx);
+      await page.click('#modalRoot [data-act="receiptOpen"]'); await page.waitForTimeout(700);
+      ok(await page.isVisible('.rc-card') && await page.isVisible('.rc-card .rc-qr svg.qr'), 'the receipt opens with a QR code' + sfx);
+      ok(/Umoja Savings/.test(await page.textContent('.rc-card')) && (await page.textContent('.rc-card')).includes(serial), 'the receipt shows the Chama and the serial' + sfx);
+      const boxes = await page.$$eval('.rc-card .sig-box', els => els.map(e => { const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }));
+      ok(boxes.length === 2 && boxes.every(([w, h]) => w === 160 && h === 56), 'treasurer and member signatures sit in fixed 160×56 boxes ' + JSON.stringify(boxes) + sfx);
+      await shot(page, 'd1-receipt' + sfx);
+      const q = await page.evaluate(sr => { const D = __M_src_features_docs_js; const t = D.qrText(sr); const e = D.QR.encode(t); return { t, size: e.size, ver: e.ver, rows: e.rows }; }, serial);
+      const dq = decodeQR(q);
+      ok(!dq.err && dq.ec === 0 && dq.text === q.t && dq.text.includes(serial), 'the QR decodes back to the serial (finders, timing, format M, RS) ' + (dq.err || '') + sfx);
+      const q2 = decodeQR(await page.evaluate(() => { const e = __M_src_features_docs_js.QR.encode('MC-UMOJ-2611-7K3Q-9X'); return { size: e.size, ver: e.ver, rows: e.rows }; }));
+      ok(q2.text === 'MC-UMOJ-2611-7K3Q-9X', 'a bare serial encodes as a version 2 code that reads back');
+      if (!dark) {
+        /* the treasurer adds a signature: it is cropped to the ink and shown in the same box */
+        await page.click('[data-act="rcSignT"]'); await page.waitForTimeout(500);
+        const pad = await page.$('#sigPad'), r = await pad.boundingBox();
+        await page.mouse.move(r.x + r.width * .4, r.y + r.height * .5); await page.mouse.down();
+        for (let i = 1; i <= 12; i++) await page.mouse.move(r.x + r.width * (.4 + i * .02), r.y + r.height * (.5 + (i % 2 ? -.08 : .08)));
+        await page.mouse.up(); await page.click('#modalRoot .btn.pri'); await page.waitForTimeout(900);
+        const dims = await page.evaluate(() => new Promise(res => { const v = __M_src_core_store_js.Store.get().chama.rcSig; if (!v) return res(null); const i = new Image(); i.onload = () => res([i.width, i.height]); i.src = v.sig; }));
+        ok(dims && dims[0] <= 480 && dims[1] <= 168 && dims[0] > dims[1], 'a new signature is stored trimmed to its ink ' + JSON.stringify(dims));
+        ok(await page.isVisible('.rc-card .sig-box img'), 'the treasurer signature shows on the receipt');
+        const dl = page.waitForEvent('download', { timeout: 6000 }).catch(() => null);
+        await page.click('[data-act="rcPng"]'); const file = await dl;
+        ok(file && /\.png$/.test(file.suggestedFilename()), 'the receipt saves as a PNG picture');
+      }
+      /* Verify from the Guide: genuine with the right amount, "details don't match" with a wrong one */
+      await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+      await page.goto(page.url().split('#')[0] + '#/home'); await page.waitForTimeout(500);
+      await page.keyboard.press('/'); await page.waitForTimeout(300);
+      ok(await page.isVisible('.gd-vf'), 'the Guide has a Verify button' + sfx);
+      await page.click('.gd-vf'); await page.waitForTimeout(500);
+      ok(await page.isVisible('#vfSerial'), 'Verify opens as a sheet' + sfx);
+      await page.fill('#vfSerial', serial.replace(/-/g, '').toLowerCase()); await page.waitForTimeout(100);
+      ok(await page.inputValue('#vfSerial') === serial, 'a pasted serial is put in capitals with dashes' + sfx);
+      await page.click('[data-act="verifyMore"]'); await page.waitForTimeout(200);
+      await page.fill('#vfAmount', '2000'); await shot(page, 'd2-verify-form' + sfx);
+      await page.click('[data-act="verifyCheck"]'); await page.waitForTimeout(500);
+      ok(await page.isVisible('.vf-card.is-checking .vf-sweep'), 'checking shows the sweep over the card' + sfx);
+      await shot(page, 'd3-verify-checking' + sfx);
+      await page.waitForSelector('.vf-seal', { timeout: 6000 });
+      ok(await page.isVisible('.vf-seal.ok') && /Genuine/.test(await page.textContent('.vf-seal')) && await page.$$eval('.vf-row.ok', e => e.length) === 2, 'a real serial with the right amount is Genuine, with a tick per detail' + sfx);
+      await shot(page, 'd4-verify-genuine' + sfx);
+      await page.click('[data-act="verifyAgain"]'); await page.waitForTimeout(300);
+      await page.fill('#vfSerial', serial); await page.click('[data-act="verifyMore"]'); await page.fill('#vfAmount', '2500');
+      await page.click('[data-act="verifyCheck"]'); await page.waitForSelector('.vf-seal', { timeout: 6000 });
+      ok(await page.isVisible('.vf-seal.warn') && /Details don.t match/.test(await page.textContent('.vf-seal')) && /amount/i.test(await page.textContent('.vf-why')), 'a wrong amount says the details do not match, and which' + sfx);
+      await shot(page, 'd5-verify-mismatch' + sfx);
+      await page.click('[data-act="verifyAgain"]'); await page.waitForTimeout(300);
+      const fake = 'MC-UMOJ-2611-ABCD'; await page.fill('#vfSerial', fake + '-' + cc(fake)); await page.click('[data-act="verifyCheck"]'); await page.waitForSelector('.vf-seal', { timeout: 6000 });
+      ok(await page.isVisible('.vf-seal.bad') && /Not found/.test(await page.textContent('.vf-seal')), 'an unknown serial says Not found' + sfx);
+      await page.click('[data-act="verifyAgain"]'); await page.waitForTimeout(300);
+      await page.fill('#vfSerial', fake + '-22'); await page.click('[data-act="verifyCheck"]'); await page.waitForTimeout(300);
+      ok(/typing mistake/.test(await page.textContent('#modalRoot .ferr')), 'a serial with wrong check letters is caught on the phone' + sfx);
+      ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no sideways scroll at 390px' + sfx);
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+    /* #/verify/<serial> (what a phone camera opens from the QR) checks straight away */
+    {
+      const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400 });
+      const serial = await page.evaluate(async () => { const s = __M_src_core_store_js.Store.get(); return await __M_src_features_docs_js.Serial.ensure('loan', s.loans[0]); });
+      ok(SR.test(serial), 'a loan gets a serial');
+      await page.goto(page.url().split('#')[0] + '#/verify/' + serial); await page.waitForSelector('.vf-seal', { timeout: 8000 });
+      ok(/Genuine/.test(await page.textContent('.vf-seal')) && /loan/i.test(await page.textContent('.vf-card')), 'the verify link opens Verify and shows Genuine for the loan');
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+    /* a member opens their own payment and its receipt */
+    {
+      const { page, ctx, errors } = await open(b, 'member', { wait: 1500 });
+      await page.goto(page.url().split('#')[0] + '#/grid'); await page.waitForTimeout(700);
+      ok(await page.isVisible('.cg-pay[data-act="payView"]'), 'a member can open their payments');
+      await page.click('.cg-pay[data-act="payView"] >> nth=0'); await page.waitForTimeout(600);
+      ok(await page.isVisible('#modalRoot .sr-kv'), 'the member payment view has a serial row');
+      await page.click('#modalRoot [data-act="receiptOpen"]'); await page.waitForTimeout(700);
+      ok(await page.isVisible('.rc-card') && await page.$$eval('.rc-card .sig-box', e => e.length) === 2 && await page.isVisible('[data-act="rcSignMe"]'), 'the member receipt opens, with a way to add their signature');
+      await shot(page, 'd6-member-receipt');
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
     }
   },
   async offline(b) {

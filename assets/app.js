@@ -1779,7 +1779,7 @@ const NAV_ICON = { profile: ICONS.profile, home: ICONS.home, grid: ICONS.grid, l
 
 const NAV_LABEL = { home: 'Home', grid: 'Payments', chat: 'Chat', loans: 'Loans', members: 'Members', profile: 'Me' };
 
-const SETTINGS_NAME = { 'legal/privacy': 'Privacy Policy', 'legal/terms': 'Terms of Use', 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/app': 'Display', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/help': 'Help and support', 'settings/privacy': 'Privacy and data', 'settings/actions': 'People and access', 'settings/about': 'About' };
+const SETTINGS_NAME = { 'legal/privacy': 'Privacy Policy', 'legal/terms': 'Terms of Use', 'settings/account': 'My account', 'settings/chama': 'Chama settings', 'settings/rules': 'Group rules', 'settings/app': 'Display', 'settings/app/appearance': 'Appearance', 'settings/app/text': 'Text size', 'settings/app/seeing': 'Seeing', 'settings/app/hands': 'Hands and movement', 'settings/app/reading': 'Reading and messages', 'settings/data': 'Data and storage', 'settings/help': 'Help and support', 'settings/privacy': 'Privacy and data', 'settings/actions': 'People and access', 'settings/about': 'About' };
 
 const PAGE_NAME = { home: 'Home', grid: 'Contributions', chat: 'Chat', requests: 'Join requests', insights: 'Insights', register: 'Member register', loans: 'Loans', members: 'Members', more: 'More', fines: 'Fines', expenses: 'Expenses', history: 'History', reports: 'Reports and backup', profile: 'My profile', settings: 'Settings', notifications: 'Notifications', 'notifications/settings': 'Notification settings' };
 
@@ -3020,7 +3020,7 @@ const views = {
       const status = po ? `<span class="po-pill ok">${icon('check', 's')}Sent ${esc(dShort(po.date))}</span>` : `<span class="po-pill warn">${icon('clock', 's')}Not sent yet</span>`;
       /* HOME 0.20: the signature sits in a fixed small box, the actions are real buttons */
       const acts = admin ? (po
-        ? `<div class="po-act">${po.sig ? `<button type="button" class="po-sigbox" data-act="signPayout" data-id="${esc(po.id)}" aria-label="Signature of ${esc(rec.name)}. Tap to sign again"><small>Signed</small>${sigImg(po.sig, 'Recipient signature').replace('<img', '<img class="po-sig"')}</button>` : `<button type="button" class="btn sm tint" data-act="signPayout" data-id="${esc(po.id)}">${icon('sign', 's')}Get signature</button>`}<button type="button" class="btn sm ghost po-undo" data-act="undoPayout" data-id="${esc(po.id)}">${icon('undo', 's')}Undo</button></div>`
+        ? `<div class="po-act">${po.sig ? `<button type="button" class="po-sigbox" data-act="signPayout" data-id="${esc(po.id)}" aria-label="Signature of ${esc(rec.name)}. Tap to sign again"><small>Signed</small>${sigImg(po.sig, 'Recipient signature').replace('<img', '<img class="po-sig"')}</button>` : `<button type="button" class="btn sm tint" data-act="signPayout" data-id="${esc(po.id)}">${icon('sign', 's')}Get signature</button>`}<button type="button" class="btn sm ghost po-undo" data-act="undoPayout" data-id="${esc(po.id)}">${icon('undo', 's')}Undo</button>${__M_src_features_docs_js.Serial.mini('payout', po)}</div>`
         : `<div class="po-act"><button type="button" class="btn pri block" data-act="markPayout" data-amt="${esc(exp)}">${icon('check')}Mark the payout sent</button></div>`) : '';
       const nextLine = Domain.payoutOrder(s, addMonths(cur, 1), 4).filter(t => t.member.id !== rec.id).slice(0, 3).map(t => [t.mk, t.member]);   /* the one payout order (Domain.payoutOrder) */
       const stop = (mk, x, cls) => { const st = cls.includes('now') ? 'Now' : cls.includes('next') ? 'Next' : ''; return `<li class="${cls}"><button type="button" class="po-stop" data-act="poStop" data-mk="${esc(mk)}" data-id="${esc(x.id)}" aria-label="${esc(longMonth(mk) + ': ' + x.name + (st ? ' (' + st.toLowerCase() + ')' : ''))}"><span class="po-dot">${av(x, cls.includes('now') ? 34 : 30)}</span><b>${esc(longMonth(mk).slice(0, 3))}</b><small>${esc(me && x.id === me.id ? 'You' : x.name.split(' ')[0])}</small>${st ? `<em class="po-st">${st}</em>` : ''}</button></li>`; };
@@ -3380,10 +3380,10 @@ const Import = {
     const u = this.ui, R = __M_src_features_requests_js, n = u.files.length, paste = u.tab !== 'shot';
     const found = paste ? Mpesa.parse(u.text).length : 0;
     const tabs = `<div class="im-tabs" role="tablist" aria-label="How to add">
-<button type="button" role="tab" class="im-tab${paste ? ' on' : ''}" aria-selected="${paste}" data-im="tab" data-v="paste">${icon('chat')}<span><small>Recommended</small><b>Paste the M-Pesa SMS</b></span></button>
+<button type="button" role="tab" class="im-tab${paste ? ' on' : ''}" aria-selected="${paste}" data-im="tab" data-v="paste">${icon('chat')}<span><small>Recommended</small><b>Paste the <span class="im-nw">M-Pesa</span> SMS</b></span></button>
 <button type="button" role="tab" class="im-tab${paste ? '' : ' on'}" aria-selected="${!paste}" data-im="tab" data-v="shot">${icon('camera')}<span><small>May miss some</small><b>Screenshot</b></span></button></div>`;
     const body = paste ? `${u.note ? `<p class="im-note" role="alert">${icon('alert', 's')}<span>${esc(u.note)}</span></p>` : ''}
-<label class="im-lab" for="imText">Recommended: paste the M-Pesa SMS</label>
+<label class="im-lab" for="imText">The M-Pesa SMS</label>
 <textarea id="imText" class="im-text" rows="6" placeholder="Long-press the M-Pesa SMS, tap Copy, then paste it here">${esc(u.text)}</textarea>
 <p class="im-live${found ? ' ok' : ''}" id="imLive" aria-live="polite">${this.liveText(u.text)}</p>
 <div class="im-btns">${navigator.clipboard && navigator.clipboard.readText ? `<button type="button" class="btn lg" data-im="clip">${icon('import')}Paste</button>` : ''}<button type="button" class="btn pri lg grow" data-im="go">Find payments</button></div>`
@@ -4062,7 +4062,7 @@ const actions = {
       <div class="kv"><span>About each month</span><b class="num">${esc(kes(c.installment))}</b></div>
       <div class="kv"><span>Issued</span><b>${esc(l.date)}</b></div>
       ${l.agreement ? signedTerms(s, l) : admin ? `<div class="notice">${icon('alert', 's')}<span>The borrower has not signed the terms yet. <button type="button" class="linkish" data-act="loanAgree" data-id="${esc(l.id)}">Read and sign now</button></span></div>` : ''}
-      ${l.sig ? `<div class="kv"><span>Signature</span><b>${sigImg(l.sig, 'Borrower signature')}</b></div>` : ''}
+      ${l.sig ? `<div class="kv"><span>Signature</span><b>${sigImg(l.sig, 'Borrower signature')}</b></div>` : ''}${__M_src_features_docs_js.Serial.row('loan', l)}
       ${reps.length ? `<h3 style="font-size:.9em;margin:18px 0 4px">Repayments</h3>${reps.map(r => `<div class="kv"><span>${esc(r.date)}</span><b class="num">${esc(kes(r.amount))}</b></div>`).join('')}` : ''}
       ${admin ? `<div class="btns">${c.balance ? `<button type="button" class="btn pri grow" data-act="repay" data-id="${esc(l.id)}">Record repayment</button>` : ''}<button type="button" class="btn grow" data-act="signLoan" data-id="${esc(l.id)}">${icon('sign')}${l.sig ? 'Sign again' : 'Get signature'}</button><button type="button" class="btn grow" data-act="editLoan" data-id="${esc(l.id)}">${icon('pencil')}Edit</button></div>` : ''}` });
   },
@@ -4157,7 +4157,7 @@ function memberForm(m) {
     { name: 'role', label: 'Title in the group (optional)', value: m?.role, placeholder: 'Chair, Patron, Organiser' },
     { name: 'shares', label: 'Shares (2 pays double)', type: 'number', value: m?.shares || 1 }],
     body: `<div class="mf-photo"><span class="mf-av" id="mfAv">${pic ? `<img src="${pic}" alt="">` : `<b>${esc(ini(m && m.name))}</b>`}</span><div><b>Profile photo</b><small>Optional. Helps everyone recognise them.</small><div class="mf-btns"><label class="btn sm tint">${icon('camera', 's')}${pic ? 'Change' : 'Add photo'}<input type="file" accept="image/*" id="mfFile" hidden></label>${pic ? '<button type="button" class="btn sm ghost" id="mfDel">Remove</button>' : ''}</div></div><input type="hidden" name="photo" id="mfPhoto" value="${pic ? 'keep' : ''}"></div>`
-      + (m ? `<p class="plain">Changes are kept in History.</p><div class="btns" style="margin-top:6px"><button type="button" class="btn bad sm" data-act="delMember" data-id="${esc(m.id)}">Remove this member</button></div>` : '<p class="plain">Members are the people whose money the chama records. To let someone sign in, invite them from People and access.</p>'),
+      + (m ? `<p class="plain">Changes are kept in History.</p><div class="btns" style="margin-top:6px"><button type="button" class="btn bad sm" data-act="delMember" data-id="${esc(m.id)}">Remove this member</button>${__M_src_core_session_js.Session.role === 'treasurer' && !S().shared ? `<button type="button" class="btn ghost sm em-btn" data-act="emergencyRemove" data-id="${esc(m.id)}">${icon('alert', 's')}Emergency removal</button>` : ''}</div>` : '<p class="plain">Members are the people whose money the chama records. To let someone sign in, invite them from People and access.</p>'),
     onSubmit: v => {
       const phone = String(v.phone || '').replace(/[\s-]/g, '');
       const d = { name: String(v.name || '').trim().replace(/\s+/g, ' '), phone, role: String(v.role || '').trim(), shares: Math.max(1, Math.round(Number(v.shares) || 1)) };
@@ -4212,10 +4212,15 @@ const Doc = {
     if (!rows.length) return `<p class="none">${Doc.e(opts.empty || 'Nothing recorded.')}</p>`;
     return `<table><thead><tr>${head.map((h, i) => `<th${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${Doc.e(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${c && c.html ? c.html : Doc.e(c)}</td>`).join('')}</tr>`).join('')}</tbody>${opts.foot ? `<tfoot><tr>${opts.foot.map((c, i) => `<td${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${Doc.e(c)}</td>`).join('')}</tr></tfoot>` : ''}</table>`;
   },
-  html(title, sub, chamaName, body, photo) {
-    const { c } = this.brand(), when = new Date().toLocaleString('en-KE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${Doc.e(title)}</title><style>
-@page { size: A4; margin: 16mm 14mm 18mm; }
+  html(title, sub, chamaName, body, photo, opt = {}) {
+    const { c } = this.brand(), at = opt.at instanceof Date && !isNaN(opt.at) ? opt.at : new Date(), when = at.toLocaleString('en-KE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const sn = String(opt.serial || ''), css = v => String(v).replace(/["\\<>\n]/g, '');
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${Doc.e(title)}</title><meta name="mc-title" content="${Doc.e(title)}"><meta name="mc-serial" content="${Doc.e(sn)}"><meta name="mc-when" content="${Doc.e(when)}"><meta name="mc-accent" content="${Doc.e(c)}"><style>
+@page { size: A4; margin: 14mm 12mm 18mm; @bottom-left { content: "${css(sn ? 'Serial ' + sn + '  ·  ' : '')}Generated ${css(when)}"; font: 7.5pt sans-serif; color: #5c6a64; } @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7.5pt sans-serif; color: #8a958f; } }
+.grid { font-size: 7.2pt; } .grid th, .grid td { padding: 3px 3px; } .grid th { font-size: 6.6pt; letter-spacing: 0; } .grid td:first-child { white-space: nowrap; }
+.c-ok { background: #e1f3e8; } .c-part, .c-due { background: #fbf0dc; } .c-late { background: #fbe6e3; color: #b42318; } .c-na { background: #f4f6f5; }
+td.b { font-weight: 700; } td.red { color: #b42318; } .hint { color: #5c6a64; font-size: 8pt; margin: 4px 0 0; } h3 { font-size: 10pt; margin: 14px 0 6px; } .card small { display: block; font-size: 7.5pt; color: #5c6a64; }
+.foot .sn { font-weight: 700; color: #3b4a44; letter-spacing: .02em; }
 * { box-sizing: border-box; } body { margin: 0; font: 10.5pt/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #12231f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .top { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid ${c}; padding-bottom: 10px; margin-bottom: 18px; }
 .brand { display: flex; align-items: center; gap: 10px; } .mark { width: 34px; height: 34px; border-radius: 10px; background: ${c}; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 13pt; }
@@ -4225,15 +4230,15 @@ h2 { font-size: 12pt; color: ${c}; margin: 22px 0 8px; padding-bottom: 4px; bord
 .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .card { border: 1px solid #e3e7e4; border-radius: 10px; padding: 9px 10px; break-inside: avoid; }
 .card span { display: block; font-size: 8pt; color: #5c6a64; text-transform: uppercase; letter-spacing: .04em; } .card b { font-size: 13pt; }
 .card.hl { background: ${c}; border-color: ${c}; color: #fff; } .card.hl span { color: rgba(255,255,255,.8); }
-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; } th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; color: #5c6a64; border-bottom: 1.5px solid #cfd6d2; padding: 6px 6px; }
-td { padding: 6px; border-bottom: 1px solid #edf0ee; vertical-align: top; } tr { break-inside: avoid; } .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table { width: 100%; border-collapse: collapse; font-size: 8.6pt; } th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; color: #5c6a64; border-bottom: 1.5px solid #cfd6d2; padding: 6px 6px; }
+td { padding: 4px 5px; border-bottom: 1px solid #edf0ee; vertical-align: top; } tr { break-inside: avoid; } .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tfoot td { font-weight: 700; border-top: 1.5px solid #cfd6d2; border-bottom: 0; } .none { color: #5c6a64; font-style: italic; }
 .tag { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 8pt; font-weight: 700; } .ok { background: #e1f3e8; color: #17824f; } .late { background: #fbe6e3; color: #b42318; } .part { background: #fbf0dc; color: #8f5a0b; } .ahead { background: #ece6fa; color: #5b34b8; } .gold { background: #fbf1d0; color: #7a5410; }
 .note { margin-top: 22px; padding: 10px 12px; border-radius: 10px; background: #f3f5f4; color: #3b4a44; font-size: 9pt; }
 .foot { margin-top: 26px; color: #8a958f; font-size: 8pt; border-top: 1px solid #e3e7e4; padding-top: 8px; display: flex; justify-content: space-between; }
 </style></head><body><div class="top"><div class="brand"><span class="mark">${/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo || '') ? `<img src="${photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px">` : Doc.e(String(chamaName || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}</span><div><b>${Doc.e(chamaName)}</b><small>My Chama</small></div></div><div class="meta">Prepared ${Doc.e(when)}</div></div>
 <h1>${Doc.e(title)}</h1><p class="sub">${Doc.e(sub)}</p>${body}
-<div class="foot"><span>Figures come from the records in My Chama at the time shown above.</span><span>${Doc.e(chamaName)}</span></div></body></html>`;
+<div class="foot"><span>${sn ? `<span class="sn doc-serial">Serial ${Doc.e(sn)}</span> · ` : ''}Generated ${Doc.e(when)}. Figures come from the records in My Chama at that time.</span><span>${Doc.e(chamaName)}</span></div></body></html>`;
   },
   /* print a document through a hidden frame: phones offer "Save as PDF", computers a PDF printer */
   print(html, name) {
@@ -4243,39 +4248,283 @@ tfoot td { font-weight: 700; border-top: 1.5px solid #cfd6d2; border-bottom: 0; 
     const go = () => { try { f.contentWindow.document.title = name || 'My Chama'; f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { const w = window.open('', '_blank'); if (w) { w.document.write(html); w.document.close(); w.print(); } } setTimeout(() => f.remove(), 60000); };
     setTimeout(go, 250);
   },
-  memberStatement(s, m) {
-    const cur = Domain.now(), U = __M_src_core_utils_js, pays = s.payments.filter(p => p.memberId === m.id).sort((a, b) => a.month.localeCompare(b.month) || String(a.date).localeCompare(String(b.date)));
+  /* ---- 0.20 dense reports (CHATDOCS). Plain numbers in tables (the heading says KES), dates as recorded. ---- */
+  n: v => Math.round(Number(v) || 0).toLocaleString('en-KE'),
+  tag: (cls, t) => ({ html: `<span class="tag ${cls}">${Doc.e(t)}</span>` }),
+  bal: v => Math.abs(v) < 0.5 ? '0' : v > 0 ? 'owes ' + Doc.n(v) : 'ahead ' + Doc.n(-v),
+  /* the next instalment of a loan: equal monthly instalments, the first a month after it was given */
+  nextDue(l) {
+    const U = __M_src_core_utils_js, c = Domain.loan(l); if (c.balance <= 0) return null;
+    const inst = c.installment || c.total, k = Math.min(Math.max(0, (Number(l.months) || 1) - 1), Math.floor((c.paid + 0.01) / inst)), d = String(l.date || '');
+    const date = /^\d{4}-\d{2}-\d{2}/.test(d) ? U.addMonths(d.slice(0, 7), k + 1) + '-' + String(Math.min(28, Number(d.slice(8, 10)) || 1)).padStart(2, '0') : '';
+    return { date, amount: Math.max(0, Math.min(c.balance, Math.round((inst * (k + 1) - c.paid) * 100) / 100)), late: !!date && date < U.todayISO() };
+  },
+  /* every money movement as [month, type, signed amount]; undated ones count before the report, later ones in this month */
+  flows(s) {
+    const cur = Domain.now(), ev = [], mk = (d, fb) => { const k = /^\d{4}-\d{2}/.test(d || '') ? String(d).slice(0, 7) : /^\d{4}-\d{2}$/.test(fb || '') ? fb : ''; return k > cur ? cur : k; };
+    s.payments.forEach(p => ev.push([mk(p.date, p.month), 'con', Number(p.amount) || 0]));
+    s.fines.filter(f => f.paid).forEach(f => ev.push([mk(f.date), 'fin', Number(f.amount) || 0]));
+    s.loans.forEach(l => { ev.push([mk(l.date), 'lent', -(Number(l.principal) || 0)]); (l.repayments || []).forEach(r => ev.push([mk(r.date, mk(l.date)), 'rep', Number(r.amount) || 0])); });
+    s.payouts.forEach(p => ev.push([mk(p.date, p.month), 'pay', -(Number(p.amount) || 0)]));
+    s.expenses.forEach(x => ev.push([mk(x.date), 'exp', -(Number(x.amount) || 0)]));
+    return ev;
+  },
+  /* a member's contribution account: each amount due and each payment in order, with the balance after every line */
+  ledger(s, m) {
+    const U = __M_src_core_utils_js, cur = Domain.now(), join = Domain.joinMonth(s, m.id), dd = String(Math.min(28, Number(s.chama.dueDay) || 1)).padStart(2, '0');
+    const pays = s.payments.filter(p => p.memberId === m.id), last = pays.reduce((a, p) => p.month > a ? p.month : a, cur);
+    const from = join && U.monthDiff(join, cur) > 35 ? U.addMonths(cur, -35) : join, rows = [];
+    let bal = 0, tDue = 0, tPaid = 0;
+    if (from && from > join) { const pk = U.addMonths(from, -1); bal = Domain.dueThrough(s, m.id, pk) - Domain.paidThrough(s, m.id, pk); rows.push(['', 'Brought forward', '', '', Doc.bal(bal)]); }
+    for (let k = from, i = 0; k && k <= last && i < 120; k = U.addMonths(k, 1), i++) {
+      const due = k <= cur ? Domain.dueFor(s, m.id, k) : 0;
+      if (due) { bal += due; tDue += due; rows.push([k + '-' + dd, 'Due for ' + monthLabel(k), Doc.n(due), '', Doc.bal(bal)]); }
+      pays.filter(p => p.month === k).sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(p => { const a = Number(p.amount) || 0; bal -= a; tPaid += a; rows.push([p.date || '', 'Paid for ' + monthLabel(k) + (p.code ? ' · ' + p.code : ''), '', Doc.n(a), Doc.bal(bal)]); });
+    }
+    return { rows, tDue, tPaid, bal };
+  },
+  /* 0.20: every report carries a document serial (issue_serial, kind document) and the time it was made.
+     If the server does not have issue_serial yet, nothing is made (NOTREADY). */
+  NOTREADY: 'Nothing was made. Numbered reports need the latest server update.',
+  async serial(what, memberId, amount) {
+    const B = __M_src_core_backend_js.Backend, St = __M_src_core_store_js.Store, at = new Date(), U = __M_src_core_utils_js;
+    if (!B.sb || !St.chamaId) throw new Error('Open your Chama first');
+    const { data, error } = await B.sb.rpc('issue_serial', { p_cid: St.chamaId, p_kind: 'document', p_ref: what + ':' + (memberId || 'chama') + ':' + at.toISOString(), p_member: memberId || null, p_amount: amount == null ? null : Math.round(amount), p_date: U.todayISO(), p_code: null });
+    if (error) { const e = new Error(/Could not find the function|PGRST202|schema cache|does not exist/i.test(error.message || '') ? Doc.NOTREADY : /fetch|network/i.test(error.message || '') ? 'No connection. Nothing was made. Try again when you are online.' : (error.message || 'Could not number this document')); e.notReady = e.message === Doc.NOTREADY; throw e; }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || !row.serial) throw new Error('Could not number this document. Try again.');
+    return { serial: String(row.serial), at: row.issued_at ? new Date(row.issued_at) : at };
+  },
+  /* a numbered report, ready to print or to turn into a PDF file: { html, name, serial } */
+  async make(kind, s, m) {
+    const chama = kind === 'chama';
+    const sr = await this.serial(chama ? 'report' : 'statement', chama ? null : m.id, chama ? Domain.cashOnHand(s) : Domain.memberSaved(s, m.id));
+    const html = chama ? this.chamaReport(s, sr) : this.memberStatement(s, m, sr);
+    const day = __M_src_core_utils_js.todayISO();
+    return { html, serial: sr.serial, name: (chama ? s.chama.name + ' report ' : 'Statement ' + m.name + ' ') + day };
+  },
+  fail(e) { const T = __M_src_ui_toast_js; if (e && e.notReady) T.Pop.alert(Doc.NOTREADY, { title: 'Needs the server update' }); else T.toast((e && e.message) || 'Could not make the document'); },
+  memberStatement(s, m, opt = {}) {
+    const cur = Domain.now(), pays = s.payments.filter(p => p.memberId === m.id).sort((a, b) => a.month.localeCompare(b.month) || String(a.date).localeCompare(String(b.date)));
     const loans = s.loans.filter(l => l.memberId === m.id), fines = s.fines.filter(f => f.memberId === m.id), outs = s.payouts.filter(p => p.memberId === m.id);
     const owe = Domain.outstanding(s, m.id, cur), ahead = Domain.ahead(s, m.id, cur), st = Domain.tone(s, m.id, cur);
     const stTag = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Paid ahead'], gold: ['gold', 'Gold standing'], idle: ['ok', 'Nothing due'] }[st] || ['ok', ''];
-    const months = []; { let k = Domain.joinMonth(s, m.id); for (let i = 0; i < 36 && k <= cur; i++, k = U.addMonths(k, 1)) months.push(k); }
-    const body = `<div class="cards"><div class="card hl"><span>Total saved</span><b>${Doc.e(kes(Domain.memberSaved(s, m.id)))}</b></div><div class="card"><span>${owe ? 'Owing now' : 'Paid ahead'}</span><b>${Doc.e(kes(owe || ahead))}</b></div><div class="card"><span>Loan balance</span><b>${Doc.e(kes(Domain.memberLoanBalance(s, m.id)))}</b></div><div class="card"><span>Unpaid fines</span><b>${Doc.e(kes(Domain.memberFinesDue(s, m.id)))}</b></div></div>
-<h2>Month by month</h2>${Doc.table(['Month', 'Due', 'Paid', 'Status'], months.slice(-24).map(k => { const t = Domain.status(s, m.id, k), map = { paid: ['ok', 'Paid'], late: ['late', 'Not paid'], partial: ['part', 'Part paid'], due: ['part', 'Due'], na: ['ok', '—'], future: ['ok', '—'] }[t]; return [monthLabel(k), kes(Domain.dueFor(s, m.id, k)), kes(Domain.paidIn(s, m.id, k)), { html: `<span class="tag ${map[0]}">${map[1]}</span>` }]; }), { num: [1, 2] })}
-<h2>Payments</h2>${Doc.table(['Date', 'For month', 'M-Pesa code', 'Amount'], pays.map(p => [p.date || '', monthLabel(p.month), p.code || '—', kes(p.amount)]), { num: [3], foot: pays.length ? ['', '', 'Total', kes(sum(pays, p => p.amount))] : null })}
-<h2>Loans</h2>${Doc.table(['Issued', 'Borrowed', 'Interest', 'To repay', 'Repaid', 'Balance'], loans.map(l => { const c = Domain.loan(l); return [l.date || '', kes(l.principal), l.rate + '% × ' + l.months + ' mo', kes(c.total), kes(c.paid), kes(c.balance)]; }), { num: [1, 3, 4, 5], empty: 'No loans.' })}
-<h2>Fines</h2>${Doc.table(['Date', 'Reason', 'Amount', 'Status'], fines.map(f => [f.date || '', f.reason || '', kes(f.amount), { html: `<span class="tag ${f.paid ? 'ok' : 'late'}">${f.paid ? 'Paid' : 'Unpaid'}</span>` }]), { num: [2], empty: 'No fines.' })}
-${outs.length ? `<h2>Payouts received</h2>${Doc.table(['Month', 'Date', 'Amount'], outs.map(p => [monthLabel(p.month), p.date || '', kes(p.amount)]), { num: [2] })}` : ''}
+    const L = this.ledger(s, m), owed = sum(fines.filter(f => !f.paid), f => f.amount), fpaid = sum(fines.filter(f => f.paid), f => f.amount);
+    const nt = s.chama.mode === 'savings' || m.left ? null : Domain.nextTurn(s, m.id), chk = p => p.selfRec ? (p.chk ? 'Checked' : 'Awaiting check') : '';
+    const body = `<div class="cards"><div class="card hl"><span>Total saved</span><b>${Doc.e(kes(Domain.memberSaved(s, m.id)))}</b></div><div class="card"><span>${owe ? 'Owing now' : 'Paid ahead'}</span><b>${Doc.e(kes(owe || ahead))}</b></div><div class="card"><span>Loan balance</span><b>${Doc.e(kes(Domain.memberLoanBalance(s, m.id)))}</b></div><div class="card"><span>Unpaid fines</span><b>${Doc.e(kes(owed))}</b></div>
+<div class="card"><span>Each month</span><b>${Doc.e(kes(Domain.rate(s, m.id)))}</b></div><div class="card"><span>Next payout</span><b>${Doc.e(nt ? monthLabel(nt) : '—')}</b></div><div class="card"><span>On time in a row</span><b>${Doc.e(Domain.streak(s, m.id))} mo</b></div><div class="card"><span>Fines paid</span><b>${Doc.e(kes(fpaid))}</b></div></div>
+<h2>Contribution account</h2>${Doc.table(['Date', 'Details', 'Due', 'Paid', 'Balance'], L.rows, { num: [2, 3, 4], empty: 'Nothing due yet.', foot: L.rows.length ? ['', 'Totals', Doc.n(L.tDue), Doc.n(L.tPaid), Doc.bal(L.bal)] : null })}
+<p class="hint">Every amount due and every payment, in order. The balance after each line shows what was owed, or paid ahead.</p>
+<h2>Payments</h2>${Doc.table(['Date', 'For month', 'M-Pesa code', 'Amount', 'Serial', 'Check'], pays.map(p => [p.date || '', monthLabel(p.month), p.code || '—', Doc.n(p.amount), p.serial || '—', chk(p)]), { num: [3], foot: pays.length ? ['', '', 'Total', Doc.n(sum(pays, p => p.amount)), '', ''] : null })}
+<h2>Loans</h2>${loans.length ? loans.map(l => { const c = Domain.loan(l), nd = this.nextDue(l); let b = c.total; const rows = [[l.date || '', 'Borrowed ' + Doc.n(l.principal) + ' at ' + l.rate + '% × ' + l.months + ' mo, interest ' + Doc.n(c.total - l.principal), Doc.n(c.total), '', Doc.n(b)]]; (l.repayments || []).slice().sort((x, y) => String(x.date).localeCompare(String(y.date))).forEach(r => { b = Math.max(0, b - (Number(r.amount) || 0)); rows.push([r.date || '', 'Repayment', '', Doc.n(r.amount), Doc.n(b)]); }); return `<h3>Loan of ${Doc.e(kes(l.principal))}${l.date ? ', ' + Doc.e(l.date) : ''}</h3>` + Doc.table(['Date', 'Details', 'To repay', 'Repaid', 'Balance'], rows, { num: [2, 3, 4], foot: ['', nd ? 'Next: ' + Doc.n(nd.amount) + ' by ' + nd.date + (nd.late ? ' (late)' : '') : 'Fully repaid', Doc.n(c.total), Doc.n(c.paid), Doc.n(c.balance)] }); }).join('') : '<p class="none">No loans.</p>'}
+<h2>Fines</h2>${Doc.table(['Date', 'Reason', 'Amount', 'Status'], fines.map(f => [f.date || '', f.reason || '', Doc.n(f.amount), Doc.tag(f.paid ? 'ok' : 'late', f.paid ? 'Paid' : 'Unpaid')]), { num: [2], empty: 'No fines.', foot: fines.length ? ['', 'Owed ' + Doc.n(owed) + ' · paid ' + Doc.n(fpaid), Doc.n(owed + fpaid), ''] : null })}
+${outs.length ? `<h2>Payouts received</h2>${Doc.table(['Month', 'Date', 'Amount', 'Serial'], outs.map(p => [monthLabel(p.month), p.date || '', Doc.n(p.amount), p.serial || '—']), { num: [2], foot: ['', 'Total', Doc.n(sum(outs, p => p.amount)), ''] })}` : ''}
 <div class="note">Status for ${Doc.e(monthLabel(cur))}: <span class="tag ${stTag[0]}">${Doc.e(stTag[1])}</span>. Contributions are due by day ${Doc.e(s.chama.dueDay)} of each month${s.chama.payTo ? ', paid to ' + Doc.e(s.chama.payTo) : ''}. If anything here looks wrong, tell the treasurer: every change is kept in the Chama's history.</div>`;
-    return this.html('Statement for ' + m.name, (m.shares || 1) > 1 ? m.shares + ' shares · joined ' + monthLabel(Domain.joinMonth(s, m.id)) : 'Joined ' + monthLabel(Domain.joinMonth(s, m.id)), s.chama.name, body, s.chama.photo);
+    return this.html('Statement for ' + m.name, ((m.shares || 1) > 1 ? m.shares + ' shares · joined ' : 'Joined ') + monthLabel(Domain.joinMonth(s, m.id)) + ' · amounts in KES', s.chama.name, body, s.chama.photo, opt);
   },
-  chamaReport(s) {
-    const cur = Domain.now(), U = __M_src_core_utils_js, active = s.members.filter(m => !m.left);
+  chamaReport(s, opt = {}) {
+    const cur = Domain.now(), U = __M_src_core_utils_js, active = s.members.filter(m => !m.left), n = Doc.n;
     const months = Array.from({ length: 12 }, (_, i) => U.addMonths(cur, i - 11)).filter(k => k >= (s.chama.startMonth || '0000'));
-    const inn = sum(s.payments, p => p.amount), loansOut = sum(s.loans, l => Domain.loan(l).balance);
-    const body = `<div class="cards"><div class="card hl"><span>Cash on hand</span><b>${Doc.e(kes(Domain.cashOnHand(s)))}</b></div><div class="card"><span>All contributions</span><b>${Doc.e(kes(inn))}</b></div><div class="card"><span>Loans out</span><b>${Doc.e(kes(loansOut))}</b></div><div class="card"><span>Members</span><b>${active.length}</b></div></div>
-<h2>Collections by month</h2>${Doc.table(['Month', 'Expected', 'Collected', 'Share', 'Paid up'], months.map(k => { const exp = sum(s.members.filter(m => Domain.joinMonth(s, m.id) <= k), m => Domain.dueFor(s, m.id, k)), got = sum(s.payments.filter(p => p.month === k), p => p.amount), up = s.members.filter(m => !(m.left && k > m.left) && Domain.joinMonth(s, m.id) <= k && Domain.status(s, m.id, k) === 'paid').length; return [monthLabel(k), kes(exp), kes(got), exp ? Math.round(got / exp * 100) + '%' : '—', String(up)]; }), { num: [1, 2, 3, 4] })}
-<h2>Members</h2>${Doc.table(['Member', 'Shares', 'Saved', 'Owing now', 'Loan balance', 'Status'], s.members.map(m => { const t = Domain.tone(s, m.id, cur), map = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Ahead'], gold: ['gold', 'Gold'], idle: ['ok', m.left ? 'Left' : '—'] }[t] || ['ok', '—']; return [m.name, String(m.shares || 1), kes(Domain.memberSaved(s, m.id)), kes(Domain.outstanding(s, m.id, cur)), kes(Domain.memberLoanBalance(s, m.id)), { html: `<span class="tag ${map[0]}">${map[1]}</span>` }]; }), { num: [1, 2, 3, 4], foot: ['Total', '', kes(inn), kes(sum(s.members, m => Domain.outstanding(s, m.id, cur))), kes(loansOut), ''] })}
-<h2>Loans</h2>${Doc.table(['Member', 'Issued', 'Borrowed', 'To repay', 'Balance', 'Terms signed'], s.loans.map(l => { const c = Domain.loan(l); return [Domain.memberName(s, l.memberId), l.date || '', kes(l.principal), kes(c.total), kes(c.balance), l.agreement ? (new Date(l.agreement.at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) || 'Yes') + (/borrower/.test(l.agreement.on || '') ? ', own phone' : '') : 'No']; }), { num: [2, 3, 4], empty: 'No loans.' })}
-<h2>Payouts</h2>${Doc.table(['Month', 'Member', 'Date', 'Amount', 'Signed'], s.payouts.slice().sort((a, b) => a.month.localeCompare(b.month)).map(p => [monthLabel(p.month), Domain.memberName(s, p.memberId), p.date || '', kes(p.amount), p.sig ? 'Yes' : 'No']), { num: [3], empty: 'No payouts yet.' })}
-${s.chama.mode === 'savings' ? '' : `<h2>Payout order</h2>${Doc.table(['Turn', 'Month', 'Member'], Domain.payoutOrder(s).map((t, i) => [String(i + 1), monthLabel(t.mk), t.member.name + (t.sent ? ' (sent)' : '')]), { empty: 'No members yet.' })}`}
-<h2>Expenses</h2>${Doc.table(['Date', 'For', 'Type', 'Amount'], s.expenses.map(x => [x.date || '', x.title || '', x.category || '', kes(x.amount)]), { num: [3], empty: 'No expenses.', foot: s.expenses.length ? ['', '', 'Total', kes(sum(s.expenses, x => x.amount))] : null })}
-<h2>Fines</h2>${Doc.table(['Date', 'Member', 'Reason', 'Amount', 'Status'], s.fines.map(f => [f.date || '', Domain.memberName(s, f.memberId), f.reason || '', kes(f.amount), f.paid ? 'Paid' : 'Unpaid']), { num: [3], empty: 'No fines.' })}
-<div class="note">Cash on hand = contributions + fines paid + loan repayments − loans given − payouts − expenses. This report contains members' personal data: share it only with the Chama's officials.</div>`;
-    return this.html(s.chama.name + ' report', monthLabel(months[0] || cur) + ' to ' + monthLabel(cur) + ' · ' + (s.chama.mode === 'savings' ? 'Savings' : 'Merry-go-round') + ' · ' + kes(s.chama.monthly) + ' a share each month', s.chama.name, body, s.chama.photo);
+    const inn = sum(s.payments, p => p.amount), loansOut = sum(s.loans, l => Domain.loan(l).balance), arrears = sum(s.members, m => Domain.outstanding(s, m.id, cur));
+    const fOwed = sum(s.fines.filter(f => !f.paid), f => f.amount), fPaid = sum(s.fines.filter(f => f.paid), f => f.amount);
+    const repaid = sum(s.loans, l => sum(l.repayments || [], r => r.amount)), lent = sum(s.loans, l => l.principal), paidOut = sum(s.payouts, p => p.amount), spent = sum(s.expenses, x => x.amount);
+    const expCur = sum(s.members.filter(m => Domain.joinMonth(s, m.id) <= cur), m => Domain.dueFor(s, m.id, cur)), gotCur = sum(s.payments.filter(p => p.month === cur), p => p.amount);
+    const ev = this.flows(s), first = months[0] || cur, open = sum(ev.filter(e => !e[0] || e[0] < first), e => e[2]);
+    let run = open;
+    const cf = months.map(k => { const g = t => sum(ev.filter(e => e[0] === k && e[1] === t), e => Math.abs(e[2])); const i = g('con') + g('fin') + g('rep'), o = g('lent') + g('pay') + g('exp'); run += i - o; return [monthLabel(k), n(g('con')), n(g('fin')), n(g('rep')), n(g('lent')), n(g('pay')), n(g('exp')), n(i - o), n(run)]; });
+    const cls = { paid: 'c-ok', partial: 'c-part', late: 'c-late', due: 'c-due', na: 'c-na', future: 'c-na' };
+    const grid = `<table class="grid"><thead><tr><th>Member</th>${months.map(k => `<th class="n">${Doc.e(monthLabel(k))}</th>`).join('')}<th class="n">Paid</th><th class="n">Arrears</th></tr></thead><tbody>${s.members.map(m => { let tot = 0; const cells = months.map(k => { const st = Domain.status(s, m.id, k), p = Domain.paidIn(s, m.id, k); tot += p; return `<td class="n ${cls[st] || ''}">${st === 'na' ? '' : p ? n(p) : st === 'paid' ? '+' : '0'}</td>`; }).join(''); const ow = Domain.outstanding(s, m.id, cur); return `<tr><td>${Doc.e(m.name)}${m.left ? ' (left)' : ''}</td>${cells}<td class="n b">${n(tot)}</td><td class="n b${ow ? ' red' : ''}">${n(ow)}</td></tr>`; }).join('')}</tbody><tfoot><tr><td>Collected</td>${months.map(k => `<td class="n">${n(sum(s.payments.filter(p => p.month === k), p => p.amount))}</td>`).join('')}<td class="n">${n(sum(s.payments.filter(p => months.includes(p.month)), p => p.amount))}</td><td class="n">${n(arrears)}</td></tr></tfoot></table>`;
+    const loans = s.loans.slice().sort((a, b) => (Domain.loan(b).balance > 0) - (Domain.loan(a).balance > 0) || String(a.date).localeCompare(String(b.date)));
+    const cats = {}; s.expenses.forEach(x => { const k = x.category || 'Other'; cats[k] = cats[k] || [0, 0]; cats[k][0]++; cats[k][1] += Number(x.amount) || 0; });
+    const pays = s.payments.filter(p => months.includes(p.month)).sort((a, b) => a.month.localeCompare(b.month) || String(a.date).localeCompare(String(b.date)));
+    const body = `<div class="cards"><div class="card hl"><span>Cash on hand</span><b>${Doc.e(kes(Domain.cashOnHand(s)))}</b></div><div class="card"><span>Money in</span><b>${Doc.e(kes(inn + fPaid + repaid))}</b></div><div class="card"><span>Money out</span><b>${Doc.e(kes(lent + paidOut + spent))}</b></div><div class="card"><span>Loans out</span><b>${Doc.e(kes(loansOut))}</b></div>
+<div class="card"><span>${Doc.e(monthLabel(cur))} collected</span><b>${Doc.e(kes(gotCur))}</b><small>of ${Doc.e(kes(expCur))}</small></div><div class="card"><span>Arrears</span><b>${Doc.e(kes(arrears))}</b></div><div class="card"><span>Fines unpaid</span><b>${Doc.e(kes(fOwed))}</b></div><div class="card"><span>Members</span><b>${active.length}</b></div></div>
+<h2>Cash flow</h2>${Doc.table(['Money in', 'KES', 'Money out', 'KES'], [['Contributions', n(inn), 'Loans given', n(lent)], ['Fines paid', n(fPaid), 'Payouts', n(paidOut)], ['Loan repayments', n(repaid), 'Expenses', n(spent)]], { num: [1, 3], foot: ['Total in', n(inn + fPaid + repaid), 'Total out', n(lent + paidOut + spent)] })}
+<p class="hint">Cash on hand ${Doc.e(kes(Domain.cashOnHand(s)))} = money in − money out.</p>
+${Doc.table(['Month', 'Contrib.', 'Fines', 'Repaid', 'Lent', 'Payouts', 'Spent', 'Net', 'On hand'], [['Before ' + monthLabel(first), '', '', '', '', '', '', '', n(open)], ...cf], { num: [1, 2, 3, 4, 5, 6, 7, 8] })}
+<h2>Contributions by member and month</h2>${s.members.length ? grid : '<p class="none">No members yet.</p>'}
+<p class="hint">Amount paid for each month. Green paid · amber part paid or due · red not paid after the due day · + covered by money paid earlier · blank not a member then.</p>
+<h2>Members</h2>${Doc.table(['Member', 'Shares', 'Joined', 'Saved', 'Arrears', 'Loan bal.', 'Fines due', 'Payout', 'Status'], s.members.map(m => { const t = Domain.tone(s, m.id, cur), map = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Ahead'], gold: ['gold', 'Gold'], idle: ['ok', m.left ? 'Left' : '—'] }[t] || ['ok', '—'], nt = s.chama.mode === 'savings' || m.left ? null : Domain.nextTurn(s, m.id); return [m.name, String(m.shares || 1), monthLabel(Domain.joinMonth(s, m.id)), n(Domain.memberSaved(s, m.id)), n(Domain.outstanding(s, m.id, cur)), n(Domain.memberLoanBalance(s, m.id)), n(Domain.memberFinesDue(s, m.id)), nt ? monthLabel(nt) : '—', Doc.tag(map[0], map[1])]; }), { num: [1, 3, 4, 5, 6], foot: ['Total', String(sum(active, m => m.shares || 1)), '', n(inn), n(arrears), n(loansOut), n(fOwed), '', ''] })}
+<h2>Loans</h2>${Doc.table(['Member', 'Issued', 'Terms', 'Lent', 'Interest', 'To repay', 'Repaid', 'Balance', 'Next due', 'Signed'], loans.map(l => { const c = Domain.loan(l), nd = this.nextDue(l); return [Domain.memberName(s, l.memberId), l.date || '', l.rate + '% × ' + l.months + ' mo', n(l.principal), n(c.total - l.principal), n(c.total), n(c.paid), n(c.balance), nd ? Doc.tag(nd.late ? 'late' : 'part', n(nd.amount) + ' by ' + nd.date) : Doc.tag('ok', 'Repaid'), l.agreement ? 'Yes' : 'No']; }), { num: [3, 4, 5, 6, 7], empty: 'No loans.', foot: loans.length ? ['Total', '', '', n(lent), n(sum(loans, l => Domain.loan(l).total - l.principal)), n(sum(loans, l => Domain.loan(l).total)), n(repaid), n(loansOut), '', ''] : null })}
+<h2>Fines</h2>${Doc.table(['Date', 'Member', 'Reason', 'Amount', 'Status'], s.fines.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(f => [f.date || '', Domain.memberName(s, f.memberId), f.reason || '', n(f.amount), Doc.tag(f.paid ? 'ok' : 'late', f.paid ? 'Paid' : 'Unpaid')]), { num: [3], empty: 'No fines.', foot: s.fines.length ? ['', '', 'Owed ' + n(fOwed) + ' · paid ' + n(fPaid), n(fOwed + fPaid), ''] : null })}
+<h2>Payouts</h2>${Doc.table(['Month', 'Member', 'Date', 'Amount', 'Serial', 'Signed'], s.payouts.slice().sort((a, b) => a.month.localeCompare(b.month)).map(p => [monthLabel(p.month), Domain.memberName(s, p.memberId), p.date || '', n(p.amount), p.serial || '—', p.sig ? 'Yes' : 'No']), { num: [3], empty: 'No payouts yet.', foot: s.payouts.length ? ['Total', '', '', n(paidOut), '', ''] : null })}
+<h2>Expenses</h2>${Doc.table(['Category', 'Items', 'Total', 'Share'], Object.entries(cats).sort((a, b) => b[1][1] - a[1][1]).map(([k, v]) => [k, String(v[0]), n(v[1]), spent ? Math.round(v[1] / spent * 100) + '%' : '—']), { num: [1, 2, 3], empty: 'No expenses.', foot: s.expenses.length ? ['Total', String(s.expenses.length), n(spent), '100%'] : null })}
+${s.expenses.length ? Doc.table(['Date', 'For', 'Category', 'Amount', 'Serial'], s.expenses.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(x => [x.date || '', x.title || '', x.category || '', n(x.amount), x.serial || '—']), { num: [3] }) : ''}
+<h2>Payments, ${Doc.e(monthLabel(first))} to ${Doc.e(monthLabel(cur))}</h2>${Doc.table(['Date', 'Member', 'For', 'M-Pesa code', 'Amount', 'Serial', 'Check'], pays.map(p => [p.date || '', Domain.memberName(s, p.memberId), monthLabel(p.month), p.code || '—', n(p.amount), p.serial || '—', p.selfRec ? (p.chk ? 'Checked' : 'Awaiting') : '']), { num: [4], empty: 'No payments in these months.', foot: pays.length ? ['', '', '', 'Total', n(sum(pays, p => p.amount)), '', ''] : null })}
+<div class="note">Cash on hand = contributions + fines paid + loan repayments − loans given − payouts − expenses. This report contains members' personal data: share it only with the Chama's members and officials.</div>`;
+    return this.html(s.chama.name + ' report', monthLabel(first) + ' to ' + monthLabel(cur) + ' · ' + (s.chama.mode === 'savings' ? 'Savings' : 'Merry-go-round') + ' · ' + kes(s.chama.monthly) + ' a share each month · amounts in KES', s.chama.name, body, s.chama.photo, opt);
   }
 };
 
-return { get Reports() { return Reports; }, get Doc() { return Doc; }, };
+/* ---- a real PDF file drawn from the same report page (0.20, CHATDOCS). Used where a file is needed, such as sending
+   a report into the chat: A4, the Chama's colour, the header and a footer on every page with the document serial,
+   the time it was made and the page number. Text uses the PDF standard fonts, so nothing is downloaded. ---- */
+const Pdf = {
+  W: 595.28, H: 841.89, M: 34,
+  /* Helvetica and Helvetica-Bold widths for characters 32-126, in thousandths of the font size */
+  HV: [278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584],
+  HB: [278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584],
+  XW: { 128: 556, 133: 1000, 145: 222, 146: 222, 147: 333, 148: 333, 149: 350, 150: 556, 151: 1000, 160: 278, 183: 278, 215: 584 },
+  WIN: { 0x20AC: 128, 0x2026: 133, 0x2018: 145, 0x2019: 146, 0x201C: 147, 0x201D: 148, 0x2022: 149, 0x2013: 150, 0x2014: 151, 0x2212: 45, 0x2009: 32, 0x202F: 32, 0x2002: 32, 0x2003: 32 },
+  enc(t) { let o = ''; for (const ch of String(t ?? '')) { const c = ch.codePointAt(0), w = this.WIN[c]; o += w != null ? String.fromCharCode(w) : c < 32 ? ' ' : c < 256 ? ch : '?'; } return o; },
+  str(t) { return this.enc(t).replace(/[\\()]/g, '\\$&'); },
+  tw(t, size, bold) { const e = this.enc(t), T = bold ? this.HB : this.HV; let w = 0; for (let i = 0; i < e.length; i++) { const c = e.charCodeAt(i); w += c >= 32 && c <= 126 ? T[c - 32] : (this.XW[c] || 556); } return w * size / 1000; },
+  wrap(t, size, bold, maxW) {
+    const out = [];
+    String(t ?? '').split('\n').forEach(para => {
+      const words = para.split(/\s+/).filter(Boolean); let line = '';
+      if (!words.length) { out.push(''); return; }
+      for (let w of words) {
+        while (w.length > 1 && this.tw(w, size, bold) > maxW) {
+          if (line) { out.push(line); line = ''; }
+          let k = w.length - 1; while (k > 1 && this.tw(w.slice(0, k), size, bold) > maxW) k--;
+          out.push(w.slice(0, k)); w = w.slice(k);
+        }
+        const tryL = line ? line + ' ' + w : w;
+        if (!line || this.tw(tryL, size, bold) <= maxW) line = tryL; else { out.push(line); line = w; }
+      }
+      if (line) out.push(line);
+    });
+    return out.length ? out : [''];
+  },
+  /* width, height and colour channels of a JPEG (for the Chama photo in the header) */
+  jpeg(src) {
+    const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(src || ''); if (!m) return null;
+    let b; try { b = atob(m[1]); } catch (e) { return null; }
+    for (let i = 2; i + 9 < b.length;) {
+      if (b.charCodeAt(i) !== 0xFF) return null;
+      const mk = b.charCodeAt(i + 1), len = (b.charCodeAt(i + 2) << 8) | b.charCodeAt(i + 3);
+      if (mk >= 0xC0 && mk <= 0xCF && mk !== 0xC4 && mk !== 0xC8 && mk !== 0xCC) { const h = (b.charCodeAt(i + 5) << 8) | b.charCodeAt(i + 6), w = (b.charCodeAt(i + 7) << 8) | b.charCodeAt(i + 8), n = b.charCodeAt(i + 9); return n === 1 || n === 3 ? { w, h, cs: n === 1 ? 'DeviceGray' : 'DeviceRGB', bin: b } : null; }
+      i += 2 + len;
+    }
+    return null;
+  },
+  /* the report page (Doc.html) in, a PDF Blob out */
+  make(html) {
+    const P = this, doc = new DOMParser().parseFromString(html, 'text/html'), meta = k => ((doc.querySelector('meta[name="mc-' + k + '"]') || {}).content || '');
+    const f = v => Math.round(v * 100) / 100, col = c => { let h = String(c || '#000').replace('#', ''); if (h.length === 3) h = h.replace(/./g, x => x + x); return [0, 2, 4].map(i => f((parseInt(h.substr(i, 2), 16) || 0) / 255)).join(' '); };
+    const ACC = /^#[0-9a-f]{3,6}$/i.test(meta('accent')) ? meta('accent') : '#0b6b4d', INK = '#12231f', MUTE = '#5c6a64', LINE = '#e3e7e4';
+    const TAG = { ok: '#17824f', late: '#b42318', part: '#8f5a0b', ahead: '#5b34b8', gold: '#7a5410' }, TINT = { 'c-ok': '#e1f3e8', 'c-part': '#fbf0dc', 'c-due': '#fbf0dc', 'c-late': '#fbe6e3', 'c-na': '#f4f6f5' };
+    const L = P.M, CW = P.W - 2 * P.M, TOP = P.M + 44, BOT = P.H - P.M - 18, pages = [];
+    const top = doc.querySelector('.top'), img = P.jpeg(top && top.querySelector('.mark img') ? top.querySelector('.mark img').getAttribute('src') : '');
+    const initials = top && top.querySelector('.mark') ? top.querySelector('.mark').textContent.trim().slice(0, 3) : 'MC', chama = (top && top.querySelector('.brand b') ? top.querySelector('.brand b').textContent : '') || 'My Chama';
+    const title = meta('title') || doc.title || 'My Chama', serial = meta('serial'), when = meta('when');
+    let pg = null, y = 0;
+    const op = s => pg.push(s), Y = v => f(P.H - v);
+    const text = (x, yy, t, size, font, color) => op(`BT /${font} ${f(size)} Tf ${col(color)} rg ${f(x)} ${Y(yy)} Td (${P.str(t)}) Tj ET`);
+    const rr = (x, yy, w, h, r) => { const k = 0.5523 * r, b = P.H - yy - h, t = b + h; return `${f(x + r)} ${f(b)} m ${f(x + w - r)} ${f(b)} l ${f(x + w - r + k)} ${f(b)} ${f(x + w)} ${f(b + r - k)} ${f(x + w)} ${f(b + r)} c ${f(x + w)} ${f(t - r)} l ${f(x + w)} ${f(t - r + k)} ${f(x + w - r + k)} ${f(t)} ${f(x + w - r)} ${f(t)} c ${f(x + r)} ${f(t)} l ${f(x + r - k)} ${f(t)} ${f(x)} ${f(t - r + k)} ${f(x)} ${f(t - r)} c ${f(x)} ${f(b + r)} l ${f(x)} ${f(b + r - k)} ${f(x + r - k)} ${f(b)} ${f(x + r)} ${f(b)} c h`; };
+    const box = (x, yy, w, h, o) => op(`q ${o.fill ? col(o.fill) + ' rg ' : ''}${o.stroke ? col(o.stroke) + ' RG ' + f(o.lw || 0.6) + ' w ' : ''}${o.r ? rr(x, yy, w, h, o.r) : `${f(x)} ${f(P.H - yy - h)} ${f(w)} ${f(h)} re`} ${o.fill && o.stroke ? 'B' : o.fill ? 'f' : 'S'} Q`);
+    const line = (x1, y1, x2, y2, c, lw) => op(`q ${col(c)} RG ${f(lw)} w ${f(x1)} ${Y(y1)} m ${f(x2)} ${Y(y2)} l S Q`);
+    const page = () => {
+      pg = []; pages.push(pg);
+      box(L, P.M, 24, 24, { fill: ACC, r: 6 });
+      if (img) op(`q 24 0 0 24 ${f(L)} ${Y(P.M + 24)} cm /Im1 Do Q`);
+      else text(L + 12 - P.tw(initials, 9, true) / 2, P.M + 15.5, initials, 9, 'F2', '#ffffff');
+      text(L + 31, P.M + 10, chama, 10.5, 'F2', INK); text(L + 31, P.M + 21, 'My Chama', 7.5, 'F1', MUTE);
+      const t1 = title.length > 70 ? title.slice(0, 69) + '…' : title; text(P.W - P.M - P.tw(t1, 8.5, true), P.M + 10, t1, 8.5, 'F2', INK);
+      const t2 = 'Prepared ' + when; text(P.W - P.M - P.tw(t2, 7.5), P.M + 21, t2, 7.5, 'F1', MUTE);
+      line(L, P.M + 31, P.W - P.M, P.M + 31, ACC, 1.8);
+      y = TOP;
+    };
+    const ensure = h => { if (y + h > BOT) page(); };
+    const para = (t, size, font, color, gap, x0, w0) => { const ls = P.wrap(t, size, font === 'F2', w0 || CW); ls.forEach(l => { ensure(size * 1.35); text(x0 || L, y + size, l, size, font, color); y += size * 1.35; }); y += gap || 0; };
+    const cellsOf = (tr, head) => [...tr.children].map(td => { td.querySelectorAll('br').forEach(b => b.replaceWith('\n')); const tg = td.querySelector('.tag'), t = td.textContent.replace(/[ \t\r\f\v]+/g, ' ').trim(); return { t: head ? t.toUpperCase() : t, n: td.classList.contains('n'), b: td.classList.contains('b'), red: td.classList.contains('red'), tag: tg ? (Object.keys(TAG).find(k => tg.classList.contains(k)) || '') : '', tint: Object.keys(TINT).find(k => td.classList.contains(k)) || '' }; });
+    const table = el => {
+      const grid = el.classList.contains('grid'), head = [...el.querySelectorAll('thead tr')].map(r => cellsOf(r, true)), rows = [...el.querySelectorAll('tbody tr')].map(r => cellsOf(r)), foot = [...el.querySelectorAll('tfoot tr')].map(r => cellsOf(r));
+      const nc = Math.max(1, ...[...head, ...rows, ...foot].map(r => r.length));
+      let fs = grid ? 6.8 : 7.8, pad = grid ? 2.4 : 3.6;
+      const nat = Array(nc).fill(0), minw = Array(nc).fill(0);
+      [[head, true, 0.9], [rows, false, 1], [foot, true, 1]].forEach(([set, bold, k]) => set.forEach(r => r.forEach((c, i) => {
+        const sz = fs * k, bb = bold || c.b || !!c.tag, w = Math.max(...c.t.split('\n').map(p => P.tw(p, sz, bb))) + 2 * pad;
+        nat[i] = Math.max(nat[i], w); minw[i] = Math.max(minw[i], c.n || set === head ? Math.min(w, c.n ? w : 6 * fs + 2 * pad) : Math.max(...c.t.split(/\s+/).map(p => P.tw(p, sz, bb))) + 2 * pad);
+      })));
+      const tot = nat.reduce((a, b) => a + b, 0); let wd;
+      if (tot <= CW) { const grow = nat.map((w, i) => (rows.some(r => r[i] && !r[i].n) ? w : 0)), g = grow.reduce((a, b) => a + b, 0) || tot; wd = nat.map((w, i) => w + (CW - tot) * ((grow.reduce((a, b) => a + b, 0) ? grow[i] : w) / g)); }
+      else { const flex = nat.map((w, i) => w - minw[i]), fl = flex.reduce((a, b) => a + b, 0), over = tot - CW; if (fl >= over) wd = nat.map((w, i) => w - flex[i] * over / fl); else { const mt = minw.reduce((a, b) => a + b, 0), k = CW / mt; wd = minw.map(w => w * k); fs = Math.max(4.6, fs * Math.min(1, k)); pad *= Math.min(1, k); } }
+      const measure = (r, kind) => { const sz = kind === 'h' ? fs * 0.9 : fs; const ls = r.map((c, i) => P.wrap(c.t, sz, kind !== 'b' || c.b || !!c.tag, Math.max(4, (wd[i] || 20) - 2 * pad))); return { sz, ls, h: Math.max(1, ...ls.map(l => l.length)) * sz * 1.28 + 2 * pad }; };
+      const paint = (r, kind, idx) => {
+        const m = measure(r, kind);
+        if (y + m.h > BOT) { page(); if (kind !== 'h' && head.length) paint(head[0], 'h'); }
+        if (kind === 'h') box(L, y, CW, m.h, { fill: '#f1f4f2' }); else if (kind === 'b' && idx % 2 && !grid) box(L, y, CW, m.h, { fill: '#fafbfa' });
+        let x = L;
+        r.forEach((c, i) => {
+          const w = wd[i] || 0;
+          if (c.tint && kind === 'b') box(x + 0.4, y + 0.4, w - 0.8, m.h - 0.8, { fill: TINT[c.tint] });
+          const bold = kind !== 'b' || c.b || !!c.tag, color = kind === 'h' ? MUTE : c.tag ? TAG[c.tag] : c.red || c.tint === 'c-late' ? TAG.late : INK;
+          m.ls[i].forEach((l, j) => { const tx = c.n ? x + w - pad - P.tw(l, m.sz, bold) : x + pad; text(tx, y + pad + m.sz * 0.92 + j * m.sz * 1.28, l, m.sz, bold ? 'F2' : 'F1', color); });
+          x += w;
+        });
+        if (kind === 'f') line(L, y, L + CW, y, '#cfd6d2', 0.9);
+        line(L, y + m.h, L + CW, y + m.h, kind === 'h' ? '#cfd6d2' : '#e6eae8', kind === 'h' ? 0.9 : 0.4);
+        y += m.h;
+      };
+      ensure(head.length ? 46 : 24);
+      if (head.length) paint(head[0], 'h');
+      rows.forEach((r, i) => paint(r, 'b', i)); foot.forEach(r => paint(r, 'f'));
+      y += 7;
+    };
+    const cards = el => {
+      const list = [...el.children], per = 4, gap = 6, w = (CW - gap * (per - 1)) / per, h = 38;
+      for (let i = 0; i < list.length; i += per) {
+        ensure(h + gap);
+        list.slice(i, i + per).forEach((c, j) => {
+          const x = L + j * (w + gap), hl = c.classList.contains('hl'), lab = (c.querySelector('span') || {}).textContent || '', val = (c.querySelector('b') || {}).textContent || '', sm = (c.querySelector('small') || {}).textContent || '';
+          box(x, y, w, h, hl ? { fill: ACC, r: 6 } : { stroke: LINE, lw: 0.8, r: 6 });
+          text(x + 7, y + 11, lab.toUpperCase().slice(0, 30), 6.4, 'F1', hl ? '#e8f0ec' : MUTE);
+          let vs = 11.5; while (vs > 7 && P.tw(val, vs, true) > w - 12) vs -= 0.5;
+          text(x + 7, y + 25, val, vs, 'F2', hl ? '#ffffff' : INK);
+          if (sm) text(x + 7, y + 33.5, sm, 6.2, 'F1', hl ? '#e8f0ec' : MUTE);
+        });
+        y += h + gap;
+      }
+      y += 4;
+    };
+    const block = el => {
+      const tg = el.tagName, c = el.classList;
+      if (c.contains('top') || c.contains('foot') || c.contains('pf') || tg === 'SCRIPT' || tg === 'STYLE') return;
+      if (tg === 'H1') { ensure(40); para(el.textContent.trim(), 17, 'F2', INK, 1); }
+      else if (tg === 'H2') { ensure(70); y += 9; para(el.textContent.trim(), 11, 'F2', ACC, 0); line(L, y + 1, L + CW, y + 1, LINE, 0.8); y += 7; }
+      else if (tg === 'H3') { ensure(52); y += 4; para(el.textContent.trim(), 9, 'F2', INK, 3); }
+      else if (tg === 'TABLE') table(el);
+      else if (c.contains('cards')) cards(el);
+      else if (c.contains('note')) { const ls = P.wrap(el.textContent.replace(/\s+/g, ' ').trim(), 8, false, CW - 18), h = ls.length * 8 * 1.38 + 14; ensure(h + 6); y += 6; box(L, y, CW, h, { fill: '#f3f5f4', r: 6 }); ls.forEach((l, i) => text(L + 9, y + 7 + 8 + i * 8 * 1.38, l, 8, 'F1', '#3b4a44')); y += h + 6; }
+      else if (c.contains('none')) para(el.textContent.trim(), 8.5, 'F3', MUTE, 6);
+      else if (c.contains('sub')) para(el.textContent.trim(), 9, 'F1', MUTE, 10);
+      else if (c.contains('hint')) para(el.textContent.replace(/\s+/g, ' ').trim(), 7.2, 'F1', MUTE, 6);
+      else if (el.children.length && tg === 'DIV') [...el.children].forEach(block);
+      else if (el.textContent.trim()) para(el.textContent.replace(/\s+/g, ' ').trim(), 8.5, 'F1', INK, 6);
+    };
+    page();
+    [...doc.body.children].forEach(block);
+    /* footer on every page: serial, when it was made, page n of N */
+    pages.forEach((p, i) => {
+      pg = p; const fy = P.H - P.M - 4;
+      line(L, fy - 10, P.W - P.M, fy - 10, LINE, 0.6);
+      const a = serial ? 'Serial ' + serial : 'My Chama', b = 'Generated ' + when, c = 'Page ' + (i + 1) + ' of ' + pages.length;
+      text(L, fy, a, 7, serial ? 'F2' : 'F1', '#3b4a44');
+      text(L + P.tw(a, 7, !!serial) + 10, fy, b, 7, 'F1', '#8a958f');
+      text(P.W - P.M - P.tw(c, 7), fy, c, 7, 'F1', '#8a958f');
+    });
+    /* assemble the file */
+    const objs = [], add = s => { objs.push(s); return objs.length; };
+    const cat = add(''), root = add(''), font = b => add(`<< /Type /Font /Subtype /Type1 /BaseFont /${b} /Encoding /WinAnsiEncoding >>`);
+    const F1 = font('Helvetica'), F2 = font('Helvetica-Bold'), F3 = font('Helvetica-Oblique');
+    const im = img ? add(`<< /Type /XObject /Subtype /Image /Width ${img.w} /Height ${img.h} /ColorSpace /${img.cs} /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.bin.length} >>\nstream\n${img.bin}\nendstream`) : 0;
+    const kids = pages.map(p => { const c = p.join('\n'), id = add(`<< /Length ${c.length} >>\nstream\n${c}\nendstream`); return add(`<< /Type /Page /Parent ${root} 0 R /MediaBox [0 0 ${P.W} ${P.H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R /F3 ${F3} 0 R >>${im ? ` /XObject << /Im1 ${im} 0 R >>` : ''} >> /Contents ${id} 0 R >>`); });
+    objs[cat - 1] = `<< /Type /Catalog /Pages ${root} 0 R >>`;
+    objs[root - 1] = `<< /Type /Pages /Kids [${kids.map(k => k + ' 0 R').join(' ')}] /Count ${kids.length} >>`;
+    const d = new Date(), z = v => String(v).padStart(2, '0');
+    const info = add(`<< /Title (${P.str(title)}) /Subject (${P.str(serial ? 'Serial ' + serial : title)}) /Creator (My Chama) /Producer (My Chama) /CreationDate (D:${d.getUTCFullYear()}${z(d.getUTCMonth() + 1)}${z(d.getUTCDate())}${z(d.getUTCHours())}${z(d.getUTCMinutes())}${z(d.getUTCSeconds())}Z) >>`);
+    let out = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'; const at = [];
+    objs.forEach((o, i) => { at.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+    const xref = out.length;
+    out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${at.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('')}trailer\n<< /Size ${objs.length + 1} /Root ${cat} 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    const u = new Uint8Array(out.length); for (let i = 0; i < out.length; i++) u[i] = out.charCodeAt(i) & 255;
+    return new Blob([u], { type: 'application/pdf' });
+  }
+};
+
+return { get Reports() { return Reports; }, get Doc() { return Doc; }, get Pdf() { return Pdf; }, };
 })();
 
 /* ---- src/features/members/index.js ---- */
@@ -4429,7 +4678,11 @@ const actions = {
       ${rows.slice(0, 12).map(p => `<div class="kv"><span>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''}</span><b class="num">${esc(kes(p.amount))}</b></div>`).join('') || '<p class="plain">No payments yet.</p>'}
       <div class="btns">${m.phone && !s.shared ? `<a class="btn pri grow" target="_blank" rel="noopener noreferrer" href="${esc(waLink(m.phone, Reports.statement(s, m)))}">${icon('chat')}WhatsApp</a>` : ''}<button type="button" class="btn grow" data-act="${s.shared ? 'pdfMine' : 'pdfMember'}" data-id="${esc(m.id)}">${icon('doc')}PDF</button></div>` });
   },
-  delMember: { admin: true, run: d => { if (Domain.memberLoanBalance(S(), d.id) > 0 || Domain.memberFinesDue(S(), d.id) > 0) throw new Error('Settle their loan and fines before removing them'); Modal.close(); confirmBox('Remove this member? Their past payments stay in the records.', () => Store.commit(s => { s.members = s.members.filter(m => m.id !== d.id); })); } },
+  delMember: { admin: true, run: d => {
+    /* someone who signs in is removed with notice and a reason they can answer (F-P3), never straight off the list */
+    const acc = (__M_src_core_session_js.Session.access || []).find(a => a.member_id === d.id && a.status === 'active');
+    if (acc) { Modal.close(); return setTimeout(() => __M_src_ui_toast_js.Pop.confirm({ title: 'Give notice first', text: 'This member signs in to the app. They get your reason and a few days to reply before their access ends. Their records stay.', confirmLabel: 'Continue', onYes: () => setTimeout(() => __M_src_features_index_js.Actions.revoke({ e: acc.email }), 0) }), 260); }
+    if (Domain.memberLoanBalance(S(), d.id) > 0 || Domain.memberFinesDue(S(), d.id) > 0) throw new Error('Settle their loan and fines before removing them'); Modal.close(); confirmBox('Remove this member? Their past payments stay in the records.', () => Store.commit(s => { s.members = s.members.filter(m => m.id !== d.id); })); } },
 };
 
 return { get views() { return views; }, get actions() { return actions; }, };
@@ -4483,7 +4736,7 @@ const views = {
 const actions = {
   fineMenu: { admin: true, run(d) {
     const s = S(), f = s.fines.find(x => x.id === d.id); if (!f) return;
-    Modal.open({ title: 'Fine', body: `<div class="kv"><span>Member</span><b>${esc(Domain.memberName(s, f.memberId))}</b></div><div class="kv"><span>Amount</span><b class="num">${esc(kes(f.amount))}</b></div><div class="kv"><span>Reason</span><b>${esc(f.reason)}</b></div><div class="kv"><span>Date</span><b>${esc(f.date)}</b></div><div class="kv"><span>Status</span><b>${f.paid ? 'Paid' : 'Unpaid'}</b></div>
+    Modal.open({ title: 'Fine', body: `${__M_src_features_docs_js.Serial.row('fine', f)}<div class="kv"><span>Member</span><b>${esc(Domain.memberName(s, f.memberId))}</b></div><div class="kv"><span>Amount</span><b class="num">${esc(kes(f.amount))}</b></div><div class="kv"><span>Reason</span><b>${esc(f.reason)}</b></div><div class="kv"><span>Date</span><b>${esc(f.date)}</b></div><div class="kv"><span>Status</span><b>${f.paid ? 'Paid' : 'Unpaid'}</b></div>
       <div class="btns">${f.paid ? '' : `<button type="button" class="btn pri grow" data-act="payFine" data-id="${esc(f.id)}">${icon('check')}Mark paid</button>`}<button type="button" class="btn grow" data-act="editFine" data-id="${esc(f.id)}">${icon('pencil')}Edit</button><button type="button" class="btn bad grow" data-act="delFine" data-id="${esc(f.id)}">${icon('trash')}Remove</button></div>` });
   } },
   editFine: { admin: true, run(d) {
@@ -4545,7 +4798,7 @@ function expenseForm(e) {
     { name: 'title', label: 'What was it for?', value: e?.title, required: true, placeholder: 'e.g. Meeting venue' },
     { name: 'category', label: 'Type', type: 'select', value: e?.category || 'Meeting', options: ['Meeting', 'Welfare', 'Investment', 'Admin', 'Other'].map(x => [x, x]) },
     { name: 'amount', label: 'Amount (KES)', type: 'number', value: e?.amount }],
-    body: __M_src_ui_modal_js.cashMeter(Domain.cashOnHand(S()) + (e ? Number(e.amount) || 0 : 0), e ? e.amount : 0) + (e ? `<div class="btns" style="margin-top:0"><button type="button" class="btn bad sm" data-act="delExpense" data-id="${esc(e.id)}">Remove this expense</button></div>` : ''),
+    body: __M_src_ui_modal_js.cashMeter(Domain.cashOnHand(S()) + (e ? Number(e.amount) || 0 : 0), e ? e.amount : 0) + (e ? `<div class="btns" style="margin-top:0"><button type="button" class="btn bad sm" data-act="delExpense" data-id="${esc(e.id)}">Remove this expense</button></div>` : '') + (e ? `<div class="card pv-card">${__M_src_features_docs_js.Serial.row('expense', e)}</div>` : ''),
     onSubmit: v => {
       const d = { title: String(v.title || '').trim(), category: v.category, amount: num(v.amount, 'Amount') };
       if (!d.title) throw new Error('Say what the money was for');
@@ -4597,6 +4850,7 @@ const { S } = __M_src_core_state_js;
 const { Reports } = __M_src_lib_reports_js;
 const { esc } = __M_src_core_utils_js;
 
+const myMember = s => { const id = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId; return id ? s.members.find(x => x.id === id) : null; };
 const views = {
   reports(s) {
     const admin = Auth.isAdmin();
@@ -4605,8 +4859,10 @@ const views = {
         <a class="li has-ic" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=${encodeURIComponent(Reports.summary(s))}"><span class="li-ic">${icon('chat')}</span><span class="li-main"><b>Share a summary on WhatsApp</b><small>Cash, loans${s.shared ? '' : ' and who is behind'}, as one message for your group</small></span>${icon('chev', 'chev')}</a>
         ${admin ? `<button type="button" class="li has-ic" data-act="exportCsv"><span class="li-ic t-info">${icon('download')}</span><span class="li-main"><b>Payments spreadsheet</b><small>Every payment as a CSV file for Excel or Sheets</small></span>${icon('chev', 'chev')}</button>
         <button type="button" class="li has-ic" data-act="exportJson"><span class="li-ic t-gold">${icon('download')}</span><span class="li-main"><b>Full backup</b><small>Everything in this Chama, as one file. Keep it somewhere safe and private</small></span>${icon('chev', 'chev')}</button>` : ''}
-        ${(s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId) ? `<button type="button" class="li has-ic" data-act="pdfMine"><span class="li-ic t-bad">${icon('doc')}</span><span class="li-main"><b>My statement (PDF)</b><small>Your contributions, loans and fines, ready to save or print</small></span>${icon('chev', 'chev')}</button>` : ''}
-        ${admin ? `<button type="button" class="li has-ic" data-act="pdfChama"><span class="li-ic t-bad">${icon('doc')}</span><span class="li-main"><b>Chama report (PDF)</b><small>Collections, members, loans, payouts, expenses and fines, in the app’s colours</small></span>${icon('chev', 'chev')}</button>` : ''}
+        ${(s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId) ? `<button type="button" class="li has-ic" data-act="pdfMine"><span class="li-ic t-bad">${icon('doc')}</span><span class="li-main"><b>My statement (PDF)</b><small>Your contributions, loans and fines, ready to save or print</small></span>${icon('chev', 'chev')}</button>
+        <button type="button" class="li has-ic" data-act="docSendSheet" data-v="mine"><span class="li-ic t-info">${icon('send')}</span><span class="li-main"><b>Send my statement to chat</b><small>As a PDF, to the group or privately</small></span>${icon('chev', 'chev')}</button>` : ''}
+        ${admin ? `<button type="button" class="li has-ic" data-act="pdfChama"><span class="li-ic t-bad">${icon('doc')}</span><span class="li-main"><b>Chama report (PDF)</b><small>Cash flow, every member by month, loans, fines, payouts and expenses, numbered</small></span>${icon('chev', 'chev')}</button>
+        <button type="button" class="li has-ic" data-act="docSendSheet" data-v="chama"><span class="li-ic t-info">${icon('send')}</span><span class="li-main"><b>Send Chama report to chat</b><small>As a PDF, to the group or privately</small></span>${icon('chev', 'chev')}</button>` : ''}
         <a class="li has-ic" href="#/members"><span class="li-ic t-ink">${icon('doc')}</span><span class="li-main"><b>Member statements</b><small>${admin ? 'Open a member for their statement' : 'Open your name in Members'}</small></span>${icon('chev', 'chev')}</a>
       </div>
       ${admin ? '<p class="foot-note">Backups contain members’ personal data. Store them securely and do not share them outside the chama’s officials.</p>' : ''}`;
@@ -4614,14 +4870,26 @@ const views = {
 };
 
 const actions = {
-  pdfMine() {
-    const s = S(), id = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId, m = id ? s.members.find(x => x.id === id) : null;
+  /* 0.20 (CHATDOCS): every PDF gets a document serial from the server first, then prints */
+  async pdfMine() {
+    const s = S(), m = myMember(s), D = __M_src_lib_reports_js.Doc;
     if (!m) return __M_src_ui_toast_js.toast('Your sign-in is not linked to a member yet');
-    __M_src_lib_reports_js.Doc.print(__M_src_lib_reports_js.Doc.memberStatement(s, m), 'Statement - ' + m.name);
-    __M_src_ui_toast_js.toast('Choose “Save as PDF” to keep it', 'info');
+    try { const r = await D.make('mine', s, m); D.print(r.html, r.name); __M_src_ui_toast_js.toast('Choose “Save as PDF” to keep it', 'info'); } catch (e) { D.fail(e); }
   },
-  pdfMember: { admin: true, run(d) { const s = S(), m = s.members.find(x => x.id === d.id); if (!m) return; __M_src_lib_reports_js.Doc.print(__M_src_lib_reports_js.Doc.memberStatement(s, m), 'Statement - ' + m.name); } },
-  pdfChama: { admin: true, run() { const s = S(); __M_src_lib_reports_js.Doc.print(__M_src_lib_reports_js.Doc.chamaReport(s), s.chama.name + ' report'); __M_src_ui_toast_js.toast('Choose “Save as PDF” to keep it', 'info'); } },
+  pdfMember: { admin: true, async run(d) { const s = S(), m = s.members.find(x => x.id === d.id), D = __M_src_lib_reports_js.Doc; if (!m) return; try { const r = await D.make('member', s, m); D.print(r.html, r.name); } catch (e) { D.fail(e); } } },
+  pdfChama: { admin: true, async run() { const s = S(), D = __M_src_lib_reports_js.Doc; try { const r = await D.make('chama', s); D.print(r.html, r.name); __M_src_ui_toast_js.toast('Choose “Save as PDF” to keep it', 'info'); } catch (e) { D.fail(e); } } },
+  /* "Send to chat" from Reports: choose the group or a private conversation */
+  async docSendSheet(d) {
+    const C = __M_src_features_chat_index_js.Chat, Sh = __M_src_features_requests_js.Sheet, v = d.v === 'chama' ? 'chama' : 'mine';
+    if (v === 'chama' && !Auth.isAdmin()) return __M_src_ui_toast_js.toast('Only the treasurer can do that');
+    if (v === 'mine' && !myMember(S())) return __M_src_ui_toast_js.toast('Your sign-in is not linked to a member yet');
+    if (!C.loaded) { try { await C.load(); } catch (e) {} }
+    const people = (C.contacts || []).filter(c => c.can_message);
+    Sh.open(`<div class="sx-head"><span class="sx-badge">${icon('send')}</span><h3>Send ${v === 'chama' ? 'the Chama report' : 'my statement'}</h3><p>Made now as a PDF with its own serial, then sent like any file.</p></div>
+<div class="list doc-dest"><button type="button" class="li has-ic" data-act="docToChat" data-v="${v}" data-th="group"><span class="li-ic">${icon('members')}</span><span class="li-main"><b>Everyone in the group</b><small>${esc(S().chama.name)}</small></span>${icon('chev', 'chev')}</button>
+${people.map(c => `<button type="button" class="li has-ic" data-act="docToChat" data-v="${v}" data-th="${esc(c.user_id)}"><span class="li-ic">${icon('chat')}</span><span class="li-main"><b>${esc(c.name || 'Someone')}</b><small>Privately${c.role && c.role !== 'member' ? ' · ' + esc(c.role) : ''}</small></span>${icon('chev', 'chev')}</button>`).join('')}</div>`, { key: 'docSend', label: 'Send to chat' });
+  },
+  docToChat(d) { __M_src_features_chat_index_js.Chat.sendDoc(d.th || 'group', d.v === 'chama' ? 'chama' : 'mine'); },
   exportCsv: { admin: true, run() {
     const s = S(), q = Reports.cell;
     const rows = [['Date', 'Member', 'Month', 'Amount', 'M-Pesa code'], ...s.payments.map(p => [p.date, Domain.memberName(s, p.memberId), p.month, p.amount, p.code])];
@@ -4677,7 +4945,7 @@ const views = {
       ${msg ? `<span class="tag ${msg[0]}">${esc(msg[1])}</span>` : ''}
     </section>
     ${money}
-    ${m ? `<section class="sec"><div class="sec-h"><h2>My recent payments</h2>${recent.length ? `<button type="button" data-act="statement" data-id="${esc(m.id)}">Statement</button>` : ''}</div><div class="list">${recent.length ? recent.map(p => `<div class="li has-ic"><span class="li-ic t-ok">${icon('check')}</span><div class="li-main"><b>${esc(monthLabel(p.month))}</b><small>${esc(p.date || '')}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span><button type="button" class="hb sm" data-act="shareReceipt" data-id="${esc(p.id)}" aria-label="Share a receipt">${icon('share', 's')}</button></div></div>`).join('') : '<div class="li empty">No payments recorded yet</div>'}</div></section>` : ''}
+    ${m ? `<section class="sec"><div class="sec-h"><h2>My recent payments</h2>${recent.length ? `<button type="button" data-act="statement" data-id="${esc(m.id)}">Statement</button>` : ''}</div><div class="list">${recent.length ? recent.map(p => `<div class="li has-ic"><span class="li-ic t-ok">${icon('check')}</span><div class="li-main"><b>${esc(monthLabel(p.month))}</b><small>${esc(p.date || '')}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span><button type="button" class="hb sm" data-act="shareReceipt" data-id="${esc(p.id)}" aria-label="Share a receipt">${icon('share', 's')}</button><button type="button" class="hb sm" data-act="receiptOpen" data-id="${esc(p.id)}" aria-label="Open the receipt">${icon('receipt', 's')}</button></div></div>`).join('') : '<div class="li empty">No payments recorded yet</div>'}</div></section>` : ''}
     ${aboutSec(me, m, name, row)}
     <section class="sec"><div class="sec-h"><h2>Account</h2></div><div class="list">
       ${row('user', 'tag', 'Username', /^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || ''), 't-ink')}
@@ -4723,7 +4991,7 @@ const aboutSec = (me, m, name, row) => {
       ${row('name', 'profile', 'Full name', name)}
       ${row('phone', 'phone', 'Phone number', me.phone || (m && m.phone) || '', 't-info')}
       ${item('aboutDob', 'clock', 'Date of birth', dob, 't-gold', badge)}
-      ${item('aboutGender', 'people', 'Gender', x.gender ? esc(AB_GENDER[x.gender] || x.gender) : (x.loading ? '<span class="mute">…</span>' : ''), 't-ink')}
+      ${item('aboutGender', 'smile', 'Gender', x.gender ? esc(AB_GENDER[x.gender] || x.gender) : (x.loading ? '<span class="mute">…</span>' : ''), 't-ink')}
       ${item('aboutShare', 'chat', 'Phone sharing', share, x.shared ? 't-ok' : '')}
     </div><p class="foot-note">Only you see your date of birth and gender. Your age sets the text size and Simple view; you can still choose your own in Settings, Display.</p></section>`;
 };
@@ -4808,7 +5076,8 @@ const dobSheet = () => {
   const Sheet = __M_src_features_requests_js.Sheet, e = dobEd, yr = new Date().getFullYear();
   let body;
   if (e.scan === 'consent' || e.scan === 'busy' || e.scan === 'none') {
-    body = `<div class="sx-head"><span class="sx-badge">${icon('camera')}</span><h3>Scan my ID</h3><p>Take or choose a photo of the front of your Kenyan ID. We read the date of birth on this phone. The photo is never uploaded or kept.</p></div>
+    body = `<div class="sx-head"><span class="sx-badge">${icon('camera')}</span><h3>Scan my ID</h3></div>
+<p class="ay-consent">${icon('lock', 's')}<span>Take or choose a photo of the front of your Kenyan ID. We read the date of birth on this phone. The photo is never uploaded or kept.</span></p>
 ${e.scan === 'busy' ? `<div class="ay-busy" role="status"><span class="spin" aria-hidden="true"></span><span>Reading your ID…</span></div>` : `
 ${e.scan === 'none' ? `<p class="ay-warn" role="alert">${icon('alert', 's')}<span>We could not find the date of birth. Try again in good light with the whole card in the photo, or choose the date yourself.</span></p>` : ''}
 <div class="ay-pick"><label class="ay-tile" for="idScanCam">${icon('camera')}<b>Take a photo</b><small>with the camera</small></label><label class="ay-tile" for="idScanPick">${icon('image')}<b>Choose a photo</b><small>from this phone</small></label></div>
@@ -4911,7 +5180,7 @@ const actions = {
   },
   aboutGender() {
     const g = abDetails().gender;
-    __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('people')}</span><h3>Gender</h3><p>Never shown to other members.</p></div>
+    __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('smile')}</span><h3>Gender</h3><p>Never shown to other members.</p></div>
 <div class="ay-opts">${Object.entries(AB_GENDER).map(([v, t]) => `<button type="button" class="ab-opt wide${g === v ? ' on' : ''}" data-act="aboutGenderSet" data-v="${v}" aria-pressed="${g === v}">${esc(t)}</button>`).join('')}</div>`, { key: 'aboutGender', label: 'Gender' });
   },
   async aboutGenderSet(d) {
@@ -5357,10 +5626,11 @@ const views = {
       return `<section class="chama-hero"><span class="jn-tile lg ch-face">${face ? `<img class="av" src="${face}" alt="Photo of ${esc(c.name)}" data-name="${esc(c.name)}">` : esc(String(c.name || 'C').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())}${admin ? `<button type="button" class="ch-cam" data-act="chamaPhoto" aria-label="${face ? 'Change' : 'Add'} the Chama photo">${icon('camera', 's')}</button>` : ''}</span><div><h1>${esc(c.name)}</h1><p>${c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round'}${ws.display_tag ? ' · ' + esc(ws.display_tag) : ''} · ${s.members.length} ${s.members.length === 1 ? 'member' : 'members'}</p></div></section>
       <p class="lt-sub" style="margin-top:12px">${admin ? 'Tap a rule to change it. Every change is kept in History, and you can undo the last one.' : 'Only the treasurer can change these.'}</p>
       <section class="sec" style="margin-top:0"><div class="sec-h"><h2>Basics</h2></div><div class="list">${row('name', 'pencil', 't-ink', 'Name', c.name)}${row('mode', 'swap', 't-gold', 'Type', c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round')}${c.mode === 'savings' ? '' : row('startMonth', 'clock', 't-info', 'First payout month', c.startMonth ? monthLabelLong(c.startMonth) : 'Not set')}</div></section>
-      <section class="sec"><div class="sec-h"><h2>Money rules</h2></div><div class="list">${row('monthly', 'coins', '', 'Monthly contribution per share', kes(c.monthly))}${row('dueDay', 'clock', 't-info', 'Due by', 'Day ' + c.dueDay + ' of the month')}${row('finePerLate', 'receipt', 't-bad', 'Late fine', kes(c.finePerLate))}${row('loanRate', 'loans', 't-gold', 'Loan interest', c.loanRate + '% a month, flat')}${row('payTo', 'wallet', 't-ink', 'Members pay to', c.payTo || 'Not set')}${row('rules', 'doc', 't-info', 'Group rules', c.rules ? String(c.rules).split('\n')[0].slice(0, 60) + (String(c.rules).length > 60 ? '…' : '') : 'Not written yet')}</div></section>
+      <section class="sec"><div class="sec-h"><h2>Money rules</h2></div><div class="list">${row('monthly', 'coins', '', 'Monthly contribution per share', kes(c.monthly))}${row('dueDay', 'clock', 't-info', 'Due by', 'Day ' + c.dueDay + ' of the month')}${row('finePerLate', 'receipt', 't-bad', 'Late fine', kes(c.finePerLate))}${row('loanRate', 'loans', 't-gold', 'Loan interest', c.loanRate + '% a month, flat')}${row('payTo', 'wallet', 't-ink', 'Members pay to', c.payTo || 'Not set')}${admin ? row('rules', 'doc', 't-info', 'Group rules', c.rules ? String(c.rules).split('\n')[0].slice(0, 60) + (String(c.rules).length > 60 ? '…' : '') : 'Not written yet') + row('chatRules', 'chat', 't-info', 'Chat etiquette', Rules.items(Rules.chat(c))[0] || '') : ''}<a class="li has-ic" href="#/settings/rules" data-rules-link><span class="li-ic t-gold">${icon('doc')}</span><span class="li-main"><b>Read all the group rules</b><small>Money, our rules and chat etiquette</small></span>${icon('chev', 'chev')}</a></div></section>
       ${admin ? `<section class="sec"><div class="list"><button type="button" class="li has-ic" data-act="undo"><span class="li-ic t-ink">${icon('undo')}</span><span class="li-main"><b>Undo last change</b></span>${icon('chev', 'chev')}</button></div></section>` : ''}
       <section class="sec"><div class="list">${Session.role === 'secretary' ? `<button type="button" class="li has-ic" data-act="stepDown"><span class="li-ic t-warn">${icon('undo')}</span><span class="li-main"><b>Step down as secretary</b><small>Stay in the Chama as a member. A reason is needed.</small></span>${icon('chev', 'chev')}</button>` : ''}<button type="button" class="li has-ic danger" data-act="leaveChama"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Leave this Chama</b><small>Your past records stay with the Chama</small></span>${icon('chev', 'chev')}</button></div></section>`;
     }
+    if (r === 'settings/rules') return Rules.page(s, admin);
     if (r === 'settings/data') return `<h1 class="lt">Data and storage</h1><div class="card"><h2>Where records are kept</h2>
       <p class="plain">Every change is saved on this phone first, then sent to the chama’s secure cloud database when you are online. ${CONFIG.supabase ? '' : 'The cloud is not set up in this app.'}</p>
       <p class="plain">Signing out removes this Chama’s records from this phone. Changes that have not been sent yet are lost, so wait until you are online before you sign out.</p></div>
@@ -5419,6 +5689,52 @@ const consentRecords = () => {
   return consentCache.slice(0, 3).map(c => `<div class="li"><div class="li-main"><small>Recorded on our server · ${esc(c.policy_version)}</small><b>${esc(new Date(c.accepted_at).toLocaleString('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }))}</b><small>${esc([c.method === 'continue:google' ? 'Continued with Google' : c.method === 'continue:sign-in' ? 'Continued to sign in' : c.method === 'continue:create-account' ? 'Continued to create an account' : c.method ? 'Continued' : '', c.timezone, c.ip ? 'from ' + c.ip : '', c.user_agent ? (/iPhone|iPad/.test(c.user_agent) ? 'iPhone' : /Android/.test(c.user_agent) ? 'Android' : /Mac/.test(c.user_agent) ? 'Mac' : /Windows/.test(c.user_agent) ? 'Windows' : 'browser') : ''].filter(Boolean).join(' · '))}</small></div></div>`).join('');
 };
 const monthLabelLong = k => { const [y, m] = String(k).split('-').map(Number); return y && m ? new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' }) : String(k); };
+/* Group rules (F-X10): one full page every member can read, written for a group that texts and chats together.
+   The money rules come from the Chama settings; "Our rules" is what the group agreed (chama.rules); "In the chat"
+   is chat etiquette (chama.chatRules), with a kind default the treasurer can edit. */
+const CHAT_RULES_DEFAULT = 'Be kind and respectful. No insults, shouting or gossip.\nKeep the group chat for Chama matters.\nAsk about your own money privately, with the treasurer.\nNo adverts, chain messages or politics.\nKeep members’ numbers, photos and messages inside the group.\nDisagree calmly. Officers may remove messages that break these rules.';
+const Rules = {
+  chat: c => (c && c.chatRules != null && String(c.chatRules).trim()) ? String(c.chatRules) : CHAT_RULES_DEFAULT,
+  /* one rule per line; a leading "1." "2)" "-" or "•" is dropped because the page numbers them itself */
+  items: t => String(t || '').split(/\r?\n/).map(x => x.trim().replace(/^(\d{1,2}[.)]|[-*•])\s*/, '')).filter(Boolean),
+  money(c) {
+    const out = [['coins', 'Contribution', kes(c.monthly) + ' a share, every month'], ['clock', 'Due by', 'Day ' + c.dueDay + ' of the month']];
+    if (Number(c.finePerLate) > 0) out.push(['receipt', 'Late fine', kes(c.finePerLate)]);
+    out.push(['loans', 'Loan interest', c.loanRate + '% a month, flat']);
+    if (c.payTo) out.push(['wallet', 'Pay to', c.payTo]);
+    out.push(['swap', 'Type', c.mode === 'savings' ? 'Savings or table banking' : 'Merry-go-round: the pot rotates']);
+    return out;
+  },
+  list(t, empty) { const it = this.items(t); return it.length ? `<ol class="rl-list">${it.map(x => `<li><span class="rl-n"></span><p>${esc(x)}</p></li>`).join('')}</ol>` : `<p class="rl-empty">${esc(empty)}</p>`; },
+  page(s, admin) {
+    const c = s.chama || {}, edit = f => admin ? `<button type="button" class="btn sm ghost" data-act="chamaEdit" data-f="${f}">${icon('pencil', 's')}Edit</button>` : '';
+    return `<h1 class="lt">Group rules</h1><p class="lt-sub">${esc(c.name || 'Our Chama')}. Everyone agreed to these. Please follow them.</p>
+<section class="sec rl-sec"><div class="sec-h"><h2>Money</h2></div><div class="rl-money">${this.money(c).map(([ic, k, v]) => `<div class="rl-m"><span class="rl-ic">${icon(ic, 's')}</span><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join('')}</div></section>
+<section class="sec rl-sec"><div class="sec-h"><h2>Our rules</h2>${edit('rules')}</div>${this.list(c.rules, admin ? 'Not written yet. Tap Edit to write the rules your group agreed.' : 'The treasurer has not written the rules yet.')}</section>
+<section class="sec rl-sec"><div class="sec-h"><h2>In the chat</h2>${edit('chatRules')}</div>${this.list(this.chat(c), '')}</section>
+${admin ? `<button type="button" class="btn pri block lg" data-act="rulesRemind">${icon('bell')}Remind everyone of the rules</button><p class="foot-note">Posts a friendly reminder card in the Chama chat.</p>` : `<p class="foot-note">Something unclear? Ask your treasurer in the chat.</p>`}`;
+  },
+  /* the reminder posted in the group chat */
+  message(s) {
+    const c = s.chama || {}, n = (t, i) => (i + 1) + '. ' + t, our = this.items(c.rules), chat = this.items(this.chat(c));
+    const parts = ['A friendly reminder to follow our group rules. They keep ' + (c.name || 'our Chama') + ' fair for everyone.'];
+    if (our.length) parts.push('Our rules:\n' + our.map(n).join('\n'));
+    parts.push('In the chat:\n' + chat.map(n).join('\n'));
+    parts.push('Read them all in the app: Settings, Chama settings, Group rules.');
+    return parts.join('\n\n').slice(0, 3900);
+  },
+  /* the gentle line above the message box: once a week, and again when someone new joins */
+  seenKey: () => 'mca-rules-seen:' + Store.chamaId + ':' + ((Session.user && Session.user.id) || ''),
+  nudge(people) {
+    let v = null; try { v = JSON.parse(localStorage.getItem(this.seenKey()) || 'null'); } catch (e) {}
+    if (!v || !v.at) return 'new';
+    if (Date.now() - v.at > 7 * 864e5) return 'week';
+    if (people > (v.n || 0)) return 'joined';
+    return '';
+  },
+  seen(people) { try { localStorage.setItem(this.seenKey(), JSON.stringify({ at: Date.now(), n: people })); } catch (e) {} },
+};
+
 const CHAMA_FIELDS = {
   name: ['Chama name', 'pencil', 'text', 'Members see this everywhere.'],
   mode: ['Type of Chama', 'swap', 'select', 'Merry-go-round: the pot rotates. Savings: money stays in the pool for loans.'],
@@ -5428,11 +5744,12 @@ const CHAMA_FIELDS = {
   finePerLate: ['Late fine', 'receipt', 'number', 'In KES. 0 means no fine.'],
   loanRate: ['Loan interest', 'loans', 'number', 'Percent a month, flat. New loans start with this rate.'],
   payTo: ['Members pay to', 'wallet', 'text', 'Till, paybill or phone number. It is shown in reminders and payment requests.'],
-  rules: ['Group rules', 'doc', 'textarea', 'The rules everyone agreed to. New members read them before they enter.']
+  rules: ['Group rules', 'doc', 'textarea', 'The rules everyone agreed to. One rule per line. New members read them before they enter.'],
+  chatRules: ['Chat etiquette', 'chat', 'textarea', 'How members talk to each other in the Chama chat. One rule per line.']
 };
 const chamaEditSheet = f => {
   const F = CHAMA_FIELDS[f], c = S().chama; if (!F) return;
-  const v = c[f] == null ? '' : c[f];
+  const v = f === 'chatRules' ? Rules.chat(c) : c[f] == null ? '' : c[f];
   const input = F[2] === 'textarea' ? `<textarea id="chV" rows="8" maxlength="1500" placeholder="e.g. 1. Contributions are due by the 10th.\n2. A late payment is fined KES 100.\n3. Loans are repaid within 3 months.">${esc(v)}</textarea>` : F[2] === 'select' ? `<select id="chV"><option value="rotation"${v === 'rotation' ? ' selected' : ''}>Merry-go-round (the pot rotates)</option><option value="savings"${v === 'savings' ? ' selected' : ''}>Savings or table banking</option></select>`
     : `<input id="chV" type="${F[2]}" value="${esc(v)}"${F[2] === 'number' ? ' inputmode="decimal" step="any"' : ''} autofocus>`;
   __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon(F[1])}</span><h3>${esc(F[0])}</h3><p>${esc(F[3])}</p></div>
@@ -5468,9 +5785,10 @@ const actions = {
     const R = __M_src_features_requests_js;
     Modal.open({ title: 'Remove access?', submitLabel: 'Continue', danger: true,
       body: `<div class="ho-warn">${icon('shield')}<div><b>Be fair</b><ul><li>They see your reason.</li><li>They get a few days to reply first.</li><li>Their money records stay.</li></ul></div></div>`,
-      fields: [{ name: 'cat', label: 'Why', type: 'select', options: [['', 'Choose one…'], ...R.REMOVE_WHY], value: '' },
+      /* F-P3: the normal way always gives notice (only "they asked to leave" ends at once). A lost phone or a fake account is Emergency removal, which needs the treasurer's password */
+      fields: [{ name: 'cat', label: 'Why', type: 'select', options: [['', 'Choose one…'], ...R.REMOVE_WHY.filter(([k]) => k !== 'duplicate' && k !== 'security')], value: '' },
         { name: 'why', label: 'Explain in your own words', type: 'textarea', required: true, placeholder: 'e.g. No contribution since January and no reply to three reminders.' },
-        { name: 'days', label: 'Notice before access ends', type: 'select', options: [['3', '3 days (suggested)'], ['7', '7 days'], ['14', '14 days']], value: '3', help: 'Ignored when they asked to leave, for a duplicate account or a security risk: those end at once.' }],
+        { name: 'days', label: 'Notice before access ends', type: 'select', options: [['3', '3 days (suggested)'], ['7', '7 days'], ['14', '14 days']], value: '3', help: 'Ignored when they asked to leave. For a lost phone or a fake account, use Emergency removal on their member page.' }],
       onSubmit: v => {
         if (!v.cat) throw new Error('Choose why');
         const why = String(v.why || '').trim(); if (why.length < 15) throw new Error('Explain the reason in a sentence (at least 15 characters)');
@@ -5485,6 +5803,48 @@ const actions = {
         }, 0);
       } });
   },
+  /* treasurer: post the rules as a friendly announcement card in the Chama chat */
+  rulesRemind: { admin: true, run() {
+    const s = S(), C = __M_src_features_chat_index_js.Chat;
+    __M_src_ui_toast_js.Pop.confirm({ title: 'Remind everyone of the rules?', text: 'A friendly reminder card with the rules goes to the Chama chat. Everyone sees it.', confirmLabel: 'Post reminder', onYes: async () => {
+      const okSent = await C.send('group', 'announcement', Rules.message(s), { title: 'Our group rules', rules: true });
+      if (okSent) { toast('Reminder posted in the chat', 'ok'); location.hash = '#/chat/group'; }
+    } });
+  } },
+  /* Emergency removal (F-P3, R5): treasurer only, at once, no notice. Needs a reason everyone will read and the treasurer's
+     password, checked on the server (emergency_remove_member). Logged, announced in chat, and the person is told. */
+  emergencyRemove: { admin: true, run(d) {
+    const s = S(), m = (s.members || []).find(x => x.id === d.id); if (!m) return;
+    if (Session.role !== 'treasurer') return toast('Only the treasurer can do this');
+    Modal.close();
+    const R = __M_src_features_requests_js, first = esc(m.name.split(' ')[0]);
+    setTimeout(() => R.Sheet.open(`<div class="sx-head"><span class="sx-badge em-badge">${icon('alert')}</span><h3>Emergency removal</h3><p>${esc(m.name)}</p></div>
+<div class="ho-warn em-warn">${icon('shield')}<div><b>Only for a real emergency</b><ul><li>${first} loses access at once, with no notice and no chance to reply first.</li><li>Use it for a lost or stolen phone, a fake account, or a threat to the group.</li><li>Everyone sees your reason in the Chama chat, and it is kept in History.</li><li>${first}’s money records stay in the books.</li></ul><p class="em-alt">Not an emergency? Use <b>Remove access</b>, which gives notice.</p></div></div>
+<label class="fgrp"><span class="flab">Reason everyone will read</span><textarea id="emWhy" rows="3" maxlength="600" placeholder="e.g. ${first}’s phone was stolen on Monday and someone else is using it."></textarea></label>
+<label class="fgrp"><span class="flab">Your password</span><input id="emPw" type="password" autocomplete="current-password" placeholder="Type your password"><small class="fhelp">To be sure it is really you.</small></label>
+<p class="ferr" id="emErr" role="alert" aria-live="polite"></p>
+<div class="btns"><button type="button" class="btn grow" data-act="sheetClose">Cancel</button><button type="button" class="btn bad grow" id="emGo" data-act="emergencyGo" data-id="${esc(m.id)}">Remove ${first} now</button></div>`, { key: 'emergency', label: 'Emergency removal' }), 240);
+  } },
+  emergencyGo: { admin: true, async run(d) {
+    const why = String(($('#emWhy') || {}).value || '').trim(), pw = String(($('#emPw') || {}).value || ''), err = $('#emErr'), btn = $('#emGo');
+    const say = t => { if (err) err.textContent = t; };
+    if (why.length < 5) return say('Write the reason (at least 5 letters).');
+    if (!pw) return say('Type your password.');
+    if (btn) { if (btn.disabled) return; btn.disabled = true; btn.textContent = 'Removing…'; }
+    const again = () => { if (btn) { btn.disabled = false; btn.textContent = 'Try again'; } };
+    let res;
+    try { res = await Backend.sb.rpc('emergency_remove_member', { p_cid: Store.chamaId, p_member: d.id, p_reason: why, p_password: pw }); } catch (e) { again(); return say('No connection. Nothing was changed.'); }
+    const { data, error } = res || {};
+    if (error && /Could not find the function|PGRST202|schema cache|does not exist/i.test(error.message || '')) { __M_src_features_requests_js.Sheet.close(); return __M_src_ui_toast_js.Pop.alert('Nothing was changed. Emergency removal needs the latest server update.', { title: 'Needs the server update', label: 'OK' }); }
+    if (error || !data || !data.ok) { again(); const p = $('#emPw'); if (p) p.value = ''; return say((data && data.error) || (error ? rpcMessage(error) : 'Nothing was changed. Try again.')); }
+    __M_src_features_requests_js.Sheet.close();
+    try { await Store.reload(); } catch (e) {}
+    try { await Session.loadAccess(); } catch (e) {}
+    try { await __M_src_features_requests_js.Roles.load(); } catch (e) {}
+    try { __M_src_features_chat_index_js.Chat.load && __M_src_features_chat_index_js.Chat.load(); } catch (e) {}
+    render();
+    toast('Removed at once. The reason was posted in the Chama chat. Their records are kept.', 'ok');
+  } },
   roleAnswer: d => __M_src_features_requests_js.Roles.answer(d.id, d.v === 'yes'),
   offerCancel: async d => { const { error } = await Backend.sb.rpc('cancel_role_offer', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await __M_src_features_requests_js.Roles.load(); render(); toast('Offer withdrawn', 'info'); },
   noticeCancel: d => __M_src_ui_toast_js.Pop.confirm({ title: 'Withdraw the notice?', text: 'They keep their access and are told the notice was withdrawn.', confirmLabel: 'Withdraw', onYes: async () => { const { error } = await Backend.sb.rpc('cancel_removal_notice', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await __M_src_features_requests_js.Roles.load(); render(); toast('Notice withdrawn. They were told.', 'ok'); } }),
@@ -5543,6 +5903,7 @@ ${has ? '<button type="button" class="btn ghost block" style="margin-top:8px" da
     else if (f === 'startMonth') { if (!/^\d{4}-\d{2}$/.test(raw)) throw new Error('Choose a month'); val = raw; }
     else if (f === 'payTo') val = raw.slice(0, 60);
     else if (f === 'rules') val = raw.slice(0, 1500);
+    else if (f === 'chatRules') val = raw.slice(0, 1500);
     else if (f === 'dueDay') { val = Math.round(num(raw, 'Due day', { min: 1 })); if (val > 28) throw new Error('Due day must be 1 to 28'); }
     else if (f === 'loanRate') { val = num(raw, 'Rate', { allowZero: true }); if (val > 100) throw new Error('Interest above 100% a month is not allowed'); }
     else if (f === 'finePerLate') val = num(raw, 'Fine', { allowZero: true });
@@ -5574,7 +5935,7 @@ ${has ? '<button type="button" class="btn ghost block" style="margin-top:8px" da
   } },
 };
 
-return { get views() { return views; }, get actions() { return actions; }, };
+return { get views() { return views; }, get actions() { return actions; }, get Rules() { return Rules; }, };
 })();
 
 /* ---- src/features/notifications/notify.js ---- */
@@ -5863,6 +6224,7 @@ const views = {
       <p class="nwhen">${esc(Notify.when(n.ts))} · Nairobi time</p>
       <p class="nfull">${esc(n.body)}</p>
       ${facts ? `<div class="card facts">${facts}</div>` : ''}
+      ${(() => { const pid = n.type === 'payment_confirmed' && n.key ? String(n.key).split(':')[1] : ''; return pid && (s.payments || []).some(p => p.id === pid) ? `<button type="button" class="btn pri block lg" data-act="receiptOpen" data-id="${esc(pid)}" style="margin-top:14px">${icon('receipt')}Open receipt</button>` : ''; })()}
       <div class="btns">${n.dest && /^#\/[\w/-]*$/.test(String(n.dest)) ? `<a class="btn pri grow" href="${esc(n.dest)}">View ${esc(n.destLabel || 'details')}</a>` : ''}<button class="btn grow" data-act="noteToggle" data-id="${esc(n.id)}">${unread ? 'Mark as read' : 'Mark as unread'}</button></div>
     </article>`;
   },
@@ -6436,7 +6798,7 @@ const Person = {
       : `<div class="fgrp"><span class="flab">Member list</span><div class="inline-pick"><span class="field">${icon('members')}<select id="personRec"><option value="new">Add as a new member</option>${opts ? `<optgroup label="Link to">${opts}</optgroup>` : ''}</select></span><button type="button" class="btn pri" data-act="personLink" data-e="${esc(a.email)}">Add</button></div><small class="fhelp">Not on the member list, so their profile shows no money yet.</small></div>`);
     const tail = self || a.status !== 'active' ? '' : `<div class="list sx-list">
 ${a.role !== 'treasurer' ? `<button type="button" class="li has-ic" data-act="handover" data-e="${esc(a.email)}"><span class="li-ic t-gold">${icon('key')}</span><span class="li-main"><b>Hand the books to ${esc(name.split(' ')[0])}</b><small>Make them treasurer</small></span>${icon('chev', 'chev')}</button>` : ''}
-<button type="button" class="li has-ic danger" data-act="revoke" data-e="${esc(a.email)}"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Remove access</b><small>Their records stay in the books</small></span>${icon('chev', 'chev')}</button></div>`;
+<button type="button" class="li has-ic danger" data-act="revoke" data-e="${esc(a.email)}"><span class="li-ic t-bad">${icon('out')}</span><span class="li-main"><b>Remove access</b><small>With notice. Their records stay in the books</small></span>${icon('chev', 'chev')}</button>${m && Session.role === 'treasurer' ? `<button type="button" class="li has-ic danger" data-act="emergencyRemove" data-id="${esc(m.id)}"><span class="li-ic t-bad">${icon('alert')}</span><span class="li-main"><b>Emergency removal</b><small>At once, no notice. Needs your password</small></span>${icon('chev', 'chev')}</button>` : ''}</div>`;
     Sheet.open(`<div class="rq-who">${m ? __M_src_ui_avatar_js.av(m, 60) : pav(name, null, 60)}<div><h3>${esc(name)}${self ? ' <span class="tag">You</span>' : ''}</h3><p>${esc(a.email)}</p><p class="mute">${esc(Perm.label(a.role))} · ${a.status === 'active' ? 'can sign in' : 'access removed'}</p></div></div>${rows.join('')}${tail}`, { key: 'person', label: name });
   }
 };
@@ -6672,6 +7034,8 @@ const BUCKET = 'chat-media';
 const REACTS = ['👍', '❤️', '😂', '🙏', '👏', '😮'];
 const CHAT_THEMES = [['app', 'App colours'], ['savanna', 'Savanna'], ['ocean', 'Ocean'], ['forest', 'Forest'], ['dusk', 'Dusk'], ['rose', 'Rose'], ['sunset', 'Sunset'], ['slate', 'Slate']];
 const MAX_REC = 150, MAX_FILE = 10 * 1024 * 1024, MAX_ONCE = 6 * 1024 * 1024;
+/* broad on purpose: iOS greys out files when accept lists only unusual types; Android shows every folder */
+const FILE_ACCEPT = 'application/pdf,image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
 const NOTREADY = e => /Could not find the function|PGRST202|schema cache|does not exist|Bucket not found|bucket/i.test((e && e.message) || '');
 const fmtDur = s => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
@@ -6846,6 +7210,7 @@ ${s.samples ? `<div class="vr-trim"><label>${icon('scissors', 's')}Start<input t
   }
 };
 
+const Rules = () => __M_src_features_settings_index_js.Rules;
 const Chat = {
   msgs: [], resp: [], contacts: [], unread: {}, loaded: false, busy: false, _chan: null, _live: null, _timer: 0, draft: {}, form: null,
   mode: {}, reply: {}, typing: {}, seen: {}, online: new Set(), theme: 'app', themeBy: '', opened: new Set(), _sentTy: 0,
@@ -7059,7 +7424,7 @@ ${records ? `<section class="sec"><div class="list"><a class="li has-ic" href="#
       } else if (m.kind === 'file') {
         cls = ' filem';
         const u = m.pending ? '' : Media.url(meta.path);
-        inner += `<a class="bub-file" ${m.pending ? '' : `data-sign="${esc(meta.path)}"`} ${u ? `href="${esc(u)}"` : ''} target="_blank" rel="noopener" download="${esc(meta.name || 'file')}"><span class="bf-ic">${icon('file')}</span><span class="bf-t"><b>${esc(meta.name || 'File')}</b><small>${esc(fmtSize(meta.size || 0))}${m.pending ? ' · sending' : ' · open'}</small></span></a>`;
+        inner += `<a class="bub-file" ${m.pending ? '' : `data-sign="${esc(meta.path)}"`} ${u ? `href="${esc(u)}"` : ''} target="_blank" rel="noopener" download="${esc(meta.name || 'file')}"><span class="bf-ic">${icon('file')}</span><span class="bf-t"><b>${esc(meta.name || 'File')}</b><small>${esc(fmtSize(meta.size || 0))}${m.pending ? ' · sending' : ' · open'}</small>${meta.serial ? `<small class="bf-sn">Serial ${esc(meta.serial)}</small>` : ''}</span></a>`;
       }
       if (m.body) inner += `<span class="bub-txt">${linkify(m.body)}</span>`;
     }
@@ -7096,7 +7461,7 @@ ${records ? `<section class="sec"><div class="list"><a class="li has-ic" href="#
     setTimeout(() => { Media.hydrate(); Player.paint(); this.paintLive(); }, 0);
     const themeName = (CHAT_THEMES.find(x => x[0] === this.theme) || CHAT_THEMES[0])[1];
     return `<div class="ch-thread" data-ct="${esc(this.theme)}"><div class="ch-bar">${th === 'group' ? `<span class="av grp" style="--n:42px">${icon('members')}</span>` : R().pav(title, c && c.photo, 42)}<div class="ch-bar-t"><b>${esc(title)}</b><small id="chSub" data-base="${esc(base)}">${esc(base)}</small></div>${th === 'group' ? `<button type="button" class="ch-bar-b" data-act="chatTheme" aria-label="Chat theme: ${esc(themeName)}">${icon('palette')}</button>` : ''}</div>
-${pinned ? `<button type="button" class="pin-card" data-act="chatJump" data-id="${esc(pinned.id)}">${icon('bell', 's')}<span><b>Pinned</b>${esc((pinned.body || '').slice(0, 120))}</span></button>` : ''}
+${th === 'group' ? `<a class="pin-card rules-pin" href="#/settings/rules" data-rv-skip>${icon('doc', 's')}<span><b>Group rules</b>${esc(Rules().items(Rules().chat((s && s.chama) || {})).slice(0, 2).join(' · '))}</span>${icon('chev', 'chev')}</a>` : ''}${pinned ? `<button type="button" class="pin-card" data-act="chatJump" data-id="${esc(pinned.id)}">${icon('bell', 's')}<span><b>Pinned</b>${esc((pinned.body || '').slice(0, 120))}</span></button>` : ''}
 <div class="ch-msgs" id="chMsgs">${body || `<div class="ch-empty">${art('group')}<p>${th === 'group' ? 'Nothing here yet. Say hello to everyone.' : 'Start a private conversation.'}</p></div>`}<div class="ch-foot">${this.seenHtml(th)}</div><div id="chTyping"></div><span id="chatEnd"></span></div>
 ${canWrite ? this.composer(th, tools, c) : `<p class="foot-note">You can message the treasurer or the secretary privately.</p>`}</div>`;
   },
@@ -7107,7 +7472,10 @@ ${canWrite ? this.composer(th, tools, c) : `<p class="foot-note">You can message
     const rp = this.reply[th];
     const bar = rp ? `<div class="cp-reply"><span class="cp-r-l"></span><span class="cp-r-t"><b>Replying to ${esc(rp.from === this.me() ? 'yourself' : rp.name)}</b><small>${esc(rp.preview)}</small></span><button type="button" class="cp-b sm" data-act="replyCancel" aria-label="Cancel reply">${icon('close', 's')}</button></div>` : '';
     const has = !!(this.draft[th] || '').trim();
-    return `<div class="cp-wrap" id="cpZone">${bar}<form class="composer" id="chatForm" data-th="${esc(th)}" autocomplete="off">${tools.length ? `<button type="button" class="cp-b" data-act="chatTools" data-th="${esc(th)}" aria-label="Tools">${icon('plus')}</button>` : ''}
+    /* a gentle reminder of the chat rules: first visit, once a week, and when someone new has joined */
+    const why = th === 'group' && !rp ? Rules().nudge(this.contacts.length + 1) : '';
+    const nudge = why ? `<div class="cp-rules" role="note"><span class="cp-rules-ic">${icon('doc', 's')}</span><span class="cp-rules-t">${why === 'joined' ? 'Someone new joined. ' : ''}Be kind and keep it to Chama matters. <a href="#/settings/rules">Group rules</a></span><button type="button" class="cp-b sm" data-act="rulesSeen" aria-label="Got it">${icon('check', 's')}</button></div>` : '';
+    return `<div class="cp-wrap" id="cpZone">${nudge}${bar}<form class="composer" id="chatForm" data-th="${esc(th)}" autocomplete="off">${tools.length ? `<button type="button" class="cp-b" data-act="chatTools" data-th="${esc(th)}" aria-label="Tools">${icon('plus')}</button>` : ''}
 <button type="button" class="cp-b" id="cpAttach" data-act="chatAttach" data-th="${esc(th)}" aria-label="Photo or file">${icon('clip')}</button>
 <textarea id="chatIn" rows="1" maxlength="4000" placeholder="${th === 'group' ? 'Message everyone' : 'Message ' + esc((c && c.name || '').split(' ')[0])}" aria-label="Message">${esc(this.draft[th] || '')}</textarea>
 <button type="submit" class="cp-send" id="cpSend" aria-label="Send"${has ? '' : ' hidden'}${this.busy ? ' disabled' : ''}>${icon('send')}</button><button type="button" class="cp-send mic" id="cpMic" data-act="recStart" data-th="${esc(th)}" aria-label="Record a voice note"${has ? ' hidden' : ''}>${icon('mic')}</button></form></div>`;
@@ -7119,7 +7487,7 @@ ${canWrite ? this.composer(th, tools, c) : `<p class="foot-note">You can message
     const by = `<span class="cc-by">${esc(m.sender_name)} · ${esc(ROLE_T(m.sender_role))} · ${esc(short(m.created_at))}</span>`;
     const menu = (mine || Session.role === 'treasurer' || (officer && !m.recipient)) ? `<button type="button" class="cc-more" data-act="msgMenu" data-id="${esc(m.id)}" aria-label="Options">${icon('more')}</button>` : '';
     const rs = this.responses(m.id), my = this.mine(m.id);
-    if (m.kind === 'announcement') return `<article class="cc cc-ann" id="m-${esc(m.id)}"><header>${icon('bell')}<span>Announcement${m.pinned ? ' · pinned' : ''}</span>${menu}</header>${meta.title ? `<h4>${esc(meta.title)}</h4>` : ''}<p>${linkify(m.body)}</p>${by}</article>`;
+    if (m.kind === 'announcement') return `<article class="cc cc-ann" id="m-${esc(m.id)}"><header>${icon('bell')}<span>Announcement${m.pinned ? ' · pinned' : ''}</span>${menu}</header>${meta.title ? `<h4>${esc(meta.title)}</h4>` : ''}<p>${linkify(m.body)}</p>${meta.rules ? `<a class="btn sm tint cc-rules" href="#/settings/rules">${icon('doc', 's')}Read all the rules</a>` : ''}${by}</article>`;
     if (m.kind === 'meeting') {
       const w = new Date(meta.when), ok = !isNaN(w), cnt = k => rs.filter(r => r.choice === k).length, past = ok && w < Date.now();
       const att = meta.attendance || null, present = att ? Object.values(att).filter(v => v === 'present').length : 0;
@@ -7212,9 +7580,10 @@ ${!mine ? `<div class="rsvp two"><button type="button" class="${my === 'paid' ? 
   retry(id) { const m = this.msgs.find(x => x.id === id); if (!m || !m.blob) return; const meta = Object.assign({}, m.meta); delete meta.cid; delete meta.reply; this.sendMedia(this.thread(m), m.kind, m.blob, meta, m.body, !!meta.once, id); },
   attachSheet(th) {
     R().Sheet.open(`<div class="sx-head"><h3>Send</h3><p>${th === 'group' ? 'To everyone in the group' : 'Only to ' + esc(this.title(th))}</p></div>
-<div class="att-sheet"><label class="att-b"><span class="att-ic a-ph">${icon('image')}</span><b>Photo</b><small>From your gallery or camera</small><input type="file" accept="image/*" id="attPhoto" data-th="${esc(th)}" hidden></label>
-<label class="att-b"><span class="att-ic a-fi">${icon('file')}</span><b>File</b><small>PDF, document or other, up to 10 MB</small><input type="file" id="attFile" data-th="${esc(th)}" hidden></label>
-<button type="button" class="att-b" data-act="recStart" data-th="${esc(th)}"><span class="att-ic a-vn">${icon('mic')}</span><b>Voice note</b><small>Record, listen, trim, send</small></button></div>`, { key: 'attach', label: 'Send a photo or file' });
+<div class="att-sheet"><label class="att-b"><span class="att-ic a-ph">${icon('image')}</span><b>Photo</b><small>From your gallery or camera</small><input type="file" accept="image/*" id="attPhoto" class="att-in" data-th="${esc(th)}" tabindex="-1"></label>
+<label class="att-b"><span class="att-ic a-fi">${icon('file')}</span><b>File</b><small>PDF, document or other, up to 10 MB</small><input type="file" accept="${FILE_ACCEPT}" id="attFile" class="att-in" data-th="${esc(th)}" tabindex="-1"></label>
+<button type="button" class="att-b" data-act="recStart" data-th="${esc(th)}"><span class="att-ic a-vn">${icon('mic')}</span><b>Voice note</b><small>Record, listen, trim, send</small></button></div>
+${(() => { const s = Store.get() || {}, admin = __M_src_core_auth_js.Auth.isAdmin(), mine = s.shared ? s.shared.me : Session.memberId; return admin || mine ? `<div class="att-docs"><p class="att-dh">Made now, numbered, as a PDF</p>${admin ? `<button type="button" class="att-d" data-act="docToChat" data-v="chama" data-th="${esc(th)}"><span class="att-ic a-pdf">${icon('doc')}</span><span><b>Chama report (PDF)</b><small>Cash flow, members by month, loans, fines</small></span></button>` : ''}${mine ? `<button type="button" class="att-d" data-act="docToChat" data-v="mine" data-th="${esc(th)}"><span class="att-ic a-pdf">${icon('receipt')}</span><span><b>My statement (PDF)</b><small>Your savings, loans and fines</small></span></button>` : ''}</div>` : ''; })()}`, { key: 'attach', label: 'Send a photo or file' });
   },
   /* a photo is made smaller first (long side 1600), then the person adds words and chooses view once */
   async photoPicked(th, file) {
@@ -7238,6 +7607,28 @@ ${!mine ? `<div class="rsvp two"><button type="button" class="${my === 'paid' ? 
     this._pick = null; R().Sheet.close();
     if (once) URL.revokeObjectURL(p.url);
     await this.sendMedia(p.th, 'image', p.blob, { w: p.w, h: p.h }, cap, once);
+  },
+  /* 0.20 (CHATDOCS): a numbered report or statement, made on this phone as a real PDF and sent like any file */
+  async sendDoc(th, v) {
+    const Rp = __M_src_lib_reports_js, s = Store.get(), admin = __M_src_core_auth_js.Auth.isAdmin();
+    if (!s) return;
+    if (v === 'chama' && !admin) return toast('Only the treasurer can send the Chama report');
+    const mid = s.shared ? s.shared.me : Session.memberId, m = v === 'mine' && mid ? s.members.find(x => x.id === mid) : null;
+    if (v === 'mine' && !m) return toast('Your sign-in is not linked to a member yet');
+    const go = async () => {
+      R().Sheet.close();
+      if (!this.loaded) { try { await this.load(); } catch (e) {} }
+      if (this.openThread() !== th) location.hash = '#/chat/' + th;
+      toast('Making the PDF…', 'info');
+      try {
+        const r = await Rp.Doc.make(v === 'chama' ? 'chama' : 'mine', s, m), blob = Rp.Pdf.make(r.html);
+        const name = String(r.name).replace(/[\\/:*?"<>|]+/g, '-').slice(0, 110) + '.pdf';
+        try { __M_src_ui_toast_js.hideToast(); } catch (e) {}
+        await this.sendMedia(th, 'file', blob, { name, doc: v === 'chama' ? 'report' : 'statement', serial: r.serial }, '', false);
+      } catch (e) { Rp.Doc.fail(e); }
+    };
+    if (th === 'group') Pop.confirm({ title: v === 'chama' ? 'Send the Chama report to everyone?' : 'Send your statement to everyone?', text: v === 'chama' ? 'Every member in the group can open it. It shows each member’s savings, arrears, loans and fines.' : 'Every member in the group can open it and see your savings, loans and fines.', confirmLabel: 'Send to the group', onYes: go });
+    else go();
   },
   filePicked(th, file) {
     R().Sheet.close();
@@ -7397,6 +7788,7 @@ const views = {
 };
 
 const actions = {
+  rulesSeen: () => { Rules().seen(Chat.contacts.length + 1); const n = document.querySelector('.cp-rules'); if (n) n.remove(); },
   chatNew: () => Chat.newMessage(),
   chatTools: d => Chat.toolSheet(d.th),
   chatForm: d => Chat.formSheet(d.k, d.th),
@@ -8304,6 +8696,12 @@ const TASKS = [
   { id: 'chat', t: 'Send a message', k: 'chat', act: 'chatNew', tour: [
     { go: '#/chat', sel: '[data-act="chatNew"]', text: 'Tap New message.', click: true },
     { sel: '#modalRoot .sx-list', text: 'Choose the group, or the person you want to write to.' }] },
+  { id: 'meeting', t: 'Call a meeting', k: 'meeting call agenda mkutano', off: true, ic: 'clock', tour: [
+    { go: '#/chat/group', sel: '[data-act="chatTools"]', text: 'Tap the plus next to the message box for the officer tools.', click: true },
+    { sel: '#modalRoot .tool[data-k="meeting"]', text: 'Tap Call a meeting. Add the date, place and agenda. Everyone can reply if they are coming.' }] },
+  { id: 'vote', t: 'Start a vote', k: 'vote poll choose decide kura', off: true, ic: 'chart', tour: [
+    { go: '#/chat/group', sel: '[data-act="chatTools"]', text: 'Tap the plus next to the message box for the officer tools.', click: true },
+    { sel: '#modalRoot .tool[data-k="poll"]', text: 'Tap Start a vote, write the question and the choices. Results show live in the chat.' }] },
   { id: 'lock', t: 'Lock the app with a PIN or fingerprint', k: 'lock', act: 'lockSetup', tour: [
     { go: '#/settings', sel: '[data-act="lockSetup"]', text: 'Tap App lock.', click: true },
     { sel: '#modalRoot .sx', text: 'Set a 4-digit PIN. You can also turn on fingerprint or face, and choose how long before it locks.' }] },
@@ -8371,7 +8769,7 @@ const ANSWERS = [
 const Guide = {
   q: '', open: false,
   articles() { try { return (__M_src_content_app_info_js.HELP_ARTICLES || []); } catch (e) { return []; } },
-  tasks() { const admin = Auth.isAdmin(); return TASKS.filter(t => !t.admin || admin); },
+  tasks() { const admin = Auth.isAdmin(), off = !!Session.role && Session.role !== 'member'; return TASKS.filter(t => (!t.admin || admin) && (!t.off || off)); },
   score(text, ws) { const hay = this._hay(text); let sc = 0; ws.forEach(w => { if (hay.includes(w)) sc += 2; else if (w.length > 2 && hay.some(h => h.startsWith(w) || w.startsWith(h) && h.length > 3)) sc += 1; }); return sc; },
   _hay(text) { this._hc = this._hc || new Map(); if (!this._hc.has(text)) this._hc.set(text, words(text)); return this._hc.get(text); },
   results() {
