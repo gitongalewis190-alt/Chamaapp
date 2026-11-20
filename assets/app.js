@@ -43,6 +43,19 @@ const ICONS = {
   info: '<circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2M12 7.8v.1"/>',
   sun: '<circle cx="12" cy="12" r="3.8"/><path d="M12 2.8v2M12 19.2v2M21.2 12h-2M4.8 12h-2M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4M18.5 18.5l-1.4-1.4M6.9 6.9 5.5 5.5"/>',
   text: '<path d="M4 18.5 8.5 6h1l4.5 12.5M5.6 14h6.8"/><path d="M15.5 12.3a2.6 2.6 0 0 1 4.8 1.2v5M20.3 15.6c-2.6-.4-4.8.2-4.8 1.6 0 1 .8 1.5 1.8 1.5 1.6 0 3-1.1 3-2.6"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>',
+  image: '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 16l-5-5-8.5 8.5"/>',
+  clip: '<path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.3-8.3a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4l7.6-7.6"/>',
+  stop: '<rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/>',
+  play: '<path d="M8 5.5v13l11-6.5z"/>',
+  pause: '<path d="M7.5 5.5h3v13h-3zM13.5 5.5h3v13h-3z"/>',
+  smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.2a4.2 4.2 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/>',
+  reply: '<path d="M9 17l-5-5 5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>',
+  palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.3-1-1.6-1-2.6 0-.8.6-1.4 1.5-1.4H16a5 5 0 0 0 5-5C21 6.4 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  send: '<path d="M4 12l16-8-6 16-3-7z"/><path d="M11 13l9-9"/>',
+  once: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M10 9.2l2-1.7"/>',
+  scissors: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5L20 18M8 16.5L20 6"/>',
   eye: '<path d="M2.8 12S6.2 5.8 12 5.8 21.2 12 21.2 12 17.8 18.2 12 18.2 2.8 12 2.8 12z"/><circle cx="12" cy="12" r="3"/>',
   hand: '<path d="M8 13V5.8a1.6 1.6 0 0 1 3.2 0V12M11.2 11V4.6a1.6 1.6 0 0 1 3.2 0V11M14.4 11V6a1.6 1.6 0 0 1 3.2 0v8.3c0 3.6-2.6 6.2-6 6.2-2.3 0-3.7-.9-5-2.6L4 14.6a1.6 1.6 0 0 1 2.4-2z"/>',
   chart: '<path d="M4 20V4M4 20h16"/><path d="M7.5 15.5l3.5-4 3 2.5 5-6.5"/>',
@@ -288,7 +301,25 @@ const A11y = {
   refocus(sel) { const e = document.querySelector(sel); if (e) e.focus(); }
 };
 
-return { get A11y() { return A11y; }, };
+/* Accent colours, shared by "Make it yours" and Settings > Appearance. Keep in step with boot.js and app.css. */
+const ACCENTS = [['green', 'Green', '#0b6b4d'], ['blue', 'Blue', '#1f5fae'], ['purple', 'Purple', '#5b34b8'], ['gold', 'Gold', '#8f6213'], ['rose', 'Rose', '#b0284f'], ['teal', 'Teal', '#0b6f78'], ['indigo', 'Indigo', '#3730a3'], ['emerald', 'Emerald', '#047857'], ['crimson', 'Crimson', '#b91c1c'], ['amber', 'Amber', '#a1520a'], ['slate', 'Slate', '#475569'], ['ink', 'Ink', '#1f2937']];
+const ACCENT_GRADS = [['sunset', 'Sunset', '#c2410c', '#be185d'], ['aurora', 'Aurora', '#0f766e', '#6d28d9'], ['ocean', 'Ocean', '#0369a1', '#1e3a8a'], ['berry', 'Berry', '#a21caf', '#6d28d9'], ['savanna', 'Savanna', '#b45309', '#4d7c0f'], ['midnight', 'Midnight', '#3730a3', '#0f172a'], ['forest', 'Forest', '#15803d', '#064e3b'], ['coral', 'Coral', '#e11d48', '#c2410c'], ['lagoon', 'Lagoon', '#0e7490', '#047857']];
+/* The "Make it yours" pieces. at(k, v) returns the attributes that make a button act (data-pz on first run, data-act="a11ySet" in Settings). */
+const Pz = {
+  modes(d, at) {
+    const t = (v, n, s) => `<button type="button" class="pz-mode${d.theme === v ? ' on' : ''}" ${at('theme', v)} aria-pressed="${d.theme === v}"><span class="pz-prev pz-${v}"><i></i><i></i><i></i></span><b>${n}</b><small>${s}</small></button>`;
+    return `<div class="pz-modes">${t('auto', 'Follow phone', 'Changes with your phone')}${t('light', 'Light', 'Bright and clear')}${t('dark', 'Dark', 'Easy on the eyes')}</div>`;
+  },
+  sws(d, at) {
+    const cur = d.accent || 'green', all = [...ACCENTS, ...ACCENT_GRADS], now = all.find(a => a[0] === cur) || ACCENTS[0];
+    const one = a => `<button type="button" class="pz-sw${a[3] ? ' grad' : ''}${cur === a[0] ? ' on' : ''}" ${at('accent', a[0])} aria-label="${a[1]}" title="${a[1]}" aria-pressed="${cur === a[0]}" style="--c:${a[3] ? `linear-gradient(135deg, ${a[2]}, ${a[3]})` : a[2]}"></button>`;
+    return `<div class="pz-swg"><span class="pz-swl">Solid</span><div class="pz-sws">${ACCENTS.map(one).join('')}</div></div><div class="pz-swg"><span class="pz-swl">Gradient</span><div class="pz-sws">${ACCENT_GRADS.map(one).join('')}</div></div><p class="pz-now">Chosen: <b>${now[1]}</b></p>`;
+  },
+  size(d, at) { return `<div class="pz-seg">${[['n', 'Default'], ['l', 'Large'], ['x', 'Largest']].map(([v, t]) => `<button type="button" class="${d.size === v ? 'on' : ''}" ${at('size', v)} aria-pressed="${d.size === v}"><span class="pz-aa pz-aa-${v}">Aa</span>${t}</button>`).join('')}</div>`; },
+  row(t, s, on, attrs) { return `<div class="lk-row"><span><b>${t}</b><small>${s}</small></span><button type="button" class="sw-toggle${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" aria-label="${t}" ${attrs}><i></i></button></div>`; }
+};
+
+return { get A11y() { return A11y; }, get ACCENTS() { return ACCENTS; }, get ACCENT_GRADS() { return ACCENT_GRADS; }, get Pz() { return Pz; }, };
 })();
 
 /* ---- src/core/policy.js ---- */
@@ -2735,9 +2766,12 @@ const views = {
       const acts = admin ? (po
         ? `<div class="po-act">${po.sig ? sigImg(po.sig, 'Recipient signature').replace('<img', '<img class="po-sig"') : `<button class="btn sm" data-act="signPayout" data-id="${esc(po.id)}">${icon('sign', 's')}Get signature</button>`}<button class="btn sm ghost" data-act="undoPayout" data-id="${esc(po.id)}">Undo</button></div>`
         : `<div class="po-act"><button class="btn pri" data-act="markPayout" data-amt="${esc(exp)}">${icon('check')}Mark the payout sent</button></div>`) : '';
-      payout = `<section class="po-card" aria-label="This month's payout"><div class="po-top">${av(rec, 48)}<div class="po-main"><small>Payout · ${esc(longMonth(cur))}</small><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b></div><div class="po-amt num">${esc(kes(amt))}</div></div>
-${(() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 && line.length < 3; k++) { const mk = addMonths(cur, k), x = Domain.recipient(s, mk); if (x && !seen.has(x.id)) { seen.add(x.id); line.push([mk, x]); } } return line.length ? `<div class="po-line" aria-label="Next turns"><span class="po-now">${av(rec, 26)}<b>${esc(longMonth(cur).slice(0, 3))}</b></span>${line.map(([mk, x]) => `<span class="${me && x.id === me.id ? 'me' : ''}">${av(x, 26)}<b>${esc(longMonth(mk).slice(0, 3))}</b><small>${esc(me && x.id === me.id ? 'You' : x.name.split(' ')[0])}</small></span>`).join('')}</div>` : ''; })()}
-<div class="po-meta">${status}<span>Turn ${Math.max(1, idx + 1)} of ${s.members.length}</span>${po ? '' : `<span>${Domain.isOverdue(s, cur) ? 'Collections closed ' + esc(dueDate) : 'Collections close ' + esc(dueDate)}</span>`}</div>${acts}</section>`;
+      const nextLine = (() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 && line.length < 3; k++) { const mk = addMonths(cur, k), x = Domain.recipient(s, mk); if (x && !seen.has(x.id)) { seen.add(x.id); line.push([mk, x]); } } return line; })();
+      const stop = (mk, x, cls) => `<li class="${cls}"><span class="po-dot">${av(x, cls.includes('now') ? 34 : 30)}</span><b>${esc(longMonth(mk).slice(0, 3))}</b><small>${esc(me && x.id === me.id ? 'You' : x.name.split(' ')[0])}</small></li>`;
+      const rail = nextLine.length ? `<ol class="po-rail" aria-label="Payout order">${stop(cur, rec, 'now' + (me && rec.id === me.id ? ' me' : ''))}${nextLine.map(([mk, x]) => stop(mk, x, me && x.id === me.id ? 'me' : '')).join('')}</ol>` : '';
+      const closeTxt = po ? '' : (Domain.isOverdue(s, cur) ? 'Collections closed ' : 'Collections close ') + dueDate;
+      payout = `<section class="po-card" aria-label="This month's payout"><div class="po-top"><span class="po-av">${av(rec, 52)}</span><div class="po-main"><small>Payout · ${esc(longMonth(cur))}</small><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b></div><div class="po-end"><div class="po-amt num">${esc(kes(amt))}</div>${status}</div></div>
+${rail}<div class="po-meta"><span>${icon('clock', 's')}Turn ${Math.max(1, idx + 1)} of ${s.members.length}</span>${closeTxt ? `<span>${esc(closeTxt)}</span>` : ''}</div>${acts}</section>`;
     }
 
     /* who is behind (treasurer only) */
@@ -2779,10 +2813,8 @@ ${(() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 &&
     const smart = __M_src_features_smart_js.homeBlocks(s);
     /* order: who you are this month, then the pot, then what to do, then what needs attention, then the record */
     /* the borrower signs loan terms on their own phone */
-    const mineUnsigned = meId ? (s.loans || []).filter(l => l.memberId === meId && !l.agreement && Domain.loan(l).balance > 0) : [];
-    const terms = mineUnsigned.map(l => `<button type="button" class="sign-card" data-act="signLoanMine" data-id="${esc(l.id)}"><span class="sign-ic">${icon('sign')}</span><span class="sign-t"><b>Loan terms to sign</b><small>${esc(kes(l.principal))} loan · read what you pay back, then sign</small></span>${icon('chev', 'chev')}</button>`).join('');
-    const help = `<button type="button" class="simple-help only-simple" data-act="guide"><span class="gd-chip">${icon('guide')}</span><span><b>Need help?</b><small>Ask me, or let me show you how</small></span></button>`;
-    return `${greet}${terms}<div class="home-top">${hero}${payout}</div>${help}${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
+    const help = `<button type="button" class="simple-help" data-act="guide"><span class="gd-chip">${icon('guide')}</span><span><b>Need help?</b><small>Ask me, or let me show you how</small></span></button>`;
+    return `${greet}<div class="home-top">${hero}${payout}</div>${help}${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
   }
 };
 
@@ -2802,7 +2834,46 @@ const actions = {
   undoPayout: { admin: true, run: d => confirmBox('Undo this payout? It is removed from the records and the change is kept in History.', () => Store.commit(s => { s.payouts = s.payouts.filter(p => p.id !== d.id); })) },
 };
 
-return { get views() { return views; }, get actions() { return actions; }, };
+/* High-priority things the person must act on (sign loan terms, a removal notice, an account about to be deleted)
+   take the whole screen once the app has loaded, instead of sitting as banners above the card where they can be missed.
+   "Later" hides it for 2 hours on this phone; it comes back the next time the app opens after that. */
+const Urgent = {
+  open: null,
+  snoozed(k) { try { return Number(localStorage.getItem('mca-urgent-' + k) || 0) > Date.now(); } catch (e) { return false; } },
+  snooze(k) { try { localStorage.setItem('mca-urgent-' + k, String(Date.now() + 2 * 3600e3)); } catch (e) {} },
+  items(s) {
+    const out = [], Sess = __M_src_core_session_js.Session, meId = s.shared ? s.shared.me : Sess.memberId;
+    (meId ? (s.loans || []).filter(l => l.memberId === meId && !l.agreement && Domain.loan(l).balance > 0) : []).forEach(l => {
+      const c = Domain.loan(l);
+      out.push({ k: 'loan:' + l.id, ic: 'sign', tone: 'warn', kicker: 'Action needed', title: 'Sign your loan terms', text: 'Your treasurer recorded a loan of ' + kes(l.principal) + ' for you. Read what you pay back (' + kes(c.total) + ' over ' + l.months + (l.months === 1 ? ' month' : ' months') + ') and sign on this phone.', go: 'Read and sign', act: 'signLoanMine', id: l.id });
+    });
+    try { const n = __M_src_features_requests_js.Roles.myNotice; if (n) out.push({ k: 'notice:' + n.id + (n.reply ? ':r' : ''), ic: 'alert', tone: 'bad', kicker: 'Notice from the treasurer', title: 'Your access ends on ' + new Date(n.effective_at).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' }), text: 'Reason: ' + n.reason, go: n.reply ? 'OK' : 'Reply', act: n.reply ? '' : 'noticeReply', id: n.id }); } catch (e) {}
+    try { const A = __M_src_features_account_deletion_js.Account; if (A.pending) out.push({ k: 'del', ic: 'trash', tone: 'bad', kicker: 'Your account', title: 'Account deletion scheduled', text: 'It will be deleted on ' + new Date(A.pending.purgeAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'long' }) + '. Restore it before then and nothing is lost.', go: 'Restore my account', act: 'restoreAccount' }); } catch (e) {}
+    return out;
+  },
+  check(s, r) {
+    if (!s || this.open || /^chat\/./.test(r || '') || document.querySelector('.modal-veil, .pop-veil, .sx-veil.on, .gd-veil.on')) return;
+    const it = this.items(s).find(x => !this.snoozed(x.k)); if (!it) return;
+    this.show(it);
+  },
+  show(it) {
+    const box = document.createElement('div'); box.className = 'urgent u-' + it.tone; box.setAttribute('role', 'alertdialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'urgT');
+    box.innerHTML = `<div class="urgent-in"><span class="urgent-ic">${icon(it.ic)}</span><small>${esc(it.kicker)}</small><h2 id="urgT">${esc(it.title)}</h2><p>${esc(it.text)}</p>
+<div class="urgent-btns"><button type="button" class="btn pri block lg" data-u="go">${esc(it.go)}</button><button type="button" class="btn ghost block" data-u="later">Remind me later</button></div></div>`;
+    document.body.appendChild(box); this.open = it;
+    requestAnimationFrame(() => box.classList.add('on'));
+    try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
+    const close = () => { box.classList.remove('on'); this.open = null; setTimeout(() => box.remove(), 260); };
+    box.addEventListener('click', e => {
+      const b = e.target.closest('[data-u]'); if (!b) return;
+      this.snooze(it.k); close();
+      if (b.dataset.u === 'go' && it.act) { const run = (__M_src_features_index_js.Actions || {})[it.act]; const f = run && (typeof run === 'function' ? run : run.run); setTimeout(() => { try { f.call(run, { id: it.id }); } catch (err) { console.error(err); } }, 280); }
+    });
+    setTimeout(() => { const g = box.querySelector('[data-u="go"]'); if (g) g.focus(); }, 60);
+  }
+};
+
+return { get views() { return views; }, get actions() { return actions; }, get Urgent() { return Urgent; }, get heroCount() { return heroCount; } };
 })();
 
 /* ---- src/lib/matcher.js ---- */
@@ -3082,37 +3153,57 @@ const views = {
     const memberLabel = { paid: 'Paid', late: 'Late', due: 'Due', future: 'Not due', na: 'Not due', partial: 'Part paid' };
     const paidCount = s.shared ? null : s.members.filter(inMonth).filter(m => Domain.status(s, m.id, mo) === 'paid').length;
 
+    /* each person: one row, one clear status. The member's own view gets a single, bigger card. */
     const rows = people.map(m => {
       const st = Domain.status(s, m.id, mo), paid = Domain.paidIn(s, m.id, mo), due = Domain.dueFor(s, m.id, mo);
-      const can = admin && !['future', 'na'].includes(st);
-      const sub = ['future', 'na'].includes(st) ? 'Not due this month' : `${kes(paid)} of ${kes(due)}`;
-      const text = st === 'partial' ? kes(paid) : (admin ? label[st] : memberLabel[st]);
-      return `<div class="li has-av">${av(m, 40)}<div class="li-main"><b>${esc(m.name)}${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}</b><small class="num">${esc(sub)}</small></div>
-        <div class="li-end"><button type="button" class="st ${st}" ${can ? `data-act="pay" data-m="${esc(m.id)}" data-mo="${esc(mo)}"` : 'disabled'} aria-label="${esc(m.name)}, ${esc(monthLabel(mo))}: ${esc(memberLabel[st])}${can ? '. Tap to record a payment' : ''}">${esc(text)}</button></div></div>`;
+      const can = admin && !['future', 'na'].includes(st), extra = Math.max(0, paid - due), mp = due ? Math.min(100, Math.round(paid / due * 100)) : 0;
+      const sub = ['future', 'na'].includes(st) ? 'Not due this month' : st === 'paid' ? (extra ? kes(paid) + ' paid · ' + kes(extra) + ' extra' : kes(paid) + ' paid') : paid ? kes(paid) + ' paid · ' + kes(due - paid) + ' to go' : kes(due) + ' due';
+      const text = st === 'partial' ? mp + '%' : (admin ? label[st] : memberLabel[st]);
+      return `<div class="cg-row st-${st}"><span class="cg-ring" style="--p:${['future', 'na'].includes(st) ? 0 : mp}">${av(m, 38)}</span><div class="cg-main"><b>${esc(m.name)}${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}</b><small class="num">${esc(sub)}</small></div>
+        <button type="button" class="st ${st}" ${can ? `data-act="pay" data-m="${esc(m.id)}" data-mo="${esc(mo)}"` : 'disabled'} aria-label="${esc(m.name)}, ${esc(monthLabel(mo))}: ${esc(memberLabel[st])}${can ? '. Tap to record a payment' : ''}">${esc(text)}</button></div>`;
     }).join('');
 
     const pills = months.map(mk => `<button type="button" role="tab" aria-selected="${mk === mo}" data-act="cgMonth" data-mo="${mk}">${esc(monthLabel(mk))}</button>`).join('');
     const recent = [...s.payments].sort((a, b) => (b.at || Date.parse(b.date) || 0) - (a.at || Date.parse(a.date) || 0)).slice(0, 10);
 
+    /* the group's pot this month: a live card with its own colour scale (not the Home card's), set by how close the
+       group is to its target. Over target, met, nearly, halfway, just started, or a month still to come. */
+    const realPct = expected ? Math.round(total / expected * 100) : 0, isFuture = mo > cur;
+    const tier = isFuture ? 'fut' : realPct > 100 ? 'over' : realPct >= 100 ? 'met' : realPct >= 75 ? 'near' : realPct >= 35 ? 'mid' : 'low';
+    const TT = { over: ['Target beaten', 'sparkle'], met: ['Target reached', 'check'], near: ['Almost there', 'up'], mid: ['On the way', 'clock'], low: ['Just started', 'clock'], fut: ['Coming month', 'clock'] }[tier];
+    const dueD = Math.min(28, Number(s.chama.dueDay) || 10), dom = new Date().getDate();
+    const facts = [];
+    if (tier === 'over') facts.push(kes(total - expected) + ' above the target');
+    else if (!isFuture && expected > total) facts.push(kes(expected - total) + ' still to collect');
+    if (paidCount != null) facts.push(paidCount + ' of ' + people.length + ' members paid');
+    if (mo === cur) facts.push(dom <= dueD ? (dueD - dom === 0 ? 'Due today' : 'Due in ' + (dueD - dom) + (dueD - dom === 1 ? ' day' : ' days')) : 'Collections closed on day ' + dueD);
+    facts.push(kes(s.chama.monthly) + ' per share each month');
+    const R = 30, C = 2 * Math.PI * R, shown = Math.min(100, realPct);
+    const hero = `<section class="cg-hero g-${tier}" aria-label="Group total for ${esc(monthLabel(mo))}">
+      <div class="cg-h-top"><span class="hero-tag">${icon(TT[1], 's')}${esc(TT[0])}</span><span class="hero-live"><i></i>Live</span></div>
+      <div class="cg-h-body"><div class="cg-h-txt"><small>${s.shared ? 'Group total' : 'Collected'} · ${esc(monthLabel(mo))}</small>
+        <div class="hero-v" data-to="${Math.round(total)}" data-pre="KES " data-post="" data-k="cg-${esc(mo)}">KES ${Math.round(total).toLocaleString('en-KE')}</div>
+        <span class="cg-h-of">of ${esc(kes(expected))} target</span></div>
+        <svg class="cg-gauge" viewBox="0 0 72 72" role="img" aria-label="${realPct}% of target"><circle cx="36" cy="36" r="${R}" class="g-track"/><circle cx="36" cy="36" r="${R}" class="g-fill" style="stroke-dasharray:${C.toFixed(1)};--off:${(C * (1 - shown / 100)).toFixed(1)};--c:${C.toFixed(1)}"/><text x="36" y="41" text-anchor="middle">${realPct > 999 ? '999+' : realPct}%</text></svg></div>
+      <div class="hero-tick" aria-live="off" data-items="${esc(JSON.stringify(facts))}"><span>${esc(facts[0] || '')}</span></div></section>`;
+    setTimeout(() => { try { __M_src_features_home_index_js.heroCount(); } catch (e) {} }, 0);
+
+    const payRow = p => {
+      const m = s.members.find(x => x.id === p.memberId), forOther = String(p.date || '').slice(0, 7) !== p.month;
+      const inner = `<span class="cg-pay-ic">${admin ? av(m || { name: 'Removed member' }, 36) : icon('receipt')}</span><span class="cg-pay-main"><b class="num">${esc(kes(p.amount))}</b><small>${admin ? esc(m ? m.name : 'Removed member') + ' · ' : ''}${esc(shortDay(p.date))}${p.code ? ' · <span class="mono">' + esc(p.code) + '</span>' : ''}</small></span>${forOther ? `<span class="cg-for">for ${esc(monthLabel(p.month))}</span>` : ''}`;
+      return admin ? `<button type="button" class="cg-pay" data-act="payMenu" data-id="${esc(p.id)}">${inner}</button>` : `<div class="cg-pay">${inner}</div>`;
+    };
+
     return `${head}
       ${admin ? `<div class="btns" style="margin-top:0"><button class="btn tint sm" data-act="importPay">${icon('import')}Import from M-Pesa</button></div>` : ''}
       <div class="months" role="tablist" aria-label="Month" style="--n:6;--i:${idx}"><span class="pill" aria-hidden="true"></span>${pills}</div>
-      <div class="card" style="padding:16px 18px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span class="mute small">${s.shared ? 'Group total' : 'Collected'} · ${esc(monthLabel(mo))}</span>${paidCount != null ? `<span class="tag ${paidCount === people.length ? 'ok' : ''}">${paidCount} of ${people.length} paid</span>` : ''}</div>
-        <div class="num" style="font:700 1.6em/1.2 var(--font-display);margin-top:4px">${esc(kes(total))}</div>
-        <div class="bar" style="margin-top:10px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Share of expected collected"><i style="width:${pct}%"></i></div>
-        <p class="mute small" style="margin-top:8px">${pct}% of ${esc(kes(expected))} expected</p>
-      </div>
-      <section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your contribution' : 'Members'}</h2></div>
-        <div class="list">${rows || '<div class="li empty">Your sign-in is not linked to a member record yet</div>'}</div>
-        <p class="foot-note">${admin ? 'Tap a status to record a payment. Every change is kept in History.' : 'You see your own contribution and the group total. Other members’ payments stay private.'}</p>
+      ${hero}
+      <section class="sec"><div class="sec-h"><h2>${s.shared ? 'You this month' : 'Members'}</h2></div>
+        <div class="cg-list">${rows || '<div class="li empty">Your sign-in is not linked to a member record yet</div>'}</div>
+        <p class="foot-note">${admin ? 'Tap a status to record a payment. Every change is kept in History.' : 'Only you and the treasurer see your payments. Others see the group total.'}</p>
       </section>
       <section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your payments' : 'Recent payments'}</h2></div>
-        <div class="list">${recent.length ? recent.map(p => {
-          const m = s.members.find(x => x.id === p.memberId);
-          const inner = `${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${p.code ? esc(p.code) + ' · ' : ''}${esc(shortDay(p.date))}${String(p.date || '').slice(0, 7) !== p.month ? ' · for ' + esc(monthLabel(p.month)) : ''}${p.from && m && p.from.toLowerCase() !== m.name.toLowerCase() ? ' · from ' + esc(p.from) : ''}${p.via === 'mpesa' ? ' · ' + icon('chat', 's') : ''}</small></span><span class="li-end"><span class="num">${esc(kes(p.amount))}</span>${admin ? icon('chev', 'chev') : ''}</span>`;
-          return admin ? `<button type="button" class="li has-av" data-act="payMenu" data-id="${esc(p.id)}">${inner}</button>` : `<div class="li has-av">${inner}</div>`;
-        }).join('') : '<div class="li empty">No payments recorded yet</div>'}</div>
+        <div class="cg-pays">${recent.length ? recent.map(payRow).join('') : '<div class="li empty">No payments recorded yet</div>'}</div>
       </section>`;
   }
 };
@@ -3392,7 +3483,7 @@ const Reports = {
 const Doc = {
   e: v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
   /* the accent the person chose, in its print-safe shade (the dark-mode shades are too light for paper) */
-  brand() { const a = document.documentElement.dataset.accent || 'green'; return { c: ({ green: '#0b6b4d', blue: '#1f5fae', purple: '#5b34b8', gold: '#8f6213', rose: '#b0284f', teal: '#0b6f78' })[a] || '#0b6b4d' }; },
+  brand() { const a = document.documentElement.dataset.accent || 'green', M = __M_src_core_a11y_js, f = [...M.ACCENTS, ...M.ACCENT_GRADS].find(x => x[0] === a); return { c: f ? f[2] : '#0b6b4d' }; },
   table(head, rows, opts = {}) {
     if (!rows.length) return `<p class="none">${Doc.e(opts.empty || 'Nothing recorded.')}</p>`;
     return `<table><thead><tr>${head.map((h, i) => `<th${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${Doc.e(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${c && c.html ? c.html : Doc.e(c)}</td>`).join('')}</tr>`).join('')}</tbody>${opts.foot ? `<tfoot><tr>${opts.foot.map((c, i) => `<td${opts.num && opts.num.includes(i) ? ' class="n"' : ''}>${Doc.e(c)}</td>`).join('')}</tr></tfoot>` : ''}</table>`;
@@ -3503,15 +3594,54 @@ const views = {
       const stk = s.shared || left ? 0 : __M_src_features_smart_js.Smart.streak(s, m.id);
       const tags = `${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}${m.role && !s.shared ? ` <span class="tag brand">${esc(m.role)}</span>` : ''}${stk >= 3 ? ` <span class="streak sm" title="${stk} months paid on time in a row">${stk}</span>` : ''}`;
       const inner = `${av(m, 42)}<span class="li-main"><b>${esc(m.name)}${mine ? ' <span class="tag">You</span>' : ''}${tags}</b><small class="num">${esc(sub)}</small></span>`;
-      return (admin || mine) ? `<button type="button" class="li has-av${left ? ' gone' : ''}" data-act="memberMenu" data-id="${esc(m.id)}">${inner}<span class="li-end">${icon('chev', 'chev')}</span></button>` : `<div class="li has-av${left ? ' gone' : ''}">${inner}</div>`;
+      const ph = !left && !mine ? Phones.of(m.id) : '';
+      const call = ph ? `<button type="button" class="m-call" data-act="callMember" data-id="${esc(m.id)}" aria-label="Call or WhatsApp ${esc(m.name)}">${icon('phone')}</button>` : '';
+      const main = (admin || mine) ? `<button type="button" class="li has-av${left ? ' gone' : ''}" data-act="memberMenu" data-id="${esc(m.id)}">${inner}<span class="li-end">${icon('chev', 'chev')}</span></button>` : `<div class="li has-av${left ? ' gone' : ''}">${inner}</div>`;
+      return call ? `<div class="m-row">${main}${call}</div>` : main;
     };
-    return `${head}${btn}${joinedCard(s)}<section class="sec"><div class="sec-h"><h2>${s.chama.mode === 'savings' ? 'Everyone' : 'Payout order'}</h2></div><div class="list">${act.map((m, i) => row(m, i)).join('')}</div>
-      <p class="foot-note">${s.shared ? 'You see other members’ names only. Their money stays private.' : 'Tap a member for their statement, phone and payout position.'}</p></section>
+    Phones.load();
+    const share = Phones.state === 'off' ? `<button type="button" class="ph-card" data-act="phoneShare"><span class="ph-ic">${icon('phone')}</span><span><b>Call and WhatsApp your group</b><small>Share your number with your Chama to see theirs.</small></span>${icon('chev', 'chev')}</button>` : '';
+    return `${head}${btn}${joinedCard(s)}${share}<section class="sec"><div class="sec-h"><h2>${s.chama.mode === 'savings' ? 'Everyone' : 'Payout order'}</h2></div><div class="list">${act.map((m, i) => row(m, i)).join('')}</div>
+      <p class="foot-note">${s.shared ? 'You see other members’ names, and the phone numbers of those who agreed to share. Their money stays private.' : 'Tap a member for their statement, phone and payout position.'}</p></section>
       ${gone.length ? `<section class="sec"><div class="sec-h"><h2>Left the Chama</h2></div><div class="list">${gone.map(m => row(m, 0, true)).join('')}</div><p class="foot-note">Their records stay in the books. They are not counted for new months. If they rejoin, they get the same entry back.</p></section>` : ''}`;
   }
 };
 
+/* phone numbers members agreed to share with their group (asked for once per Chama visit) */
+const Phones = {
+  map: {}, state: '', cid: null, at: 0,
+  of(mid) { return this.map[mid] || ''; },
+  async load(force) {
+    const B = __M_src_core_backend_js.Backend;
+    if (!B.sb || !Store.chamaId) return;
+    if (!force && this.cid === Store.chamaId && (this.state === 'busy' || Date.now() - this.at < 120000)) return;
+    this.cid = Store.chamaId; this.state = 'busy'; this.at = Date.now();
+    const { data, error } = await B.sb.rpc('member_phones', { p_cid: Store.chamaId });
+    const prev = JSON.stringify(this.map);
+    if (error) { this.map = {}; this.state = /share your own|not shared/i.test(error.message || '') ? 'off' : 'na'; }
+    else { this.map = {}; (data || []).forEach(r => { if (r.member_id && r.phone) this.map[r.member_id] = r.phone; }); this.state = 'on'; }
+    if (prev !== JSON.stringify(this.map) || this.state === 'off') __M_src_core_rerender_js.render();
+  }
+};
+
 const actions = {
+  callMember: d => {
+    const s = S(), m = s.members.find(x => x.id === d.id), ph = Phones.of(d.id); if (!m || !ph) return;
+    const intl = String(ph).replace(/[\s-]/g, '').replace(/^0/, '254').replace(/^\+/, '');
+    __M_src_features_requests_js.Sheet.open(`<div class="rq-who">${av(m, 60)}<div><h3>${esc(m.name)}</h3><p class="num">${esc(ph)}</p></div></div>
+<div class="call-grid"><a class="call-b c-call" href="tel:${esc(ph.replace(/[\s-]/g, ''))}">${icon('phone')}<b>Call</b></a><a class="call-b c-wa" href="https://wa.me/${esc(intl)}" target="_blank" rel="noopener noreferrer">${icon('chat')}<b>WhatsApp</b></a><a class="call-b c-sms" href="sms:${esc(ph.replace(/[\s-]/g, ''))}">${icon('mail')}<b>SMS</b></a></div>
+<p class="foot-note">${esc(m.name.split(' ')[0])} agreed to share this number with your Chama. Use it only for Chama matters.</p>`, { key: 'call', label: 'Contact ' + m.name });
+  },
+  phoneUnshare: () => __M_src_ui_toast_js.Pop.confirm({ title: 'Stop sharing your phone number?', text: 'Members will no longer see your number, and you will no longer see theirs. The treasurer still has it for reminders and M-Pesa matching.', confirmLabel: 'Stop sharing', danger: true, onYes: async () => {
+    const { error } = await __M_src_core_backend_js.Backend.sb.rpc('set_phone_sharing', { p_on: false });
+    if (error) return __M_src_ui_toast_js.toast(/Could not find the function|PGRST202|schema cache/i.test(error.message || '') ? 'Nothing was changed. This needs the latest server update.' : rpcMessage(error));
+    __M_src_ui_toast_js.toast('Your number is no longer shared', 'ok'); Phones.load(true);
+  } }),
+  phoneShare: () => __M_src_ui_toast_js.Pop.confirm({ title: 'Share your phone number with your group?', text: 'People in your Chama will see your number so they can call or WhatsApp you, and you will see the numbers of others who share. You can stop any time in Settings, Privacy and my data.', confirmLabel: 'Yes, share it', onYes: async () => {
+    const { error } = await __M_src_core_backend_js.Backend.sb.rpc('set_phone_sharing', { p_on: true });
+    if (error) return __M_src_ui_toast_js.toast(/Could not find the function|PGRST202|schema cache/i.test(error.message || '') ? 'Nothing was changed. Sharing numbers needs the latest server update.' : rpcMessage(error));
+    __M_src_ui_toast_js.toast('Your number is now shared with your group', 'ok'); Phones.load(true);
+  } }),
   addChooser: { admin: true, run() {
     __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('userPlus')}</span><h3>Add a member</h3><p>Choose how this person will take part.</p></div>
 <div class="choice-list">
@@ -3791,8 +3921,8 @@ const views = {
     const fines = m ? sum(s.fines.filter(f => f.memberId === m.id && !f.paid), f => f.amount) : 0;
     const shot = me.photo || (m && Session.photoFor(m)) || '';
     const google = Session.usesGoogle(), hasPw = !!(Session.account && Session.account.has_password);
-    const tile = (k, v, ic, tone) => `<div class="mtile"><span class="mt-ic ${tone || ''}">${icon(ic, 's')}</span><small>${esc(k)}</small><b class="num">${esc(v)}</b></div>`;
-    const money = m ? `<div class="mtiles">${tile('Monthly amount', kes(Domain.dueFor(s, m.id)), 'clock')}${tile('Saved so far', kes(Domain.memberSaved(s, m.id)), 'coins', 't-ok')}${tile('Loan I owe', kes(owed), 'loans', owed ? 't-warn' : '')}${tile('Unpaid fines', kes(fines), 'receipt', fines ? 't-bad' : '')}</div>`
+    const tile = (k, v, ic, tone, kind) => `<div class="mtile mt-${kind}"><span class="mt-ic ${tone || ''}">${icon(ic, 's')}</span><small>${esc(k)}</small><b class="num">${esc(v)}</b></div>`;
+    const money = m ? `<div class="mtiles">${tile('Monthly amount', kes(Domain.dueFor(s, m.id)), 'clock', '', 'due')}${tile('Saved so far', kes(Domain.memberSaved(s, m.id)), 'coins', 't-ok', 'saved')}${tile('Loan I owe', kes(owed), 'loans', owed ? 't-warn' : '', 'loan')}${tile('Unpaid fines', kes(fines), 'receipt', fines ? 't-bad' : '', 'fines')}</div>`
       : Session.role === 'treasurer'
         ? `<div class="card soft-card"><div class="sc-ic">${icon('key')}</div><div><b>You keep the books as an officer</b><p>You are not on the member list, so nothing is recorded under your name. If you also save with the group, add yourself.</p><a class="btn sm tint" href="#/members">${icon('userPlus', 's')}Add myself in Members</a></div></div>`
         : `<div class="card soft-card"><div class="sc-ic">${icon('clock')}</div><div><b>Almost there</b><p>Your sign-in is not linked to a name on the member list yet, so your money cannot show. The treasurer can fix this in one tap.</p><button type="button" class="btn sm tint" data-act="askLink">${icon('chat', 's')}Ask the treasurer</button></div></div>`;
@@ -3937,13 +4067,14 @@ const __M_src_content_app_info_js = (function () {
 /* ===== EDIT HERE: app and legal identity, shown in Settings > About, Privacy, and the legal pages =====
    Fill every empty value before public launch. Empty values show as "Not set yet". */
 const APP = {
-  name: 'My Chama App', version: '0.18.2', released: '2026-11-20',
+  name: 'My Chama App', version: '0.19.0', released: '2026-11-20',
   support: '',          // e.g. a phone number or email for help. Shows "Not set yet" while empty.
   privacyContact: '',   // who handles privacy requests (the Data Protection contact). Shows "Not set yet" while empty.
   controller: '',       // registered legal name of the data controller (person or company running the app)
   odpcNumber: '',       // Office of the Data Protection Commissioner registration number
   regulators: [{ name: 'Office of the Data Protection Commissioner (ODPC)', what: 'Complaints about how your personal information is handled', url: 'https://www.odpc.go.ke' }],
   notes: [
+    ['0.19.0', 'A new group chat: voice notes you can listen to and trim before sending, photos and files, view once photos and voice notes, replies (swipe a message), reactions, "seen by", and a chat theme for the whole group. See who is typing or recording from anywhere in the app. Messages are never previewed outside the chat. You can now call or WhatsApp members who share their number: everyone is asked once to agree to share theirs with their group. Loan terms to sign open on their own screen. The Guide understands misspellings, works out sums with your records, and shows every task live. Contributions has a new live card coloured by how close the group is to its target, and the payout order is cleaner.'],
     ['0.18.0', 'The app matches your age: from 45 larger text, from 60 Simple view with bigger buttons and fewer words, from 75 the largest text. You can always choose the standard app in Settings, Display. Your phone number is the same in every Chama you join. Everyone checks their details once after this update.'],
     ['0.17.0', 'Forgot password now always opens the reset screen, and a code link only works on the phone that asked for it. About you, one question at a time, with Simple view for anyone who wants bigger, calmer screens. Loan terms are signed on the borrower’s own phone. Each Chama can have its own photo. M-Pesa import is simpler and keeps each message with its payment. The Guide has its own new mark.'],
     ['0.16.2', 'Home now leads with your card, with the payout attached right under it and a line showing this month and the next turns. The duplicate search button by the greeting is gone: the Guide lives next to the bell.'],
@@ -4238,12 +4369,20 @@ const views = {
       const G = __M_src_features_guide_js.Adapt, age = G.age(), band = G.band(age), mode = d.ageMode || '';
       const ageCard = !sub && age != null ? `<section class="age-card"><div><b>${mode === 'off' ? 'Standard app' : mode === 'custom' ? 'Your own settings' : band === 'std' ? 'Standard app' : 'Matched to your age'}</b><small>${mode === 'off' ? 'You chose the standard app.' : mode === 'custom' ? 'You changed the settings yourself.' : band === 'std' ? 'For your age the standard app fits best.' : 'You are ' + age + ', so the app uses ' + esc(G.LABEL[band]) + '.'}</small></div>${mode === 'auto' && band !== 'std' ? '<button type="button" class="btn sm" data-act="ageStandard">Use the standard app</button>' : band !== 'std' ? '<button type="button" class="btn sm tint" data-act="ageMatch">Match my age</button>' : ''}</section>` : '';
       return `<h1 class="lt">Display and accessibility</h1><p class="lt-sub">Saved on this phone only</p>${ageCard}`
-        + (show('appearance') ? seg('theme', 'Appearance', [['auto', 'Follow phone'], ['light', 'Light'], ['dark', 'Dark']]) + `<div style="margin-top:12px">${seg('accent', 'Colour', [['green', 'Green'], ['blue', 'Blue'], ['purple', 'Purple'], ['gold', 'Gold'], ['rose', 'Rose'], ['teal', 'Teal']])}</div>` : '')
-        + (show('text') ? `<div style="margin-top:12px">${seg('size', 'Text size', [['n', 'Default'], ['l', 'Large'], ['x', 'Largest']])}</div>` : '')
+        + (() => {
+          /* the same pieces as "Make it yours", so it looks familiar */
+          const P = __M_src_core_a11y_js.Pz, at = (k, v) => `data-act="a11ySet" data-k="${k}" data-v="${v}"`;
+          const card = (t, sub, body) => `<section class="pz-card" role="group" aria-label="${esc(t)}"><div class="pz-card-h"><h2>${esc(t)}</h2>${sub ? `<small>${esc(sub)}</small>` : ''}</div>${body}</section>`;
+          const lk = (() => { try { const c = JSON.parse(localStorage.getItem('mca-lock') || 'null'); return !!(c && c.hash && c.on !== false); } catch (e) { return false; } })();
+          return (show('appearance') ? card('Appearance', 'Light, dark, or follow your phone', P.modes(d, at)) + card('Colour', 'Buttons, highlights and your home card', P.sws(d, at)) : '')
+            + (show('text') ? card('Text size', 'Makes every word bigger', P.size(d, at)) : '')
+            + (!sub ? card('Easier, private and safe', '', P.row('Simple view', 'Bigger letters and buttons, fewer things on each screen', d.simple, 'data-act="a11y" data-k="simple"')
+              + P.row('App lock', lk ? 'On · asks for your PIN' : 'Off · ask for a PIN on this phone', lk, 'data-act="lockSetup"')
+              + P.row('Hide amounts', 'For using the app in public. Tap the eye to show them.', document.documentElement.classList.contains('hide-money'), 'data-act="moneyToggle"')
+              + P.row('Sounds', 'A soft chime when something important succeeds. Never on every tap.', __M_src_ui_toast_js.Sfx.enabled, 'data-act="sfxToggle"')) : '');
+        })()
         + (show('seeing') ? grp('Seeing', [sw('hc', 'Stronger contrast', 'Black and white with thicker lines'), sw('cb', 'Symbols with colours', 'Adds ✓ and ✕ so colour is never the only clue'), sw('ft', 'Easy-read lettering', 'A plainer typeface for weak eyesight'), sw('sp', 'Extra spacing', 'More space between letters, words and lines'), sw('ul', 'Underline links', 'Makes every link easy to find')]) : '')
-        + (!sub ? grp('Easier to use', [sw('simple', 'Simple view', 'Bigger letters and buttons, fewer things on each screen. Good for anyone who finds the app busy.')]) : '')
         + (show('hands') ? grp('Hands and movement', [sw('tg', 'Bigger buttons', 'Larger areas to tap'), sw('rm', 'Less movement', 'Turns off sliding and fading')]) : '')
-        + (!sub ? grp('Sound', [`<div class="li"><span class="li-main"><b>Sounds</b><small>A soft chime when something important succeeds, such as a confirmed code. Never on every tap.</small></span><button type="button" class="sw" role="switch" aria-checked="${__M_src_ui_toast_js.Sfx.enabled}" aria-label="Sounds" data-act="sfxToggle"></button></div>`]) : '')
         + (show('reading') ? grp('Reading and messages', [sw('long', 'Keep messages longer', 'Small messages stay on screen for 14 seconds'), sw('read', 'Read-aloud button', 'Shows a button that reads the page out loud')]) : '')
         + `<div class="btns"><button class="btn" data-act="a11yReset">Reset to default</button></div>`;
     }
@@ -4285,6 +4424,8 @@ const views = {
         ${act('exportMe', 'download', '', 'Download my data', 'PDF or data file')}
         ${act('aboutEdit', 'profile', 't-info', 'About you', 'Name, phone, birthday, gender')}
         ${li('profile', 'pencil', 't-info', 'Correct my details', 'Name, username, contact')}
+        ${act('phoneShare', 'phone', '', 'Share my phone number', 'With the members of my Chama')}
+        ${act('phoneUnshare', 'phone', 't-bad', 'Stop sharing my phone number', 'Members no longer see it, and you no longer see theirs')}
         ${act('aboutClear', 'trash', 't-bad', 'Remove birthday, gender and phone', 'Your name stays')}
       </div></section>
       <section class="sec"><div class="sec-h"><h2>How we treat your data</h2></div><div class="pv-facts">${PRIVACY.map((x, i) => `<details class="pv-fact"><summary><span class="li-ic">${icon((SHORT[i] || ['info'])[0], 's')}</span><span>${esc((SHORT[i] || [0, x[0]])[1])}</span>${icon('chev', 'chev')}</summary><p><b>${esc(x[0])}.</b> ${esc(x[1])}</p></details>`).join('')}</div>
@@ -4424,7 +4565,7 @@ ${has ? '<button type="button" class="btn ghost block" style="margin-top:8px" da
     });
   } },
   chamaPhotoRemove: { admin: true, run() { Store.commit(st => { const c = { ...st.chama }; delete c.photo; st.chama = c; }); __M_src_features_requests_js.Sheet.close(); toast('Chama photo removed', 'info'); } },
-  aboutEdit: () => { try { localStorage.removeItem('mca-about-v2:' + ((Session.user && Session.user.id) || '')); } catch (e) {} __M_src_features_guide_js.About.check(); },
+  aboutEdit: () => { try { localStorage.removeItem('mca-about-v3:' + ((Session.user && Session.user.id) || '')); } catch (e) {} __M_src_features_guide_js.About.check(); },
   aboutClear: () => __M_src_ui_toast_js.Pop.confirm({ title: 'Remove these details?', text: 'Your date of birth, gender and phone number are deleted. Simple view stays as it is.', confirmLabel: 'Remove', danger: true,
     onYes: async () => {
       const uid = (Session.user && Session.user.id) || '';
@@ -5546,28 +5687,218 @@ const hm = d => new Date(d).toLocaleTimeString('en-KE', { hour: '2-digit', minut
 const short = d => { const k = dayKey(d); return k === dayKey(Date.now()) ? hm(d) : new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); };
 const linkify = t => esc(t).replace(/\n/g, '<br>');
 
+/* ---- Chat 0.19: a real group messenger inside the Chama.
+   Bubbles, live typing (in the conversation and as a banner anywhere in the app), voice notes you can trim before
+   sending, photos and files, view-once photos and voice notes (opened once per person, enforced by the server),
+   replies (swipe or menu), reactions, "seen by", and a group chat theme anyone can change. No message text is ever
+   shown outside the conversation: notices only say that a message arrived. ---- */
+const BUCKET = 'chat-media';
+const REACTS = ['👍', '❤️', '😂', '🙏', '👏', '😮'];
+const CHAT_THEMES = [['app', 'App colours'], ['savanna', 'Savanna'], ['ocean', 'Ocean'], ['forest', 'Forest'], ['dusk', 'Dusk'], ['rose', 'Rose'], ['sunset', 'Sunset'], ['slate', 'Slate']];
+const MAX_REC = 150, MAX_FILE = 10 * 1024 * 1024, MAX_ONCE = 6 * 1024 * 1024;
+const NOTREADY = e => /Could not find the function|PGRST202|schema cache|does not exist|Bucket not found|bucket/i.test((e && e.message) || '');
+const fmtDur = s => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+const blobB64 = b => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => no(new Error('Could not read that file')); r.readAsDataURL(b); });
+const b64Blob = (b64, mime) => { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type: mime || 'application/octet-stream' }); };
+const wavesHtml = (w, n) => { const bars = (Array.isArray(w) && w.length ? w : Array.from({ length: n || 36 }, (_, i) => 0.25 + 0.5 * Math.abs(Math.sin(i * 1.7)))); return bars.map(v => `<i style="--h:${Math.max(12, Math.round(Math.min(1, Number(v) || 0) * 100))}%"></i>`).join(''); };
+
+/* signed links for stored photos, voice notes and files: asked for once, kept 50 minutes */
+const Media = {
+  urls: new Map(), busy: new Set(), blobs: new Map(),
+  url(p) { const c = this.urls.get(p); return c && Date.now() - c.at < 50 * 60e3 ? c.url : null; },
+  async sign(p) {
+    const have = this.url(p); if (have) return have;
+    if (this.busy.has(p) || !Backend.sb || !Backend.sb.storage) return null;
+    this.busy.add(p);
+    try { const { data, error } = await Backend.sb.storage.from(BUCKET).createSignedUrl(p, 3600); if (error || !data) return null; this.urls.set(p, { url: data.signedUrl, at: Date.now() }); return data.signedUrl; }
+    catch (e) { return null; } finally { this.busy.delete(p); }
+  },
+  async blob(p) {
+    if (this.blobs.has(p)) return this.blobs.get(p);
+    const u = await this.sign(p); if (!u) throw new Error('Could not load it. Check your connection.');
+    const r = await fetch(u); if (!r.ok) throw new Error('Could not load it. Check your connection.');
+    const url = URL.createObjectURL(await r.blob()); this.blobs.set(p, url); return url;
+  },
+  /* after each paint: fill in photos and file links whose signed link has arrived */
+  hydrate() {
+    document.querySelectorAll('#view [data-sign]').forEach(el => {
+      const p = el.dataset.sign, put = u => { if (!u || !el.isConnected) return; if (el.tagName === 'IMG') { if (el.getAttribute('src') !== u) el.src = u; } else el.href = u; };
+      const u = this.url(p); if (u) put(u); else this.sign(p).then(put);
+    });
+  }
+};
+
+/* one player for every voice note: the bubble shows progress without repainting the page */
+const Player = {
+  a: null, id: null, onceUrl: null,
+  get audio() { if (!this.a) { this.a = new Audio(); this.a.preload = 'auto'; this.a.addEventListener('timeupdate', () => this.paint()); this.a.addEventListener('ended', () => { const id = this.id; this.stop(); if (this.onEnd) { const f = this.onEnd; this.onEnd = null; f(id); } }); this.a.addEventListener('pause', () => this.paint()); this.a.addEventListener('play', () => this.paint()); } return this.a; },
+  async toggle(m) {
+    const a = this.audio;
+    if (this.id === m.id && !a.paused) { a.pause(); return; }
+    if (this.id === m.id && a.src && a.paused) { a.play().catch(() => {}); return; }
+    this.stop(); this.id = m.id; this.paint(true);
+    try { a.src = await Media.blob(m.meta.path); await a.play(); } catch (e) { this.id = null; this.paint(); toast(e.message || 'Could not play this voice note'); }
+  },
+  playUrl(id, url, onEnd) { this.stop(); this.id = id; this.onEnd = onEnd || null; const a = this.audio; a.src = url; a.play().catch(() => {}); this.paint(true); },
+  stop() { if (this.a) { try { this.a.pause(); } catch (e) {} } const was = this.id; this.id = null; if (was) this.paint(false, was); },
+  paint(loading, wasId) {
+    document.querySelectorAll('.vn[data-vn]').forEach(el => {
+      const me = el.dataset.vn === this.id, a = this.a;
+      const p = me && a && a.duration ? a.currentTime / a.duration : 0;
+      el.classList.toggle('playing', me && a && !a.paused);
+      el.classList.toggle('loading', me && !!loading);
+      el.style.setProperty('--p', (p * 100).toFixed(1) + '%');
+      const bars = el.querySelectorAll('.vn-wave i'), on = Math.round(p * bars.length); bars.forEach((b, i) => b.classList.toggle('on', me && i < on));
+      const t = el.querySelector('.vn-t'); if (t) t.textContent = me && a && a.currentTime ? fmtDur(a.currentTime) : fmtDur(Number(el.dataset.d) || 0);
+      const ic = el.querySelector('.vn-play'); if (ic) ic.innerHTML = icon(me && a && !a.paused ? 'pause' : 'play');
+    });
+    if (wasId) { const el = document.querySelector('.vn[data-vn="' + wasId + '"]'); if (el) el.classList.remove('playing'); }
+  }
+};
+
+/* WAV: plays on every phone, and lets us cut the start and end of a voice note exactly */
+function encodeWav(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2), v = new DataView(buf), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) { const x = Math.max(-1, Math.min(1, samples[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+function resample(src, from, to) {
+  if (from === to) return src;
+  const n = Math.max(1, Math.round(src.length * to / from)), out = new Float32Array(n), k = from / to;
+  for (let i = 0; i < n; i++) { const x = i * k, i0 = Math.floor(x), f = x - i0; out[i] = (src[i0] || 0) * (1 - f) + (src[i0 + 1] || 0) * f; }
+  return out;
+}
+const peaksOf = (s, n) => { const out = [], step = Math.max(1, Math.floor(s.length / n)); let mx = 0.0001; for (let i = 0; i < n; i++) { let p = 0; for (let j = i * step; j < Math.min(s.length, (i + 1) * step); j += 8) p = Math.max(p, Math.abs(s[j])); out.push(p); mx = Math.max(mx, p); } return out.map(p => Math.round(Math.min(1, p / mx) * 100) / 100); };
+async function decodeAudio(blob) {
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) throw new Error('no audio');
+  const ctx = new AC(), ab = await blob.arrayBuffer();
+  const buf = await new Promise((ok, no) => { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); });
+  const ch = buf.numberOfChannels, len = buf.length, mono = new Float32Array(len);
+  for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) mono[i] += d[i] / ch; }
+  try { ctx.close(); } catch (e) {}
+  return { samples: mono, rate: buf.sampleRate, dur: buf.duration };
+}
+
+/* recording: live timer and level, then a review where the person listens, trims and chooses view once */
+const Rec = {
+  st: null,
+  async start(th) {
+    if (this.st) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return Pop.alert('This browser cannot record voice notes. Update it, or use Chrome or Safari.', { title: 'Voice notes' });
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+    catch (e) { return Pop.alert('Allow the microphone for this app in your phone settings, then try again.', { title: 'Microphone is off' }); }
+    const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'].find(t => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } });
+    const mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined), chunks = [];
+    mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    let an = null, ctx = null; try { const AC = window.AudioContext || window.webkitAudioContext; ctx = new AC(); an = ctx.createAnalyser(); an.fftSize = 256; ctx.createMediaStreamSource(stream).connect(an); } catch (e) {}
+    this.st = { th, mr, chunks, stream, ctx, an, t0: Date.now(), type: mr.mimeType || type || 'audio/webm', cancelled: false };
+    mr.onstop = () => this.done();
+    mr.start(250);
+    Chat.mode[th] = 'rec'; render();
+    try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
+    const loop = () => {
+      if (!this.st) return;
+      const el = document.getElementById('recT'); if (el) el.textContent = fmtDur((Date.now() - this.st.t0) / 1000);
+      const lv = document.getElementById('recLv');
+      if (lv && this.st.an) { const d = new Uint8Array(this.st.an.frequencyBinCount); this.st.an.getByteTimeDomainData(d); let pk = 0; for (const x of d) pk = Math.max(pk, Math.abs(x - 128)); lv.style.setProperty('--lv', Math.min(1, pk / 70).toFixed(2)); }
+      if ((Date.now() - this.st.t0) / 1000 >= MAX_REC) return this.stop();
+      if (Date.now() - (this._ty || 0) > 2000) { this._ty = Date.now(); Chat.sendTyping(th, 'rec'); }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  },
+  stop() { if (this.st && this.st.mr.state !== 'inactive') this.st.mr.stop(); },
+  cancel() { if (!this.st) return; this.st.cancelled = true; this.stop(); },
+  async done() {
+    const st = this.st; this.st = null; if (!st) return;
+    try { st.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+    try { st.ctx && st.ctx.close(); } catch (e) {}
+    Chat.sendTyping(st.th, 'stop');
+    if (st.cancelled) { Chat.mode[st.th] = 'text'; render(); return; }
+    const blob = new Blob(st.chunks, { type: (st.type || 'audio/webm').split(';')[0] }), secs = (Date.now() - st.t0) / 1000;
+    if (secs < 0.8 || blob.size < 800) { Chat.mode[st.th] = 'text'; render(); return toast('Hold on a little longer to record'); }
+    Review.open(st.th, blob, secs);
+  }
+};
+
+const Review = {
+  st: null,
+  async open(th, blob, secs) {
+    this.st = { th, blob, dur: secs, a: 0, b: secs, once: false, samples: null, rate: 0, peaks: null, url: null };
+    Chat.mode[th] = 'review'; render();
+    try { const d = await decodeAudio(blob); Object.assign(this.st, { samples: d.samples, rate: d.rate, dur: d.dur, b: d.dur, peaks: peaksOf(d.samples, 48) }); }
+    catch (e) { this.st.peaks = null; }
+    render();
+  },
+  /* the clip that will be sent: trimmed and made into a WAV when we could read the sound, otherwise the recording itself */
+  clip() {
+    const s = this.st; if (!s) return null;
+    if (!s.samples) return { blob: s.blob, dur: s.dur, wave: null };
+    const a = Math.floor(s.a * s.rate), b = Math.ceil(s.b * s.rate), part = s.samples.subarray(a, b);
+    return { blob: encodeWav(resample(part, s.rate, 16000), 16000), dur: (b - a) / s.rate, wave: peaksOf(part, 36) };
+  },
+  play() {
+    const s = this.st; if (!s) return;
+    if (Player.id === 'review' && Player.a && !Player.a.paused) { Player.a.pause(); return; }
+    const c = this.clip(); if (!c) return;
+    if (s.url) URL.revokeObjectURL(s.url);
+    s.url = URL.createObjectURL(c.blob);
+    Player.playUrl('review', s.url);
+  },
+  set(k, v) { const s = this.st; if (!s) return; if (k === 'a') s.a = Math.min(Number(v), s.b - 0.5); if (k === 'b') s.b = Math.max(Number(v), s.a + 0.5); if (k === 'once') s.once = !!v;
+    Player.stop(); const el = document.getElementById('vnLen'); if (el) el.textContent = fmtDur(s.b - s.a);
+    const box = document.querySelector('.vn-review .vr-wave'); if (box && s.dur) { box.style.setProperty('--a', (s.a / s.dur * 100) + '%'); box.style.setProperty('--b', (s.b / s.dur * 100) + '%'); } },
+  discard() { const s = this.st; if (!s) return; Player.stop(); if (s.url) URL.revokeObjectURL(s.url); Chat.mode[s.th] = 'text'; this.st = null; render(); },
+  async send() {
+    const s = this.st; if (!s) return; Player.stop();
+    const c = this.clip(); if (!c) return;
+    const th = s.th, once = s.once; this.st = null; Chat.mode[th] = 'text'; render();
+    await Chat.sendMedia(th, 'voice', c.blob, { dur: Math.round(c.dur * 10) / 10, wave: c.wave }, '', once);
+  },
+  html() {
+    const s = this.st; if (!s) return '';
+    const d = s.dur || 1;
+    return `<div class="vn-review" style="--a:${s.a / d * 100}%;--b:${s.b / d * 100}%">
+<div class="vr-top"><button type="button" class="vr-play" data-act="vrPlay" aria-label="Listen">${icon('play')}</button><div class="vr-wave vn" data-vn="review" data-d="${s.b - s.a}"><span class="vn-wave">${wavesHtml(s.peaks, 48)}</span><span class="vr-mask l"></span><span class="vr-mask r"></span></div><span class="vr-len" id="vnLen">${fmtDur(s.b - s.a)}</span></div>
+${s.samples ? `<div class="vr-trim"><label>${icon('scissors', 's')}Start<input type="range" id="vrA" min="0" max="${d.toFixed(2)}" step="0.1" value="${s.a}"></label><label>End<input type="range" id="vrB" min="0" max="${d.toFixed(2)}" step="0.1" value="${s.b}"></label></div>` : '<p class="vr-note">Trimming is not available on this phone. You can still listen and send.</p>'}
+<div class="vr-acts"><button type="button" class="vr-once${s.once ? ' on' : ''}" data-act="vrOnce" aria-pressed="${s.once}">${icon('once', 's')}View once</button><span class="sp"></span><button type="button" class="btn ghost sm" data-act="vrDiscard">${icon('trash', 's')}Delete</button><button type="button" class="btn pri sm" data-act="vrSend">${icon('send', 's')}Send</button></div></div>`;
+  }
+};
+
 const Chat = {
-  msgs: [], resp: [], contacts: [], unread: {}, loaded: false, busy: false, _chan: null, _timer: 0, draft: {}, form: null,
+  msgs: [], resp: [], contacts: [], unread: {}, loaded: false, busy: false, _chan: null, _live: null, _timer: 0, draft: {}, form: null,
+  mode: {}, reply: {}, typing: {}, seen: {}, online: new Set(), theme: 'app', themeBy: '', opened: new Set(), _sentTy: 0,
   me() { return Session.user && Session.user.id; },
   thread(m) { return !m.recipient ? 'group' : m.sender === this.me() ? m.recipient : m.sender; },
   contact(id) { return this.contacts.find(c => c.user_id === id); },
   can(kind) { const t = TOOLS[kind]; return !!t && t.roles.includes(Session.role); },
   tools(thread) { return Object.keys(TOOLS).filter(k => this.can(k) && (thread === 'group' ? !TOOLS[k].direct : !TOOLS[k].group)); },
   totalUnread() { return Object.values(this.unread).reduce((a, b) => a + (b || 0), 0); },
+  openThread() { const m = /^#\/chat\/(group|[0-9a-f-]{36})$/.exec(location.hash); return m ? m[1] : null; },
+  nameOf(uid) { if (uid === this.me()) return 'You'; const c = this.contact(uid); return c ? c.name : 'Someone'; },
+  title(th, s) { return th === 'group' ? (((s || Store.get() || {}).chama || {}).name || 'Group') : (this.contact(th) || {}).name || 'Conversation'; },
   async load() {
     if (!Backend.sb || !Session.user || !Store.chamaId) return;
     const cid = Store.chamaId;
-    const [m, r, c, u] = await Promise.all([
+    const [m, r, c, u, t] = await Promise.all([
       Backend.sb.from('chama_messages').select('*').eq('chama_id', cid).order('created_at', { ascending: false }).limit(300),
       Backend.sb.from('chama_message_responses').select('message_id,user_id,choice,name,created_at').eq('chama_id', cid),
       this.contacts.length ? Promise.resolve({ data: this.contacts }) : Backend.sb.rpc('chat_contacts', { p_cid: cid }),
-      Backend.sb.rpc('chat_unread', { p_cid: cid })
+      Backend.sb.rpc('chat_unread', { p_cid: cid }),
+      Backend.sb.from('chama_chat_prefs').select('theme,updated_by_name').eq('chama_id', cid).limit(1)
     ]);
     if (!m.error) this.msgs = (m.data || []).slice().reverse();
     if (!r.error) this.resp = r.data || [];
     if (!c.error) this.contacts = c.data || [];
     if (!u.error) { this.unread = {}; (u.data || []).forEach(x => { this.unread[x.thread] = x.unread; }); }
+    if (t && !t.error && t.data && t.data[0]) { this.theme = t.data[0].theme || 'app'; this.themeBy = t.data[0].updated_by_name || ''; }
     this.loaded = true;
+    const open = this.openThread(); if (open) this.loadSeen(open);
     this.paintBadge(); render();
   },
   watch() {
@@ -5577,24 +5908,48 @@ const Chat = {
       this._chan = Backend.sb.channel('chat-' + Store.chamaId)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'chama_messages', filter: 'chama_id=eq.' + Store.chamaId }, p => this.onRow(p))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'chama_message_responses', filter: 'chama_id=eq.' + Store.chamaId }, () => this.loadResponses())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chama_chat_prefs', filter: 'chama_id=eq.' + Store.chamaId }, p => { if (p.new && p.new.theme) { this.theme = p.new.theme; this.themeBy = p.new.updated_by_name || ''; render(); } })
         .subscribe();
     } catch (e) { /* the timer keeps it fresh */ }
+    /* live channel: typing, recording, read receipts and who is online. Nothing here is stored. */
+    try {
+      const me = this.me();
+      this._live = Backend.sb.channel('live-' + Store.chamaId, { config: { broadcast: { self: false }, presence: { key: me } } })
+        .on('broadcast', { event: 'typing' }, ({ payload }) => this.onTyping(payload))
+        .on('broadcast', { event: 'read' }, ({ payload }) => { if (payload && (payload.th === 'group' || payload.th === me) && this.openThread()) this.loadSeen(this.openThread()); })
+        .on('presence', { event: 'sync' }, () => { try { const st = this._live.presenceState(); this.online = new Set(Object.keys(st || {}).filter(k => k !== me)); this.paintLive(); } catch (e) {} });
+      this._live.subscribe(status => { if (status === 'SUBSCRIBED') { try { this._live.track({ at: Date.now() }); } catch (e) {} } });
+    } catch (e) { this._live = null; }
     clearInterval(this._timer);
-    this._timer = setInterval(() => { if (!document.hidden) this.load().catch(() => {}); }, /^#\/chat/.test(location.hash) ? 20000 : 60000);
+    this._timer = setInterval(() => { if (!document.hidden) this.load().catch(() => {}); }, 30000);
+    clearInterval(this._tyTimer);
+    this._tyTimer = setInterval(() => this.paintLive(), 700);
   },
   async loadResponses() { const { data, error } = await Backend.sb.from('chama_message_responses').select('message_id,user_id,choice,name,created_at').eq('chama_id', Store.chamaId); if (!error) { this.resp = data || []; render(); } },
+  async loadSeen(th) {
+    if (!Backend.sb || !Store.chamaId) return;
+    const { data, error } = await Backend.sb.rpc('chat_seen', { p_cid: Store.chamaId, p_thread: th });
+    if (!error) { this.seen[th] = data || []; const el = document.getElementById('chSeen'); if (el) el.outerHTML = this.seenHtml(th); }
+  },
   onRow(p) {
     const row = p.new; if (!row || !row.id) return;
     const i = this.msgs.findIndex(x => x.id === row.id);
-    if (i >= 0) this.msgs[i] = row; else this.msgs.push(row);
-    const th = this.thread(row), open = location.hash === '#/chat/' + th;
+    if (i >= 0) this.msgs[i] = row;
+    else { const li = this.msgs.findIndex(x => x.pending && x.cid === (row.meta || {}).cid); if (li >= 0) this.msgs[li] = row; else this.msgs.push(row); }
+    const th = this.thread(row), open = this.openThread() === th;
     if (i < 0 && row.sender !== this.me()) {
+      const ty = this.typing[th]; if (ty) delete ty[row.sender];
       if (open && !document.hidden) this.markRead(th);
-      else { this.unread[th] = (this.unread[th] || 0) + 1; if (!/^#\/chat/.test(location.hash)) toast((row.sender_name || 'Someone') + ': ' + (row.body || TOOLS[row.kind] && TOOLS[row.kind].t || 'New message').slice(0, 80), 'info', { label: 'Open', run: () => { location.hash = '#/chat/' + th; } }); }
+      else if (row.kind !== 'system') {
+        this.unread[th] = (this.unread[th] || 0) + 1;
+        /* no preview: only who and where. The words stay inside the conversation. */
+        if (!/^#\/chat\//.test(location.hash)) toast('New message' + (th === 'group' ? ' in ' + this.title('group') : ' from ' + this.nameOf(row.sender)), 'info', { label: 'Open', run: () => { location.hash = '#/chat/' + th; } });
+      }
     }
     this.paintBadge(); render();
   },
   markRead(th) {
+    if (this._live) try { this._live.send({ type: 'broadcast', event: 'read', payload: { th: th === 'group' ? 'group' : this.me(), by: this.me() } }); } catch (e) {}
     if (!this.unread[th]) return;
     this.unread[th] = 0; this.paintBadge();
     Backend.sb.rpc('mark_thread_read', { p_cid: Store.chamaId, p_thread: th }).then(() => {}, () => {});
@@ -5608,30 +5963,136 @@ const Chat = {
   responses(id) { return this.resp.filter(r => r.message_id === id); },
   mine(id) { const r = this.resp.find(x => x.message_id === id && x.user_id === this.me()); return r ? r.choice : null; },
 
+  /* ---------------- typing, recording and the banner ---------------- */
+  sendTyping(th, act) {
+    if (!this._live) return;
+    if (act === 'type' && Date.now() - this._sentTy < 1500) return;
+    this._sentTy = act === 'stop' ? 0 : Date.now();
+    try { this._live.send({ type: 'broadcast', event: 'typing', payload: { th: th === 'group' ? 'group' : th, from: this.me(), name: Session.displayName(), act } }); } catch (e) {}
+  },
+  onTyping(p) {
+    if (!p || !p.from || p.from === this.me()) return;
+    const th = p.th === 'group' ? 'group' : p.th === this.me() ? p.from : null; if (!th) return;
+    const t = this.typing[th] = this.typing[th] || {};
+    if (p.act === 'stop') delete t[p.from]; else t[p.from] = { name: (this.contact(p.from) || {}).name || p.name || 'Someone', act: p.act === 'rec' ? 'rec' : 'type', until: Date.now() + (p.act === 'rec' ? 3500 : 3200) };
+    this.paintLive();
+  },
+  typers(th) { const t = this.typing[th] || {}, now = Date.now(); Object.keys(t).forEach(k => { if (t[k].until < now) delete t[k]; }); return Object.entries(t).map(([uid, v]) => ({ uid, ...v })); },
+  typeText(list, inGroup) {
+    if (!list.length) return '';
+    const rec = list.some(x => x.act === 'rec'), first = list[0].name.split(' ')[0];
+    const who = list.length === 1 ? first : list.length === 2 ? first + ' and ' + list[1].name.split(' ')[0] : first + ' and ' + (list.length - 1) + ' others';
+    return who + (list.length === 1 ? ' is ' : ' are ') + (rec ? 'recording a voice note' : 'typing') + (inGroup ? '' : '');
+  },
+  paintLive() {
+    /* in the open conversation: a typing bubble at the bottom */
+    const open = this.openThread(), row = document.getElementById('chTyping');
+    if (row) {
+      const list = this.typers(open), key = list.map(x => x.uid + x.act).join(',');
+      if (row.dataset.k !== key) {
+        row.dataset.k = key;
+        row.innerHTML = list.length ? `<div class="ty-row${list.some(x => x.act === 'rec') ? ' rec' : ''}"><span class="ty-av">${R().pav(list[0].name, (this.contact(list[0].uid) || {}).photo, 28)}</span><span class="ty-bub"><span class="ty-dots"><b></b><b></b><b></b></span><small>${esc(this.typeText(list))}</small></span></div>` : '';
+        if (list.length) { const box = document.getElementById('chMsgs'); if (box && innerHeight + scrollY > document.body.scrollHeight - 220) this.scrollEnd(true); }
+      }
+      const sub = document.getElementById('chSub'); if (sub) { const t = this.typeText(list); const want = t || sub.dataset.base || ''; if (sub.textContent !== want) { sub.textContent = want; sub.classList.toggle('live', !!t); } }
+    }
+    /* anywhere else in the app: one banner on top that says who is typing where */
+    let ban = document.getElementById('tyBanner');
+    const others = Object.keys(this.typing).filter(th => th !== open).map(th => ({ th, list: this.typers(th) })).filter(x => x.list.length);
+    if (!others.length || !Session.ready() || !Store.chamaId) { if (ban) { ban.classList.remove('on'); } }
+    else {
+      if (!ban) { ban = document.createElement('a'); ban.id = 'tyBanner'; ban.setAttribute('role', 'status'); document.body.appendChild(ban); }
+      const x = others[0], where = x.th === 'group' ? 'in ' + this.title('group') : 'to you';
+      const html = `<span class="tyb-dots"><b></b><b></b><b></b></span><span class="tyb-t"><b>${esc(this.typeText(x.list))}</b><small>${esc(where)}</small></span>${icon('chev', 's')}`;
+      if (ban._h !== html) { ban.innerHTML = html; ban._h = html; }
+      ban.href = '#/chat/' + x.th; ban.classList.toggle('rec', x.list.some(y => y.act === 'rec'));
+      requestAnimationFrame(() => ban.classList.add('on'));
+    }
+    /* the inbox shows "typing" live in each row */
+    document.querySelectorAll('[data-tyrow]').forEach(el => { const l = this.typers(el.dataset.tyrow), t = l.length ? this.typeText(l) : ''; el.classList.toggle('typing', !!t); const s = el.querySelector('.ci-sub'); if (s) { if (!s.dataset.base) s.dataset.base = s.innerHTML; const want = t ? `<span class="ci-ty">${esc(t)}…</span>` : s.dataset.base; if (s.innerHTML !== want) s.innerHTML = want; } });
+    const on = document.getElementById('ciOnline'); if (on) on.textContent = this.online.size ? this.online.size + ' online now' : '';
+  },
+  seenHtml(th) {
+    const mine = this.msgs.filter(m => this.thread(m) === th && m.sender === this.me() && !m.pending && m.kind !== 'system').slice(-1)[0];
+    if (!mine) return '<span id="chSeen"></span>';
+    const who = (this.seen[th] || []).filter(r => r.user_id !== this.me() && Date.parse(r.last_read_at) >= Date.parse(mine.created_at));
+    if (!who.length) return `<span id="chSeen" class="ch-seen">${icon('check', 's')}Sent</span>`;
+    const names = who.map(r => (r.name || '').split(' ')[0]).filter(Boolean);
+    const label = th !== 'group' ? 'Seen' : names.length <= 2 ? 'Seen by ' + names.join(' and ') : 'Seen by ' + names.slice(0, 2).join(', ') + ' and ' + (names.length - 2) + ' more';
+    return `<span id="chSeen" class="ch-seen on">${icon('check', 's')}${icon('check', 's dbl')}${esc(label)}</span>`;
+  },
+
   /* ---------------- views ---------------- */
+  /* the conversation chooser: the group first as a big live card, then the people you can write to privately */
   inbox(s) {
     if (!this.loaded) { this.load().catch(() => {}); return `<h1 class="lt">Chat</h1>${Skel.page()}`; }
     const threads = {};
-    this.msgs.forEach(m => { threads[this.thread(m)] = m; });
-    const row = (th, title, sub, avatar, last) => `<a class="li has-av ch-row${this.unread[th] ? ' unread' : ''}" href="#/chat/${esc(th)}">${avatar}<span class="li-main"><span class="ch-top"><b>${esc(title)}</b>${last ? `<time>${esc(short(last.created_at))}</time>` : ''}</span><span class="ch-sub"><small>${sub}</small>${this.unread[th] ? `<span class="ch-n">${this.unread[th]}</span>` : ''}</span></span></a>`;
-    const preview = m => !m ? 'Say hello to the group' : m.deleted_at ? 'Message removed' : esc((m.sender === this.me() ? 'You: ' : (m.sender_name || '').split(' ')[0] + ': ') + (m.kind === 'text' ? m.body : (TOOLS[m.kind] ? TOOLS[m.kind].t : '') + (m.body ? ' · ' + m.body : ''))).slice(0, 140);
+    this.msgs.forEach(m => { if (m.kind !== 'system') threads[this.thread(m)] = m; });
     const name = (s.chama && s.chama.name) || 'Chama';
-    const group = row('group', name, preview(threads.group), `<span class="av grp" style="--n:46px">${icon('members')}</span>`, threads.group);
-    const dms = Object.keys(threads).filter(t => t !== 'group').sort((a, b) => threads[b].created_at.localeCompare(threads[a].created_at)).map(t => {
+    const sub = (th, last) => { const n = this.unread[th] || 0; if (n) return `<b class="ci-new">${n} new ${n === 1 ? 'message' : 'messages'}</b>`; if (!last) return th === 'group' ? 'Say hello to everyone' : 'No messages yet'; return (last.sender === this.me() ? 'You wrote' : 'Last message') + ' · ' + esc(short(last.created_at)); };
+    const faces = this.contacts.slice(0, 4).map(c => R().pav(c.name, c.photo, 30)).join('');
+    const g = threads.group;
+    const group = `<a class="ci-group${this.unread.group ? ' unread' : ''}" href="#/chat/group" data-tyrow="group" data-ct="${esc(this.theme)}"><span class="ci-g-faces">${faces || `<span class="av grp" style="--n:44px">${icon('members')}</span>`}</span>
+<span class="ci-g-main"><b>${esc(name)}</b><span class="ci-sub">${sub('group', g)}</span><small class="ci-meta">${this.contacts.length + 1} people<span id="ciOnline" class="ci-online">${this.online.size ? this.online.size + ' online now' : ''}</span></small></span>
+${this.unread.group ? `<span class="ci-n">${this.unread.group}</span>` : `<span class="ci-go">${icon('chev')}</span>`}</a>`;
+    const dmIds = Object.keys(threads).filter(t => t !== 'group').sort((a, b) => threads[b].created_at.localeCompare(threads[a].created_at));
+    const dms = dmIds.map(t => {
       const c = this.contact(t) || { name: threads[t].sender === this.me() ? 'Former member' : threads[t].sender_name, role: threads[t].sender_role };
-      return row(t, c.name, `<span class="rtag r-${esc(c.role)}">${esc(ROLE_T(c.role))}</span> ${preview(threads[t])}`, R().pav(c.name, c.photo, 46), threads[t]);
+      return `<a class="ci-row${this.unread[t] ? ' unread' : ''}" href="#/chat/${esc(t)}" data-tyrow="${esc(t)}">${R().pav(c.name, c.photo, 46)}<span class="ci-main"><span class="ci-top"><b>${esc(c.name)}</b>${c.role && c.role !== 'member' ? `<span class="rtag r-${esc(c.role)}">${esc(ROLE_T(c.role))}</span>` : ''}</span><span class="ci-sub">${sub(t, threads[t])}</span></span>${this.unread[t] ? `<span class="ci-n">${this.unread[t]}</span>` : ''}</a>`;
     }).join('');
+    const reach = this.contacts.filter(c => c.can_message && !dmIds.includes(c.user_id));
+    const start = reach.length ? `<section class="sec"><div class="sec-h"><h2>Write privately</h2></div><div class="ci-people">${reach.map(c => `<a href="#/chat/${esc(c.user_id)}">${R().pav(c.name, c.photo, 54)}<b>${esc(c.name.split(' ')[0])}</b><small>${esc(ROLE_T(c.role))}</small></a>`).join('')}</div></section>` : '';
     const pinned = this.msgs.filter(m => m.pinned && !m.recipient && !m.deleted_at).slice(-1)[0];
     const records = this.msgs.filter(m => ['meeting', 'minutes', 'poll'].includes(m.kind) && !m.deleted_at).length;
-    return `<div class="ch-head"><h1 class="lt">Chat</h1><button type="button" class="btn pri sm" data-act="chatNew">${icon('pencil', 's')}New message</button></div>
+    setTimeout(() => this.paintLive(), 0);
+    return `<div class="ch-head"><h1 class="lt">Chat</h1><button type="button" class="btn pri sm" data-act="chatNew">${icon('pencil', 's')}New</button></div>
 ${pinned ? `<a class="pin-card" href="#/chat/group">${icon('bell', 's')}<span><b>Pinned</b>${esc((pinned.body || '').slice(0, 120))}</span></a>` : ''}
-<div class="list ch-list">${group}${dms}</div>
+${group}
+${dms ? `<section class="sec"><div class="sec-h"><h2>Private</h2></div><div class="ci-list">${dms}</div></section>` : ''}
+${start}
 ${records ? `<section class="sec"><div class="list"><a class="li has-ic" href="#/chat/records"><span class="li-ic t-info">${icon('doc')}</span><span class="li-main"><b>Meetings, minutes and votes</b><small>${records} on record</small></span>${icon('chev', 'chev')}</a></div></section>` : ''}
-${Session.role === 'member' ? '<p class="foot-note">The group sees group messages. Private messages go only to the treasurer or secretary you write to.</p>' : '<p class="foot-note">Tap <b>+</b> in a conversation for your role’s tools.</p>'}`;
+<p class="foot-note">${Session.role === 'member' ? 'Everyone in the group sees group messages. Private messages go only to the person you write to.' : 'Tap + in a conversation for your role’s tools.'}</p>`;
   },
   records(s) {
     const items = this.msgs.filter(m => ['meeting', 'minutes', 'poll', 'announcement'].includes(m.kind) && !m.deleted_at && !m.recipient).slice().reverse();
     return `<h1 class="lt">Meetings, minutes and votes</h1><p class="lt-sub">The group’s record, newest first</p>${items.length ? `<div class="rec-list">${items.map(m => this.card(m, s, true)).join('')}</div>` : `<div class="card">${emptyState('ledger', 'Nothing on record yet', 'Meetings, minutes and votes appear here once the secretary or treasurer shares them.')}</div>`}`;
+  },
+  /* one message bubble */
+  bubble(m, th, cont) {
+    const mine = m.sender === this.me(), meta = m.meta || {};
+    const who = th === 'group' && !mine && !cont ? `<span class="ch-who">${esc(m.sender_name)}${m.sender_role !== 'member' ? ` <span class="rtag r-${esc(m.sender_role)}">${esc(ROLE_T(m.sender_role))}</span>` : ''}</span>` : '';
+    let inner = '', cls = '';
+    if (m.deleted_at) inner = `<i class="mute">${icon('close', 's')}Message removed</i>`;
+    else {
+      if (meta.reply && meta.reply.id) inner += `<button type="button" class="bub-q" data-act="chatJump" data-id="${esc(meta.reply.id)}"><b>${esc(meta.reply.from === this.me() ? 'You' : meta.reply.name || '')}</b><span>${esc(meta.reply.preview || '')}</span></button>`;
+      if (meta.once) {
+        const opened = this.opened.has(m.id) || (Array.isArray(meta.opened_by) && meta.opened_by.includes(this.me())), n = Array.isArray(meta.opened_by) ? meta.opened_by.length : 0;
+        const what = m.kind === 'voice' ? 'Voice note' : 'Photo';
+        cls = ' once';
+        inner += mine ? `<span class="once-g sent">${icon('once')}<span><b>${what} · view once</b><small>${n ? 'Opened by ' + n : 'Not opened yet'}</small></span></span>`
+          : opened ? `<span class="once-g done">${icon('once')}<span><b>${what}</b><small>Opened</small></span></span>`
+          : `<button type="button" class="once-g" data-act="onceOpen" data-id="${esc(m.id)}">${icon('once')}<span><b>${what}</b><small>${m.kind === 'voice' ? 'Listen once' + (meta.dur ? ' · ' + fmtDur(meta.dur) : '') : 'View once'}</small></span></button>`;
+      } else if (m.kind === 'voice') {
+        cls = ' voice';
+        inner += m.pending ? `<div class="vn sending"><span class="vn-play">${icon('mic')}</span><span class="vn-wave">${wavesHtml(meta.wave)}</span><span class="vn-t">${fmtDur(meta.dur)}</span></div>`
+          : `<div class="vn" data-vn="${esc(m.id)}" data-d="${esc(meta.dur || 0)}"><button type="button" class="vn-play" data-act="vnPlay" data-id="${esc(m.id)}" aria-label="Play voice note">${icon('play')}</button><span class="vn-wave" data-act="vnPlay" data-id="${esc(m.id)}">${wavesHtml(meta.wave)}</span><span class="vn-t">${fmtDur(meta.dur)}</span></div>`;
+      } else if (m.kind === 'image') {
+        cls = ' media';
+        const ar = meta.w && meta.h ? Math.max(0.5, Math.min(1.8, meta.w / meta.h)) : 1.33, src = m.pending ? m.localUrl : Media.url(meta.path);
+        inner += `<button type="button" class="bub-img" data-act="imgOpen" data-id="${esc(m.id)}" style="aspect-ratio:${ar.toFixed(3)}" aria-label="Open photo"><img alt="" ${src ? `src="${esc(src)}"` : ''} ${m.pending ? '' : `data-sign="${esc(meta.path)}"`} loading="lazy">${m.pending ? '<span class="bub-up"><span class="spin"></span></span>' : ''}</button>`;
+      } else if (m.kind === 'file') {
+        cls = ' filem';
+        const u = m.pending ? '' : Media.url(meta.path);
+        inner += `<a class="bub-file" ${m.pending ? '' : `data-sign="${esc(meta.path)}"`} ${u ? `href="${esc(u)}"` : ''} target="_blank" rel="noopener" download="${esc(meta.name || 'file')}"><span class="bf-ic">${icon('file')}</span><span class="bf-t"><b>${esc(meta.name || 'File')}</b><small>${esc(fmtSize(meta.size || 0))}${m.pending ? ' · sending' : ' · open'}</small></span></a>`;
+      }
+      if (m.body) inner += `<span class="bub-txt">${linkify(m.body)}</span>`;
+    }
+    const rs = this.responses(m.id).filter(r => /^r:/.test(r.choice)), groups = {};
+    rs.forEach(r => { const e = r.choice.slice(2); (groups[e] = groups[e] || []).push(r); });
+    const reacts = Object.keys(groups).length ? `<span class="bub-rx">${Object.entries(groups).map(([e, list]) => `<button type="button" class="${list.some(r => r.user_id === this.me()) ? 'me' : ''}" data-act="msgReact" data-id="${esc(m.id)}" data-e="${esc(e)}" title="${esc(list.map(r => r.name).join(', '))}">${e}${list.length > 1 ? `<small>${list.length}</small>` : ''}</button>`).join('')}</span>` : '';
+    const status = m.pending ? (m.failed ? `<button type="button" class="bub-fail" data-act="chatRetry" data-id="${esc(m.id)}">Not sent · tap to retry</button>` : '<span class="bub-sending">Sending…</span>') : '';
+    const menu = !m.deleted_at && !m.pending ? `data-act="msgMenu" data-id="${esc(m.id)}" tabindex="0"` : '';
+    return `<div class="bub-row${mine ? ' mine' : ''}${cont ? ' cont' : ''}" data-mid="${esc(m.id)}" id="m-${esc(m.id)}">${who}<div class="bub${cls}" ${menu}>${inner}<span class="bub-t">${m.edited_at && !m.deleted_at ? 'edited · ' : ''}${esc(hm(m.created_at))}${m.pinned ? ' · ' + icon('bell', 's') : ''}</span></div>${reacts}${status}</div>`;
   },
   threadView(s, th) {
     if (!this.loaded) { this.load().catch(() => {}); return Skel.page(); }
@@ -5639,31 +6100,41 @@ ${Session.role === 'member' ? '<p class="foot-note">The group sees group message
     const c = th === 'group' ? null : this.contact(th);
     if (th !== 'group' && !c && !this.msgs.some(m => this.thread(m) === th)) return `<div class="card">${emptyState('lost', 'Conversation not found', 'This person may have left the Chama.', '<a class="btn pri" href="#/chat">Back to chat</a>')}</div>`;
     const list = this.msgs.filter(m => this.thread(m) === th);
-    setTimeout(() => this.markRead(th), 300);
+    setTimeout(() => { this.markRead(th); if (!this.seen[th] || this._seenTh !== th) { this._seenTh = th; this.loadSeen(th); } }, 300);
     let lastDay = '', lastSender = '';
     const body = list.map(m => {
       let out = '';
       const dk = dayKey(m.created_at); if (dk !== lastDay) { out += `<div class="ch-day"><span>${esc(dayLabel(m.created_at))}</span></div>`; lastDay = dk; lastSender = ''; }
-      const mine = m.sender === this.me(), cont = lastSender === m.sender && m.kind === 'text'; lastSender = m.kind === 'text' ? m.sender : '';
-      if (m.kind !== 'text' && !m.deleted_at) return out + `<div class="ch-card-wrap${mine ? ' mine' : ''}">${this.card(m, s)}</div>`;
-      const who = th === 'group' && !mine && !cont ? `<span class="ch-who">${esc(m.sender_name)}${m.sender_role !== 'member' ? ` <span class="rtag r-${esc(m.sender_role)}">${esc(ROLE_T(m.sender_role))}</span>` : ''}</span>` : '';
-      const txt = m.deleted_at ? `<i class="mute">${icon('close', 's')}Message removed</i>` : linkify(m.body);
-      return out + `<div class="bub-row${mine ? ' mine' : ''}${cont ? ' cont' : ''}">${who}<div class="bub" ${!m.deleted_at && (mine || Session.role !== 'member') ? `data-act="msgMenu" data-id="${esc(m.id)}" tabindex="0"` : ''}>${txt}<span class="bub-t">${m.edited_at && !m.deleted_at ? 'edited · ' : ''}${esc(hm(m.created_at))}${m.pinned ? ' · ' + icon('bell', 's') : ''}</span></div></div>`;
+      if (m.kind === 'system') { lastSender = ''; return out + `<div class="ch-sys"><span>${esc(m.body)}</span></div>`; }
+      const mine = m.sender === this.me(), plain = ['text', 'voice', 'image', 'file'].includes(m.kind), cont = lastSender === m.sender && plain; lastSender = plain ? m.sender : '';
+      if (!plain && !m.deleted_at) return out + `<div class="ch-card-wrap${mine ? ' mine' : ''}">${this.card(m, s)}</div>`;
+      return out + this.bubble(m, th, cont);
     }).join('');
-    const title = th === 'group' ? ((s.chama && s.chama.name) || 'Group') : c ? c.name : 'Conversation';
-    const sub = th === 'group' ? (this.contacts.length + 1) + ' people' : c ? ROLE_T(c.role) : '';
+    const title = this.title(th, s);
+    const base = th === 'group' ? (this.contacts.length + 1) + ' people' + (this.online.size ? ' · ' + this.online.size + ' online' : '') : c ? ROLE_T(c.role) + (this.online.has(th) ? ' · online' : '') : '';
     const tools = this.tools(th);
     const canWrite = th === 'group' || (c && c.can_message);
     const pinned = th === 'group' ? this.msgs.filter(m => m.pinned && !m.recipient && !m.deleted_at).slice(-1)[0] : null;
-    /* follow the conversation only when it is opened or grows, never while someone reads older messages */
     const seen = (this._seen = this._seen || {}), key = th + ':' + list.length;
     if (seen.th !== th || seen.key !== key) { const first = seen.th !== th; seen.th = th; seen.key = key; this.scrollEnd(!first); }
-    return `<div class="ch-thread"><div class="ch-bar">${th === 'group' ? `<span class="av grp" style="--n:40px">${icon('members')}</span>` : R().pav(title, c && c.photo, 40)}<div><b>${esc(title)}</b><small>${esc(sub)}</small></div></div>
+    setTimeout(() => { Media.hydrate(); Player.paint(); this.paintLive(); }, 0);
+    const themeName = (CHAT_THEMES.find(x => x[0] === this.theme) || CHAT_THEMES[0])[1];
+    return `<div class="ch-thread" data-ct="${esc(this.theme)}"><div class="ch-bar">${th === 'group' ? `<span class="av grp" style="--n:42px">${icon('members')}</span>` : R().pav(title, c && c.photo, 42)}<div class="ch-bar-t"><b>${esc(title)}</b><small id="chSub" data-base="${esc(base)}">${esc(base)}</small></div>${th === 'group' ? `<button type="button" class="ch-bar-b" data-act="chatTheme" aria-label="Chat theme: ${esc(themeName)}">${icon('palette')}</button>` : ''}</div>
 ${pinned ? `<button type="button" class="pin-card" data-act="chatJump" data-id="${esc(pinned.id)}">${icon('bell', 's')}<span><b>Pinned</b>${esc((pinned.body || '').slice(0, 120))}</span></button>` : ''}
-<div class="ch-msgs" id="chMsgs">${body || `<div class="ch-empty">${art('group')}<p>${th === 'group' ? 'Nothing here yet. Say hello to everyone.' : 'Start a private conversation.'}</p></div>`}<span id="chatEnd"></span></div>
-${canWrite ? `<form class="composer" id="chatForm" data-th="${esc(th)}" autocomplete="off">${tools.length ? `<button type="button" class="cp-tools" data-act="chatTools" data-th="${esc(th)}" aria-label="Tools">${icon('plus')}</button>` : ''}
+<div class="ch-msgs" id="chMsgs">${body || `<div class="ch-empty">${art('group')}<p>${th === 'group' ? 'Nothing here yet. Say hello to everyone.' : 'Start a private conversation.'}</p></div>`}<div class="ch-foot">${this.seenHtml(th)}</div><div id="chTyping"></div><span id="chatEnd"></span></div>
+${canWrite ? this.composer(th, tools, c) : `<p class="foot-note">You can message the treasurer or the secretary privately.</p>`}</div>`;
+  },
+  composer(th, tools, c) {
+    const mode = this.mode[th] || 'text';
+    if (mode === 'rec') return `<div class="composer cp-rec" id="cpZone"><button type="button" class="cp-b" data-act="recCancel" aria-label="Delete recording">${icon('trash')}</button><span class="rec-dot"></span><span class="rec-t" id="recT">0:00</span><span class="rec-lv" id="recLv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="rec-max">max ${fmtDur(MAX_REC)}</span><button type="button" class="cp-send rec" data-act="recStop" aria-label="Stop recording">${icon('stop')}</button></div>`;
+    if (mode === 'review') return `<div class="composer cp-review" id="cpZone">${Review.html()}</div>`;
+    const rp = this.reply[th];
+    const bar = rp ? `<div class="cp-reply"><span class="cp-r-l"></span><span class="cp-r-t"><b>Replying to ${esc(rp.from === this.me() ? 'yourself' : rp.name)}</b><small>${esc(rp.preview)}</small></span><button type="button" class="cp-b sm" data-act="replyCancel" aria-label="Cancel reply">${icon('close', 's')}</button></div>` : '';
+    const has = !!(this.draft[th] || '').trim();
+    return `<div class="cp-wrap" id="cpZone">${bar}<form class="composer" id="chatForm" data-th="${esc(th)}" autocomplete="off">${tools.length ? `<button type="button" class="cp-b" data-act="chatTools" data-th="${esc(th)}" aria-label="Tools">${icon('plus')}</button>` : ''}
+<button type="button" class="cp-b" id="cpAttach" data-act="chatAttach" data-th="${esc(th)}" aria-label="Photo or file">${icon('clip')}</button>
 <textarea id="chatIn" rows="1" maxlength="4000" placeholder="${th === 'group' ? 'Message everyone' : 'Message ' + esc((c && c.name || '').split(' ')[0])}" aria-label="Message">${esc(this.draft[th] || '')}</textarea>
-<button type="submit" class="cp-send" aria-label="Send"${this.busy ? ' disabled' : ''}>${icon('up')}</button></form>` : `<p class="foot-note">You can message the treasurer or the secretary privately.</p>`}</div>`;
+<button type="submit" class="cp-send" id="cpSend" aria-label="Send"${has ? '' : ' hidden'}${this.busy ? ' disabled' : ''}>${icon('send')}</button><button type="button" class="cp-send mic" id="cpMic" data-act="recStart" data-th="${esc(th)}" aria-label="Record a voice note"${has ? ' hidden' : ''}>${icon('mic')}</button></form></div>`;
   },
 
   /* ---------------- special messages ---------------- */
@@ -5716,13 +6187,132 @@ ${!mine ? `<div class="rsvp two"><button type="button" class="${my === 'paid' ? 
   async send(th, kind, body, meta) {
     if (this.busy) return false;
     this.busy = true;
+    const rp = this.reply[th];
+    if (rp && ['text', 'voice', 'image', 'file'].includes(kind)) meta = Object.assign({}, meta, { reply: rp });
     try {
       const { data, error } = await Backend.sb.rpc('send_chama_message', { p_cid: Store.chamaId, p_kind: kind, p_body: body || '', p_meta: meta || {}, p_recipient: th === 'group' ? null : th });
-      if (error) throw new Error(rpcMessage(error));
+      if (error) throw new Error(NOTREADY(error) && kind !== 'text' ? 'Nothing was sent. Photos, files and voice notes need the latest server update.' : rpcMessage(error));
       if (data && data.id && !this.msgs.some(x => x.id === data.id)) this.msgs.push(data);
-      this.draft[th] = ''; this.busy = false; render(); this.scrollEnd(true);
+      this.draft[th] = ''; delete this.reply[th]; this.busy = false; this.sendTyping(th, 'stop'); render(); this.scrollEnd(true);
       return true;
     } catch (e) { this.busy = false; toast(e.message); return false; }
+  },
+  /* photos, files and voice notes: shown at once with "Sending", uploaded, then posted. View once goes to the server
+     in one step and is never stored as a file anyone can fetch. */
+  async sendMedia(th, kind, blob, meta, caption, once, retryOf) {
+    if (!Backend.sb) return;
+    if (blob.size > (once ? MAX_ONCE : MAX_FILE)) return Pop.alert('That is too big to send (' + fmtSize(blob.size) + '). The limit is ' + fmtSize(once ? MAX_ONCE : MAX_FILE) + '.', { title: 'Too big' });
+    const cid = newId(), rp = this.reply[th];
+    const base = Object.assign({}, meta, { mime: blob.type || 'application/octet-stream', size: blob.size, cid }, rp ? { reply: rp } : {}, once ? { once: true } : {});
+    let local = retryOf ? this.msgs.find(x => x.id === retryOf) : null;
+    if (!local) {
+      local = { id: 'local-' + cid, pending: true, cid, chama_id: Store.chamaId, sender: this.me(), sender_name: Session.displayName(), sender_role: Session.role, recipient: th === 'group' ? null : th, kind, body: caption || '', meta: base, created_at: new Date().toISOString(), localUrl: kind === 'image' && !once ? URL.createObjectURL(blob) : null, blob };
+      this.msgs.push(local);
+    } else { local.failed = false; local.meta = Object.assign(local.meta, { cid }); local.cid = cid; }
+    delete this.reply[th]; render(); this.scrollEnd(true);
+    try {
+      let res;
+      if (once) {
+        const data = await blobB64(blob);
+        res = await Backend.sb.rpc('send_chat_once', { p_cid: Store.chamaId, p_kind: kind, p_body: caption || '', p_meta: base, p_recipient: th === 'group' ? null : th, p_data: data });
+      } else {
+        const ext = (kind === 'voice' ? (blob.type.includes('wav') ? 'wav' : blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm') : kind === 'image' ? 'jpg' : ((meta.name || '').split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin');
+        const path = Store.chamaId + '/' + this.me() + '/' + cid + '.' + ext;
+        const up = await Backend.sb.storage.from(BUCKET).upload(path, blob, { contentType: blob.type || 'application/octet-stream', upsert: false, cacheControl: '3600' });
+        if (up.error) throw up.error;
+        base.path = path;
+        res = await Backend.sb.rpc('send_chama_message', { p_cid: Store.chamaId, p_kind: kind, p_body: caption || '', p_meta: base, p_recipient: th === 'group' ? null : th });
+        if (!res.error && kind === 'image' && local.localUrl) Media.urls.set(path, { url: local.localUrl, at: Date.now() });
+      }
+      if (res.error) throw res.error;
+      const i = this.msgs.indexOf(local), row = res.data;
+      if (row && row.id) { const dup = this.msgs.findIndex(x => x.id === row.id); if (dup >= 0) this.msgs.splice(i, 1); else this.msgs[i] = row; } else this.msgs.splice(i, 1);
+      this.sendTyping(th, 'stop'); render();
+    } catch (e) {
+      local.failed = true; render();
+      toast(NOTREADY(e) ? 'Nothing was sent. Photos, files and voice notes need the latest server update.' : (e && e.message) || 'Not sent. Check your connection and tap to retry.');
+    }
+  },
+  retry(id) { const m = this.msgs.find(x => x.id === id); if (!m || !m.blob) return; const meta = Object.assign({}, m.meta); delete meta.cid; delete meta.reply; this.sendMedia(this.thread(m), m.kind, m.blob, meta, m.body, !!meta.once, id); },
+  attachSheet(th) {
+    R().Sheet.open(`<div class="sx-head"><h3>Send</h3><p>${th === 'group' ? 'To everyone in the group' : 'Only to ' + esc(this.title(th))}</p></div>
+<div class="att-sheet"><label class="att-b"><span class="att-ic a-ph">${icon('image')}</span><b>Photo</b><small>From your gallery or camera</small><input type="file" accept="image/*" id="attPhoto" data-th="${esc(th)}" hidden></label>
+<label class="att-b"><span class="att-ic a-fi">${icon('file')}</span><b>File</b><small>PDF, document or other, up to 10 MB</small><input type="file" id="attFile" data-th="${esc(th)}" hidden></label>
+<button type="button" class="att-b" data-act="recStart" data-th="${esc(th)}"><span class="att-ic a-vn">${icon('mic')}</span><b>Voice note</b><small>Record, listen, trim, send</small></button></div>`, { key: 'attach', label: 'Send a photo or file' });
+  },
+  /* a photo is made smaller first (long side 1600), then the person adds words and chooses view once */
+  async photoPicked(th, file) {
+    R().Sheet.close();
+    let blob = file, w = 0, h = 0;
+    try {
+      const bmp = await (typeof createImageBitmap === 'function' ? createImageBitmap(file) : new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = URL.createObjectURL(file); }));
+      w = bmp.width; h = bmp.height; const k = Math.min(1, 1600 / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); w = c.width; h = c.height;
+      blob = await new Promise(ok => c.toBlob(b => ok(b || file), 'image/jpeg', 0.82));
+    } catch (e) { return toast('That file is not a picture. Try a JPG or PNG.'); }
+    this._pick = { th, blob, w, h, url: URL.createObjectURL(blob) };
+    R().Sheet.open(`<div class="ph-prev"><img src="${esc(this._pick.url)}" alt="The photo to send"></div>
+<label class="fgrp" for="phCap"><span class="flab">Add words (optional)</span><span class="field"><input id="phCap" maxlength="1000" placeholder="Say something about it"></span></label>
+<label class="check"><input type="checkbox" id="phOnce"><span class="box">${icon('check')}</span><span><b>View once</b><br><small class="mute">Each person can open it one time. It cannot be opened again.</small></span></label>
+<button type="button" class="btn pri block lg" data-act="photoSend">${icon('send')}<span>Send photo</span></button>`, { key: 'photo', label: 'Send a photo' });
+  },
+  async photoSend() {
+    const p = this._pick; if (!p) return;
+    const cap = ((document.getElementById('phCap') || {}).value || '').trim(), once = !!(document.getElementById('phOnce') || {}).checked;
+    this._pick = null; R().Sheet.close();
+    if (once) URL.revokeObjectURL(p.url);
+    await this.sendMedia(p.th, 'image', p.blob, { w: p.w, h: p.h }, cap, once);
+  },
+  filePicked(th, file) {
+    R().Sheet.close();
+    if (file.size > MAX_FILE) return Pop.alert('That file is ' + fmtSize(file.size) + '. Files can be up to 10 MB.', { title: 'Too big' });
+    if (/^image\//.test(file.type)) return this.photoPicked(th, file);
+    this.sendMedia(th, 'file', file, { name: String(file.name || 'file').slice(0, 120) }, '', false);
+  },
+  /* view once: the server hands the photo or sound over one time for each person, then refuses */
+  async onceOpen(id) {
+    const m = this.msgs.find(x => x.id === id); if (!m) return;
+    const { data, error } = await Backend.sb.rpc('open_chat_once', { p_id: id });
+    if (error) { if (/already/i.test(error.message || '')) { this.opened.add(id); render(); } return toast(NOTREADY(error) ? 'Opening needs the latest server update.' : rpcMessage(error)); }
+    this.opened.add(id);
+    const url = URL.createObjectURL(b64Blob(data.data, data.mime)), viewer = Session.displayName() + ' · ' + new Date().toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const box = document.createElement('div'); box.className = 'once-view'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    box.innerHTML = `<div class="ov-top"><span>${icon('once', 's')}${m.kind === 'voice' ? 'Listen once' : 'View once'} · from ${esc(m.sender_name)}</span><button type="button" class="ov-x" aria-label="Close">${icon('close')}</button></div>
+<div class="ov-body">${m.kind === 'voice' ? `<div class="vn big" data-vn="once-${esc(id)}" data-d="${esc((m.meta || {}).dur || 0)}"><span class="vn-play">${icon('play')}</span><span class="vn-wave">${wavesHtml((m.meta || {}).wave)}</span><span class="vn-t">${fmtDur((m.meta || {}).dur)}</span></div><p class="ov-note">It plays once. When you close this, it is gone.</p>` : `<img src="${url}" alt="" draggable="false">`}<span class="ov-wm">${esc(viewer)}</span></div>${m.body ? `<p class="ov-cap">${linkify(m.body)}</p>` : ''}`;
+    document.body.appendChild(box);
+    const close = () => { Player.stop(); URL.revokeObjectURL(url); box.remove(); render(); };
+    box.querySelector('.ov-x').addEventListener('click', close);
+    box.addEventListener('contextmenu', e => e.preventDefault());
+    if (m.kind === 'voice') Player.playUrl('once-' + id, url, () => setTimeout(close, 600));
+    render();
+  },
+  imgOpen(id) {
+    const m = this.msgs.find(x => x.id === id); if (!m) return;
+    const src = m.localUrl || Media.url((m.meta || {}).path); if (!src) { Media.sign((m.meta || {}).path).then(u => u && this.imgOpen(id)); return; }
+    const box = document.createElement('div'); box.className = 'once-view img'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    box.innerHTML = `<div class="ov-top"><span>${esc(m.sender_name)} · ${esc(short(m.created_at))}</span><a class="ov-x" href="${esc(src)}" download target="_blank" rel="noopener" aria-label="Save">${icon('download')}</a><button type="button" class="ov-x" aria-label="Close">${icon('close')}</button></div><div class="ov-body"><img src="${esc(src)}" alt=""></div>${m.body ? `<p class="ov-cap">${linkify(m.body)}</p>` : ''}`;
+    document.body.appendChild(box);
+    box.querySelector('button.ov-x').addEventListener('click', () => box.remove());
+    box.addEventListener('click', e => { if (e.target === box || e.target.classList.contains('ov-body')) box.remove(); });
+  },
+  themeSheet() {
+    R().Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('palette')}</span><h3>Chat theme</h3><p>For everyone in the group. Each theme has a light and a dark look that follows your app.${this.themeBy ? ' Last changed by ' + esc(this.themeBy) + '.' : ''}</p></div>
+<div class="ct-grid">${CHAT_THEMES.map(([id, t]) => `<button type="button" class="ct-sw${this.theme === id ? ' on' : ''}" data-act="chatThemeSet" data-v="${id}" data-ct="${id}" aria-pressed="${this.theme === id}"><span class="ct-prev"><i class="a"></i><i class="b"></i><i class="a s"></i></span><b>${esc(t)}</b>${this.theme === id ? icon('check', 's') : ''}</button>`).join('')}</div>`, { key: 'ctheme', label: 'Chat theme' });
+  },
+  async setTheme(id) {
+    if (!CHAT_THEMES.some(x => x[0] === id)) return;
+    const prev = this.theme; this.theme = id; R().Sheet.close(); render();
+    const { error } = await Backend.sb.rpc('set_chat_theme', { p_cid: Store.chamaId, p_theme: id });
+    if (error) { this.theme = prev; render(); return toast(NOTREADY(error) ? 'Nothing was changed. Chat themes need the latest server update.' : rpcMessage(error)); }
+    toast('Chat theme changed for everyone', 'ok');
+  },
+  setReply(id) {
+    const m = this.msgs.find(x => x.id === id); if (!m || m.deleted_at) return;
+    const meta = m.meta || {}, th = this.thread(m);
+    const preview = meta.once ? (m.kind === 'voice' ? 'Voice note · view once' : 'Photo · view once') : m.kind === 'voice' ? 'Voice note ' + fmtDur(meta.dur) : m.kind === 'image' ? 'Photo' + (m.body ? ': ' + m.body : '') : m.kind === 'file' ? 'File: ' + (meta.name || '') : (m.body || (TOOLS[m.kind] || {}).t || '');
+    this.reply[th] = { id: m.id, from: m.sender, name: m.sender === this.me() ? 'You' : m.sender_name, preview: String(preview).slice(0, 120) };
+    if (this.mode[th] && this.mode[th] !== 'text') return render();
+    render(); setTimeout(() => { const i = document.getElementById('chatIn'); if (i) i.focus(); }, 30);
   },
   toolSheet(th) {
     const list = this.tools(th);
@@ -5791,24 +6381,38 @@ ${!mine ? `<div class="rsvp two"><button type="button" class="${my === 'paid' ? 
 <div class="reg">${people.map(p => { const st = att[p.user_id] || (rs.find(r => r.user_id === p.user_id && r.choice === 'no') ? 'apology' : ''); return `<div class="reg-row" data-u="${esc(p.user_id)}"><span class="reg-n"><b>${esc(p.name)}</b><small>${esc(ROLE_T(p.role))}</small></span><span class="reg-seg">${[['present', 'Present'], ['apology', 'Apology'], ['absent', 'Absent']].map(([k, t]) => `<button type="button" class="${st === k ? 'on ' + k : ''}" data-act="regMark" data-u="${esc(p.user_id)}" data-v="${k}">${t}</button>`).join('')}</span></div>`; }).join('')}</div>
 <button type="button" class="btn pri block lg" data-act="regSave" data-id="${esc(id)}">Save register</button>`, { key: 'reg', label: 'Attendance register' });
   },
+  /* choose who to write to: the group, then officers, then (for officers) every member; with a search box */
   newMessage() {
     const people = this.contacts.filter(c => c.can_message);
-    R().Sheet.open(`<div class="sx-head"><h3>New message</h3><p>${Session.role === 'member' ? 'Write privately to the treasurer or secretary, or to the whole group.' : 'Write to the group or to one person.'}</p></div>
-<div class="list sx-list"><a class="li has-av" href="#/chat/group" data-act="sheetClose"><span class="av grp" style="--n:42px">${icon('members')}</span><span class="li-main"><b>Everyone</b><small>The group conversation</small></span>${icon('chev', 'chev')}</a>
-${people.map(c => `<a class="li has-av" href="#/chat/${esc(c.user_id)}" data-act="sheetClose">${R().pav(c.name, c.photo, 42)}<span class="li-main"><b>${esc(c.name)}</b><small>${esc(ROLE_T(c.role))}</small></span>${icon('chev', 'chev')}</a>`).join('')}</div>`, { key: 'new', label: 'New message' });
+    const row = c => `<a class="li has-av nm-p" href="#/chat/${esc(c.user_id)}" data-act="sheetClose" data-n="${esc(c.name.toLowerCase())}">${R().pav(c.name, c.photo, 44)}<span class="li-main"><b>${esc(c.name)}</b><small>${esc(ROLE_T(c.role))}${this.online.has(c.user_id) ? ' · <span class="ok-t">online</span>' : ''}</small></span>${icon('chev', 'chev')}</a>`;
+    const off = people.filter(c => c.role !== 'member'), mem = people.filter(c => c.role === 'member');
+    R().Sheet.open(`<div class="sx-head"><h3>New message</h3><p>${Session.role === 'member' ? 'Write to the whole group, or privately to the treasurer or secretary.' : 'Write to the group or to one person.'}</p></div>
+${people.length > 5 ? `<label class="gd-in nm-q">${icon('search')}<input id="nmQ" type="search" placeholder="Find a person" autocomplete="off"></label>` : ''}
+<div class="list sx-list"><a class="li has-av" href="#/chat/group" data-act="sheetClose"><span class="av grp" style="--n:44px">${icon('members')}</span><span class="li-main"><b>Everyone</b><small>The group conversation</small></span>${icon('chev', 'chev')}</a></div>
+${off.length ? `<h4 class="nm-h">Officers</h4><div class="list sx-list">${off.map(row).join('')}</div>` : ''}
+${mem.length ? `<h4 class="nm-h">Members</h4><div class="list sx-list">${mem.map(row).join('')}</div>` : ''}`, { key: 'new', label: 'New message' });
   },
   msgMenu(id) {
     const m = this.msgs.find(x => x.id === id); if (!m) return;
-    const mine = m.sender === this.me(), officer = Session.role !== 'member';
-    const rows = [];
+    const mine = m.sender === this.me(), officer = Session.role !== 'member', plain = ['text', 'voice', 'image', 'file'].includes(m.kind);
+    const rows = [], my = this.mine(id);
+    const rx = plain && !m.deleted_at ? `<div class="rx-row" role="group" aria-label="React">${REACTS.map(e => `<button type="button" class="${my === 'r:' + e ? 'on' : ''}" data-act="msgReact" data-id="${esc(id)}" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div>` : '';
+    if (!m.deleted_at) rows.push(`<button type="button" class="li has-ic" data-act="msgReply" data-id="${esc(id)}"><span class="li-ic">${icon('reply')}</span><span class="li-main"><b>Reply</b></span></button>`);
     if (m.body && navigator.clipboard) rows.push(`<button type="button" class="li has-ic" data-act="msgCopy" data-id="${esc(id)}"><span class="li-ic">${icon('copy')}</span><span class="li-main"><b>Copy text</b></span></button>`);
-    /* the same rule as the server: your own words, or an officer keeping the group's notice board */
     const canEdit = !m.deleted_at && ['text', 'announcement', 'minutes'].includes(m.kind) && (mine || (officer && !m.recipient && (m.kind === 'announcement' || m.pinned)));
     if (canEdit) rows.push(`<button type="button" class="li has-ic" data-act="msgEdit" data-id="${esc(id)}"><span class="li-ic">${icon('pencil')}</span><span class="li-main"><b>Edit</b><small>${m.kind === 'announcement' || m.pinned ? 'Everyone sees it was edited' : 'Shows as edited'}</small></span></button>`);
-    if (officer && !m.recipient) rows.push(`<button type="button" class="li has-ic" data-act="msgPin" data-id="${esc(id)}" data-v="${m.pinned ? '0' : '1'}"><span class="li-ic t-gold">${icon('bell')}</span><span class="li-main"><b>${m.pinned ? 'Unpin' : 'Pin to the top'}</b></span></button>`);
-    if (mine || Session.role === 'treasurer') rows.push(`<button type="button" class="li has-ic danger" data-act="msgRemove" data-id="${esc(id)}"><span class="li-ic t-bad">${icon('trash')}</span><span class="li-main"><b>Remove for everyone</b></span></button>`);
-    if (!rows.length) return;
-    R().Sheet.open(`<div class="list sx-list">${rows.join('')}</div>`, { key: 'msg', label: 'Message options' });
+    if (officer && !m.recipient && !m.deleted_at) rows.push(`<button type="button" class="li has-ic" data-act="msgPin" data-id="${esc(id)}" data-v="${m.pinned ? '0' : '1'}"><span class="li-ic t-gold">${icon('bell')}</span><span class="li-main"><b>${m.pinned ? 'Unpin' : 'Pin to the top'}</b></span></button>`);
+    if ((mine || Session.role === 'treasurer') && !m.deleted_at) rows.push(`<button type="button" class="li has-ic danger" data-act="msgRemove" data-id="${esc(id)}"><span class="li-ic t-bad">${icon('trash')}</span><span class="li-main"><b>Remove for everyone</b></span></button>`);
+    if (!rows.length && !rx) return;
+    R().Sheet.open(`${rx}<div class="list sx-list">${rows.join('')}</div>`, { key: 'msg', label: 'Message options' });
+  },
+  async react(id, e) {
+    const cur = this.mine(id), next = cur === 'r:' + e ? null : e;
+    this.resp = this.resp.filter(r => !(r.message_id === id && r.user_id === this.me())).concat(next ? [{ message_id: id, user_id: this.me(), choice: 'r:' + next, name: Session.displayName() }] : []);
+    R().Sheet.close(); render();
+    try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (er) {}
+    const { error } = await Backend.sb.rpc('react_chama_message', { p_id: id, p_emoji: next });
+    if (error) { toast(NOTREADY(error) ? 'Reactions need the latest server update.' : rpcMessage(error)); this.loadResponses(); }
   }
 };
 
@@ -5840,6 +6444,24 @@ const actions = {
     R().Sheet.close(); toast('Register saved', 'ok'); await Chat.load();
   },
   msgMenu: d => Chat.msgMenu(d.id),
+  msgReply: d => { R().Sheet.close(); Chat.setReply(d.id); },
+  msgReact: d => Chat.react(d.id, d.e),
+  replyCancel: () => { const th = Chat.openThread(); if (th) { delete Chat.reply[th]; render(); } },
+  chatAttach: d => Chat.attachSheet(d.th),
+  photoSend: () => Chat.photoSend(),
+  chatRetry: d => Chat.retry(d.id),
+  chatTheme: () => Chat.themeSheet(),
+  chatThemeSet: d => Chat.setTheme(d.v),
+  onceOpen: d => Chat.onceOpen(d.id),
+  imgOpen: d => Chat.imgOpen(d.id),
+  vnPlay: d => { const m = Chat.msgs.find(x => x.id === d.id); if (m && m.meta && m.meta.path) Player.toggle(m); },
+  recStart: d => { R().Sheet.close(); Rec.start(d.th || Chat.openThread()); },
+  recStop: () => Rec.stop(),
+  recCancel: () => Rec.cancel(),
+  vrPlay: () => Review.play(),
+  vrOnce: () => { if (Review.st) { Review.st.once = !Review.st.once; render(); } },
+  vrDiscard: () => Review.discard(),
+  vrSend: () => Review.send(),
   msgEdit: d => {
     const m = Chat.msgs.find(x => x.id === d.id); if (!m) return;
     const titled = m.kind === 'announcement' || m.kind === 'minutes', meta = m.meta || {};
@@ -5860,10 +6482,10 @@ ${titled ? `<label class="fgrp" for="meTitle"><span class="flab">Title</span><sp
   msgRemove: d => { R().Sheet.close(); Pop.confirm({ title: 'Remove this message?', text: 'It is removed for everyone. People will see that a message was removed.', confirmLabel: 'Remove', danger: true, onYes: async () => { const { error } = await Backend.sb.rpc('retract_chama_message', { p_id: d.id }); if (error) return toast(rpcMessage(error)); await Chat.load(); } }); }
 };
 
-return { get views() { return views; }, get actions() { return actions; }, get Chat() { return Chat; }, get TOOLS() { return TOOLS; } };
+return { get views() { return views; }, get actions() { return actions; }, get Chat() { return Chat; }, get TOOLS() { return TOOLS; }, get Rec() { return Rec; }, get Review() { return Review; }, get Player() { return Player; } };
 })();
 
-/* the composer: Enter sends on a computer, the button on a phone; the box grows with the text */
+/* the composer: Enter sends on a computer, the button on a phone; the box grows with the text; the mic shows when empty */
 document.addEventListener('submit', e => {
   if (!e.target || e.target.id !== 'chatForm') return;
   e.preventDefault();
@@ -5873,14 +6495,83 @@ document.addEventListener('submit', e => {
   C.send(th, 'text', t, {}).then(ok => { if (!ok) { C.draft[th] = t; const i = document.getElementById('chatIn'); if (i) i.value = t; } else { const i = document.getElementById('chatIn'); if (i) i.focus(); } });
 });
 document.addEventListener('input', e => {
-  if (!e.target || e.target.id !== 'chatIn') return;
-  const f = document.getElementById('chatForm'); if (f) __M_src_features_chat_index_js.Chat.draft[f.dataset.th] = e.target.value;
+  if (!e.target) return;
+  if (e.target.id === 'nmQ') { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('.nm-p').forEach(a => { a.hidden = !!q && !a.dataset.n.includes(q); }); return; }
+  if (e.target.id === 'vrA' || e.target.id === 'vrB') { __M_src_features_chat_index_js.Review.set(e.target.id === 'vrA' ? 'a' : 'b', e.target.value); return; }
+  if (e.target.id !== 'chatIn') return;
+  const C = __M_src_features_chat_index_js.Chat, f = document.getElementById('chatForm'); if (!f) return;
+  C.draft[f.dataset.th] = e.target.value;
   e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px';
+  const has = !!e.target.value.trim(), send = document.getElementById('cpSend'), mic = document.getElementById('cpMic');
+  if (send) send.hidden = !has; if (mic) mic.hidden = has;
+  if (has) C.sendTyping(f.dataset.th, 'type');
+});
+document.addEventListener('change', e => {
+  const t = e.target; if (!t || (t.id !== 'attPhoto' && t.id !== 'attFile') || !t.files || !t.files[0]) return;
+  const C = __M_src_features_chat_index_js.Chat;
+  if (t.id === 'attPhoto') C.photoPicked(t.dataset.th, t.files[0]); else C.filePicked(t.dataset.th, t.files[0]);
 });
 document.addEventListener('keydown', e => {
   if (!e.target || e.target.id !== 'chatIn' || e.key !== 'Enter' || e.shiftKey || matchMedia('(pointer: coarse)').matches) return;
   e.preventDefault(); const f = document.getElementById('chatForm'); if (f) f.requestSubmit();
 });
+/* swipe a message to the right to reply to it */
+(() => {
+  let sx = 0, sy = 0, row = null, dx = 0;
+  document.addEventListener('touchstart', e => { const r = e.target.closest && e.target.closest('.bub-row[data-mid]'); if (!r || e.touches.length !== 1 || /^local-/.test(r.dataset.mid)) { row = null; return; } row = r; sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = 0; }, { passive: true });
+  document.addEventListener('touchmove', e => { if (!row) return; const x = e.touches[0].clientX - sx, y = e.touches[0].clientY - sy; if (Math.abs(y) > 24 && Math.abs(y) > Math.abs(x)) { row.style.transform = ''; row = null; return; } dx = Math.max(0, Math.min(80, x)); row.style.transform = dx ? `translateX(${dx}px)` : ''; row.classList.toggle('swipe-ok', dx > 56); }, { passive: true });
+  document.addEventListener('touchend', () => { if (!row) return; const r = row; row = null; r.style.transition = 'transform .2s'; r.style.transform = ''; setTimeout(() => { r.style.transition = ''; }, 220); r.classList.remove('swipe-ok'); if (dx > 56) { try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (er) {} __M_src_features_chat_index_js.Chat.setReply(r.dataset.mid); } });
+})();
+document.addEventListener('visibilitychange', () => { if (document.hidden) { try { __M_src_features_chat_index_js.Rec.stop(); } catch (e) {} } });
+
+/* ---- edge-reveal scroll feel (self-contained) ----
+   Items near the top/bottom viewport edges are softened; CSS reads --rv (0..1). */
+(function () {
+  if (typeof window === 'undefined' || !window.IntersectionObserver || !window.MutationObserver) return;
+  const SEL = '.li, .cg-row, .cg-pay, .ci-row, .bub-row, .ch-card-wrap, .card, .list > *, .m-row, .sx-list > *, .gd-task, .ncard, .aw-card, .decl-card, .pin-card, .lk-row, .cl-row, .ab-row, .mv-row, .mt-row, .lt-row, .rx-row, .reg-row, .ty-row, .tr-card, .po-card, .ph-card';
+  const FIXED = '.cp-wrap, .composer, .ch-bar, #nav, header, [data-rv-skip]';
+  const EDGE = 96;
+  const live = new Set();
+  let raf = 0, lastY = 0, dir = 1;
+  const io = new IntersectionObserver(es => {
+    for (const e of es) { if (e.isIntersecting) live.add(e.target); else { live.delete(e.target); } }
+    kick();
+  }, { rootMargin: '40px 0px' });
+  function off() { const d = document.documentElement.classList; return d.contains('a-rm') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  function calc(r, vh) {
+    const m = Math.min(r.top + r.height * .5, vh - (r.top + r.height * .5));
+    const v = m / EDGE; return v >= 1 ? 1 : v <= 0 ? 0 : Math.round(v * 20) / 20;
+  }
+  function frame() {
+    raf = 0; if (off()) return;
+    const vh = window.innerHeight, els = [], vals = [];
+    live.forEach(el => { if (!el.isConnected) { live.delete(el); return; } els.push(el); vals.push(calc(el.getBoundingClientRect(), vh)); });
+    for (let i = 0; i < els.length; i++) { const s = String(vals[i]); if (els[i].style.getPropertyValue('--rv') !== s) els[i].style.setProperty('--rv', s); }
+  }
+  function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+  function adopt(el) {
+    if (el.hasAttribute('data-rv') || el.closest('[data-rv]') || el.querySelector('[data-rv]') || el.matches(FIXED) || el.querySelector(FIXED) || el.closest(FIXED)) return;
+    if (el.querySelector(SEL)) return; /* prefer leaf rows over their containers */
+    const pos = getComputedStyle(el).position; if (pos === 'fixed' || pos === 'sticky') return;
+    const r = el.getBoundingClientRect();
+    if (r.height > window.innerHeight * .7) return; /* huge cards: leave alone */
+    el.style.setProperty('--rv', String(calc(r, window.innerHeight)));
+    el.classList.add('rv-now'); el.setAttribute('data-rv', '');
+    io.observe(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('rv-now')));
+  }
+  let pend = 0;
+  function scan() { pend = 0; const roots = document.querySelectorAll('#view, .sheet, .modal, [role="dialog"]'); roots.forEach(root => root.querySelectorAll(SEL).forEach(adopt)); }
+  function queue() { if (!pend) pend = requestAnimationFrame(scan); }
+  new MutationObserver(queue).observe(document.body || document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('scroll', () => {
+    const y = window.scrollY; if (y !== lastY) { dir = y > lastY ? 1 : -1; lastY = y; document.documentElement.style.setProperty('--rvd', String(dir)); }
+    kick();
+  }, { capture: true, passive: true });
+  window.addEventListener('resize', kick, { passive: true });
+  document.addEventListener('pointerdown', e => { const t = e.target && e.target.closest && e.target.closest('[data-rv]'); if (t) { t.classList.add('rv-touch'); const done = () => { setTimeout(() => t.classList.remove('rv-touch'), 250); document.removeEventListener('pointerup', done, true); document.removeEventListener('pointercancel', done, true); }; document.addEventListener('pointerup', done, true); document.addEventListener('pointercancel', done, true); } }, { capture: true, passive: true });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', queue); else queue();
+})();
 
 
 /* ---- src/features/smart/index.js ----
@@ -6448,7 +7139,85 @@ const SYN = { pay: 'payment', paid: 'payment', paying: 'payment', contribution: 
   message: 'chat', text: 'chat', ujumbe: 'chat', whatsapp: 'remind', lock: 'lock', pin: 'lock', fingerprint: 'lock', face: 'lock', password: 'password', nenosiri: 'password',
   leave: 'leave', quit: 'leave', exit: 'leave', ondoka: 'leave', goal: 'goal', target: 'goal', lengo: 'goal', mpesa: 'mpesa', 'm-pesa': 'mpesa', import: 'mpesa', screenshot: 'mpesa', sms: 'mpesa',
   photo: 'photo', picture: 'photo', picha: 'photo', payout: 'payout', pot: 'payout', turn: 'payout', zamu: 'payout', receive: 'payout', cash: 'cash', balance: 'cash', bank: 'cash', treasurer: 'treasurer', handover: 'treasurer', role: 'role', secretary: 'role', remove: 'remove', kick: 'remove', report: 'report', export: 'report', pdf: 'report', backup: 'report' };
-const words = q => String(q || '').toLowerCase().replace(/[^a-z0-9\s'-]/g, ' ').split(/\s+/).filter(w => w.length > 1).map(w => SYN[w] || w);
+/* Smart words: lower case, drop filler, light stemming, then correct typos against the words the app knows
+   (Damerau distance 1 for short words, 2 for long ones), then map to the app's own words. "recrod a paymnet",
+   "how i add membr", "mkopo" and "lend money" all land on the right guide. */
+const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'for', 'in', 'on', 'my', 'me', 'i', 'is', 'it', 'do', 'does', 'can', 'could', 'please', 'want', 'wanna', 'need', 'and', 'or', 'with', 'this', 'that', 'there', 'some', 'someone', 'somebody', 'na', 'ya', 'wa', 'kwa', 'ni', 'je', 'how', 'what', 'where', 'show', 'teach', 'help', 'guide', 'jinsi', 'wapi', 'nisaidie', 'nionyeshe', 'gani', 'way', 'go', 'get', 'make', 'be', 'am', 'are', 'you', 'we', 'our', 'your']);
+const stem = w => w.length > 5 && /ing$/.test(w) ? w.slice(0, -3) : w.length > 4 && /ed$/.test(w) ? w.slice(0, -2) : w.length > 3 && /[^s]s$/.test(w) ? w.slice(0, -1) : w;
+function dl(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) { let best = 99; for (let j = 1; j <= b.length; j++) {
+    const c = a[i - 1] === b[j - 1] ? 0 : 1; d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    best = Math.min(best, d[i][j]); } if (best > max) return max + 1; }
+  return d[a.length][b.length];
+}
+let VOCAB = null;
+function vocab() {
+  if (VOCAB) return VOCAB;
+  const v = new Set(Object.keys(SYN).concat(Object.values(SYN)));
+  TASKS.forEach(t => (t.t + ' ' + t.k).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).forEach(w => { if (w.length > 2 && !STOP.has(w)) v.add(w); }));
+  return (VOCAB = [...v]);
+}
+const fixCache = new Map();
+function fix(w) {
+  if (SYN[w] || w.length < 3 || /^\d/.test(w)) return w;
+  if (fixCache.has(w)) return fixCache.get(w);
+  const V = vocab(); if (V.includes(w)) return w;
+  const st = stem(w); if (V.includes(st)) { fixCache.set(w, st); return st; }
+  const max = w.length <= 4 ? 1 : 2; let best = w, bd = max + 1;
+  for (const c of V) { if (c[0] !== w[0] && w.length < 6) continue; const d = dl(w, c, max); if (d < bd) { bd = d; best = c; if (d === 1 && c.length === w.length) break; } }
+  fixCache.set(w, best); return best;
+}
+const words = q => String(q || '').toLowerCase().replace(/[^a-z0-9\s'-]/g, ' ').split(/\s+/).filter(w => w.length > 1 && !STOP.has(w)).map(w => { const f = fix(w); return SYN[f] || SYN[stem(f)] || stem(f); });
+
+/* Sums, written any way: "2,000 x 12", "5% of 20k", "monthly * 12 + fines", "(cash - loans) / members",
+   "10000 at 10% for 3 months". Numbers take k and m, words from the records are variables. No eval: a small parser. */
+function vars(s) {
+  const id = s.shared ? s.shared.me : Session.memberId, cur = Domain.now(), U = __M_src_core_utils_js;
+  const act = (s.members || []).filter(m => !m.left), v = {
+    monthly: Number(s.chama && s.chama.monthly) || 0, contribution: Number(s.chama && s.chama.monthly) || 0, share: Number(s.chama && s.chama.monthly) || 0,
+    members: act.length, people: act.length, cash: Domain.cashOnHand(s),
+    expected: U.sum(act, m => Domain.dueFor(s, m.id, cur)), target: U.sum(act, m => Domain.dueFor(s, m.id, cur)),
+    collected: s.shared ? ((s.shared.monthCollected || {})[cur] || 0) : U.sum((s.payments || []).filter(p => p.month === cur), p => p.amount) };
+  if (!s.shared) { v.loans = U.sum(s.loans || [], l => Domain.loan(l).balance); v.fines = U.sum((s.fines || []).filter(f => !f.paid), f => f.amount); }
+  if (id) { v.balance = v.owe = v.due = Domain.outstanding(s, id, cur); v.ahead = Domain.ahead(s, id, cur); v.saved = v.savings = Domain.memberSaved(s, id); v.myloan = Domain.memberLoanBalance(s, id); v.myfines = Domain.memberFinesDue(s, id); if (s.shared) { v.loans = v.myloan; v.fines = v.myfines; } }
+  return v;
+}
+function calc(q, s) {
+  let src = String(q || '').toLowerCase().replace(/kes|ksh|shillings?|bob/g, ' ').replace(/(\d),(?=\d{3})/g, '$1')
+    .replace(/\b(what is|whats|what's|calculate|calc|compute|how much is|ni ngapi|equals?|=)\b/g, ' ').replace(/[×x](?=\s*[\d(a-z])/g, '*').replace(/÷/g, '/')
+    .replace(/\btimes\b|\bmultiplied by\b/g, '*').replace(/\bdivided by\b|\bover\b/g, '/').replace(/\bplus\b|\bna\b|\band\b/g, '+').replace(/\bminus\b|\bless\b/g, '-')
+    .replace(/\bmy (loan|fines)\b/g, 'my$1').replace(/\?/g, ' ').trim();
+  /* loan: P at R% for N months */
+  const ln = /^(\d+(?:\.\d+)?)\s*(k|m)?\s*(?:loan\s*)?(?:at|@)\s*(\d+(?:\.\d+)?)\s*%?\s*(?:a month|per month|monthly|pm)?\s*(?:for|x)\s*(\d{1,3})\s*(?:months?|mo)?$/.exec(src.replace(/\bloan of\b|\bborrow\b/g, '').trim());
+  if (ln) { const P = Number(ln[1]) * (ln[2] === 'k' ? 1e3 : ln[2] === 'm' ? 1e6 : 1), c = Domain.loan({ principal: P, rate: Number(ln[3]), months: Number(ln[4]), repayments: [], date: new Date().toISOString().slice(0, 10) });
+    return { title: 'Pay back ' + kes(c.total), text: 'Borrow ' + kes(P) + ' at ' + ln[3] + '% a month for ' + ln[4] + ' months.\nAbout ' + kes(c.installment) + ' each month. Interest ' + kes(c.total - P) + '.', task: Auth.isAdmin() ? 'loan' : null }; }
+  src = src.replace(/(\d+(?:\.\d+)?)\s*%\s*of\b/g, '($1/100)*').replace(/(\d+(?:\.\d+)?)\s*%/g, '($1/100)');
+  const V = vars(s), toks = []; let i = 0, used = [];
+  while (i < src.length) {
+    const c = src[i];
+    if (/\s/.test(c)) { i++; continue; }
+    let m = /^(\d+(?:\.\d+)?)(k|m)?\b/.exec(src.slice(i));
+    if (m) { toks.push(Number(m[1]) * (m[2] === 'k' ? 1e3 : m[2] === 'm' ? 1e6 : 1)); i += m[0].length; continue; }
+    m = /^[a-z]+/.exec(src.slice(i));
+    if (m) { const w = m[0], k = w in V ? w : fix(w) in V ? fix(w) : stem(w) in V ? stem(w) : null; if (k == null) return null; toks.push(V[k]); used.push(k); i += w.length; continue; }
+    if ('+-*/^()'.includes(c)) { toks.push(c); i++; continue; }
+    return null;
+  }
+  if (!toks.length || !toks.some(t => typeof t === 'string' && t !== '(' && t !== ')') && !(toks.length === 1 && used.length)) return null;
+  let p = 0;
+  const peek = () => toks[p], take = () => toks[p++];
+  const prim = () => { const t = take(); if (t === '(') { const v = add(); if (take() !== ')') throw 0; return v; } if (t === '-') return -prim(); if (typeof t === 'number') return t; throw 0; };
+  const pow = () => { let v = prim(); while (peek() === '^') { take(); v = Math.pow(v, prim()); } return v; };
+  const mul = () => { let v = pow(); while (peek() === '*' || peek() === '/' || typeof peek() === 'number' || peek() === '(') { const o = typeof peek() === 'number' || peek() === '(' ? '*' : take(); const r = pow(); v = o === '*' ? v * r : v / r; } return v; };
+  const add = () => { let v = mul(); while (peek() === '+' || peek() === '-') { const o = take(), r = mul(); v = o === '+' ? v + r : v - r; } return v; };
+  try { const v = add(); if (p !== toks.length || !isFinite(v)) return null;
+    const r = Math.round(v * 100) / 100, money = used.some(k => !['members', 'people'].includes(k)) || /kes|ksh|shilling/.test(String(q).toLowerCase()) || Math.abs(r) >= 100;
+    return { title: (money ? kes(r) : r.toLocaleString('en-KE')), text: used.length ? 'Using your records: ' + [...new Set(used)].map(k => k + ' = ' + (['members', 'people'].includes(k) ? V[k] : kes(V[k]))).join(', ') : 'Worked out for you.', calc: true };
+  } catch (e) { return null; }
+}
 
 /* tasks: what people ask to do. Each can be done now (act), or shown step by step (tour). */
 const TASKS = [
@@ -6508,6 +7277,34 @@ const TASKS = [
   { id: 'rules', t: 'Write the Chama rules', k: 'rule rules write chama', admin: true, act: 'rulesEdit', tour: [
     { go: '#/settings/chama', sel: '[data-act="chamaEdit"][data-f="rules"]', text: 'Tap Group rules. New members read them before they enter.', click: true },
     { sel: '#chV', text: 'Write one rule per line, for example how late fines and loans work.' }] },
+  { id: 'mypay', t: 'See my payments and what I owe', k: 'payment owe balance history paid my contribution', ic: 'receipt', tour: [
+    { go: '#/grid', sel: '.cg-hero', text: 'This card is the group’s pot for the month. Its colour shows how close the group is to the target.' },
+    { sel: '.cg-row', text: 'This is you this month: the ring fills as you pay.' },
+    { sel: '.cg-pays', text: 'Every payment you made, with its M-Pesa code. Tap a month at the top to look back.' }] },
+  { id: 'order', t: 'See the payout order (whose turn is next)', k: 'payout turn order next receive pot zamu', ic: 'members', tour: [
+    { go: '#/home', sel: '.po-card', text: 'Who receives the pot this month, and how much.' },
+    { sel: '.po-rail', text: 'The next turns, in order. Your turn has a gold ring.' }] },
+  { id: 'loanmine', t: 'See my loan', k: 'loan balance my loan repay mkopo', ic: 'loans', tour: [
+    { go: '#/loans', sel: '#view .stats, #view .card', text: 'Your loan, what is left to pay and every repayment are here.' }] },
+  { id: 'voice', t: 'Send a voice note', k: 'voice note record audio sauti chat message', ic: 'mic', tour: [
+    { go: '#/chat/group', sel: '#cpMic', text: 'Tap the microphone to start recording. Tap stop when you finish.', click: true },
+    { sel: '.vn-review', text: 'Listen back, trim the start or end, and choose View once if it should play only one time. Then send.' }] },
+  { id: 'attach', t: 'Send a photo or a file', k: 'photo picture image file document attach send chat picha', ic: 'image', tour: [
+    { go: '#/chat/group', sel: '#cpAttach', text: 'Tap the clip to choose a photo or a file.', click: true },
+    { sel: '.att-sheet', text: 'Choose Photo or File. For a photo you can turn on View once before sending.' }] },
+  { id: 'once', t: 'Send a view-once photo or voice note', k: 'view once private photo voice disappear secret', ic: 'eye', tour: [
+    { go: '#/chat/group', sel: '#cpAttach', text: 'For a photo tap the clip. For a voice note tap the microphone instead.', click: true },
+    { sel: '.att-sheet', text: 'Pick the photo, then switch on View once. It opens one time for each person, then it is gone.' }] },
+  { id: 'ctheme', t: 'Change the chat theme', k: 'chat theme colour color background look wallpaper', ic: 'sparkle', tour: [
+    { go: '#/chat/group', sel: '[data-act="chatTheme"]', text: 'Tap the palette to choose the group’s chat theme. Everyone in the group sees it.', click: true }] },
+  { id: 'call', t: 'Call or WhatsApp a member', k: 'call phone number whatsapp member contact simu piga', ic: 'phone', tour: [
+    { go: '#/members', sel: '[data-act="callMember"], [data-act="phoneShare"]', text: 'Tap the phone next to a member to call or WhatsApp them. Numbers show for people who agreed to share theirs.' }] },
+  { id: 'textsize', t: 'Make the text bigger or use Simple view', k: 'text size bigger large font read simple view old eyes', ic: 'text', tour: [
+    { go: '#/settings/app', sel: '[data-k="size"], [data-act="a11ySet"]', text: 'Choose a bigger text size here. Simple view gives bigger buttons and fewer words.' }] },
+  { id: 'dark', t: 'Dark or light theme', k: 'dark light theme mode night colour appearance', ic: 'eye', tour: [
+    { go: '#/settings/app', sel: '[data-act="a11ySet"][data-k="theme"]', text: 'Choose Light, Dark, or Follow phone.' }] },
+  { id: 'notif', t: 'See my notifications', k: 'notification alert bell news update', ic: 'bell', tour: [
+    { go: '#/home', sel: '#bell', text: 'The bell shows what is new. Tap it to read everything.', click: true }] },
   { id: 'aware', t: 'How this Chama works (rules, money, people)', k: 'rule member how works chama payment payout', act: 'awareShow' },
   { id: 'report', t: 'Download a report', k: 'report', tour: [
     { go: '#/reports', sel: '#view .card, #view .sec', text: 'Choose a report or a full backup here.' }] }
@@ -6537,41 +7334,45 @@ const Guide = {
   q: '', open: false,
   articles() { try { return (__M_src_content_app_info_js.HELP_ARTICLES || []); } catch (e) { return []; } },
   tasks() { const admin = Auth.isAdmin(); return TASKS.filter(t => !t.admin || admin); },
-  score(text, ws) { const hay = words(text); let sc = 0; ws.forEach(w => { if (hay.includes(w)) sc += 2; else if (hay.some(h => h.startsWith(w) && w.length > 2)) sc += 1; }); return sc; },
+  score(text, ws) { const hay = this._hay(text); let sc = 0; ws.forEach(w => { if (hay.includes(w)) sc += 2; else if (w.length > 2 && hay.some(h => h.startsWith(w) || w.startsWith(h) && h.length > 3)) sc += 1; }); return sc; },
+  _hay(text) { this._hc = this._hc || new Map(); if (!this._hc.has(text)) this._hc.set(text, words(text)); return this._hc.get(text); },
   results() {
-    const q = this.q.trim(), s = Store.get() || { members: [], payments: [], chama: {} };
-    if (!q) return { tasks: this.tasks().slice(0, 6), items: [], arts: [], ans: null };
-    const ws = words(q), lower = q.toLowerCase();
-    let ans = null; for (const a of ANSWERS) if ((!a.admin || Auth.isAdmin()) && a.re.test(lower)) { try { ans = a.run(s); } catch (e) { ans = null; } if (ans) break; }
-    const howTo = /\b(how|show|where|teach|help|jinsi|wapi|nisaidie|nionyeshe)\b/.test(lower);
-    const tasks = this.tasks().map(t => ({ t, sc: this.score(t.t + ' ' + t.k, ws) + (howTo ? 1 : 0) })).filter(x => x.sc >= 2).sort((a, b) => b.sc - a.sc).map(x => x.t).slice(0, 4);
-    const arts = this.articles().map(a => ({ a, sc: this.score(a.q + ' ' + a.a, ws) })).filter(x => x.sc >= 2).sort((a, b) => b.sc - a.sc).map(x => x.a).slice(0, 3);
-    let items = []; try { const P = __M_src_features_smart_js.Palette; P.q = q; items = P.results().filter(x => x.sub !== 'Action').slice(0, 6); } catch (e) {}
+    const q = this.q.trim(), s = Store.get() || { members: [], payments: [], chama: {}, loans: [], fines: [] };
+    if (!q) return { tasks: this.tasks().slice(0, 6), items: [], ans: null, near: false };
+    const ws = words(q), lower = ' ' + ws.join(' ') + ' ' + q.toLowerCase();
+    let ans = null; try { ans = calc(q, s); } catch (e) { ans = null; }
+    if (!ans) for (const a of ANSWERS) if ((!a.admin || Auth.isAdmin()) && (a.re.test(q.toLowerCase()) || a.re.test(lower))) { try { ans = a.run(s); } catch (e) { ans = null; } if (ans) break; }
+    const ranked = this.tasks().map(t => ({ t, sc: this.score(t.t + ' ' + t.k, ws) })).sort((a, b) => b.sc - a.sc);
+    let tasks = ranked.filter(x => x.sc >= 2).map(x => x.t).slice(0, 4), near = false;
+    if (!tasks.length && !ans) { tasks = ranked.filter(x => x.sc >= 1).map(x => x.t).slice(0, 4); near = true; }
+    let items = []; try { const P = __M_src_features_smart_js.Palette; P.q = q; items = P.results().filter(x => x.sub !== 'Action').slice(0, 5); } catch (e) {}
+    if (!tasks.length && !ans && !items.length) { tasks = this.tasks().slice(0, 4); near = true; }
     this._items = items;
-    return { tasks, items, arts, ans };
+    return { tasks, items, ans, near };
   },
   html() {
-    const r = this.results(), sugg = Auth.isAdmin() ? ['Who has not paid?', 'How do I record a payment?', 'Cash on hand', 'How do I import M-Pesa?'] : ['What do I owe?', 'When is my turn?', 'How do I message the treasurer?', 'How do I lock the app?'];
-    const task = t => `<div class="gd-task"><span class="li-ic">${icon('guide')}</span><b>${esc(t.t)}</b><span class="gd-btns">${t.tour ? `<button type="button" class="btn sm tint" data-gd="tour" data-id="${t.id}">Show me</button>` : ''}${t.act ? `<button type="button" class="btn sm" data-gd="do" data-id="${t.id}">Do it</button>` : ''}</span></div>`;
-    const ans = r.ans ? `<div class="gd-ans"><small>${icon('guide', 's')}Answer from your records</small><b>${esc(r.ans.title)}</b>${r.ans.text ? `<p>${esc(r.ans.text).replace(/\n/g, '<br>')}</p>` : ''}${r.ans.task ? `<button type="button" class="btn sm tint" data-gd="tour" data-id="${r.ans.task}">Show me what to do</button>` : ''}</div>` : '';
-    const empty = this.q && !r.ans && !r.tasks.length && !r.items.length && !r.arts.length;
+    const r = this.results(), sugg = Auth.isAdmin() ? ['Who has not paid?', 'Record a payment', 'monthly x 12', 'Import M-Pesa'] : ['What do I owe?', 'When is my turn?', '10000 at 10% for 3 months', 'Send a voice note'];
+    const IC = { pay: 'wallet', import: 'import', member: 'userPlus', invite: 'key', loan: 'loans', fine: 'alert', expense: 'receipt', remind: 'bell', payout: 'check', turn: 'members', goal: 'sparkle', chat: 'chat', lock: 'lock', photo: 'image', leave: 'out', rules: 'doc', report: 'doc', aware: 'help' };
+    const task = t => `<div class="gd-task"><span class="gd-t-ic">${icon(t.ic || IC[t.id] || 'guide')}</span><b>${esc(t.t)}</b><span class="gd-btns">${t.tour ? `<button type="button" class="btn sm pri" data-gd="tour" data-id="${t.id}">${icon('hand', 's')}Show me</button>` : ''}${t.act && !t.tour ? `<button type="button" class="btn sm tint" data-gd="do" data-id="${t.id}">Open</button>` : ''}</span></div>`;
+    const ans = r.ans ? `<div class="gd-ans${r.ans.calc ? ' calc' : ''}"><small>${icon(r.ans.calc ? 'chart' : 'guide', 's')}${r.ans.calc ? 'Worked out' : 'From your records'}</small><b>${esc(r.ans.title)}</b>${r.ans.text ? `<p>${esc(r.ans.text).replace(/\n/g, '<br>')}</p>` : ''}${r.ans.task ? `<button type="button" class="btn sm pri" data-gd="tour" data-id="${esc(r.ans.task)}">${icon('hand', 's')}Show me how</button>` : ''}</div>` : '';
     return `<div class="gd-veil" data-gd="x"><div class="gd" role="dialog" aria-modal="true" aria-label="Guide">
-<div class="gd-head"><span class="gd-mark">${icon('guide')}</span><div><b>Guide</b><small>Ask anything, find anything, or learn how</small></div><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
-<label class="pal-in gd-in">${icon('search')}<input id="gdQ" type="search" placeholder="e.g. How do I give a loan?" value="${esc(this.q)}" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>
+<div class="gd-head"><span class="gd-mark">${icon('guide')}</span><div><b>Guide</b><small>Ask, search, or work out a sum</small></div><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
+<label class="gd-in">${icon('search')}<input id="gdQ" type="search" inputmode="search" placeholder="Type anything, e.g. give a loan" value="${esc(this.q)}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.q ? '<button type="button" class="gd-clear" data-gd="clear" aria-label="Clear">' + icon('close', 's') + '</button>' : ''}</label>
 <div class="gd-body" id="gdBody">${this.q ? '' : `<div class="gd-sugg">${sugg.map(x => `<button type="button" data-gd="ask" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`}
 ${ans}
-${r.tasks.length ? `<div class="gd-sec"><h4>${this.q ? 'Do it, or let the Guide show you' : 'Things you can do'}</h4>${r.tasks.map(task).join('')}</div>` : ''}
-${r.items.length ? `<div class="gd-sec"><h4>Found</h4>${r.items.map((x, i) => `<button type="button" class="gd-item" data-gd="item" data-i="${i}"><span class="li-ic t-ink">${icon(x.ic)}</span><span><b>${esc(x.t)}</b><small>${esc(x.sub)}</small></span></button>`).join('')}</div>` : ''}
-${r.arts.length ? `<div class="gd-sec"><h4>Answers</h4>${r.arts.map(a => `<details class="gd-art"><summary>${esc(a.q)}</summary><p>${esc(a.a)}</p></details>`).join('')}</div>` : ''}
-${empty ? `<div class="gd-none"><b>No answer yet for “${esc(this.q)}”.</b><p>Try other words, such as “loan”, “payment” or “invite”. Or ask the treasurer in Chat.</p><a class="btn sm tint" href="#/chat">Open Chat</a></div>` : ''}</div></div></div>`;
+${r.tasks.length ? `<div class="gd-sec"><h4>${r.near ? 'Closest guides to “' + esc(this.q) + '”' : this.q ? 'Live guides' : 'Popular guides'}</h4>${r.tasks.map(task).join('')}</div>` : ''}
+${r.items.length ? `<div class="gd-sec"><h4>Found in your Chama</h4>${r.items.map((x, i) => `<button type="button" class="gd-item" data-gd="item" data-i="${i}"><span class="gd-t-ic">${icon(x.ic)}</span><span><b>${esc(x.t)}</b><small>${esc(x.sub)}</small></span>${icon('chev', 'chev')}</button>`).join('')}</div>` : ''}
+</div></div></div>`;
   },
   show(q) {
     if (!Session.ready()) return;
     this.open = true; this.q = q || ''; this._items = null;
     document.getElementById('jmRoot').innerHTML = this.html();
-    setTimeout(() => { const i = document.getElementById('gdQ'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 40);
+    /* focus in the same tap, so the phone opens the keyboard at once (iPhone ignores a focus that comes later) */
+    const i = document.getElementById('gdQ'); if (i) { try { i.focus({ preventScroll: true }); i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} }
+    setTimeout(() => { const j = document.getElementById('gdQ'); if (j && document.activeElement !== j) try { j.focus({ preventScroll: true }); } catch (e) {} }, 60);
   },
-  paint() { const b = document.getElementById('gdBody'); if (!b) return; const tmp = document.createElement('div'); tmp.innerHTML = this.html(); b.replaceWith(tmp.querySelector('#gdBody')); },
+  paint() { const b = document.getElementById('gdBody'); if (!b) return; const tmp = document.createElement('div'); tmp.innerHTML = this.html(); b.replaceWith(tmp.querySelector('#gdBody')); const lab = document.querySelector('.gd-in'), cl = lab && lab.querySelector('.gd-clear'), want = tmp.querySelector('.gd-clear'); if (lab && !cl && want) lab.appendChild(want); if (cl && !want) cl.remove(); },
   hide() { this.open = false; const r = document.getElementById('jmRoot'); if (r) r.innerHTML = ''; },
   run(id) { const t = TASKS.find(x => x.id === id); if (!t || !t.act) return; this.hide(); const A = __M_src_features_index_js.Actions[t.act]; if (!A) return; if (typeof A === 'object' && A.admin && !Auth.isAdmin()) return toast('Only the treasurer can do that'); try { (typeof A === 'function' ? A : A.run).call(A, { v: t.act === 'inviteSheet' ? 'code' : '' }); } catch (e) { toast(e.message); } }
 };
@@ -6595,13 +7396,35 @@ const Tour = {
       if (++tries > 30) { clearInterval(this.timer); this.paint(true); }
     }, 120);
   },
+  /* The coach card uses the opposite of the app's look (dark card on a light app, light card on a dark app) with a
+     gold ring around the real button, so it never blends into the page. It is measured, then placed above or below the
+     button where there is room, kept clear of the button itself and of the bottom bar, with an arrow pointing at it. */
   paint(missing) {
     const root = document.getElementById('tourRoot'); if (!root) return;
     const st = this.steps[this.i], n = this.steps.length, r = !missing && this.el ? this.el.getBoundingClientRect() : null;
-    const hole = r ? `<div class="tr-hole" style="top:${r.top - 6}px;left:${r.left - 6}px;width:${r.width + 12}px;height:${r.height + 12}px"></div>` : '<div class="tr-dim"></div>';
-    const below = !r || r.top < innerHeight * 0.55, top = r ? (below ? Math.min(innerHeight - 190, r.bottom + 14) : Math.max(12, r.top - 176)) : innerHeight / 2 - 90;
-    root.innerHTML = `${hole}<div class="tr-card" role="dialog" aria-live="polite" style="top:${top}px"><small>${esc(this.name)} · step ${this.i + 1} of ${n}</small><p>${esc(missing ? 'This step is not on the screen right now. You may not have permission, or the page looks different. You can skip it.' : st.text)}</p>
-<div class="tr-act"><button type="button" class="btn sm ghost" data-tr="end">End guide</button>${st.click && !missing ? `<span class="tr-hint">${icon('hand', 's')}Tap the highlighted button</span>` : `<button type="button" class="btn sm pri" data-tr="next">${this.i === n - 1 ? 'Finish' : 'Next'}</button>`}</div></div>`;
+    const pad = 8, vw = innerWidth, vh = (window.visualViewport && visualViewport.height) || innerHeight;
+    const hole = r ? `<div class="tr-hole" style="top:${r.top - pad}px;left:${r.left - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px"></div><div class="tr-ping" style="top:${r.top - pad}px;left:${r.left - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px"></div>` : '<div class="tr-dim"></div>';
+    const dots = this.steps.map((_, k) => `<i class="${k < this.i ? 'done' : k === this.i ? 'on' : ''}"></i>`).join('');
+    root.innerHTML = `${hole}<div class="tr-card" role="dialog" aria-live="polite" aria-label="Guide step ${this.i + 1} of ${n}"><span class="tr-arrow"></span>
+<div class="tr-top"><span class="tr-mark">${icon('guide')}</span><span class="tr-name">${esc(this.name)}</span><span class="tr-dots" aria-hidden="true">${dots}</span></div>
+<p>${esc(missing ? 'This step is not on the screen right now. You may not have permission for it, or the page is still opening.' : st.text)}</p>
+<div class="tr-act"><button type="button" class="tr-end" data-tr="end">End</button>${st.click && !missing ? `<span class="tr-hint">${icon('hand', 's')}Tap the ringed button</span>` : `<button type="button" class="tr-next" data-tr="next">${this.i + 1 >= n ? 'Done' : 'Next'}${icon('chev', 's')}</button>`}</div></div>`;
+    const card = root.querySelector('.tr-card'), arrow = root.querySelector('.tr-arrow'), ch = card.offsetHeight, cw = card.offsetWidth;
+    const navEl = document.getElementById('nav'), navTop = navEl && navEl.offsetParent !== null ? navEl.getBoundingClientRect().top : vh;
+    const safeB = Math.min(vh, navTop) - 10, safeT = 10 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-t')) || 0);
+    let top, place;
+    if (!r) { top = Math.max(safeT, (vh - ch) / 2); place = 'mid'; }
+    else {
+      const below = r.bottom + pad + 14, above = r.top - pad - 14 - ch;
+      if (below + ch <= safeB) { top = below; place = 'below'; }
+      else if (above >= safeT) { top = above; place = 'above'; }
+      else { /* tall target: sit over the half of the screen it does not use */ top = r.top + r.height / 2 > vh / 2 ? safeT : safeB - ch; place = 'side'; }
+    }
+    const cx = r ? r.left + r.width / 2 : vw / 2, left = Math.max(12, Math.min(vw - cw - 12, cx - cw / 2));
+    card.style.top = Math.round(top) + 'px'; card.style.left = Math.round(left) + 'px';
+    card.dataset.place = place;
+    if (arrow) { if (place === 'above' || place === 'below') arrow.style.left = Math.max(22, Math.min(cw - 22, cx - left)) + 'px'; else arrow.hidden = true; }
+    requestAnimationFrame(() => card.classList.add('in'));
   },
   next() { this.i++; this.el = null; if (this.i >= this.steps.length) return this.end(true); setTimeout(() => this.step(), 350); },
   end(done) { clearInterval(this.timer); this.steps = []; this.el = null; const r = document.getElementById('tourRoot'); if (r) r.innerHTML = ''; if (done) toast('Guide finished: ' + this.name, 'ok'); }
@@ -6617,6 +7440,7 @@ document.addEventListener('click', e => {
   const g = e.target.closest && e.target.closest('[data-gd]'); if (!g) return;
   const k = g.dataset.gd;
   if (k === 'x') { if (e.target === g || g.classList.contains('gd-x') || g.closest('.gd-x')) Guide.hide(); return; }
+  if (k === 'clear') { Guide.q = ''; const i = document.getElementById('gdQ'); if (i) { i.value = ''; i.focus(); } return Guide.paint(); }
   if (k === 'ask') { Guide.q = g.dataset.q; const i = document.getElementById('gdQ'); if (i) i.value = Guide.q; return Guide.paint(); }
   if (k === 'tour') return Tour.start(g.dataset.id);
   if (k === 'do') return Guide.run(g.dataset.id);
@@ -6672,9 +7496,9 @@ const Adapt = {
 /* ---- "About you": name, phone, date of birth, gender, one question at a time, with a plain "why".
    Everyone answers once (existing members after this update too): name, phone and birth year are needed;
    the exact day and gender may be left out. All of it can be changed or removed later. ---- */
-const ABOUT_V = 'mca-about-v2';
+const ABOUT_V = 'mca-about-v3';
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const UPDATE_NOTES = ['Your card on Home changes colour with your payments', 'Ask the Guide anything, next to the bell', 'Sign loan terms on your own phone', 'Read M-Pesa screenshots on your phone', 'The app can match your age: bigger and simpler if you like'];
+const UPDATE_NOTES = ['A new group chat: voice notes, photos, files and view once', 'See who is typing, from anywhere in the app', 'Call or WhatsApp the people in your group', 'A smarter Guide that shows you every step live', 'Loan terms to sign now open on their own screen'];
 const About = {
   st: null, why: false, overlay: false,
   uid() { return (Session.user && Session.user.id) || ''; },
@@ -6692,15 +7516,16 @@ const About = {
   phoneOk(p) { return /^(\+?254|0)[17]\d{8}$/.test(String(p || '').replace(/[\s-]/g, '')); },
   WHY: {
     name: 'Your name shows to the people in your Chama, on receipts and on statements, so they know the money is yours.',
-    phone: 'One number for every Chama you are in. The treasurer uses it to remind you on WhatsApp and SMS, and it matches your M-Pesa payments to you. Only the treasurer and secretary see it. If you change it here, your Chamas get the new number.',
+    phone: 'One number for every Chama you are in. The treasurer uses it to remind you on WhatsApp and SMS, and it matches your M-Pesa payments to you. If you change it here, your Chamas get the new number.',
+    share: 'So the people in your group can call or WhatsApp you, and so shared services such as reminders and payment matching work between members. Only people in the same Chama as you see it, never anyone outside. You can stop sharing any time in Settings, Privacy and my data.',
     dob: 'Your age lets the app suit you: from 45 the text gets larger, and from 60 the app becomes simpler with bigger buttons. You can always choose the standard app in Settings. Nobody in your Chama sees your date of birth, and you can remove it in Privacy and my data.',
     gender: 'It helps women’s and youth Chamas, and helps us improve the app. It is never shown to other members. “Prefer not to say” is a full answer.'
   },
   html() {
-    const s = this.st, steps = ['name', 'phone', 'dob', 'gender'], yr = new Date().getFullYear();
+    const s = this.st, steps = ['name', 'phone', 'dob', 'gender', 'share'], yr = new Date().getFullYear();
     if (s.step === -1) return `<div class="ab"><span class="aw-ic">${icon('sparkle')}</span><h2 class="ab-q">My Chama has been updated</h2>
 <ul class="aw-list ab-news">${UPDATE_NOTES.map(x => `<li>${icon('check', 's')}${esc(x)}</li>`).join('')}</ul>
-<p class="ab-hint">To keep going, check four details about you. It takes a minute.</p>
+<p class="ab-hint">To keep going, check your details and agree to share your phone number with your group. It takes a minute.</p>
 <div class="ab-nav"><span></span><button type="button" class="btn pri lg" data-ab="next">Continue</button></div></div>`;
     const k = steps[s.step];
     const dots = `<div class="ab-dots" aria-hidden="true">${steps.map((_, i) => `<i class="${i < s.step ? 'done' : i === s.step ? 'on' : ''}"></i>`).join('')}</div>`;
@@ -6718,8 +7543,10 @@ const About = {
       body = sum + body; ok = !!s.y;
     }
     if (k === 'gender') { q = 'What is your gender?'; body = `<div class="ab-grid g1">${[['female', 'Female'], ['male', 'Male'], ['other', 'Other'], ['prefer_not', 'Prefer not to say']].map(([v, t]) => `<button type="button" class="ab-opt wide${s.gender === v ? ' on' : ''}" data-ab="gender" data-v="${v}">${t}</button>`).join('')}</div>`; ok = !!s.gender; }
+    if (k === 'share') { q = 'Share your phone number with your group'; body = `<div class="ab-share"><span class="ab-sh-ic">${icon('phone')}</span><p>People in your Chama will see <b>${esc(s.phone || 'your number')}</b> so they can call or WhatsApp you, and so shared services like reminders and payment matching work.</p></div>
+<button type="button" class="ab-agree${s.share ? ' on' : ''}" data-ab="share" aria-pressed="${!!s.share}"><span class="box">${icon('check')}</span><span>I agree that my phone number is shared with the members of my Chama for communication and shared services.</span></button><p class="ab-hint">You can stop sharing later in Settings, Privacy and my data.</p>`; ok = !!s.share; }
     const last = s.step === steps.length - 1;
-    return `<div class="ab"><div class="ab-top">${dots}<small>${s.step + 1} of 4</small></div><h2 class="ab-q">${esc(q)}</h2>${why}<div class="ab-body">${body}</div>
+    return `<div class="ab"><div class="ab-top">${dots}<small>${s.step + 1} of ${steps.length}</small></div><h2 class="ab-q">${esc(q)}</h2>${why}<div class="ab-body">${body}</div>
 <div class="ab-nav">${s.step > 0 ? '<button type="button" class="btn ghost" data-ab="prev">Back</button>' : '<span></span>'}<button type="button" class="btn pri lg" data-ab="${last ? 'save' : 'next'}"${ok ? '' : ' disabled'}>${last ? 'Finish' : 'Next'}</button></div></div>`;
   },
   card() { if (!this.st) this.start(null, false); return `<div class="pz-page">${this.html()}</div>`; },
@@ -6740,7 +7567,7 @@ const About = {
     const s = this.st;
     if (srv && srv.full_name && this.phoneOk(srv.phone) && srv.birth_date && srv.gender) {
       try { localStorage.setItem('mca-about:data:' + this.uid(), JSON.stringify({ birth_date: srv.birth_date, gender: srv.gender, phone: srv.phone })); } catch (e) {}
-      s.complete = true;
+      s.complete = true; s.shared = !!srv.phone_shared_at; s.share = s.shared;
     }
     let root = document.getElementById('awRoot'); if (!root) { root = document.createElement('div'); root.id = 'awRoot'; document.body.appendChild(root); }
     root.innerHTML = `<div class="aw" role="dialog" aria-modal="true" aria-label="About you"><div class="aw-in"><div class="aw-card ab-card">${this.html()}</div></div></div>`;
@@ -6770,6 +7597,7 @@ const About = {
         const r = await B.sb.rpc('set_my_profile', { p_full_name: s.name.trim() || null, p_phone: phone, p_username: null });
         saved = !r.error;
       } else return toast(rpcMessage(error));
+      if (s.share) { const r2 = await B.sb.rpc('set_phone_sharing', { p_on: true }); if (r2.error && !/Could not find the function|PGRST202|schema cache/i.test(r2.error.message || '')) return toast(rpcMessage(r2.error)); }
     } catch (e) { return toast('Could not save. Check your internet and try again.'); }
     try { localStorage.setItem('mca-about:data:' + uid, JSON.stringify({ birth_date: dob, gender: s.gender || null, phone, exact: !!(s.m && s.d) })); } catch (e) {}
     try { const p = Session.readProfile ? Session.readProfile() : null; if (p && Session.writeProfile) Session.writeProfile({ ...p, name: s.name.trim() || p.name, phone: phone || p.phone }); } catch (e) {}
@@ -6784,8 +7612,8 @@ document.addEventListener('click', e => {
   const p1 = document.getElementById('abPhone'); if (p1) s.phone = p1.value;
   if (k === 'why') { About.why = !About.why; return About.repaint(); }
   if (k === 'next') {
-    if (s.step === -1 && s.complete) return About.close();
-    s.step = Math.min(3, s.step + 1); About.why = false; if (s.step === 2) s.sub = s.y ? (s.m ? 'day' : 'month') : 'decade'; return About.repaint();
+    if (s.step === -1 && s.complete) { if (s.shared) return About.close(); s.step = 4; About.why = false; return About.repaint(); }
+    s.step = Math.min(4, s.step + 1); About.why = false; if (s.step === 2) s.sub = s.y ? (s.m ? 'day' : 'month') : 'decade'; return About.repaint();
   }
   if (k === 'prev') { s.step = Math.max(0, s.step - 1); About.why = false; return About.repaint(); }
   if (k === 'decade') { s.decade = Number(v); s.sub = 'year'; return About.repaint(); }
@@ -6795,6 +7623,7 @@ document.addEventListener('click', e => {
   if (k === 'notsure') { if (s.sub === 'month') s.m = null; s.d = null; s.step = 3; About.why = false; return About.repaint(); }
   if (k === 'sub') { s.sub = v; return About.repaint(); }
   if (k === 'gender') { s.gender = v; return About.repaint(); }
+  if (k === 'share') { s.share = !s.share; return About.repaint(); }
   if (k === 'save') return About.save();
 });
 document.addEventListener('input', e => {
@@ -6810,16 +7639,15 @@ const Personal = {
   done() { try { return !!localStorage.getItem(PERSONAL_V); } catch (e) { return true; } },
   html(existing) {
     const A = __M_src_core_a11y_js.A11y, d = A.d, money = (() => { try { return localStorage.getItem('mca-hide-money') === 'true'; } catch (e) { return false; } })();
-    const tile = (v, t, sub) => `<button type="button" class="pz-mode${d.theme === v ? ' on' : ''}" data-pz="theme" data-v="${v}" aria-pressed="${d.theme === v}"><span class="pz-prev pz-${v}"><i></i><i></i><i></i></span><b>${t}</b><small>${sub}</small></button>`;
-    const sw = (k, v, t) => `<button type="button" class="pz-sw${(d.accent || 'green') === k ? ' on' : ''}" data-pz="accent" data-v="${k}" aria-label="${t}" aria-pressed="${(d.accent || 'green') === k}" style="--c:${v}"></button>`;
+    const P = __M_src_core_a11y_js.Pz, at = (k, v) => `data-pz="${k}" data-v="${v}"`;
     return `<div class="pz"><div class="pz-head"><span class="aw-ic">${icon('sparkle')}</span><h2>${existing ? 'Your app has been updated' : 'Make it yours'}</h2><p>${existing ? 'Take a moment to set it up the way you like. You can change these any time in Settings.' : 'Set up how My Chama looks before you start. You can change these any time in Settings.'}</p></div>
 ${existing ? `<div class="pz-sec"><h4>What’s new</h4><ul class="aw-list">${WHATS_NEW.map(x => `<li>${icon('check', 's')}${esc(x)}</li>`).join('')}</ul></div>` : ''}
-<div class="pz-sec"><h4>Appearance</h4><div class="pz-modes">${tile('auto', 'Follow phone', 'Changes with your phone')}${tile('light', 'Light', 'Bright and clear')}${tile('dark', 'Dark', 'Easy on the eyes')}</div></div>
-<div class="pz-sec"><h4>Colour</h4><div class="pz-sws">${sw('green', '#0b6b4d', 'Green')}${sw('blue', '#1f5fae', 'Blue')}${sw('purple', '#5b34b8', 'Purple')}${sw('gold', '#8f6213', 'Gold')}${sw('rose', '#b0284f', 'Rose')}${sw('teal', '#0b6f78', 'Teal')}</div></div>
-<div class="pz-sec"><h4>Text size</h4><div class="pz-seg">${[['n', 'Default'], ['l', 'Large'], ['x', 'Largest']].map(([v, t]) => `<button type="button" class="${d.size === v ? 'on' : ''}" data-pz="size" data-v="${v}" aria-pressed="${d.size === v}">${t}</button>`).join('')}</div></div>
+<div class="pz-sec"><h4>Appearance</h4>${P.modes(d, at)}</div>
+<div class="pz-sec"><h4>Colour</h4>${P.sws(d, at)}</div>
+<div class="pz-sec"><h4>Text size</h4>${P.size(d, at)}</div>
 <div class="pz-sec"><h4>Privacy and sound</h4>
-<div class="lk-row"><span><b>Hide amounts when I open the app</b><small>Tap the eye to show them</small></span><button type="button" class="sw-toggle${money ? ' on' : ''}" role="switch" aria-checked="${money}" data-pz="money"><i></i></button></div>
-<div class="lk-row"><span><b>Sounds</b><small>A soft chime when something important succeeds</small></span><button type="button" class="sw-toggle${__M_src_ui_toast_js.Sfx.enabled ? ' on' : ''}" role="switch" aria-checked="${__M_src_ui_toast_js.Sfx.enabled}" data-pz="sfx"><i></i></button></div></div>
+${P.row('Hide amounts when I open the app', 'Tap the eye to show them', money, 'data-pz="money"')}
+${P.row('Sounds', 'A soft chime when something important succeeds', __M_src_ui_toast_js.Sfx.enabled, 'data-pz="sfx"')}</div>
 <button type="button" class="btn pri block lg" data-pz="done">${existing ? 'Done' : 'Continue'}</button></div>`;
   },
   card() { return `<div class="pz-page">${this.html(false)}</div>`; },
@@ -7572,7 +8400,7 @@ function renderPage() {
   let html = '';
   try {
     Account.load();
-    html = Account.banner() + (r === 'home' ? (() => { try { return __M_src_features_requests_js.Roles.banner(); } catch (e) { return ''; } })() : '') + (Views[r] ? Views[r](s) : r.startsWith('chat/') ? __M_src_features_chat_index_js.Chat.threadView(s, r.slice(5)) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r));
+    html = (r === 'home' ? '' : Account.banner()) + (Views[r] ? Views[r](s) : r.startsWith('chat/') ? __M_src_features_chat_index_js.Chat.threadView(s, r.slice(5)) : r.startsWith('notifications/') ? Views.notificationDetail(s, r) : Views.settings(s, r));
   } catch (e) {
     console.error(e);
     html = '<div class="card">' + emptyState('lost', 'This page could not open', 'Your records are safe. Go back, or close the app and open it again.', '<a class="btn pri" href="#/home">Go to Home</a>') + '</div>';
@@ -7597,6 +8425,7 @@ function renderPage() {
   } else painted = html;
   try { Notify.paintBell(s, r); } catch (e) {}
   try { __M_src_features_chat_index_js.Chat.paintBadge(); } catch (e) {}
+  try { __M_src_features_home_index_js.Urgent.check(s, r); } catch (e) {}
 }
 
 return { get renderPage() { return renderPage; }, };
@@ -7705,6 +8534,8 @@ document.addEventListener('click', e => {
     if (input) { input.value = ''; input.click(); }
     return;
   }
+  /* a link inside something tappable (a file in a message bubble) opens the link, not the bubble's menu */
+  { const inner = e.target.closest('a[href]'); if (inner && inner !== el && el.contains(inner)) return; }
   const a = Actions[el.dataset.act]; if (!a) return;
   /* a real link (WhatsApp, a chat thread) must still open: the action runs alongside it */
   const realLink = el.tagName === 'A' && el.getAttribute('href');

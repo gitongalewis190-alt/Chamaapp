@@ -4,7 +4,7 @@
   try { d = JSON.parse(localStorage.getItem('chama:a11y') || '{}') || {}; } catch (e) { d = {}; }
   /* the person decides: Light, Dark, or follow the phone (the default until they choose) */
   var dark = d.theme === 'dark' || ((d.theme === 'auto' || !d.theme) && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-  if (d.accent && /^(blue|purple|gold|rose|teal)$/.test(d.accent)) h.setAttribute('data-accent', d.accent);
+  if (d.accent && /^(blue|purple|gold|rose|teal|indigo|emerald|crimson|amber|slate|ink|sunset|aurora|ocean|berry|savanna|midnight|forest|coral|lagoon)$/.test(d.accent)) h.setAttribute('data-accent', d.accent);
   h.setAttribute('data-mode', dark ? 'dark' : 'light');
   h.setAttribute('data-size', d.size || 'n');
   ['hc', 'cb', 'ft', 'sp', 'ul', 'tg', 'rm', 'simple'].forEach(function (k) { if (d[k]) h.classList.add(k === 'hc' ? 'hc' : 'a-' + k); });

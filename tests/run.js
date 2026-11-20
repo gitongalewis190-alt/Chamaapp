@@ -39,7 +39,7 @@ async function open(browser, key, opt = {}) {
     window.__MOCK = mock;
     try { sessionStorage.setItem('mca-splash', '1'); } catch (e) {}
     if (!personal && !localStorage.getItem('mca-personal-v1')) localStorage.setItem('mca-personal-v1', 'test');
-    if (!about) ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9', 'u-new'].forEach(id => { if (!localStorage.getItem('mca-about-v2:' + id)) localStorage.setItem('mca-about-v2:' + id, 'done'); });
+    if (!about) ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9', 'u-new'].forEach(id => { if (!localStorage.getItem('mca-about-v3:' + id)) localStorage.setItem('mca-about-v3:' + id, 'done'); });
     if (onboard && !localStorage.getItem('mca-onboard')) localStorage.setItem('mca-onboard', JSON.stringify(onboard));
     if (a11y) localStorage.setItem('chama:a11y', JSON.stringify(a11y));
   }, [opt.mock || sc.mock, sc.onboard, opt.a11y || null, !!opt.personal, !!opt.about]);
@@ -274,16 +274,16 @@ const TESTS = {
     ok(/Next meeting/i.test(await text(page)), 'Home shows the next meeting');
     await page.click('#nav a[data-k="chat"]'); await page.waitForTimeout(500);
     await shot(page, '61-chat-inbox');
-    ok(/Good morning everyone/.test(await text(page)), 'inbox shows the group conversation with its last message');
-    await page.click('a.ch-row[href="#/chat/group"]'); await page.waitForTimeout(600);
+    ok(!/Good morning everyone/.test(await text(page)) && await page.isVisible('a.ci-group'), 'inbox shows the group card without previewing message text');
+    await page.click('a.ci-group[href="#/chat/group"]'); await page.waitForTimeout(600);
     await shot(page, '62-chat-group');
     ok(await page.isVisible('.cc-meet') && await page.isVisible('.cc-poll'), 'meeting and vote cards render in the conversation');
     await page.click('.cc-poll .po >> nth=0'); await page.waitForTimeout(300);
     ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'respond_chama_message' && x.args.p_choice === '0'), 'voting sends the choice');
-    await page.fill('#chatIn', 'Hello from the treasurer'); await page.click('.cp-send'); await page.waitForTimeout(500);
+    await page.fill('#chatIn', 'Hello from the treasurer'); await page.click('#cpSend'); await page.waitForTimeout(500);
     ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'send_chama_message' && x.args.p_kind === 'text' && x.args.p_recipient === null), 'a group message is sent');
     ok(/Hello from the treasurer/.test(await text(page)), 'the sent message appears');
-    await page.click('.cp-tools'); await page.waitForTimeout(350);
+    await page.click('[data-act="chatTools"]'); await page.waitForTimeout(350);
     await shot(page, '63-chat-tools');
     const tools = await page.locator('#modalRoot .tool').count();
     ok(tools >= 4, 'treasurer sees role tools (' + tools + ')');
@@ -295,7 +295,7 @@ const TESTS = {
     await ctx.close();
     const m = await open(b, 'member', { wait: 1400, mock: { ...scenarios.member.mock, messages: msgs } });
     await m.page.goto(m.page.url().split('#')[0] + '#/chat/group'); await m.page.waitForTimeout(600);
-    ok(!(await m.page.locator('.cp-tools').count()), 'a member has no officer tools');
+    ok(!(await m.page.locator('[data-act="chatTools"]').count()), 'a member has no officer tools');
     ok(!m.errors.length, 'no page errors ' + m.errors.join(' | '));
     await m.ctx.close();
   },
@@ -594,6 +594,88 @@ const TESTS = {
       ok(!errors.length, 'no page errors ' + errors.join(' | '));
       await ctx.close();
     }
+  },
+  async v019(b) {
+    const msgs = [{ id: '33333333-3333-4333-8333-333333333333', chama_id: 'umoja', sender: '22222222-2222-4222-8222-222222222222', sender_name: 'Faith Mwende', sender_role: 'member', recipient: null, kind: 'text', body: 'Good morning everyone', meta: {}, pinned: false, created_at: new Date(Date.now() - 3600e3).toISOString() },
+      { id: '33333333-3333-4333-8333-333333333334', chama_id: 'umoja', sender: '22222222-2222-4222-8222-222222222222', sender_name: 'Faith Mwende', sender_role: 'member', recipient: null, kind: 'image', body: '', meta: { once: true, opened_by: [], mime: 'image/gif' }, pinned: false, created_at: new Date(Date.now() - 1800e3).toISOString() },
+      { id: '33333333-3333-4333-8333-333333333335', chama_id: 'umoja', sender: '22222222-2222-4222-8222-222222222222', sender_name: 'Faith Mwende', sender_role: 'member', recipient: null, kind: 'voice', body: '', meta: { path: 'umoja/22222222-2222-4222-8222-222222222222/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.wav', dur: 7, wave: [0.2, 0.8, 0.5, 1, 0.3] }, pinned: false, created_at: new Date(Date.now() - 900e3).toISOString() }];
+    for (const dark of [false, true]) {
+      const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, dark, mock: { ...scenarios.treasurer.mock, messages: msgs } });
+      const sfx = dark ? '-dark' : '';
+      ok(await page.evaluate(() => { const h = document.querySelector('#view .hero'); return !!h && !h.previousElementSibling?.matches('.sign-card, .decl-card, .card.warn') && !document.querySelector('#view .sign-card'); }), 'nothing sits above the Home card' + sfx);
+      ok(await page.isVisible('.po-rail'), 'payout order shows as a rail' + sfx);
+      await shot(page, '90-home' + sfx);
+      await page.click('#nav a[data-k="grid"]'); await page.waitForTimeout(600);
+      ok(await page.isVisible('.cg-hero') && await page.isVisible('.cg-gauge'), 'contributions has the live group card with a gauge' + sfx);
+      await shot(page, '91-contrib' + sfx);
+      await page.click('#nav a[data-k="chat"]'); await page.waitForTimeout(500);
+      await shot(page, '92-chat-inbox' + sfx);
+      await page.evaluate(() => window.__live('typing', { th: 'group', from: '22222222-2222-4222-8222-222222222222', name: 'Faith Mwende', act: 'type' })); await page.waitForTimeout(900);
+      ok(/Faith is typing/.test(await page.textContent('.ci-group')), 'the inbox shows who is typing live' + sfx);
+      await page.click('#nav a[data-k="home"]'); await page.waitForTimeout(400);
+      await page.evaluate(() => window.__live('typing', { th: 'group', from: '22222222-2222-4222-8222-222222222222', name: 'Faith Mwende', act: 'rec' })); await page.waitForTimeout(900);
+      ok(await page.isVisible('#tyBanner.on') && /recording a voice note/.test(await page.textContent('#tyBanner')), 'a banner anywhere in the app shows someone recording' + sfx);
+      await shot(page, '93-banner' + sfx);
+      await page.goto(page.url().split('#')[0] + '#/chat/group'); await page.waitForTimeout(700);
+      ok(await page.isVisible('#cpMic') && !(await page.isVisible('#cpSend')), 'empty composer shows the microphone' + sfx);
+      ok(await page.isVisible('.vn[data-vn]') && await page.isVisible('.once-g'), 'voice note and view-once bubbles render' + sfx);
+      await page.evaluate(() => window.__live('typing', { th: 'group', from: '22222222-2222-4222-8222-222222222222', name: 'Faith Mwende', act: 'type' })); await page.waitForTimeout(800);
+      ok(await page.isVisible('#chTyping .ty-row'), 'typing bubble shows in the conversation' + sfx);
+      await shot(page, '94-thread' + sfx);
+      await page.click('.once-g[data-act="onceOpen"]'); await page.waitForTimeout(500);
+      ok(await page.isVisible('.once-view'), 'view once opens full screen' + sfx);
+      await page.click('.once-view .ov-x'); await page.waitForTimeout(400);
+      ok(await page.isVisible('.once-g.done'), 'after closing, view once shows as opened' + sfx);
+      await page.click('#m-33333333-3333-4333-8333-333333333333 .bub'); await page.waitForTimeout(400);
+      await page.click('.rx-row button >> nth=1'); await page.waitForTimeout(400);
+      ok((await calls(page)).some(x => x.name === 'react_chama_message' && x.args.p_emoji === '❤️') && await page.isVisible('.bub-rx'), 'reacting sends and shows the reaction' + sfx);
+      await page.click('#m-33333333-3333-4333-8333-333333333333 .bub'); await page.waitForTimeout(400);
+      await page.click('[data-act="msgReply"]'); await page.waitForTimeout(400);
+      ok(await page.isVisible('.cp-reply'), 'reply bar appears' + sfx);
+      await page.fill('#chatIn', 'Morning!'); await page.click('#cpSend'); await page.waitForTimeout(500);
+      ok((await calls(page)).some(x => x.name === 'send_chama_message' && x.args.p_meta && x.args.p_meta.reply && x.args.p_meta.reply.id === '33333333-3333-4333-8333-333333333333'), 'the reply is sent with the quoted message' + sfx);
+      await page.click('[data-act="chatAttach"]'); await page.waitForTimeout(400);
+      await page.setInputFiles('#attPhoto', { name: 'p.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') }); await page.waitForTimeout(800);
+      ok(await page.isVisible('.ph-prev img'), 'a picked photo shows a preview with view once' + sfx);
+      await page.click('[data-act="photoSend"]'); await page.waitForTimeout(900);
+      const cs = await calls(page);
+      ok(cs.some(x => x.kind === 'upload' && /^umoja\/u1\/.+\.jpg$/.test(x.path)) && cs.some(x => x.name === 'send_chama_message' && x.args.p_kind === 'image' && /\.jpg$/.test(x.args.p_meta.path)), 'the photo uploads to the Chama folder and posts' + sfx);
+      await page.click('[data-act="chatTheme"]'); await page.waitForTimeout(400);
+      await page.click('[data-act="chatThemeSet"][data-v="ocean"]'); await page.waitForTimeout(500);
+      ok(await page.evaluate(() => document.querySelector('.ch-thread').dataset.ct === 'ocean') && (await calls(page)).some(x => x.name === 'set_chat_theme'), 'the group chat theme changes for everyone' + sfx);
+      await shot(page, '95-thread-ocean' + sfx);
+      await page.goto(page.url().split('#')[0] + '#/home'); await page.waitForTimeout(500);
+      await page.keyboard.press('/'); await page.waitForTimeout(250);
+      ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'gdQ'), 'the Guide opens with the keyboard ready' + sfx);
+      await page.fill('#gdQ', 'monthly x 12'); await page.waitForTimeout(250);
+      ok(/KES\s?[\d,]+/.test(await page.textContent('.gd-ans.calc')), 'the Guide works out sums with record values' + sfx);
+      await page.fill('#gdQ', '10000 at 10% for 3 months'); await page.waitForTimeout(250);
+      ok(/Pay back/.test(await page.textContent('.gd-ans')), 'the Guide works out a loan' + sfx);
+      await page.fill('#gdQ', 'recrod a paymnet'); await page.waitForTimeout(250);
+      ok(await page.isVisible('[data-gd="tour"][data-id="pay"]'), 'misspelt questions still find the live guide' + sfx);
+      await shot(page, '96-guide' + sfx);
+      await page.click('[data-gd="tour"][data-id="pay"]'); await page.waitForTimeout(1300);
+      ok(await page.evaluate(() => { const c = document.querySelector('.tr-card'), h = document.querySelector('.tr-hole'); if (!c || !h) return false; const a = c.getBoundingClientRect(), r = h.getBoundingClientRect(); return a.bottom <= r.top || a.top >= r.bottom; }), 'the tour card never covers the button it points at' + sfx);
+      await shot(page, '97-tour' + sfx);
+      await page.keyboard.press('Escape');
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+    /* a member with loan terms to sign gets a full-screen prompt, and the members list offers calls */
+    const ch = JSON.parse(JSON.stringify(scenarios.member.mock.chamas)); ch.umoja.data.loans = [{ id: 'L9', memberId: 'm3', principal: 5000, rate: 10, months: 2, date: '2026-11-01', repayments: [] }];
+    const m = await open(b, 'member', { wait: 1600, mock: { ...scenarios.member.mock, chamas: ch, phones: [{ user_id: 'x', member_id: 'm1', name: 'Wanjiku', phone: '0712345678' }] } });
+    ok(await m.page.isVisible('.urgent.on') && /Sign your loan terms/.test(await m.page.textContent('.urgent')), 'loan terms to sign open full screen');
+    await shot(m.page, '98-urgent');
+    await m.page.click('.urgent [data-u="go"]'); await m.page.waitForTimeout(600);
+    ok(/Your loan terms/.test(await m.page.textContent('#modalRoot')), 'the prompt opens the terms to sign');
+    await m.page.keyboard.press('Escape'); await m.page.waitForTimeout(300);
+    await m.page.goto(m.page.url().split('#')[0] + '#/members'); await m.page.waitForTimeout(800);
+    ok(await m.page.isVisible('[data-act="callMember"]'), 'members who share their number can be called');
+    await m.page.click('[data-act="callMember"]'); await m.page.waitForTimeout(400);
+    ok(await m.page.isVisible('a.c-call[href^="tel:"]') && await m.page.isVisible('a.c-wa[href^="https://wa.me/254"]'), 'call and WhatsApp links');
+    await shot(m.page, '99-call');
+    ok(!m.errors.length, 'no page errors ' + m.errors.join(' | '));
+    await m.ctx.close();
   },
   async offline(b) {
     const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1200, mock: { ...scenarios.treasurer.mock, failSave: true } });

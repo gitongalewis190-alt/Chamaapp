@@ -112,6 +112,13 @@
     leave_chama: () => ok(true),
     transfer_ownership: () => ok(true),
     confirm_joined_member: () => ok({ ok: true }),
+    chat_seen: () => ok(M.seen || []),
+    react_chama_message: a => { db.responses = db.responses.filter(r => !(r.message_id === a.p_id && r.user_id === 'u1')).concat(a.p_emoji ? [{ message_id: a.p_id, user_id: 'u1', choice: 'r:' + a.p_emoji, name: 'Wanjiku' }] : []); return ok({ ok: true }); },
+    set_chat_theme: a => ok({ ok: true, theme: a.p_theme }),
+    send_chat_once: a => RPC.send_chama_message(a),
+    open_chat_once: a => (db.openedOnce = db.openedOnce || {})[a.p_id] ? err('You already opened this') : ((db.openedOnce[a.p_id] = 1), ok({ data: 'R0lGODlhAQABAAAAACw=', mime: 'image/gif' })),
+    set_phone_sharing: a => { db.profile.phone_shared = !!a.p_on; return ok({ ok: true }); },
+    member_phones: () => ok(M.phones || [{ user_id: '11111111-1111-4111-8111-111111111111', member_id: 'm2', name: 'Otieno Odhiambo', phone: '0722000111' }]),
   };
 
   function query(table) {
@@ -184,7 +191,22 @@
             return err('unknown function');
           },
         },
-        channel() { const c = { on() { return c; }, subscribe() { return c; } }; return c; },
+        /* realtime: postgres changes are ignored; broadcast and presence handlers are kept so a test can play
+           another member typing (window.__live('typing', {...})) and see what this phone sends (window.__SENT) */
+        channel(name) {
+          const hs = [], c = {
+            on(type, filt, fn) { hs.push({ type, ev: filt && filt.event, fn }); return c; },
+            subscribe(cb) { if (cb) setTimeout(() => cb('SUBSCRIBED'), 0); return c; },
+            send(m) { (window.__SENT = window.__SENT || []).push({ channel: name, ...clone(m) }); return Promise.resolve('ok'); },
+            track() { return Promise.resolve('ok'); }, presenceState() { return M.presence || {}; }, unsubscribe() {}
+          };
+          if (/^live-/.test(name)) window.__live = (ev, payload) => hs.filter(h => h.type === 'broadcast' && h.ev === ev).forEach(h => h.fn({ payload }));
+          return c;
+        },
+        storage: { from(bucket) { return {
+          upload(path, blob, o) { calls.push({ kind: 'upload', bucket, path, type: o && o.contentType, size: blob && blob.size }); return M.noStorage ? err('Bucket not found') : later({ data: { path }, error: null }, 30); },
+          createSignedUrl(path) { calls.push({ kind: 'sign', bucket, path }); return ok({ signedUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' }); }
+        }; } },
       };
     },
   };

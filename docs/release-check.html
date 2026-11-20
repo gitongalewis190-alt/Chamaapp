@@ -75,7 +75,7 @@ section.area { display: flex; flex-direction: column; gap: 10px; }
 <div class="wrap">
   <header class="top">
     <h1>Chama Release Check</h1>
-    <p class="lede">Final check for everything shipped from 0.16 to 0.18.2. Start with Supabase, then the checks marked Critical: money, security, roles and the update every member sees. Mark Pass, Fail or Skip and say what you saw; failures collect in Needs fix. Your marks save here, so Claude can read them.</p>
+    <p class="lede">Checks for everything shipped from 0.16 to 0.19.0. New in 0.19 is its own group (F-N). Start with Supabase, then the checks marked Critical: money, security, roles and the update every member sees. Mark Pass, Fail or Skip and say what you saw; failures collect in Needs fix. Your marks save here, so Claude can read them.</p>
   </header>
 
   <div class="bar" id="bar">
@@ -116,8 +116,9 @@ const AREAS = [
   ['sec', 'Sign-in and safety', 'Critical. Use real accounts and real inboxes.'],
   ['money', 'Money records', 'Critical. Check the figures against your own records.'],
   ['people', 'Roles, joining and removal', 'Critical. Needs F-S1. Use three accounts: treasurer, secretary, member.'],
-  ['upd', 'The update every member sees', 'Critical. Use an existing account that has not opened 0.18 yet.'],
+  ['upd', 'The update every member sees', 'Critical. Use an existing account that has not opened 0.19 yet.'],
   ['phone', 'On a real phone', 'Claude could only test these in a desktop browser.'],
+  ['new', 'New in 0.19', 'Critical. F-N1 first: nothing in the new chat media, view once, reactions, themes or phone sharing works until the 029 update runs. Use two phones in the same Chama.'],
   ['more', 'Also worth a look', 'Lower risk, and covered by automated tests. Check them when you have time.']
 ];
 const CHECKS = [
@@ -148,17 +149,30 @@ const CHECKS = [
   ['F-P5', 'people', 'One phone number in every Chama', ['A person with a phone in About you joins with a code', 'Treasurer: open that member', 'The person changes their phone in About you'], 'The member entry shows their phone, then the new one. Needs F-S1.', ['sql', 'crit']],
   ['F-P6', 'people', 'Stepping down and leaving need a reason', ['Secretary: Step down', 'Member: Leave this Chama'], 'Both ask for a reason; the officers see it.', ['sql']],
 
-  ['F-U1', 'upd', 'Every member checks their details once', ['Open the app with an existing account'], '"My Chama has been updated", then name, phone, birth year and gender. It cannot be put off; known answers are filled in.', ['crit']],
-  ['F-U2', 'upd', 'The app matches the age', ['An account born before 1966 (60+), and one before 1951 (75+)'], '60+: Simple view, larger text, bigger buttons, "Need help?" on Home. 75+: the largest text. A message explains it.', ['crit']],
+  ['F-U1', 'upd', 'Every member checks their details once', ['Open the app with an existing account'], '"My Chama has been updated", then name, phone, birth year, gender and a last step to agree to share your phone number with your group. It cannot be put off; known answers are filled in, so someone who already answered sees only the sharing step.', ['crit']],
+  ['F-U2', 'upd', 'The app matches the age', ['An account born before 1966 (60+), and one before 1951 (75+)'], '60+: Simple view, larger text, bigger buttons. 75+: the largest text. A message explains it. ("Need help?" now shows on Home for everyone.)', ['crit']],
   ['F-U3', 'upd', 'The standard app stays chosen', ['Settings → Display → Use the standard app', 'Close the app fully, open it again'], 'The normal app stays.', ['crit']],
   ['F-U4', 'upd', 'New member walkthrough', ['A member who has not seen it opens the Chama'], 'Know your Chama covers Home at once, steps change smoothly, rules show, and agreeing lets them in.', ['crit']],
   ['F-U5', 'upd', 'Removing your details', ['Settings → Privacy and my data → Remove birthday, gender and phone'], 'They are removed; About you shows them empty. Needs F-S1 for the server part.', ['sql']],
 
-  ['F-R1', 'phone', 'The installed app updates', ['Open the installed app; close it fully; open again', 'Settings → About'], 'Version 0.18.2.', ['crit']],
+  ['F-R1', 'phone', 'The installed app updates', ['Open the installed app; close it fully; open again', 'Settings → About'], 'Version 0.19.0, and a "Version 0.19.0 is out" notification.', ['crit']],
   ['F-R2', 'phone', 'Fingerprint or face unlock', ['Settings → App lock → Fingerprint or face → Lock now → tap the hand'], 'The phone asks for your fingerprint or face and it unlocks. Note the phone model.', ['crit']],
   ['F-R3', 'phone', 'Save a PDF', ['Reports → My statement (PDF), then Chama report (PDF) → Save as PDF'], 'Both save, in the app\'s colours with the Chama photo. Note the phone and browser if it fails.', []],
   ['F-R4', 'phone', 'Swipe down closes panels', ['Open Add fine, drag it down'], 'It follows the finger and closes. Approval sheets do not close this way.', []],
   ['F-R5', 'phone', 'Simple view on a small phone', ['Turn on Simple view and use Home, Payments and Chat'], 'Nothing is cut off; buttons are easy to hit.', []],
+
+  ['F-N1', 'new', 'Run the 0.19 database update', ['SQL Editor → paste <code>supabase/migrations/029_chat_media_typing_phones.sql</code> → Run (or ask your Supabase agent to apply it)', 'Storage: a private bucket <b>chat-media</b> exists', 'Advisors → Security → Refresh'], 'It finishes without error. No new security errors.', ['db', 'crit']],
+  ['F-N2', 'new', 'Loan terms open full screen', ['Treasurer: New loan → Send to their phone', 'Borrower: open the app'], 'A full-screen "Sign your loan terms" appears on its own (nothing above the Home card). "Remind me later" brings it back after 2 hours or the next open.', ['crit']],
+  ['F-N3', 'new', 'Typing, recording and the banner', ['Phone A in the group chat types, then records', 'Phone B on Home, then in Chat, then in the conversation'], 'B sees "A is typing" / "recording a voice note" as a top banner on Home, live on the chat card, and as a bubble in the conversation. It disappears within 4 seconds of stopping.', ['crit']],
+  ['F-N4', 'new', 'Voice note: record, trim, send, play', ['Tap the mic → speak 10 s → stop', 'Move Start and End, tap play to check, Send', 'Play it on the other phone (iPhone and Android if you can)'], 'The review plays only the trimmed part; the other phone plays the same. Note the phones if any fails.', ['sql', 'crit']],
+  ['F-N5', 'new', 'View once really opens once', ['Send a photo with View once on; then a voice note with View once', 'Phone B opens each, closes, tries again; also try on B\'s second phone'], 'Each opens one time only, then shows "Opened". The sender sees "Opened by 1". It cannot be opened again anywhere.', ['sql', 'crit']],
+  ['F-N6', 'new', 'Photos and files', ['Clip → Photo → add words → Send', 'Clip → File → a PDF'], 'Both arrive on the other phone; the photo opens full screen; the file opens. A member not in a private chat cannot see that chat\'s files.', ['sql', 'crit']],
+  ['F-N7', 'new', 'No previews outside the chat', ['Phone B outside Chat while A sends a message'], 'B sees only "New message in …" and the unread count, never the words, in the toast, the chat list and notifications.', ['crit']],
+  ['F-N8', 'new', 'Reply, react, seen by, theme', ['Swipe a message right (or tap → Reply)', 'Tap a message → a reaction', 'Read on B; look under your last message on A', 'Palette in the group bar → Ocean'], 'Reply shows the quote; the reaction shows on both; "Seen by B" appears; both phones switch theme and the chat says who changed it. Check light and dark.', ['sql']],
+  ['F-N9', 'new', 'Phone numbers in the group', ['Both phones agree in the About you step', 'Members → the phone button → Call and WhatsApp', 'Privacy and my data → Stop sharing'], 'Calls and WhatsApp open with the right number; after stopping, the buttons disappear for both.', ['sql', 'crit']],
+  ['F-N10', 'new', 'Guide: misspellings, sums, live tours', ['Guide → "recrod a paymnet", "monthly x 12", "10000 at 10% for 3 months", "send a voice note" → Show me'], 'The keyboard opens straight away. Right tours despite typos, correct sums, and the tour card stands out (dark on light, light on dark) and never covers the button.', []],
+  ['F-N11', 'new', 'Contributions card and payout rail', ['Payments in a month that is over, at and under target', 'Home in light and dark'], 'The card colour changes with progress (not the Home colours), the gauge and number animate once, the facts rotate. The payout order rail is tidy.', []],
+  ['F-N12', 'new', 'Settings look, colours and scrolling', ['Settings → Display: pick a gradient colour', 'Scroll Members, Settings and a long chat'], 'Same look as the first-run "Make it yours" screen; the gradient shows on buttons and the card; lists blur and settle at the edges smoothly without flicker. Simple view: calmer.', []],
 
   ['F-X1', 'more', 'Guide answers and walks you through', ['Tap the face next to the bell → "who has not paid" → "how do I record a payment" → Show me'], 'Real answers, and the tour waits for each tap.', []],
   ['F-X2', 'more', 'Guide icon follows the colour', ['Settings → Display → change the colour'], 'The hand on the Guide icon takes the new colour.', []],
@@ -168,7 +182,7 @@ const CHECKS = [
   ['F-X6', 'more', 'Username check', ['New account → setup → type a username'], 'Green tick when free, a reason when taken, suggestions from the name.', ['sql']],
   ['F-X7', 'more', 'Make it yours (new account)', ['Create an account with no Chama'], 'Theme, colour and text size before create or join.', []],
   ['F-X8', 'more', 'Payout turn, goals, member photo', ['Members → Change payout turn', 'Home → Add another goal', 'Add member with a photo and phone'], 'Each works as labelled.', []],
-  ['F-X9', 'more', 'WhatsApp and new messages', ['Home → Remind all → Send', 'Chat → New message → a person'], 'WhatsApp opens with the amount; the chat opens ready to type.', []],
+  ['F-X9', 'more', 'WhatsApp and new messages', ['Home → Remind all → Send', 'Chat → New → a person (or a face under "Write privately")'], 'WhatsApp opens with the amount; the chat opens ready to type.', []],
   ['F-X10', 'more', 'Group rules', ['Treasurer: Home setup list or Guide → Write the Chama rules'], 'The rules show to new members in the walkthrough.', []],
   ['F-X11', 'more', 'Legal details', ['Settings → About, Privacy and my data'], 'Operator name, privacy contact and retention years are filled in (still placeholders until you send them).', []]
 ].map(([id, area, title, steps, expect, tags]) => ({ id, area, title, steps, expect, tags }));
@@ -208,7 +222,7 @@ function summary() {
 function fixText() {
   const fails = CHECKS.filter(c => (state.r[c.id] || {}).status === 'fail');
   const skipped = CHECKS.filter(c => (state.r[c.id] || {}).status === 'skip');
-  return ['Chama Release Check (0.18.2 final): needs fix', ...fails.map(c => `- ${c.id} ${c.title}: ${(state.r[c.id].note || 'no note').trim()}`), fails.length ? '' : '- Nothing failed.',
+  return ['Chama Release Check (0.19.0): needs fix', ...fails.map(c => `- ${c.id} ${c.title}: ${(state.r[c.id].note || 'no note').trim()}`), fails.length ? '' : '- Nothing failed.',
     skipped.length ? 'Skipped: ' + skipped.map(c => c.id).join(', ') : '', state.fb.trim() ? 'Feedback: ' + state.fb.trim() : ''].filter(Boolean).join('\n');
 }
 function saved(t) { $('#save').textContent = t; }
