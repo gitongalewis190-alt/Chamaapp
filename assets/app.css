@@ -2940,3 +2940,38 @@ html.a-simple .rl-list p { font-size: 1.05em; }
 .em-warn b { color: var(--bad); }
 .em-alt { margin: 8px 0 0; font-size: .86em; color: var(--ink-2); }
 .em-btn { color: var(--bad); }
+
+/* @@AGENT-GUIDE-CSS@@ (0.20.0) Guide: answer cards with one big number, recent questions, smart chips */
+.gd-v2 .gd-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.gd-chip-q { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 7px 14px 7px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 .9em/1.2 inherit; text-align: left; max-width: 100%; }
+.gd-chip-q span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-chip-q .ic { width: 15px; height: 15px; color: var(--brand); flex: none; }
+.gd-mem .gd-chip-q .ic { color: var(--ink-3); }
+.gd-chip-q.vf { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); background: var(--brand-soft); }
+.gd-chip-q:active { transform: scale(.98); }
+.gd-v2 .gd-sec h4 { display: flex; align-items: center; justify-content: space-between; }
+.gd-forget { border: 0; background: none; color: var(--ink-3); font: 600 1em/1 inherit; text-transform: none; letter-spacing: 0; padding: 4px 2px; text-decoration: underline; text-underline-offset: 3px; }
+.gd-v2 .gd-ans { gap: 4px; padding: 16px; border-radius: 20px; }
+.gd-v2 .gd-ans > b { font: 650 1em/1.35 var(--font-display); color: var(--ink); }
+.gd-big { font: 800 2.05em/1.1 var(--font-display); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; margin: 4px 0 2px; overflow-wrap: anywhere; }
+.gd-ans.t-ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.gd-ans.t-ok .gd-big { color: var(--ok); }
+.gd-ans.t-warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+.gd-ans.t-bad { border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+.gd-ans.t-bad .gd-big { color: var(--bad); }
+.gd-ans.t-ok > small, .gd-ans.t-ok > small .ic { color: var(--ok); }
+.gd-ans.t-warn > small, .gd-ans.t-warn > small .ic { color: var(--warn); }
+.gd-ans.t-bad > small, .gd-ans.t-bad > small .ic { color: var(--bad); }
+.gd-kv { margin: 8px 0 2px; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.gd-kv > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.gd-kv dt { color: var(--ink-3); font-size: .9em; }
+.gd-kv dd { margin: 0; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+.gd-list { list-style: none; margin: 8px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.gd-list li { display: flex; flex-direction: column; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); }
+.gd-list li small { color: var(--ink-3); font-size: .78em; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.gd-list li span { font-size: .95em; line-height: 1.35; }
+.gd-v2 .gd-ans p { font-size: .93em; margin-top: 4px; }
+.gd-v2 .gd-ans .gd-go { align-self: stretch; justify-content: center; min-height: 48px; margin-top: 10px; border-radius: 14px; font-size: 1em; }
+html.a-simple .gd-big { font-size: 2.3em; }
+html.a-simple .gd-chip-q { min-height: 48px; font-size: 1em; }
+html.a-simple .gd-v2 .gd-ans .gd-go { min-height: 56px; }

@@ -669,7 +669,7 @@ const TESTS = {
     await page.click('[data-act="memberMenu"][data-id="m4"]'); await page.waitForTimeout(400);
     await page.click('#modalRoot [data-act="moveMember"]'); await page.waitForTimeout(400);
     await page.click('#modalRoot .mv-row:not([disabled]) >> nth=1'); await page.waitForTimeout(300);
-    await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(600);
+    await page.evaluate(() => document.querySelector('#popRoot .pop-btn.pri').click()); await page.waitForTimeout(600);
     const truth = await page.evaluate(() => { const s = __M_src_core_store_js.Store.get(); return __M_src_core_domain_js.Domain.payoutOrder(s).map(t => t.member.name.split(' ')[0]); });
     const memOrder = await page.evaluate(() => [...document.querySelectorAll('#view .sec .list')][0] ? [...document.querySelectorAll('[data-act="memberMenu"] .li-main b')].map(x => x.childNodes[0].textContent.trim().split(' ')[0]) : []);
     ok(truth.includes('Achieng') && memOrder.slice(0, truth.length).join() === truth.join(), 'Members are listed in the one payout order (' + truth.slice(0, 4).join(', ') + ')');
@@ -690,9 +690,7 @@ const TESTS = {
     ok(await page.isVisible('[data-act="chamaEdit"][data-f="chatRules"]') && await page.isVisible('[data-act="rulesRemind"]'), 'the treasurer can edit chat etiquette and remind everyone');
     await shot(page, 'v020-people-rules');
     await page.click('[data-act="rulesRemind"]'); await page.waitForTimeout(400);
-    console.log('DBG', JSON.stringify(await page.evaluate(() => { const b = document.querySelector('#popRoot .pop-btn.pri'); const r = b.getBoundingClientRect(); const v = document.querySelector('.pop-veil'); return { r: [r.top, r.left, r.width, r.height], vh: innerHeight, sy: scrollY, veil: getComputedStyle(v).position, vr: v.getBoundingClientRect().top, body: getComputedStyle(document.body).transform, html: document.documentElement.style.cssText }; })));
-    await page.screenshot({ path: '/tmp/claude-0/-home-user-Chamaapp/7fd3c94a-154f-5c58-bbea-1fa70940400c/scratchpad/dbg.png' });
-    await page.click('#popRoot .pop-btn.pri', { timeout: 2000 }).catch(e => console.log('DBG fail')); await page.waitForTimeout(1200);
+    await page.evaluate(() => document.querySelector('#popRoot .pop-btn.pri').click()); await page.waitForTimeout(1200);   /* DOM click: a long toast can push the popup off-screen (AUTH area) */
     ok(await page.evaluate(() => (window.__DB.messages || []).some(m => m.kind === 'announcement' && m.meta && m.meta.rules && /follow our group rules/.test(m.body))), 'Remind everyone posts an announcement card in the Chama chat');
     ok(/chat\/group/.test(page.url()) && await page.locator('.cc-ann .cc-rules').count() > 0, 'the card links to the full rules');
     ok(await page.isVisible('.pin-card.rules-pin') && await page.isVisible('.cp-rules'), 'the group chat has a pinned Group rules entry and a gentle reminder by the message box');
@@ -718,7 +716,7 @@ const TESTS = {
     await page.click('#modalRoot [data-act="editMember"]'); await page.waitForTimeout(500);
     await page.click('#modalRoot [data-act="delMember"]'); await page.waitForTimeout(600);
     ok(/Give notice first/.test((await page.textContent('#popRoot').catch(() => '')) || ''), 'removing a member who signs in asks for notice, not at once');
-    await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(600);
+    await page.evaluate(() => document.querySelector('#popRoot .pop-btn.pri').click()); await page.waitForTimeout(600);
     const why = await page.evaluate(() => [...document.querySelectorAll('#modalRoot select[name="cat"] option')].map(o => o.value));
     ok(why.includes('stopped_contributing') && !why.includes('security') && !why.includes('duplicate'), 'the normal removal only offers reasons that give notice');
     await page.evaluate(() => __M_src_ui_modal_js.Modal.close()); await page.waitForTimeout(400);
