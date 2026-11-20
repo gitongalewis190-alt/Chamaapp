@@ -3600,15 +3600,18 @@ const maskPhone = p => (p ? '•••• ' + String(p).replace(/\D/g, '').slice
 const views = {
   members(s) {
     const admin = Auth.isAdmin(), meId = s.shared ? s.shared.me : null;
-    const act = s.members.filter(m => !m.left), gone = s.members.filter(m => m.left);
+    const gone = s.members.filter(m => m.left);
+    /* listed in the one payout order (Domain.payoutOrder): whoever receives next is first, the same as Home */
+    const order = s.chama.mode === 'savings' ? [] : Domain.payoutOrder(s), turnMk = {}; order.forEach(t => { turnMk[t.member.id] = t.mk; });
+    const act = s.chama.mode === 'savings' ? s.members.filter(m => !m.left) : [...order.map(t => t.member).filter(m => s.members.includes(m) && !m.left), ...s.members.filter(m => !m.left && !turnMk[m.id])];
     const head = `<h1 class="lt">Members</h1><p class="lt-sub">${act.length} ${act.length === 1 ? 'member' : 'members'}${s.chama.mode === 'savings' ? '' : ' · listed in payout order'}</p>`;
     const btn = admin ? `<button type="button" class="btn pri block lg" style="margin-top:0" data-act="addChooser">${icon('userPlus')}Add a member</button>` : '';
     if (!s.members.length) return head + btn + joinedCard(s) + `<div class="card" style="margin-top:14px">${s.shared ? emptyState('people', 'No member list yet', 'Your treasurer has not shared the member list yet.') : emptyState('people', 'No members yet', 'Add the people in your chama. Invite those with a phone to the app so they can see their own money.')}</div>`;
     const row = (m, i, left) => {
       const rel = s.shared ? null : Domain.reliability(s, m.id), mine = meId && m.id === meId;
       const sub = left ? 'Left in ' + monthLabel(m.left) + ' · saved ' + kes(Domain.memberSaved(s, m.id))
-        : s.shared ? (mine ? 'You · saved ' + kes(Domain.memberSaved(s, m.id)) : s.chama.mode === 'savings' ? 'Member' : 'Turn ' + (i + 1))
-        : `Saved ${kes(Domain.memberSaved(s, m.id))}${Domain.memberLoanBalance(s, m.id) ? ' · loan ' + kes(Domain.memberLoanBalance(s, m.id)) : ''}${rel != null ? ' · ' + rel + '% on time' : ''}`;
+        : s.shared ? (mine ? 'You · saved ' + kes(Domain.memberSaved(s, m.id)) : s.chama.mode === 'savings' ? 'Member' : (turnMk[m.id] ? (turnMk[m.id] === Domain.now() ? 'Receives this month' : 'Receives ' + monthLabel(turnMk[m.id])) : 'Member'))
+        : `${turnMk[m.id] ? (turnMk[m.id] === Domain.now() ? 'This month · ' : monthLabel(turnMk[m.id]) + ' · ') : ''}Saved ${kes(Domain.memberSaved(s, m.id))}${Domain.memberLoanBalance(s, m.id) ? ' · loan ' + kes(Domain.memberLoanBalance(s, m.id)) : ''}${rel != null ? ' · ' + rel + '% on time' : ''}`;
       const stk = s.shared || left ? 0 : __M_src_features_smart_js.Smart.streak(s, m.id);
       const tags = `${(m.shares || 1) > 1 ? ` <span class="tag">×${esc(m.shares)}</span>` : ''}${m.role && !s.shared ? ` <span class="tag brand">${esc(m.role)}</span>` : ''}${stk >= 3 ? ` <span class="streak sm" title="${stk} months paid on time in a row">${stk}</span>` : ''}`;
       const inner = `${av(m, 42)}<span class="li-main"><b>${esc(m.name)}${mine ? ' <span class="tag">You</span>' : ''}${tags}</b><small class="num">${esc(sub)}</small></span>`;
@@ -3674,7 +3677,7 @@ const actions = {
   moveMember: { admin: true, run(d) {
     const s = S(), from = s.members.findIndex(m => m.id === d.id); if (from < 0) return;
     const U = __M_src_core_utils_js, n = s.members.length, cur = Domain.now();
-    const monthFor = i => { const off = ((U.monthDiff(s.chama.startMonth, cur) % n) + n) % n; let k = (i - off + n) % n; return U.addMonths(cur, k); };
+    const monthFor = i => Domain.slotMonth(s, i, cur);
     const who = s.members[from];
     const rows = s.members.map((m, i) => `<button type="button" class="mv-row${i === from ? ' on' : ''}" data-act="movePick" data-id="${esc(who.id)}" data-to="${i}" ${i === from ? 'disabled aria-current="true"' : ''}>
 <span class="mv-n">${i + 1}</span><span class="mv-main"><b>${esc(U.monthLabel(monthFor(i)))}</b><small>${i === from ? 'Now: ' + esc(who.name) : 'Now: ' + esc(m.name) + (m.left ? ' · left' : '')}</small></span><span class="mv-go">${i === from ? 'Current' : 'Put here'}</span></button>`).join('');
@@ -3683,7 +3686,7 @@ const actions = {
   movePick: { admin: true, run(d) {
     const s = S(), from = s.members.findIndex(m => m.id === d.id), to = Number(d.to); if (from < 0 || isNaN(to) || to === from) return;
     const U = __M_src_core_utils_js, n = s.members.length, cur = Domain.now();
-    const monthFor = i => { const off = ((U.monthDiff(s.chama.startMonth, cur) % n) + n) % n; return U.addMonths(cur, (i - off + n) % n); };
+    const monthFor = i => Domain.slotMonth(s, i, cur);
     const name = s.members[from].name, displaced = s.members[to].name;
     __M_src_ui_toast_js.Pop.confirm({ title: 'Move ' + name.split(' ')[0] + ' to turn ' + (to + 1) + '?', text: name + ' will receive in ' + U.monthLabel(monthFor(to)) + '. ' + displaced + ' moves ' + (to < from ? 'one place later' : 'one place earlier') + ', and so does everyone in between. Everyone sees the new order.', confirmLabel: 'Move',
       onYes: () => { Modal.close(); Store.commit(st => { const i = st.members.findIndex(m => m.id === d.id); if (i < 0) return; const [m] = st.members.splice(i, 1); st.members.splice(Math.min(to, st.members.length), 0, m); }); __M_src_ui_toast_js.toast(name.split(' ')[0] + ' now receives in ' + U.monthLabel(monthFor(to)), 'ok'); } });
@@ -3700,7 +3703,7 @@ const actions = {
       <div class="kv"><span>Unpaid fines</span><b class="num">${esc(kes(Domain.memberFinesDue(s, m.id)))}</b></div>
       ${rcv ? `<div class="kv"><span>Received in payouts</span><b class="num">${esc(kes(rcv))}</b></div>` : ''}
       ${rel != null ? `<div class="kv"><span>On time (last 6 months)</span><b>${rel}%</b></div>` : ''}
-      ${s.chama.mode === 'savings' ? '' : `<div class="kv"><span>Payout turn</span><b>${i + 1} of ${s.members.length}</b></div>`}
+      ${s.chama.mode === 'savings' || m.left ? '' : (() => { const t = Domain.turnNo(s, m.id), mk = Domain.nextTurn(s, m.id); return `<div class="kv"><span>Payout turn</span><b>${t.n} of ${t.of}${mk ? ' · ' + esc(mk === Domain.now() ? 'this month' : monthLabel(mk)) : ''}</b></div>`; })()}
       ${m.joined ? `<div class="kv"><span>Joined</span><b>${esc(monthLabel(m.joined))}</b></div>` : ''}
       ${(() => { const SM = __M_src_features_smart_js.Smart; if (s.shared && !(s.shared.me === m.id)) return ''; const st = SM.streak(s, m.id), h = SM.heat(s, m.id), C = __M_src_features_chat_index_js.Chat, c = (C.contacts || []).find(x => x.member_id === m.id), uidm = c ? c.user_id : (m.id === __M_src_core_session_js.Session.memberId && __M_src_core_session_js.Session.user ? __M_src_core_session_js.Session.user.id : null), at = uidm ? SM.attendance(uidm) : null;
         return `<div class="heat" aria-label="Last 12 months">${h.map(x => `<i class="h-${x.st}" title="${esc(monthLabel(x.mk))}: ${x.st}"></i>`).join('')}</div><p class="heat-key"><span><i class="h-paid"></i>Paid</span><span><i class="h-partial"></i>Part</span><span><i class="h-late"></i>Late</span><span>${st} month streak</span></p>
