@@ -715,7 +715,6 @@ const TESTS = {
     await go(page, '#/members', 500);
     await clk(page, '[data-act="memberMenu"][data-id="m3"]'); await page.waitForTimeout(400);
     await clk(page, '#modalRoot [data-act="editMember"]'); await page.waitForTimeout(500);
-    console.log('DBG', await page.evaluate(() => { try { __M_src_features_index_js.Actions.editMember.run({ id: 'm3' }); return 'ran ' + document.getElementById('modalRoot').innerText.slice(0, 80); } catch (e) { return 'ERR ' + e.stack.slice(0, 400); } }));
     await clk(page, '#modalRoot [data-act="delMember"]'); await page.waitForTimeout(600);
     ok(/Give notice first/.test((await page.textContent('#popRoot').catch(() => '')) || ''), 'removing a member who signs in asks for notice, not at once');
     await page.evaluate(() => document.querySelector('#popRoot .pop-btn.pri').click()); await page.waitForTimeout(600);
