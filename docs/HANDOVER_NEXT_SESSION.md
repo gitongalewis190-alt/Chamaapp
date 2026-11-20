@@ -1,8 +1,7 @@
 # Handover for the next Claude session (written 19 November 2026, release 0.16.0)
 
-Read this first. The previous session could **not** run SQL (the Supabase MCP returned "You do not have permission"), so the
-database changes below are written and reviewed but **not applied**. The app works without them (it falls back), but these
-features stay off until they run.
+Read this first. **Status 2026-11-20:** every database change (023-027) is applied and verified on the live project.
+Sections 1 and the 023/024/025 items in section 4 are history; keep them only as reference.
 
 Project: My Chama, Supabase ref `sgfvjsxmchohawhqraii` (NOT "The lees app"). Owner approved running SQL in this request.
 Repo: `gitongalewis190-alt/Chamaapp`. Live: https://chama-livid.vercel.app (Vercel deploys `main`).
