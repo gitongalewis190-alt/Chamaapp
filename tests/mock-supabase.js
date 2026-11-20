@@ -120,6 +120,127 @@
     set_phone_sharing: a => { db.profile.phone_shared = !!a.p_on; return ok({ ok: true }); },
     member_phones: () => ok(M.phones || [{ user_id: '11111111-1111-4111-8111-111111111111', member_id: 'm2', name: 'Otieno Odhiambo', phone: '0722000111' }]),
   };
+  /* @@AGENT-SERVER-MOCK@@ (0.20.0, migration 030) — serials, self-recorded payments with evidence, checks, verify,
+     emergency removal, details_at / dob_source. M.serverOld = true makes these RPCs "missing" (NOTREADY paths).
+     Server-side rows live in window.__DB.payRows / __DB.serials so tests can inspect them. */
+  (function () {
+    const ALPHA = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+    db.payRows = M.payRows || [];
+    db.serials = M.serials || {};
+    db.details = M.details || { full_name: db.profile.full_name, phone: db.profile.phone, birth_date: null, gender: null, details_at: null, dob_source: null };
+    const uid = () => (db.session && db.session.user && db.session.user.id) || 'u1';
+    const uuid = () => 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]);
+    const isOfficer = r => r && ['treasurer', 'secretary', 'chair', 'chairperson'].includes(r.role);
+    const memberOf = (cid, mid) => { const c = db.chamas[cid]; return c && (c.data.members || []).find(m => m.id === mid); };
+    const shortName = n => { const p = String(n || '').trim().split(/\s+/); return p.length > 1 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.' : p[0] || ''; };
+    const tag4 = cid => { const w = db.workspaces.find(x => x.chama_id === cid) || {}; const c = db.chamas[cid]; return (String(w.display_tag || (c && c.data.chama && c.data.chama.name) || cid).toUpperCase().replace(/[^A-Z0-9]/g, '') + 'XXXX').slice(0, 4); };
+    /* check chars: s = serial body without dashes; c1 = sum((i+1)*code) mod 31, c2 = sum((2i+3)*code) mod 31 (same as the SQL) */
+    const check = body => { const s = body.replace(/-/g, ''); let a = 0, b = 0; for (let i = 0; i < s.length; i++) { a += (i + 1) * s.charCodeAt(i); b += (2 * i + 3) * s.charCodeAt(i); } return ALPHA[a % 31] + ALPHA[b % 31]; };
+    const sha = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return (h.toString(16) + '0'.repeat(64)).slice(0, 64); };
+    function issue(cid, kind, ref, mid, amount, date, code) {
+      const ex = Object.values(db.serials).find(s => s.chama_id === cid && s.kind === kind && s.ref_id === String(ref));
+      if (ex) return { serial: ex.serial, hash: ex.hash, issued_at: ex.issued_at };
+      const d = date || new Date().toISOString().slice(0, 10);
+      let serial; do { let x = ''; for (let i = 0; i < 4; i++) x += ALPHA[Math.floor(Math.random() * 31)]; const body = 'MC-' + tag4(cid) + '-' + d.slice(2, 4) + d.slice(5, 7) + '-' + x; serial = body + '-' + check(body); } while (db.serials[serial]);
+      const row = { serial, chama_id: cid, kind, ref_id: String(ref), member_id: mid || null, amount: amount == null ? null : Number(amount), date: d, mpesa_code: code ? String(code).toUpperCase() : null, issued_at: new Date().toISOString(), issued_by: uid() };
+      row.hash = sha([serial, cid, kind, row.ref_id, row.member_id, row.amount, row.date, row.mpesa_code].join('|'));
+      db.serials[serial] = row;
+      return { serial, hash: row.hash, issued_at: row.issued_at };
+    }
+    const flagsFor = (cid, amount, date) => {
+      const c = db.chamas[cid], monthly = Number(c && c.data.chama && c.data.chama.monthly) || 0, f = [];
+      if (amount > 50000 || (monthly > 0 && amount > 3 * monthly)) f.push('large');
+      if (date && (Date.now() - new Date(date + 'T00:00:00Z').getTime()) > 31 * 864e5) f.push('backdated');
+      return f;
+    };
+    function checkEvidence(cid, a) {
+      const e = a.p_evidence;
+      if (!e || !e.kind) return 'needs_evidence';
+      if (e.kind === 'sms') {
+        const text = String(e.text || '').toUpperCase(), code = String(e.code || a.p_code || '').toUpperCase();
+        if (!code || !text.includes(code) || (a.p_code && code !== String(a.p_code).toUpperCase())) return 'evidence_mismatch';
+        const m = text.match(/(?:KSH|KES)\s?([0-9,]+(?:\.[0-9]{1,2})?)/);
+        if (m && Number(m[1].replace(/,/g, '')) !== Number(a.p_amount)) return 'evidence_mismatch';
+        return null;
+      }
+      if (e.kind === 'image') return new RegExp('^' + cid + '/' + uid() + '/[^/]+\\.(jpe?g|png|webp|heic|pdf)$', 'i').test(String(e.path || '')) ? null : 'evidence_mismatch';
+      return 'needs_evidence';
+    }
+    const S = {
+      record_payment_v2: a => {
+        if (db.failSave) return err('Failed to fetch');
+        const r = db.roles[a.p_cid];
+        if (!r || r.role !== 'treasurer') return ok({ ok: false, error: 'Only the treasurer can record payments' });
+        if (!memberOf(a.p_cid, a.p_member)) return ok({ ok: false, error: 'Member not found' });
+        if (!(Number(a.p_amount) > 0)) return ok({ ok: false, error: 'Amount must be more than 0' });
+        const idem = db.payRows.find(p => p.chama_id === a.p_cid && a.p_idem && p.idem === a.p_idem);
+        if (idem) return ok({ ok: true, status: 'duplicate_request', id: idem.id, serial: idem.serial, self_recorded: idem.self_recorded, flags: idem.flags });
+        const code = a.p_code ? String(a.p_code).trim().toUpperCase() : '';
+        const dup = code && db.payRows.find(p => p.chama_id === a.p_cid && p.mpesa_code === code);
+        if (dup) return ok({ ok: false, status: 'duplicate_code', id: dup.id, error: 'That M-Pesa code is already recorded' });
+        const self = !!r.member_id && a.p_member === r.member_id;
+        if (self) { const bad = checkEvidence(a.p_cid, a); if (bad) return ok({ ok: false, status: bad, self_recorded: true, error: bad === 'needs_evidence' ? 'Add the M-Pesa message or a photo' : 'The message does not match this payment' }); }
+        const date = a.p_date || new Date().toISOString().slice(0, 10), flags = flagsFor(a.p_cid, Number(a.p_amount), date), id = uuid();
+        const sr = issue(a.p_cid, 'payment', id, a.p_member, a.p_amount, date, code);
+        const row = { id, chama_id: a.p_cid, member_id: a.p_member, month: a.p_month, amount: Number(a.p_amount), mpesa_code: code || null, date, idem: a.p_idem, evidence: self ? a.p_evidence : null, self_recorded: self, flags, serial: sr.serial, recorded_by: uid(), recorded_by_name: db.profile.full_name, checked_by: null, checked_at: null, checked_by_name: null };
+        db.payRows.push(row);
+        return ok({ ok: true, status: 'created', id, serial: sr.serial, self_recorded: self, flags });
+      },
+      confirm_payment: a => {
+        const r = db.roles[a.p_cid], p = db.payRows.find(x => x.id === a.p_payment && x.chama_id === a.p_cid);
+        if (!isOfficer(r)) return ok({ ok: false, error: 'Only an officer can confirm' });
+        if (!p) return ok({ ok: false, error: 'Payment not found' });
+        if (p.recorded_by === uid()) return ok({ ok: false, error: 'Someone else must check a payment you recorded' });
+        if (p.checked_at) return ok({ ok: true, already: true });
+        p.checked_by = uid(); p.checked_at = new Date().toISOString(); p.checked_by_name = db.profile.full_name;
+        const c = db.chamas[a.p_cid], jp = c && (c.data.payments || []).find(x => x.sid === p.id);
+        if (jp) { jp.chk = true; jp.chkBy = db.profile.full_name; jp.chkAt = p.checked_at; c.version++; }
+        return ok({ ok: true });
+      },
+      payment_checks: a => db.roles[a.p_cid] ? ok(db.payRows.filter(p => p.chama_id === a.p_cid).map(p => ({ id: p.id, member_id: p.member_id, month: p.month, amount: p.amount, mpesa_code: p.mpesa_code, self_recorded: p.self_recorded, checked_at: p.checked_at, checked_by_name: p.checked_by_name, flags: p.flags, serial: p.serial, recorded_by_name: p.recorded_by_name }))) : err('You are not a member of this Chama'),
+      issue_serial: a => {
+        const r = db.roles[a.p_cid], kinds = ['payment', 'payout', 'loan', 'fine', 'expense', 'document', 'receipt'];
+        if (!r) return err('You are not a member of this Chama');
+        if (!kinds.includes(a.p_kind)) return err('Unknown kind');
+        if (!isOfficer(r) && !(a.p_kind === 'document' && a.p_member && a.p_member === r.member_id)) return err('Not allowed');
+        return ok(issue(a.p_cid, a.p_kind, a.p_ref, a.p_member, a.p_amount, a.p_date, a.p_code));
+      },
+      verify_serial: a => {
+        db.verifyHits = (db.verifyHits || 0) + 1;
+        if (db.verifyHits > (M.verifyLimit || 30)) return ok({ found: false, status: 'slow_down', error: 'Too many checks. Wait a minute.' });
+        const s = String(a.p_serial || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!/^MC-[A-Z0-9]{4}-\d{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{2}$/.test(s)) return ok({ found: false, genuine: false, error: 'That is not a My Chama serial' });
+        if (check(s.slice(0, -3)) !== s.slice(-2)) return ok({ found: false, genuine: false, error: 'That serial has a typing mistake' });
+        const row = db.serials[s];
+        if (!row) return ok({ found: false, genuine: false });
+        const c = db.chamas[row.chama_id], mem = memberOf(row.chama_id, row.member_id), full = mem ? mem.name : '';
+        const norm = x => String(x || '').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean);
+        const nameOk = () => { const g = norm(a.p_name), f = norm(full); return g.length > 0 && f.length > 0 && g.every(t => f.some(w => w === t || (t.length === 1 && w[0] === t))); };
+        return ok({ found: true, genuine: true, kind: row.kind, chama: c && c.data.chama ? c.data.chama.name : null, date: row.date, amount: row.amount, member: shortName(full) || null,
+          match: { name: a.p_name ? nameOk() : null, date: a.p_date ? a.p_date === row.date : null, amount: a.p_amount != null && a.p_amount !== '' ? Number(a.p_amount) === row.amount : null, code: a.p_code ? String(a.p_code).trim().toUpperCase() === row.mpesa_code : null } });
+      },
+      emergency_remove_member: a => {
+        const r = db.roles[a.p_cid], c = db.chamas[a.p_cid];
+        if (!r || r.role !== 'treasurer') return ok({ ok: false, error: 'Only the treasurer can do this' });
+        if (String(a.p_reason || '').trim().length < 5) return ok({ ok: false, error: 'Give a reason (at least 5 letters)' });
+        if (a.p_password !== 'correct-horse') return ok({ ok: false, error: 'That password is not right' });
+        if (a.p_member === r.member_id) return ok({ ok: false, error: 'You cannot remove yourself' });
+        if (!c || !memberOf(a.p_cid, a.p_member)) return ok({ ok: false, error: 'Member not found' });
+        const name = memberOf(a.p_cid, a.p_member).name;
+        c.data.members = c.data.members.filter(m => m.id !== a.p_member); c.version++;
+        db.access = db.access.filter(x => x.member_id !== a.p_member);
+        db.messages.push({ id: uuid(), chama_id: a.p_cid, sender: uid(), sender_name: db.profile.full_name, sender_role: 'treasurer', recipient: null, kind: 'announcement', body: name + ' was removed from the Chama. Reason: ' + String(a.p_reason).trim(), meta: { system: 'emergency_removal', member_id: a.p_member }, pinned: true, created_at: new Date().toISOString() });
+        return ok({ ok: true });
+      },
+      get_my_details: () => ok(clone(db.details)),
+      set_my_details: a => { db.details = { ...db.details, full_name: a.p_full_name || db.details.full_name, phone: a.p_phone || db.details.phone, birth_date: a.p_birth_date || db.details.birth_date, gender: a.p_gender || db.details.gender, details_at: new Date().toISOString() }; return ok({ ok: true }); },
+      set_dob_source: a => ['self', 'id_scan'].includes(a.p_source) ? ((db.details.dob_source = a.p_source), ok({ ok: true })) : err('Source must be self or id_scan'),
+    };
+    if (!M.serverOld) Object.assign(RPC, S);
+    /* old record_payment refuses the treasurer's own payment once 030 is live */
+    const oldRecord = RPC.record_payment;
+    if (!M.serverOld) RPC.record_payment = a => { const r = db.roles[a.p_cid || a.cid]; const mid = a.p_member || a.p_member_id || a.member_id; return r && r.member_id && mid === r.member_id ? ok({ ok: false, status: 'needs_evidence', error: 'Add the M-Pesa message or a photo' }) : oldRecord(a); };
+  })();
 
   function query(table) {
     const st = { table, filters: {}, op: 'select', patch: null };

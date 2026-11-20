@@ -49,6 +49,13 @@ const scenarios = {
     workspaces: [{ chama_id: 'umoja', chama_name: 'Umoja Savings', role: 'member' }],
     chamas: { umoja: { data: chama(), version: 7 } }, roles: { umoja: { role: 'member', member_id: 'm3' } },
   } },
+  secretary: { onboard: ONBOARDED, url: '/?c=umoja', mock: {
+    session: { access_token: 'a', refresh_token: 'r', user: user('u2', 'otieno@example.com') },
+    account: { has_profile: true, has_password: true, needs_username: false, full_name: 'Otieno Odhiambo', username: 'otieno' },
+    profile: { full_name: 'Otieno Odhiambo', username: 'otieno', phone: '0711000000', contact_email: '', photo: null },
+    workspaces: [{ chama_id: 'umoja', chama_name: 'Umoja Savings', role: 'secretary' }],
+    chamas: { umoja: { data: chama(), version: 7 } }, roles: { umoja: { role: 'secretary', member_id: 'm2' } },
+  } },
   multi: { onboard: ONBOARDED, url: '/', mock: {
     session: { access_token: 'a', refresh_token: 'r', user: user('u1', 'wanjiku@example.com') },
     workspaces: [{ chama_id: 'umoja', chama_name: 'Umoja Savings', role: 'treasurer', display_tag: 'UMOJ' }, { chama_id: 'tumaini', chama_name: 'Tumaini Women Group', role: 'member' }],
