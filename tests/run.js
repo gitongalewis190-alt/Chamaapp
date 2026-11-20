@@ -709,7 +709,7 @@ const TESTS = {
           if (named && info.act !== named[1]) bad.push(tag + ' hits ' + info.act);
           if (BAD.test(info.act) && OK_EDIT[t.id] !== info.act) bad.push(tag + ' is an edit/delete action: ' + info.act);
           if (t.id === 'goal' && (info.id || !/goal/i.test(info.txt))) bad.push(tag + ' does not point at Add goal: ' + info.txt);
-          if (st.click && i < t.tour.length - 1) { await page.click('[data-tour-hit="1"]'); await page.waitForTimeout(700); }
+          if (st.click && i < t.tour.length - 1) { try { await page.click('[data-tour-hit="1"]', { timeout: 3000 }); } catch (e) { bad.push(tag + ' cannot be tapped'); } await page.waitForTimeout(700); }
           await page.evaluate(() => document.querySelectorAll('[data-tour-hit]').forEach(x => x.removeAttribute('data-tour-hit')));
         }
       }
