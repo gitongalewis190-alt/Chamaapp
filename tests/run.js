@@ -151,14 +151,14 @@ const TESTS = {
     await page.goto(page.url().split('#')[0] + '#/members'); await page.waitForTimeout(400);
     await shot(page, '16-members');
     ok(/Not on the member list/i.test(await text(page)), 'treasurer sees people who are not on the member list');
-    await page.click('[data-act="memberMenu"] >> nth=1'); await page.waitForTimeout(400);
+    await page.click('[data-act="memberMenu"][data-id="m2"]'); await page.waitForTimeout(400);
     await shot(page, '17-member-sheet');
     await page.click('#modalRoot [data-act="moveMember"]'); await page.waitForTimeout(400);
     ok(await page.locator('#modalRoot .mv-row').count() >= 2, 'payout turn picker lists every turn with its month');
-    await page.click('#modalRoot [data-act="movePick"][data-to="0"]'); await page.waitForTimeout(300);
+    await page.click('#modalRoot .mv-row:not([disabled]) >> nth=0'); await page.waitForTimeout(300);   /* 0.20.0: places are listed soonest first (one payout order) */
     await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(400);
     const order = await page.evaluate(() => [...document.querySelectorAll('[data-act="memberMenu"] .li-main b')].slice(0, 2).map(x => x.textContent));
-    ok(/Otieno/.test(order[0]), 'choosing turn 1 moves them to the front of the payout order');
+    ok(/Otieno/.test(order[0]), 'choosing the soonest turn moves them to the front of the payout order');
     await page.click('#nav a[data-k="profile"]'); await page.waitForTimeout(400);
     await shot(page, '18-profile');
     await page.click('[data-act="meEdit"][data-f="phone"]'); await page.waitForTimeout(350);
@@ -636,6 +636,118 @@ const TESTS = {
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();
   },
+  /* PEOPLE 0.20.0: scroll softening only where a page scrolls, low-end mode, live count, one payout order, rules, removal */
+  async v020People(b) {
+    const go = async (page, h, w = 700) => { await page.evaluate(x => { location.hash = x; }, h); await page.waitForTimeout(w); };
+    const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => { window.__rvFrame && window.__rvFrame(); r(); }))));
+    const rvs = page => page.evaluate(() => [...document.querySelectorAll('#view [data-rv]')].map(e => ({ v: Number(e.style.getPropertyValue('--rv') || 1), c: e.className })));
+    let { page, ctx, errors } = await open(b, 'treasurer', { wait: 1600 });
+    /* 1. a page too short to scroll: nothing is softened */
+    await page.setViewportSize({ width: 390, height: 1400 }); await go(page, '#/reports'); await settle(page);
+    const short = await page.evaluate(() => (document.scrollingElement.scrollHeight - innerHeight) <= 40);
+    let list = await rvs(page);
+    ok(short && list.length > 0 && list.every(x => x.v === 1), 'a page that does not scroll: every item shows fully (--rv 1)');
+    /* 2. a long page: summary tiles and the payout card are never softened; the last items reach 1 at the bottom */
+    await page.setViewportSize({ width: 390, height: 844 }); await go(page, '#/home', 1000); await settle(page);
+    ok(await page.evaluate(() => !document.querySelector('.stats[data-rv], .stats [data-rv], .mtile[data-rv], .hero[data-rv], .po-card[data-rv], .cg-hero[data-rv], [data-rv] .stats, [data-rv] .po-card, [data-rv] .hero')), 'tiles, hero and payout card are never blurred');
+    await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight)); await page.waitForTimeout(200); await settle(page);
+    const bottom = await page.evaluate(() => { const els = [...document.querySelectorAll('#view [data-rv]')].filter(e => { const r = e.getBoundingClientRect(); return r.bottom > innerHeight - 140 && r.top < innerHeight; }); return els.map(e => Number(e.style.getPropertyValue('--rv') || 1)); });
+    ok(bottom.length > 0 && bottom.every(v => v === 1), 'at the bottom of a long page the last grids show fully (' + bottom.join(',') + ')');
+    ok(await page.evaluate(() => { const e = document.querySelector('#view [data-rv]'); if (!e) return true; const op = parseFloat(getComputedStyle(e).opacity); return op >= .6; }), 'softened items never go below 60% opacity');
+    await shot(page, 'v020-people-home-bottom');
+    /* 3. live count: replays when coming back to Home, not on a quiet repaint */
+    await go(page, '#/members', 500); await go(page, '#/home', 120);
+    const mid = await page.evaluate(() => { const e = document.querySelector('#view .hero-v[data-to]'); return e ? { t: e.textContent, to: Number(e.dataset.to) } : null; });
+    await page.waitForTimeout(1100);
+    const end = await page.evaluate(() => { const e = document.querySelector('#view .hero-v[data-to]'); return e ? e.textContent : ''; });
+    ok(mid && mid.to > 0 && Number(mid.t.replace(/\D/g, '')) < mid.to && Number(end.replace(/\D/g, '')) === mid.to, 'the Home figure counts up again when coming back to Home');
+    ok(await page.evaluate(() => __M_src_ui_countup_js.CountUp.run(document.getElementById('view'), false) === 0), 'a quiet repaint with the same numbers does not count again');
+    ok(await page.evaluate(() => document.querySelectorAll('#view .stats b, #view .po-amt').length > 0 && __M_src_ui_countup_js.CountUp.parse('KES 12,500').n === 12500 && !__M_src_ui_countup_js.CountUp.parse('3/8')), 'stats tiles and the payout amount are counted; fractions are left alone');
+    ok(await page.evaluate(() => { document.documentElement.classList.add('a-rm'); const n = __M_src_ui_countup_js.CountUp.run(document.getElementById('view'), true); document.documentElement.classList.remove('a-rm'); return n === 0; }), 'reduced motion shows the final numbers');
+    /* 4. one payout order: change a turn, then Home, rail, Members, report and summary agree */
+    await go(page, '#/members', 500);
+    await page.click('[data-act="memberMenu"][data-id="m4"]'); await page.waitForTimeout(400);
+    await page.click('#modalRoot [data-act="moveMember"]'); await page.waitForTimeout(400);
+    await page.click('#modalRoot .mv-row:not([disabled]) >> nth=1'); await page.waitForTimeout(300);
+    await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(600);
+    const truth = await page.evaluate(() => { const s = __M_src_core_store_js.Store.get(); return __M_src_core_domain_js.Domain.payoutOrder(s).map(t => t.member.name.split(' ')[0]); });
+    const memOrder = await page.evaluate(() => [...document.querySelectorAll('#view .sec .list')][0] ? [...document.querySelectorAll('[data-act="memberMenu"] .li-main b')].map(x => x.childNodes[0].textContent.trim().split(' ')[0]) : []);
+    ok(truth.includes('Achieng') && memOrder.slice(0, truth.length).join() === truth.join(), 'Members are listed in the one payout order (' + truth.slice(0, 4).join(', ') + ')');
+    await go(page, '#/home', 900);
+    const rail = await page.evaluate(() => [...document.querySelectorAll('#view .po-rail li')].map(li => (li.querySelector('small') || li).textContent.trim()));
+    const head = await page.evaluate(() => { const b = document.querySelector('#view .po-card .po-main b, #view .po-card b'); return b ? b.textContent : ''; });
+    ok(rail.length >= 2 && rail.every((n, i) => n === 'You' || n === truth[i]) && head.includes(truth[0]), 'Home payout card and rail follow the same order (' + rail.join(', ') + ')');
+    const rep = await page.evaluate(() => { const s = __M_src_core_store_js.Store.get(), L = __M_src_lib_reports_js; return { sum: L.Reports.summary(s), doc: L.Doc.chamaReport(s) }; });
+    const sumNames = ((/Payout order: (.*)/.exec(rep.sum) || [])[1] || '').split(', ').map(x => x.split(' ')[0]);
+    ok(sumNames.length >= 2 && sumNames.every((n, i) => n === truth[i]), 'the WhatsApp summary lists the same order');
+    const docOrder = await page.evaluate(h => { const d = new DOMParser().parseFromString(h, 'text/html'); const h2 = [...d.querySelectorAll('h2')].find(x => /Payout order/.test(x.textContent)); const t = h2 && h2.nextElementSibling; return t ? [...t.querySelectorAll('tbody tr')].map(r => r.cells[2].textContent.split(' ')[0]) : []; }, rep.doc);
+    ok(docOrder.join() === truth.join(), 'the Chama report lists the same order');
+    /* 5. Group rules: full page, treasurer edit + remind; in chat a pinned entry and a gentle line */
+    await page.evaluate(() => __M_src_core_store_js.Store.commit(s => { s.chama.rules = '1. Contributions are due by the 10th of every month without fail, sent to the Till.\n2. A late payment is fined KES 100.\n3. Loans are repaid within three months, with interest of 10% a month.\n4. Members attend the monthly meeting or send an apology to the secretary before it starts.'; }));
+    await go(page, '#/settings/rules', 600);
+    let t = await text(page);
+    ok(/send an apology to the secretary before it starts/.test(t) && /Be kind and respectful/.test(t) && await page.locator('#view .rl-list li').count() >= 10, 'the rules page shows every rule in full, plus chat etiquette');
+    ok(await page.isVisible('[data-act="chamaEdit"][data-f="chatRules"]') && await page.isVisible('[data-act="rulesRemind"]'), 'the treasurer can edit chat etiquette and remind everyone');
+    await shot(page, 'v020-people-rules');
+    await page.click('[data-act="rulesRemind"]'); await page.waitForTimeout(300); await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(1200);
+    ok(await page.evaluate(() => (window.__DB.messages || []).some(m => m.kind === 'announcement' && m.meta && m.meta.rules && /follow our group rules/.test(m.body))), 'Remind everyone posts an announcement card in the Chama chat');
+    ok(/chat\/group/.test(page.url()) && await page.locator('.cc-ann .cc-rules').count() > 0, 'the card links to the full rules');
+    ok(await page.isVisible('.pin-card.rules-pin') && await page.isVisible('.cp-rules'), 'the group chat has a pinned Group rules entry and a gentle reminder by the message box');
+    await shot(page, 'v020-people-chat-rules');
+    await page.click('[data-act="rulesSeen"]'); await page.waitForTimeout(300);
+    ok(!(await page.isVisible('.cp-rules')), 'Got it hides the reminder for a week');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+    /* member: reads the rules in full, cannot edit */
+    ({ page, ctx, errors } = await open(b, 'member', { wait: 1600, dark: true }));
+    await go(page, '#/settings/chama', 500);
+    ok(await page.locator('[data-rules-link]').count() === 1, 'members find "Read all the group rules" in Chama settings');
+    await go(page, '#/settings/rules', 500);
+    t = await text(page);
+    ok(/Be kind and respectful/.test(t) && !(await page.locator('[data-act="rulesRemind"], [data-act="chamaEdit"]').count()), 'members see the full rules page without edit buttons');
+    await shot(page, 'v020-people-rules-member-dark');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+    /* 6. removal: someone who signs in goes through notice; emergency removal needs the password and a reason */
+    ({ page, ctx, errors } = await open(b, 'treasurer', { wait: 1600 }));
+    await go(page, '#/members', 500);
+    await page.click('[data-act="memberMenu"][data-id="m3"]'); await page.waitForTimeout(400);
+    await page.click('#modalRoot [data-act="editMember"]'); await page.waitForTimeout(500);
+    await page.click('#modalRoot [data-act="delMember"]'); await page.waitForTimeout(600);
+    ok(/Give notice first/.test((await page.textContent('#popRoot').catch(() => '')) || ''), 'removing a member who signs in asks for notice, not at once');
+    await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(600);
+    const why = await page.evaluate(() => [...document.querySelectorAll('#modalRoot select[name="cat"] option')].map(o => o.value));
+    ok(why.includes('stopped_contributing') && !why.includes('security') && !why.includes('duplicate'), 'the normal removal only offers reasons that give notice');
+    await page.evaluate(() => __M_src_ui_modal_js.Modal.close()); await page.waitForTimeout(400);
+    await page.click('[data-act="memberMenu"][data-id="m4"]'); await page.waitForTimeout(400);
+    await page.click('#modalRoot [data-act="editMember"]'); await page.waitForTimeout(500);
+    await page.click('#modalRoot [data-act="emergencyRemove"]'); await page.waitForTimeout(700);
+    ok(await page.locator('#emPw[type="password"]').count() === 1 && /no notice/i.test(await page.textContent('.sheet')), 'Emergency removal: clear warning, a reason and the password');
+    await shot(page, 'v020-people-emergency');
+    await page.fill('#emWhy', 'Phone stolen on Monday'); await page.fill('#emPw', 'wrong'); await page.click('#emGo'); await page.waitForTimeout(600);
+    ok(/not right/i.test(await page.textContent('#emErr')) && await page.isVisible('#emGo'), 'a wrong password keeps the sheet open and changes nothing');
+    await page.fill('#emPw', 'correct-horse'); await page.click('#emGo'); await page.waitForTimeout(1500);
+    const c = await calls(page);
+    ok(c.some(x => x.kind === 'rpc' && x.name === 'emergency_remove_member' && x.args && x.args.p_member === 'm4' && x.args.p_password === 'correct-horse') || await page.evaluate(() => (window.__DB.messages || []).some(m => m.meta && m.meta.system === 'emergency_removal')), 'emergency_remove_member is called with the member, reason and password');
+    ok(await page.evaluate(() => !(__M_src_core_store_js.Store.get().members || []).some(m => m.id === 'm4' && !m.left)), 'the member is removed at once');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+    /* old server: NOTREADY, nothing changed */
+    ({ page, ctx, errors } = await open(b, 'treasurer', { wait: 1600, mock: { ...scenarios.treasurer.mock, serverOld: true } }));
+    await page.evaluate(() => __M_src_features_index_js.Actions.emergencyRemove.run({ id: 'm4' })); await page.waitForTimeout(700);
+    await page.fill('#emWhy', 'Phone stolen on Monday'); await page.fill('#emPw', 'correct-horse'); await page.click('#emGo'); await page.waitForTimeout(800);
+    ok(/Nothing was changed/.test((await page.textContent('#popRoot').catch(() => '')) || '') && await page.evaluate(() => (__M_src_core_store_js.Store.get().members || []).some(m => m.id === 'm4')), 'without the server update: "Nothing was changed", the member stays');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+    /* low-end phone and Simple view: no blur at all */
+    ({ page, ctx, errors } = await open(b, 'treasurer', { wait: 300, a11y: { simple: 1 } }));
+    await page.addInitScript(() => { Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 2 }); });
+    await page.reload(); await page.waitForTimeout(1600); await go(page, '#/members', 600); await settle(page);
+    ok(await page.evaluate(() => document.documentElement.classList.contains('lowend') && [...document.querySelectorAll('[data-rv]')].every(e => getComputedStyle(e).filter === 'none') && getComputedStyle(document.querySelector('nav#nav')).backdropFilter === 'none'), 'low-end phones: no blur on items and no frosted bars');
+    await shot(page, 'v020-people-simple-lowend');
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await ctx.close();
+  },
   async deadSession(b) {
     const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, mock: { ...scenarios.treasurer.mock, sessionDead: true } });
     await shot(page, '65-dead-session');
@@ -1046,7 +1158,8 @@ const TESTS = {
     await t.page.evaluate(() => __M_src_features_notifications_notify_js.Notify.loadServer()); await t.page.waitForTimeout(1200);
     ok(/Faith Mwende signed the loan terms/.test(await t.page.textContent('#toast')), 'the treasurer gets a notification when the borrower signs');
     ok(!/Faith Mwende has not signed yet/.test(await text(t.page)) && /Terms signed/.test(await text(t.page)), 'the loans list shows it signed, without a reload');
-    await t.page.click('[data-act="loanMenu"][data-id="L9"]'); await t.page.waitForTimeout(500);
+    await t.page.evaluate(() => { const x = document.getElementById('toast'); if (x) x.classList.remove('on'); }); await t.page.waitForTimeout(300);
+    await t.page.click('[data-act="loanMenu"][data-id="L9"]'); await t.page.waitForTimeout(700);
     const lv = await t.page.textContent('#modalRoot');
     ok(/Terms signed/.test(lv) && /on their own phone/.test(lv) && /KES 6,000/.test(lv) && await t.page.isVisible('#modalRoot .lsig img'), 'the loan view shows the signed time, where, the amounts and the signature');
     await shot(t.page, 'v020-loan-signed');
@@ -1316,6 +1429,7 @@ const TESTS = {
         const dl = page.waitForEvent('download', { timeout: 6000 }).catch(() => null);
         await page.click('[data-act="rcPng"]'); const file = await dl;
         ok(file && /\.png$/.test(file.suggestedFilename()), 'the receipt saves as a PNG picture');
+        if (file && SHOTS) await file.saveAs(path.join(SHOTS, 'd7-receipt-image.png'));
       }
       /* Verify from the Guide: genuine with the right amount, "details don't match" with a wrong one */
       await page.keyboard.press('Escape'); await page.waitForTimeout(300);
