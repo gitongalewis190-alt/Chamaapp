@@ -498,8 +498,11 @@ const TESTS = {
     await page.click('[data-ab="decade"][data-v="1950"]'); await page.click('[data-ab="year"][data-v="1952"]'); await page.click('[data-ab="notsure"]'); await page.waitForTimeout(100);
     ok(/gender/i.test(await page.textContent('.ab-q')), 'the exact month and day may be left out');
     await shot(page, '92-about-gender');
-    ok(await page.isDisabled('[data-ab="save"]'), 'an answer is needed for gender ("Prefer not to say" counts)');
-    await page.click('[data-ab="gender"][data-v="prefer_not"]'); await page.click('[data-ab="save"]'); await page.waitForTimeout(900);
+    ok(await page.isDisabled('[data-ab="next"]'), 'an answer is needed for gender ("Prefer not to say" counts)');
+    await page.click('[data-ab="gender"][data-v="prefer_not"]'); await page.click('[data-ab="next"]'); await page.waitForTimeout(300);
+    ok(await page.isDisabled('[data-ab="save"]') && /share your phone number/i.test(await page.textContent('.ab')), 'the last step asks to agree to share the phone number with the group');
+    await page.click('[data-ab="share"]'); await page.click('[data-ab="save"]'); await page.waitForTimeout(900);
+    ok((await calls(page)).some(x => x.name === 'set_phone_sharing' && x.args.p_on === true), 'agreeing turns phone sharing on');
     const h = await page.evaluate(() => ({ simple: document.documentElement.classList.contains('a-simple'), size: document.documentElement.dataset.size }));
     ok(h.simple && h.size === 'l', 'someone in their 70s gets Simple view and larger text automatically');
     ok(/We set up the app for you/.test(await page.textContent('#popRoot')), 'they are told why, with the choice to use the standard app');
