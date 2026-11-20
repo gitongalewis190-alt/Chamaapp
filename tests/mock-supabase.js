@@ -197,7 +197,7 @@
         if (jp) { jp.chk = true; jp.chkBy = db.profile.full_name; jp.chkAt = p.checked_at; c.version++; }
         return ok({ ok: true });
       },
-      payment_checks: a => db.roles[a.p_cid] ? ok(db.payRows.filter(p => p.chama_id === a.p_cid).map(p => ({ id: p.id, member_id: p.member_id, month: p.month, amount: p.amount, mpesa_code: p.mpesa_code, self_recorded: p.self_recorded, checked_at: p.checked_at, checked_by_name: p.checked_by_name, flags: p.flags, serial: p.serial, recorded_by_name: p.recorded_by_name }))) : err('You are not a member of this Chama'),
+      payment_checks: a => db.roles[a.p_cid] ? ok(db.payRows.filter(p => p.chama_id === a.p_cid).map(p => ({ id: p.id, member_id: p.member_id, month: p.month, amount: p.amount, mpesa_code: p.mpesa_code, date: p.date, evidence: isOfficer(db.roles[a.p_cid]) ? clone(p.evidence) : null, self_recorded: p.self_recorded, checked_at: p.checked_at, checked_by_name: p.checked_by_name, flags: p.flags, serial: p.serial, recorded_by_name: p.recorded_by_name }))) : err('You are not a member of this Chama'),
       issue_serial: a => {
         const r = db.roles[a.p_cid], kinds = ['payment', 'payout', 'loan', 'fine', 'expense', 'document', 'receipt'];
         if (!r) return err('You are not a member of this Chama');

@@ -680,6 +680,51 @@ const TESTS = {
     ok(!m.errors.length, 'no page errors ' + m.errors.join(' | '));
     await m.ctx.close();
   },
+  /* GUIDE: every live tour, for every role it is offered to, lands on the real button it talks about, and never on an
+     edit / delete / remove button (a tour once opened an existing goal and replaced it). */
+  async v020GuideTours(b) {
+    const BAD = /edit|delete|del[A-Z]|remove|clear|revoke/i, OK_EDIT = { rules: 'chamaEdit' };
+    for (const role of ['treasurer', 'secretary', 'member']) {
+      const mock = JSON.parse(JSON.stringify(scenarios[role].mock)); mock.chamas.umoja.data.chama.goals = [{ id: 'gA', title: 'Land', amount: 90000, by: '' }];
+      const { page, ctx, errors } = await open(b, role, { wait: 1400, mock });
+      const tasks = await page.evaluate(() => __M_src_features_guide_js.Guide.tasks().filter(t => t.tour).map(t => ({ id: t.id, act: t.act || '', tour: t.tour.map(s => ({ go: s.go || '', sel: s.sel, click: !!s.click })) })));
+      const bad = [];
+      for (const t of tasks) {
+        await page.evaluate(() => { try { __M_src_features_guide_js.Tour.end(false); } catch (e) {} document.getElementById('modalRoot').innerHTML = ''; document.body.style.overflow = ''; });
+        await page.keyboard.press('Escape').catch(() => {});
+        for (let i = 0; i < t.tour.length; i++) {
+          const st = t.tour[i];
+          if (st.go) { await page.evaluate(g => { if (location.hash !== g) location.hash = g; }, st.go); await page.waitForTimeout(700); }
+          let info = null;
+          for (let k = 0; k < 20 && !info; k++) {
+            info = await page.evaluate(sel => { const el = [...document.querySelectorAll(sel)].find(x => x.offsetParent !== null || x.getClientRects().length); if (!el) return null;
+              const r = el.getBoundingClientRect(), cs = getComputedStyle(el), a = el.closest('[data-act]');
+              el.setAttribute('data-tour-hit', '1'); return { vis: r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0, act: a ? a.dataset.act : '', id: el.dataset.id || '', txt: (el.innerText || el.placeholder || el.name || '').slice(0, 60) }; }, st.sel);
+            if (!info) await page.waitForTimeout(150);
+          }
+          const tag = `${role}/${t.id}#${i + 1} ${st.sel}`;
+          if (!info) { bad.push(tag + ' missing'); break; }
+          if (!info.vis) bad.push(tag + ' hidden');
+          const named = /\[data-act="([^"]+)"\]/.exec(st.sel);
+          if (named && info.act !== named[1]) bad.push(tag + ' hits ' + info.act);
+          if (BAD.test(info.act) && OK_EDIT[t.id] !== info.act) bad.push(tag + ' is an edit/delete action: ' + info.act);
+          if (t.id === 'goal' && (info.id || !/goal/i.test(info.txt))) bad.push(tag + ' does not point at Add goal: ' + info.txt);
+          if (st.click && i < t.tour.length - 1) { await page.click('[data-tour-hit="1"]'); await page.waitForTimeout(700); }
+          await page.evaluate(() => document.querySelectorAll('[data-tour-hit]').forEach(x => x.removeAttribute('data-tour-hit')));
+        }
+      }
+      ok(tasks.length > 5 && !bad.length, `every ${role} tour (${tasks.length}) lands on its real button ` + bad.join(' | '));
+      /* the real Tour finds the goal button and it is "Add another goal", not the existing goal */
+      if (role === 'treasurer') {
+        await page.evaluate(() => { document.getElementById('modalRoot').innerHTML = ''; location.hash = '#/settings'; }); await page.waitForTimeout(400);
+        await page.evaluate(() => __M_src_features_guide_js.Tour.start('goal')); await page.waitForTimeout(1500);
+        ok(await page.evaluate(() => { const T = __M_src_features_guide_js.Tour; return !!T.el && /Add another goal/.test(T.el.textContent) && !T.el.dataset.id; }), 'the goal tour points at Add another goal');
+        await page.evaluate(() => __M_src_features_guide_js.Tour.end(false));
+      }
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+  },
   async offline(b) {
     const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1200, mock: { ...scenarios.treasurer.mock, failSave: true } });
     await page.click('#nav a[data-k="members"]'); await page.waitForTimeout(300);

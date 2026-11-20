@@ -488,6 +488,24 @@ const Domain = {
     for (let k = 0; k < n && s.members[i].left && mk > s.members[i].left; k++) i = (i + 1) % n;
     return s.members[i];
   },
+  /* THE payout order (F-X8). Every screen, answer, report and reminder reads the order from here, never a copy.
+     Built from recipient(), so recorded payouts and members who left are handled the same way everywhere.
+     Returns the coming turns from `from`, one entry per member: [{ mk, member, sent }] */
+  payoutOrder(s, from = Domain.now(), count) {
+    const act = (s.members || []).filter(m => !m.left), want = Math.min(count || act.length, act.length), out = [], seen = new Set();
+    if (!want) return out;
+    for (let k = 0; k < act.length * 3 + 12 && out.length < want; k++) {
+      const mk = addMonths(from, k), x = this.recipient(s, mk); if (!x || seen.has(x.id)) continue;
+      seen.add(x.id); out.push({ mk, member: x, sent: s.payouts.some(p => p.month === mk) });
+    }
+    return out;
+  },
+  /* the next month this member receives (this month counts), or null */
+  nextTurn(s, mid, from = Domain.now()) { const t = this.payoutOrder(s, from).find(x => x.member.id === mid); return t ? t.mk : null; },
+  /* the member's turn number in the rotation (members who left are not counted) */
+  turnNo(s, mid) { const act = (s.members || []).filter(m => !m.left); return { n: act.findIndex(m => m.id === mid) + 1, of: act.length }; },
+  /* the next month the stored place i comes up (used when moving someone to another turn) */
+  slotMonth(s, i, from = Domain.now()) { const n = (s.members || []).length; if (!n) return from; const off = ((monthDiff(s.chama.startMonth, from) % n) + n) % n; return addMonths(from, ((i - off) % n + n) % n); },
   memberName: (s, id) => (s.members.find(m => m.id === id) || { name: 'Removed member' }).name,
   reliability(s, mid) {
     const cur = this.now(); let ok = 0, n = 0;
@@ -2766,12 +2784,12 @@ const views = {
       const acts = admin ? (po
         ? `<div class="po-act">${po.sig ? sigImg(po.sig, 'Recipient signature').replace('<img', '<img class="po-sig"') : `<button class="btn sm" data-act="signPayout" data-id="${esc(po.id)}">${icon('sign', 's')}Get signature</button>`}<button class="btn sm ghost" data-act="undoPayout" data-id="${esc(po.id)}">Undo</button></div>`
         : `<div class="po-act"><button class="btn pri" data-act="markPayout" data-amt="${esc(exp)}">${icon('check')}Mark the payout sent</button></div>`) : '';
-      const nextLine = (() => { const seen = new Set([rec.id]), line = []; for (let k = 1; k <= 12 && line.length < 3; k++) { const mk = addMonths(cur, k), x = Domain.recipient(s, mk); if (x && !seen.has(x.id)) { seen.add(x.id); line.push([mk, x]); } } return line; })();
+      const nextLine = Domain.payoutOrder(s, addMonths(cur, 1), 4).filter(t => t.member.id !== rec.id).slice(0, 3).map(t => [t.mk, t.member]);   /* the one payout order (Domain.payoutOrder) */
       const stop = (mk, x, cls) => `<li class="${cls}"><span class="po-dot">${av(x, cls.includes('now') ? 34 : 30)}</span><b>${esc(longMonth(mk).slice(0, 3))}</b><small>${esc(me && x.id === me.id ? 'You' : x.name.split(' ')[0])}</small></li>`;
       const rail = nextLine.length ? `<ol class="po-rail" aria-label="Payout order">${stop(cur, rec, 'now' + (me && rec.id === me.id ? ' me' : ''))}${nextLine.map(([mk, x]) => stop(mk, x, me && x.id === me.id ? 'me' : '')).join('')}</ol>` : '';
       const closeTxt = po ? '' : (Domain.isOverdue(s, cur) ? 'Collections closed ' : 'Collections close ') + dueDate;
       payout = `<section class="po-card" aria-label="This month's payout"><div class="po-top"><span class="po-av">${av(rec, 52)}</span><div class="po-main"><small>Payout · ${esc(longMonth(cur).slice(0, 3))}</small><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b></div><div class="po-end"><div class="po-amt num">${esc(kes(amt))}</div>${status}</div></div>
-${rail}<div class="po-meta"><span>${icon('clock', 's')}Turn ${Math.max(1, idx + 1)} of ${s.members.length}</span>${closeTxt ? `<span>${esc(closeTxt)}</span>` : ''}</div>${acts}</section>`;
+${rail}<div class="po-meta"><span>${icon('clock', 's')}Turn ${Math.max(1, Domain.turnNo(s, rec.id).n)} of ${Domain.turnNo(s, rec.id).of}</span>${closeTxt ? `<span>${esc(closeTxt)}</span>` : ''}</div>${acts}</section>`;
     }
 
     /* who is behind (treasurer only) */
@@ -6679,7 +6697,7 @@ const Smart = {
   nextTurn(s, mid) {
     if (s.chama.mode === 'savings' || !mid) return null;
     const cur = Domain.now();
-    for (let i = 0; i < 48; i++) { const mk = addMonths(cur, i), r = Domain.recipient(s, mk); if (r && r.id === mid && !s.payouts.some(p => p.month === mk && p.memberId === mid && i === 0)) return { mk, months: i }; }
+    { const t = Domain.payoutOrder(s, cur).find(x => x.member.id === mid && !(x.mk === cur && x.sent)) || Domain.payoutOrder(s, addMonths(cur, 1)).find(x => x.member.id === mid); if (t) return { mk: t.mk, months: __M_src_core_utils_js.monthDiff(cur, t.mk) }; }
     return null;
   },
   projection(s, mid) {
@@ -7323,7 +7341,7 @@ const ANSWERS = [
   } },
   { re: /\b(next|this month'?s?|who)\b.*\b(payout|pot|receive|turn)|\bwhen\b.*\bmy turn\b|\bzamu\b/, run(s) {
     const cur = Domain.now(), r = Domain.recipient(s, cur), id = s.shared ? s.shared.me : Session.memberId; if (!r) return null;
-    let mine = ''; if (id) for (let i = 0; i < 36; i++) { const mk = __M_src_core_utils_js.addMonths(cur, i), x = Domain.recipient(s, mk); if (x && x.id === id) { mine = i === 0 ? ' It is your turn this month.' : ' Your turn: ' + monthLabel(mk) + '.'; break; } }
+    let mine = ''; if (id) { const mk = Domain.nextTurn(s, id, cur); if (mk) mine = mk === cur ? ' It is your turn this month.' : ' Your turn: ' + monthLabel(mk) + '.'; }
     return { title: r.name + ' receives the ' + monthLabel(cur) + ' payout', text: 'About ' + kes(__M_src_core_utils_js.sum(s.members.filter(m => !m.left), m => Domain.dueFor(s, m.id, cur))) + '.' + mine };
   } },
   { re: /\b(cash|money|balance|pesa)\b.*\b(hand|have|left|box|group)|\bhow much (do we|does the group)\b/, run(s) { return { title: 'Cash on hand: ' + kes(Domain.cashOnHand(s)), text: 'Money in minus loans out, payouts and expenses.' }; } },
@@ -7356,7 +7374,7 @@ const Guide = {
     const task = t => `<div class="gd-task"><span class="gd-t-ic">${icon(t.ic || IC[t.id] || 'guide')}</span><b>${esc(t.t)}</b><span class="gd-btns">${t.tour ? `<button type="button" class="btn sm pri" data-gd="tour" data-id="${t.id}">${icon('hand', 's')}Show me</button>` : ''}${t.act && !t.tour ? `<button type="button" class="btn sm tint" data-gd="do" data-id="${t.id}">Open</button>` : ''}</span></div>`;
     const ans = r.ans ? `<div class="gd-ans${r.ans.calc ? ' calc' : ''}"><small>${icon(r.ans.calc ? 'chart' : 'guide', 's')}${r.ans.calc ? 'Worked out' : 'From your records'}</small><b>${esc(r.ans.title)}</b>${r.ans.text ? `<p>${esc(r.ans.text).replace(/\n/g, '<br>')}</p>` : ''}${r.ans.task ? `<button type="button" class="btn sm pri" data-gd="tour" data-id="${esc(r.ans.task)}">${icon('hand', 's')}Show me how</button>` : ''}</div>` : '';
     return `<div class="gd-veil" data-gd="x"><div class="gd" role="dialog" aria-modal="true" aria-label="Guide">
-<div class="gd-head"><span class="gd-mark">${icon('guide')}</span><div><b>Guide</b><small>Ask, search, or work out a sum</small></div><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
+<div class="gd-head"><span class="gd-mark">${icon('guide')}</span><div><b>Guide</b><small>Ask, search, or work out a sum</small></div><button type="button" class="gd-vf" data-act="verifyOpen" aria-label="Verify a receipt or serial">${icon('shield', 's')}<span>Verify</span></button><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
 <label class="gd-in">${icon('search')}<input id="gdQ" type="search" inputmode="search" placeholder="Type anything, e.g. give a loan" value="${esc(this.q)}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.q ? '<button type="button" class="gd-clear" data-gd="clear" aria-label="Clear">' + icon('close', 's') + '</button>' : ''}</label>
 <div class="gd-body" id="gdBody">${this.q ? '' : `<div class="gd-sugg">${sugg.map(x => `<button type="button" data-gd="ask" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`}
 ${ans}
@@ -7699,7 +7717,7 @@ const Aware = {
   slides(s) {
     const c = s.chama || {}, U = __M_src_core_utils_js, cur = Domain.now(), meId = s.shared ? s.shared.me : Session.memberId, me = meId ? (s.members || []).find(m => m.id === meId) : null;
     const mine = me ? Domain.rate(s, me.id) : c.monthly, active = (s.members || []).filter(m => !m.left);
-    let turn = ''; if (me && c.mode !== 'savings') for (let i = 0; i < 48; i++) { const mk = U.addMonths(cur, i), r = Domain.recipient(s, mk); if (r && r.id === me.id) { turn = U.monthLabel(mk); break; } }
+    let turn = ''; if (me && c.mode !== 'savings') { const mk = Domain.nextTurn(s, me.id, cur); if (mk) turn = U.monthLabel(mk); }
     const role = Session.role === 'secretary' ? 'Secretary' : 'Member';
     const rules = String(c.rules || '').trim();
     const people = active.slice(0, 15).map(m => `<span class="aw-p">${__M_src_ui_avatar_js.av(m, 44)}<small>${esc(m.name.split(' ')[0])}${m.role ? '<em>' + esc(m.role) + '</em>' : ''}</small></span>`).join('');
