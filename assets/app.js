@@ -2770,7 +2770,7 @@ const views = {
       const stop = (mk, x, cls) => `<li class="${cls}"><span class="po-dot">${av(x, cls.includes('now') ? 34 : 30)}</span><b>${esc(longMonth(mk).slice(0, 3))}</b><small>${esc(me && x.id === me.id ? 'You' : x.name.split(' ')[0])}</small></li>`;
       const rail = nextLine.length ? `<ol class="po-rail" aria-label="Payout order">${stop(cur, rec, 'now' + (me && rec.id === me.id ? ' me' : ''))}${nextLine.map(([mk, x]) => stop(mk, x, me && x.id === me.id ? 'me' : '')).join('')}</ol>` : '';
       const closeTxt = po ? '' : (Domain.isOverdue(s, cur) ? 'Collections closed ' : 'Collections close ') + dueDate;
-      payout = `<section class="po-card" aria-label="This month's payout"><div class="po-top"><span class="po-av">${av(rec, 52)}</span><div class="po-main"><small>Payout · ${esc(longMonth(cur))}</small><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b></div><div class="po-end"><div class="po-amt num">${esc(kes(amt))}</div>${status}</div></div>
+      payout = `<section class="po-card" aria-label="This month's payout"><div class="po-top"><span class="po-av">${av(rec, 52)}</span><div class="po-main"><small>Payout · ${esc(longMonth(cur).slice(0, 3))}</small><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b></div><div class="po-end"><div class="po-amt num">${esc(kes(amt))}</div>${status}</div></div>
 ${rail}<div class="po-meta"><span>${icon('clock', 's')}Turn ${Math.max(1, idx + 1)} of ${s.members.length}</span>${closeTxt ? `<span>${esc(closeTxt)}</span>` : ''}</div>${acts}</section>`;
     }
 
