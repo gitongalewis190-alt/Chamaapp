@@ -26,9 +26,9 @@
   scroll reveal on long lists, the "Need help?" card always on Home, and coloured profile tiles.
 
 ## Server
-`supabase/migrations/029_chat_media_typing_phones.sql` (adds only). **Not applied yet** — the apply was stopped mid-call and nothing
-landed. Until it runs, sending photos, files, voice notes, reactions, chat themes and phone sharing shows "needs the latest server
-update" and changes nothing. Text chat and everything else works.
+`supabase/migrations/029_chat_media_typing_phones.sql` (adds only). **Applied and verified** on 20 Nov 2026 by the owner's agent
+(dry run, apply, 19 structure/permission checks, advisors: nothing new beyond the intended "RLS on, no policies" for
+`chama_once_media`). Not yet exercised with live data: see release check F-N3 to F-N9.
 
 ## Also
 `vercel.json`: `Permissions-Policy` now allows the microphone for this site (it was blocked), `media-src` allows `blob:` for playback.
