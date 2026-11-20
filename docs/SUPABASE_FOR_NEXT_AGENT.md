@@ -1,5 +1,8 @@
 # Supabase work for the next agent (My Chama, release 0.18.2)
 
+> **Status 2026-11-20: section 1 is DONE.** 023-027 are applied and verified (checks all ok, both in migration history,
+> no advisor errors). Remaining: section 2 (dashboard items), and optionally `supabase/migrations/028_local_phone_search_path.sql`.
+
 The owner (Lewis) has approved running all of this. The session that wrote it could not: its Supabase connector was signed
 in to an account that only has **"The lees app"** (`emimwlpsfchndxaxzswh`). My Chama is **`sgfvjsxmchohawhqraii`**.
 

@@ -9,8 +9,8 @@ Repo: `gitongalewis190-alt/Chamaapp`. Live: https://chama-livid.vercel.app (Verc
 
 ## 0. Read docs/SUPABASE_FOR_NEXT_AGENT.md first
 Release 0.18.2 is live. Every database change is in ONE file: `supabase/APPLY_ALL_PENDING.sql` (023-027, safe to re-run).
-The owner ran 023-025; 026 and 027 are not applied yet. The last session's Supabase connector was signed in to the wrong
-account ("The lees app" only), which is why it could never run SQL.
+All of 023-027 are APPLIED (026 and 027 on 2026-11-20) and verified: every check ok, migration history recorded, no advisor errors.
+Optional: supabase/migrations/028_local_phone_search_path.sql clears the one new advisor warning (not applied).
 
 ## 1. Apply the migrations, in order, each tested first
 
