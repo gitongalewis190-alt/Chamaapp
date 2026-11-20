@@ -3736,6 +3736,8 @@ ${items || `<div class="pc-empty">${icon('check')}<b>All checked</b><small>Nothi
     toast('Confirmed. It no longer shows Awaiting check.', 'ok');
     try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
     this.open(true); render(); this.load(true);
+    /* confirming changes the Chama's saved version on the server: fetch it so the next save does not clash */
+    try { await Store.reload(); } catch (e) {}
   },
 };
 
@@ -8334,7 +8336,7 @@ const TASKS = [
   { id: 'ctheme', t: 'Change the chat theme', k: 'chat theme colour color background look wallpaper', ic: 'sparkle', tour: [
     { go: '#/chat/group', sel: '[data-act="chatTheme"]', text: 'Tap the palette to choose the group’s chat theme. Everyone in the group sees it.', click: true }] },
   { id: 'call', t: 'Call or WhatsApp a member', k: 'call phone number whatsapp member contact simu piga', ic: 'phone', tour: [
-    { go: '#/members', sel: '[data-act="callMember"], [data-act="phoneShare"]', text: 'Tap the phone next to a member to call or WhatsApp them. Numbers show for people who agreed to share theirs.' }] },
+    { go: '#/members', sel: '[data-act="callMember"], [data-act="phoneShare"] || #view .sec .list', text: 'People who share their number have a phone button next to their name. Tap it to call or WhatsApp them.' }] },
   { id: 'textsize', t: 'Make the text bigger or use Simple view', k: 'text size bigger large font read simple view old eyes', ic: 'text', tour: [
     { go: '#/settings/app', sel: '[data-k="size"], [data-act="a11ySet"]', text: 'Choose a bigger text size here. Simple view gives bigger buttons and fewer words.' }] },
   { id: 'dark', t: 'Dark or light theme', k: 'dark light theme mode night colour appearance', ic: 'eye', tour: [

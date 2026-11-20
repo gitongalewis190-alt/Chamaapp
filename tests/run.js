@@ -851,8 +851,7 @@ const TESTS = {
       ok(await page.evaluate(() => { const f = __M_src_core_store_js.Store.get().fines; const x = f[f.length - 1]; return x.memberId === 'm7' && x.reason === 'Missed meeting'; }), 'a missed-meeting fine for a paid-up member is allowed' + v.sfx);
       /* the same picker chooses the borrower */
       await page.evaluate(() => { location.hash = '#/loans'; }); await page.waitForTimeout(500);
-      await shot(page, 'dbg-loans' + v.sfx);
-      await page.click('[data-act="addLoan"]'); await page.waitForTimeout(400);
+      await page.click('#view [data-act="addLoan"]'); await page.waitForTimeout(400);
       await page.click('#modalRoot .mpk-card'); await page.waitForTimeout(300);
       ok((await ids()).split(',').length === 8, 'New loan lists every member');
       await page.fill('#mpkQ', 'otie'); await page.waitForTimeout(150);
