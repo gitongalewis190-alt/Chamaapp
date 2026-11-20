@@ -155,7 +155,7 @@ write `RELEASE_NOTES_0.20.0.md`, bump versions (0.20.0, cache `mca-app-v82`), ru
   - **M-Pesa import:** from SMS text or screenshots through OCR, with a matcher. Verifying codes with Safaricom is designed in
     `docs/MPESA_VERIFICATION.md` but not built, because it needs Daraja keys.
   - **Guide:** the Guide, Tour and Aware features, with the winking face and OK hand icon. The hand colour is `--guide-hand`.
-  - **About you:** required for every user (version 2): name, phone, date of birth and gender, which the user can clear. Calls
+  - **About you:** required for every user (now version 3): name, phone, date of birth, gender and consent to share the phone with the group, which the user can clear. Calls
     `set_my_details` and `get_my_details`.
   - **Age-adaptive view (`Adapt`):** under 45 gets the standard view; 45-59 gets larger text; 60-74 gets Simple view with large text;
     75+ gets Simple view with extra-large text. The person can turn it off in Settings, and their own accessibility choices win.
@@ -214,7 +214,7 @@ write `RELEASE_NOTES_0.20.0.md`, bump versions (0.20.0, cache `mca-app-v82`), ru
 - **Before anything ships, check it on a phone-size screen** (390 px wide) **in light and dark themes, and in Simple view.**
 
 ## 4. Database rules
-- New database work goes in a new numbered file, `supabase/migrations/029_*.sql` and up. Keep it idempotent (`if not exists`,
+- New database work goes in a new numbered file, `supabase/migrations/030_*.sql` and up. Keep it idempotent (`if not exists`,
   `create or replace`, `drop trigger if exists`). Use SECURITY DEFINER with `set search_path = public, pg_temp`. Revoke from
   `public` and `anon`, then grant to `authenticated`. End with `notify pgrst, 'reload schema';`.
 - **Dry run first:** run it inside `begin; ... rollback;`, then apply it with `apply_migration`, then run `get_advisors`.
@@ -225,12 +225,13 @@ write `RELEASE_NOTES_0.20.0.md`, bump versions (0.20.0, cache `mca-app-v82`), ru
 - Never put the owner's email, name or Supabase keys in any request to an outside service.
 
 ## 5. The release check (the owner will keep using it)
-- The page is at https://claude.ai/artifact/JQV7pav2YSmiWCeBqCzsHq. Its source is `docs/release-check.html`. It has 44 checks in groups:
-  F-S (Supabase, 4), F-A (sign-in, 6), F-M (money, 7), F-P (import, 6), F-R (roles, 5), F-U (look and feel, 5) and F-X (the rest, 11).
+- The page is at https://claude.ai/artifact/JQV7pav2YSmiWCeBqCzsHq. Its source is `docs/release-check.html`. It has 56 checks in groups:
+  F-S (Supabase, 4), F-A (sign-in, 6), F-M (money, 7), F-P (people, 6), F-U (the update, 5), F-R (real phone, 5), F-N (new in 0.19, 12)
+  and F-X (the rest, 11). Older ids (A1, P1, M3, R5, …) from earlier pages also hold notes.
   It also has a "Critical only" filter.
 - The owner's results are stored in the page's shared database. Collection `results` has one document per check id, shaped
   `{status: 'pass'|'fail'|'skip'|'', note, at}`. Read them with the `ArtifactData` tool (`list`, collection `results`) to see what failed.
-  F-S1 and F-S3 are already marked pass.
+  Feedback text is in `feedback/general`.
 - **Keep the same page and add to it.** Do not make a new one. After your fixes and the redesign:
   1. Read `docs/release-check.html`.
   2. Add new checks for every new feature or redesigned screen, in a new group such as `F-N`. Don't renumber old ids, because the
@@ -242,8 +243,7 @@ write `RELEASE_NOTES_0.20.0.md`, bump versions (0.20.0, cache `mca-app-v82`), ru
 - Check rule from the owner: test only critical things and things a person can't see from tests. Don't ask them to test obvious things.
 
 ## 6. Open items (not done, needs the owner or real devices)
-- **Code email reaching several members' inboxes** (A2/A4). The app sends one `signInWithOtp` to one address. Check Brevo →
-  Transactional → Logs and the BCC setting, Supabase → Auth → SMTP, and Auth Hooks. The app side is already hardened.
+- **Code email reaching everyone:** see section 0, A1.
 - **Auth dashboard:** turn on leaked-password protection and more MFA options.
 - **Backups:** the Free plan has none. Move to Pro or take regular full backups.
 - **Legal placeholders** in `legal/privacy.html`, `legal/terms.html`, `APP` in `app.js`, and `.well-known/security.txt`.
