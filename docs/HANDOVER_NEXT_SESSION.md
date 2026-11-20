@@ -4,6 +4,121 @@ Read this whole file before you change anything. The owner (Lewis, a founder in 
 they mean instead of asking, and build real, working features, never placeholders. They will give you **big changes and a
 redesign** as directives. Fix what they report first, then do the redesign.
 
+
+## 0. START HERE: the owner's work order after testing 0.19.0 (20 Nov 2026)
+Source: the owner's marks and notes on the release check (https://claude.ai/artifact/JQV7pav2YSmiWCeBqCzsHq, collection `results`,
+plus `feedback/general`). Re-read them yourself with `ArtifactData list results` before starting; quotes below are the owner's
+words cleaned of voice typos. **Every item is a directive.** Fix the failures first (A), then the notes on passed checks (B), then
+the new features (C). Use parallel agents (each edits with exact-string Edits only and appends CSS under its own marker).
+
+### A. Failures to fix first
+1. **Code email reaches everyone (F-S2, F-A4; also old A2, A4).** "Everyone gets the email." The codes don't work for them (the
+   `OTP_REQ` guard holds), but the email itself must reach only the requester. The app sends ONE `signInWithOtp` to one address, so
+   the copy is outside the app. Investigate with the Supabase connector and tell the owner exactly what to change:
+   Auth → Hooks (a send-email hook?), Auth → SMTP settings (sender = Brevo?), and ask the owner to read Brevo → Transactional → Logs
+   (the To/BCC of one code email) and Brevo → Settings for a BCC / "copy to" address or a contact-list send. Also grep the repo
+   `supabase/functions/` and `supabase/email-templates/` for anything that sends to a list. If the template or a hook is the cause,
+   fix it; if it is Brevo config, give the owner exact clicks. Re-test F-A4.
+2. **Password change elsewhere does not sign the other phone out (F-A6).** "Both are still signed in yet the password changed on one
+   side." Fix: on password change (and on "sign out everywhere"), call `supabase.auth.signOut({ scope: 'others' })` right after
+   `updateUser({ password })`; on every app focus/resume and every ~5 min, call `auth.getUser()` (not `getSession`, which is local)
+   and on 401/403/`session_not_found` sign out cleanly with the "your password was changed on another device" message that already
+   exists. Check JWT expiry in the Supabase dashboard (Auth → Sessions; suggest 1 h access tokens). Add a test in the mock.
+3. **M-Pesa screenshot reader unreliable (F-M3; old P1).** "Make it clear that pasting is recommended, and if the scanner finds
+   nothing the user is redirected to pasting with a clear message." Do: paste is the first, recommended tab ("Recommended: paste
+   the M-Pesa SMS"); screenshots marked "may miss some". After an upload, show at once that each image was received (thumbnail +
+   "Reading…" state, never blank). If OCR finds 0 payments, automatically switch to the paste tab with "We could not read that
+   picture. Copy the M-Pesa message and paste it here." Also old P1: simpler, modern UI with less text; recent payments keep the full
+   M-Pesa message (stored, shown in the payment).
+4. **Old fails still open:** M5 "the signing happens on their phone and is submitted to the treasurer and kept well" (the loan
+   signing flow from 0.17/0.19: verify the signed terms are visible to the treasurer and stored with the loan; there is
+   `sign_loan_terms`); R5 "member removed furiously" (removal must go through notice; see B4 for the emergency override);
+   S10 backups (Free plan has none: remind the owner, Pro plan or weekly Reports → Full backup).
+
+### B. Notes on checks that passed (all are requests)
+1. **Scroll blur hides content (F-N12, F-M6).** "The blur should not affect no-need-to-scroll pages; it's masking important info. One
+   can't see the data on the lower grids and can't scroll to remove the blur." Fix the scroll-reveal IIFE (search
+   "edge-reveal scroll feel" in app.js, CSS under `@@AGENT-SCROLL-CSS@@`): apply ONLY when the scroll container is actually
+   scrollable (scrollHeight > clientHeight + 40) and never to the last screenful of a page (items that cannot be scrolled into the
+   middle must show at full reveal: compute reveal against the max scroll position, e.g. if `scrollY` can never bring the item to
+   the reveal zone, `--rv = 1`). Never blur tiles/grids/stats/heroes (`.stats`, `.mtile`, profile tiles, `.cg-hero`, `.hero`,
+   `.po-card`, cards inside sheets that don't scroll). Opacity floor higher (≥ .6), blur ≤ 1.5 px. Add a test: on a short page no
+   element has `--rv < 1`.
+2. **Guide (F-N10, F-X1).** The "Set a savings goal" tour clicked an existing goal and replaced it instead of adding a new one: the
+   selector `[data-act="goalEdit"]` matches edit buttons. Make the goal tour target the "Add another goal" button (create action), and
+   **audit every TASK tour selector** against the real DOM for treasurer, secretary and member (write a test that runs each tour and
+   asserts each step's element is the intended action, not an edit/delete). "It should answer all questions about the user: how much
+   I've paid, when I get my payout, my name, when I joined, my loan qualification, my recent actions, advice, and many more." Extend
+   `ANSWERS` widely (personal facts from the records: saved, paid this year, next payout month and amount, join date, loan limit via
+   Smart loan limits, last 5 actions from the log, fines, streak, advice such as "pay by day X to avoid a fine"), English and Kiswahili
+   phrasing, through the same fuzzy `words()`.
+3. **Chama rules (F-X10).** "They should be visible in full to all users when opened, not truncated. Make these perfect, design them for
+   texting and chatting with members, and remind users to follow them." Full rules page for everyone; rules shown in the chat (pinned
+   "Group rules" entry + a gentle reminder in the composer area once a week or when someone joins); add chat etiquette rules as a
+   default section the treasurer can edit; treasurer can "remind everyone of the rules" (posts a system/announcement card).
+4. **Removal (F-P3; old R5, R1).** Add an **emergency removal** that skips the notice, only for the treasurer, requires their password,
+   and requires a reason; logged and announced. **Every password field in the app gets an eye toggle** (treasurer hand-over,
+   step-down, emergency removal, change password, sign-in, lock PIN where sensible). R1: toasts must not cover these sheets.
+5. **Lock screen (F-R2).** Replace the hand icon on the lock screen's biometric button with a proper fingerprint / Face ID mark
+   (fingerprint on Android, face on iPhone by user agent; generic biometric otherwise).
+6. **About you (F-U2).** "It works in the background but users don't have access to editing their details, birthday etc., and the cycle
+   repeats where the app says updated then takes them through it again. Remove that for someone who has already done it; they should
+   just see their details and edit them, and they should be listed in My profile too (age etc.), and editing affects the live app."
+   Fix: never re-run the full flow for a user whose details are complete; if only the new consent step is missing show only that
+   step. Add an "About you" section on My profile listing name, phone, date of birth with age, gender, phone sharing, each editable in
+   place; saving re-applies `Adapt` immediately. Make sure the "done" key is also stored server-side (`details_at`) so a new phone
+   does not repeat it.
+7. **Username (F-X6).** Editing the username inside the app must use the same live checks as setup (availability tick, reasons,
+   suggestions: `username_available`, `username_suggestions`).
+8. **Payout order (F-X8).** "The payout order should match everywhere when changed": after a turn change, Home payout card + rail,
+   Members order, Guide answers, reports and notifications must all reflect it at once (same source of truth; no cached order).
+9. **Files in chat (F-N6).** The treasurer can send a PDF of the Chama details/reports straight into chat (from Reports and from the
+   chat clip menu: "Chama report (PDF)", "My statement (PDF)" generated in-app), and the File option must open the phone's real file
+   picker for both treasurer and members (check `accept` and iOS behaviour).
+10. **Old notes still wanted:** M3 "fines should not be offered for people who have paid up; the chooser looks old-fashioned: make it
+    non-generic, not just a list"; M4 "I like the live number count: apply it to most similar numbers, including when coming back to
+    Home"; D2 reports "more detailed, precise and data dense"; G1 Guide "beautiful, easy, with memory" (remember recent questions);
+    J2 "laggy" (profile performance on low-end phones: reduce re-renders, the scroll IIFE cost, heavy blur/backdrop-filter).
+
+### C. New features from the owner's general feedback
+1. **Anti-cheat for money records.** "The treasurer recording their own payments needs evidence." Design: when the treasurer records a
+   payment for **themselves** (memberId = treasurer's own member), evidence is required: the M-Pesa message (pasted, parsed and
+   matched) or a screenshot, stored with the payment, and the payment is marked "self-recorded" and needs confirmation by a second
+   officer (secretary) before it counts as verified; until then it shows as "awaiting check" to members. Also: every edit/delete of
+   a payment keeps the history (already in log) and notifies the member concerned; duplicate M-Pesa codes blocked (exists); amounts
+   above a threshold or back-dated entries flagged. Needs a server RPC so the rule cannot be bypassed by the client (the chama doc is
+   written by the treasurer, so enforce in a trigger or move payment writes behind `record_payment` checks — look at 016/020).
+2. **Serial numbers on payments and documents + receipts.** Each payment, payout, loan, fine, expense and generated document gets a
+   unique, non-guessable serial, e.g. `MC-UMOJ-2611-7K3Q-9X` (Chama tag, yymm, random base32, check characters). Issue serials on the
+   server (new table `chama_serials(serial pk, chama_id, kind, ref_id, member_id, amount, date, mpesa_code, issued_at, issued_by,
+   hash)`; RPC `issue_serial` called by the payment save path; hash = sha256 of the canonical details so tampering is detectable).
+   When the treasurer marks a payment received, the member gets a **receipt**: ready to save/print (PDF and image), with serial,
+   Chama, member, amount, month, M-Pesa code, date/time, QR code of the serial, and the treasurer's and member's signatures.
+3. **Signatures smaller and consistent.** All signatures (loans, payouts, receipts, reports) are drawn at one standard size, scaled
+   down for display and print so they line up on screen and on paper (store the vector/trimmed PNG; render at a fixed box).
+4. **Verify engine for everyone (Guide → "Verify").** Any signed-in user, in any Chama or none, types "verify" in the Guide (or taps
+   Verify), pastes a serial (or scans the receipt QR with the camera), optionally with name/date/amount/code. RPC `verify_serial`
+   (security definer, rate-limited, returns only: genuine yes/no, kind, Chama name, date, amount, the member's first name + initial, and
+   whether the supplied details match the stored hash; never other data). The checking state is a modern, satisfying scan animation
+   (sweep line, ticks per field, then a clear "Genuine" seal or "Not found / details don't match"). Works across Chamas.
+5. **Age verification from a physical ID.** The owner wants the date of birth confirmed by scanning the person's ID. Tell the owner
+   plainly: reading an ID photo on the phone (OCR, which the app already has via Tesseract) can pre-fill the date of birth, but it
+   cannot prove the ID is real or belongs to the person. Real verification needs an **external KYC provider** with Kenyan ID support,
+   for example Smile ID (Smile Identity, Kenya IPRS lookup + selfie liveness), or Veriff / Onfido / Sumsub; these need an account,
+   API keys (stored as a Supabase Edge Function secret, called from an Edge Function, never from the browser) and a per-check fee, plus
+   a consent screen and a privacy-policy update (ODPC: sensitive data). Build the flow so that: (a) on-device ID scan pre-fills and
+   marks "self-declared, ID scanned"; (b) when the owner provides KYC keys, the Edge Function upgrades it to "verified". Ask the owner
+   which provider before building (b). Do not store ID images longer than needed.
+6. **Stay signed in; premium sign-in.** "When I leave my account I should not be signed out every now and then." Investigate why sessions
+   drop: persistSession/autoRefreshToken settings, the lock flow, the `sessionDead` handling, refresh on resume (refresh the session when
+   the app becomes visible), storage being cleared by the service worker or by sign-out on transient network errors (only sign out on a
+   definite auth error, never on a network failure). This must not undo A2 (password change on another phone must still sign out).
+   Redesign the "Signing you in…" state to feel premium (brand animation, smooth hand-off into Home, no flash).
+
+### D. Then
+Add new checks for everything above to the release check (new group, e.g. `F-V` for 0.20, keep old ids), republish to the same URL,
+write `RELEASE_NOTES_0.20.0.md`, bump versions (0.20.0, cache `mca-app-v82`), run tests + lint, push branch and `HEAD:main`.
+
 ## 1. Where things are
 | | |
 |---|---|
