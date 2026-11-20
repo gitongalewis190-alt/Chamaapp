@@ -1096,7 +1096,7 @@ const TESTS = {
       const card = await page.textContent('#modalRoot .mpk-card');
       ok(/Otieno|Hassan|Baraka/.test(card) && /Late \d+ days? · owes KES/.test(card), 'Add fine starts on a member who owes, with a status chip' + v.sfx);
       if (SHOT || !v.sfx) await shot(page, 'v020-fine-form' + v.sfx);
-      await page.click('#modalRoot .mpk-card'); await page.waitForTimeout(400);
+      for (let k = 0; k < 3 && !(await page.locator('.mpk-layer .mpk-row').count()); k++) { await page.evaluate(() => document.querySelector('#modalRoot .mpk-card').click()); await page.waitForTimeout(400); }
       const ids = () => page.evaluate(() => [...document.querySelectorAll('.mpk-row')].map(r => r.dataset.id).sort().join(','));
       ok(await ids() === 'm2,m5,m8', 'only members who still owe are listed: ' + await ids() + v.sfx);
       ok(!(await page.evaluate(() => /Paid up/.test(document.getElementById('mpkList').textContent))), 'no paid-up member is offered for a late fine' + v.sfx);
@@ -1124,8 +1124,8 @@ const TESTS = {
       /* the same picker chooses the borrower */
       await page.evaluate(() => { location.hash = '#/loans'; }); await page.waitForTimeout(500);
       await page.evaluate(() => { const t = document.getElementById('toast'); if (t) t.classList.remove('on'); }); await page.waitForTimeout(300);
-      await page.click('#view [data-act="addLoan"]'); await page.waitForTimeout(600);
-      await page.click('#modalRoot .mpk-card'); await page.waitForTimeout(300);
+      await page.click('#view [data-act="addLoan"]'); await page.waitForSelector('#modalRoot .mpk-card'); await page.waitForTimeout(700);
+      for (let k = 0; k < 3 && !(await page.locator('.mpk-layer .mpk-row').count()); k++) { await page.evaluate(() => document.querySelector('#modalRoot .mpk-card').click()); await page.waitForTimeout(400); }
       ok((await ids()).split(',').length === 8, 'New loan lists every member');
       await page.fill('#mpkQ', 'otie'); await page.waitForTimeout(150);
       ok(await ids() === 'm2' && /Loan balance/.test(await page.textContent('#mpkList')), 'loan picker search works and shows the loan balance');
