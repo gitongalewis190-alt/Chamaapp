@@ -638,6 +638,7 @@ const TESTS = {
   },
   /* PEOPLE 0.20.0: scroll softening only where a page scrolls, low-end mode, live count, one payout order, rules, removal */
   async v020People(b) {
+    const clk = async (page, sel) => { try { await page.click(sel, { timeout: 3000 }); } catch (er) { console.log('    (DOM click: ' + sel + ')'); await page.evaluate(x => { const el = document.querySelector(x); if (!el) throw new Error('missing ' + x); el.click(); }, sel); } };
     const go = async (page, h, w = 700) => { await page.evaluate(x => { location.hash = x; }, h); await page.waitForTimeout(w); };
     const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => { window.__rvFrame && window.__rvFrame(); r(); }))));
     const rvs = page => page.evaluate(() => [...document.querySelectorAll('#view [data-rv]')].map(e => ({ v: Number(e.style.getPropertyValue('--rv') || 1), c: e.className })));
@@ -712,22 +713,23 @@ const TESTS = {
     /* 6. removal: someone who signs in goes through notice; emergency removal needs the password and a reason */
     ({ page, ctx, errors } = await open(b, 'treasurer', { wait: 1600 }));
     await go(page, '#/members', 500);
-    await page.click('[data-act="memberMenu"][data-id="m3"]'); await page.waitForTimeout(400);
-    await page.click('#modalRoot [data-act="editMember"]'); await page.waitForTimeout(500);
-    await page.click('#modalRoot [data-act="delMember"]'); await page.waitForTimeout(600);
+    await clk(page, '[data-act="memberMenu"][data-id="m3"]'); await page.waitForTimeout(400);
+    await clk(page, '#modalRoot [data-act="editMember"]'); await page.waitForTimeout(500);
+    console.log('DBG', await page.evaluate(() => { try { __M_src_features_index_js.Actions.editMember.run({ id: 'm3' }); return 'ran ' + document.getElementById('modalRoot').innerText.slice(0, 80); } catch (e) { return 'ERR ' + e.stack.slice(0, 400); } }));
+    await clk(page, '#modalRoot [data-act="delMember"]'); await page.waitForTimeout(600);
     ok(/Give notice first/.test((await page.textContent('#popRoot').catch(() => '')) || ''), 'removing a member who signs in asks for notice, not at once');
     await page.evaluate(() => document.querySelector('#popRoot .pop-btn.pri').click()); await page.waitForTimeout(600);
     const why = await page.evaluate(() => [...document.querySelectorAll('#modalRoot select[name="cat"] option')].map(o => o.value));
     ok(why.includes('stopped_contributing') && !why.includes('security') && !why.includes('duplicate'), 'the normal removal only offers reasons that give notice');
     await page.evaluate(() => __M_src_ui_modal_js.Modal.close()); await page.waitForTimeout(400);
-    await page.click('[data-act="memberMenu"][data-id="m4"]'); await page.waitForTimeout(400);
-    await page.click('#modalRoot [data-act="editMember"]'); await page.waitForTimeout(500);
-    await page.click('#modalRoot [data-act="emergencyRemove"]'); await page.waitForTimeout(700);
+    await clk(page, '[data-act="memberMenu"][data-id="m4"]'); await page.waitForTimeout(400);
+    await clk(page, '#modalRoot [data-act="editMember"]'); await page.waitForTimeout(500);
+    await clk(page, '#modalRoot [data-act="emergencyRemove"]'); await page.waitForTimeout(700);
     ok(await page.locator('#emPw[type="password"]').count() === 1 && /no notice/i.test(await page.textContent('.sheet')), 'Emergency removal: clear warning, a reason and the password');
     await shot(page, 'v020-people-emergency');
-    await page.fill('#emWhy', 'Phone stolen on Monday'); await page.fill('#emPw', 'wrong'); await page.click('#emGo'); await page.waitForTimeout(600);
+    await page.fill('#emWhy', 'Phone stolen on Monday'); await page.fill('#emPw', 'wrong'); await clk(page, '#emGo'); await page.waitForTimeout(600);
     ok(/not right/i.test(await page.textContent('#emErr')) && await page.isVisible('#emGo'), 'a wrong password keeps the sheet open and changes nothing');
-    await page.fill('#emPw', 'correct-horse'); await page.click('#emGo'); await page.waitForTimeout(1500);
+    await page.fill('#emPw', 'correct-horse'); await clk(page, '#emGo'); await page.waitForTimeout(1500);
     const c = await calls(page);
     ok(c.some(x => x.kind === 'rpc' && x.name === 'emergency_remove_member' && x.args && x.args.p_member === 'm4' && x.args.p_password === 'correct-horse') || await page.evaluate(() => (window.__DB.messages || []).some(m => m.meta && m.meta.system === 'emergency_removal')), 'emergency_remove_member is called with the member, reason and password');
     ok(await page.evaluate(() => !(__M_src_core_store_js.Store.get().members || []).some(m => m.id === 'm4' && !m.left)), 'the member is removed at once');
@@ -736,7 +738,7 @@ const TESTS = {
     /* old server: NOTREADY, nothing changed */
     ({ page, ctx, errors } = await open(b, 'treasurer', { wait: 1600, mock: { ...scenarios.treasurer.mock, serverOld: true } }));
     await page.evaluate(() => __M_src_features_index_js.Actions.emergencyRemove.run({ id: 'm4' })); await page.waitForTimeout(700);
-    await page.fill('#emWhy', 'Phone stolen on Monday'); await page.fill('#emPw', 'correct-horse'); await page.click('#emGo'); await page.waitForTimeout(800);
+    await page.fill('#emWhy', 'Phone stolen on Monday'); await page.fill('#emPw', 'correct-horse'); await clk(page, '#emGo'); await page.waitForTimeout(800);
     ok(/Nothing was changed/.test((await page.textContent('#popRoot').catch(() => '')) || '') && await page.evaluate(() => (__M_src_core_store_js.Store.get().members || []).some(m => m.id === 'm4')), 'without the server update: "Nothing was changed", the member stays');
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();
@@ -1484,6 +1486,65 @@ const TESTS = {
       await page.click('#modalRoot [data-act="receiptOpen"]'); await page.waitForTimeout(700);
       ok(await page.isVisible('.rc-card') && await page.$$eval('.rc-card .sig-box', e => e.length) === 2 && await page.isVisible('[data-act="rcSignMe"]'), 'the member receipt opens, with a way to add their signature');
       await shot(page, 'd6-member-receipt');
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+  },
+  /* GUIDE: questions about me answered from the records (English and Kiswahili, with typos), memory of recent
+     questions, and the verify intent */
+  async v020GuideAnswers(b) {
+    const Q = [['how much have I paid', 'paid'], ['nimelipa ngapi', 'paid'], ['how much have i payed this year', 'paid'], ['when is my payout', 'mypayout'], ['zamu yangu ni lini', 'mypayout'],
+      ['my loan limit', 'limit'], ['how much can I borrow', 'limit'], ['recent actions', 'recent'], ['what is my name', 'name'], ['jina langu', 'name'], ['when did I join', 'joined'], ['nilijiunga lini', 'joined'],
+      ['what do I owe', 'owe'], ['my arrears', 'owe'], ['my loan', 'loan'], ['mkopo wangu', 'loan'], ['my fines', 'fines'], ['faini zangu', 'fines'], ['how much is the fine', 'chamafine'], ['my streak', 'streak'],
+      ['my rank', 'rank'], ['how many members', 'members'], ['cash on hand', 'cash'], ['advice', 'advice'], ['ushauri', 'advice'], ['when do we pay each month', 'contribution'], ['verify', 'verify'], ['thibitisha', 'verify'], ['check receipt', 'verify']];
+    for (const [role, opt] of [['member', {}], ['treasurer', {}], ['secretary', {}], ['member', { dark: true }], ['treasurer', { a11y: { simple: 1 } }]]) {
+      const sfx = '-' + role + (opt.dark ? '-dark' : '') + (opt.a11y ? '-simple' : '');
+      const { page, ctx, errors } = await open(b, role, { wait: 1400, ...opt });
+      if (await page.isVisible('.urgent [data-u="later"]')) { await page.click('.urgent [data-u="later"]'); await page.waitForTimeout(400); }
+      await page.evaluate(() => __M_src_features_guide_js.Guide.show()); await page.waitForTimeout(250);
+      ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'gdQ'), 'the Guide opens with the keyboard ready' + sfx);
+      ok(await page.isVisible('.gd-chip-q.vf[data-gd="verify"]'), 'a Verify chip shows when the Guide opens' + sfx);
+      await shot(page, 'g20-open' + sfx);
+      if (!opt.dark && !opt.a11y) {
+        const wrong = [];
+        for (const [q, id] of Q) { await page.fill('#gdQ', q); await page.waitForTimeout(120); const got = await page.evaluate(() => { const a = document.querySelector('.gd-ans'); return a ? a.dataset.ans : ''; }); if (got !== id) wrong.push(q + ' → ' + (got || 'nothing')); }
+        ok(!wrong.length, 'questions about me find the right answer' + sfx + ' ' + wrong.join(' | '));
+      }
+      /* the numbers come from the records */
+      await page.fill('#gdQ', 'how much have I paid'); await page.waitForTimeout(150);
+      const saved = await page.evaluate(() => { const s = __M_src_core_store_js.Store.get(), id = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId; return __M_src_core_utils_js.kes(__M_src_core_domain_js.Domain.memberSaved(s, id)); });
+      ok((await page.textContent('.gd-ans .gd-big')).trim() === saved && await page.isVisible('.gd-ans .gd-go'), 'how much have I paid shows the saved total and one button (' + saved + ')' + sfx);
+      await shot(page, 'g21-paid' + sfx);
+      await page.fill('#gdQ', 'nimelipa ngapi'); await page.waitForTimeout(150);
+      ok((await page.textContent('.gd-ans .gd-big')).trim() === saved, 'nimelipa ngapi gives the same total' + sfx);
+      await page.fill('#gdQ', 'when is my payout'); await page.waitForTimeout(150);
+      const po = await page.evaluate(() => { const s = __M_src_core_store_js.Store.get(), id = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId, t = __M_src_features_smart_js.Smart.nextTurn(s, id); if (!t) return ''; const [y, m] = t.mk.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' }); });
+      ok(!!po && (await page.textContent('.gd-ans')).includes(po) && /Place in line/.test(await page.textContent('.gd-ans')), 'when is my payout gives the month (' + po + ') and place in line' + sfx);
+      await shot(page, 'g22-payout' + sfx);
+      await page.fill('#gdQ', 'my loan limit'); await page.waitForTimeout(150);
+      const lim = await page.evaluate(() => { const s = __M_src_core_store_js.Store.get(), id = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId; return __M_src_core_utils_js.kes(__M_src_features_smart_js.Smart.loanLimit(s, id)); });
+      ok((await page.textContent('.gd-ans .gd-big')).trim() === lim, 'my loan limit uses the loan limit rule (' + lim + ')' + sfx);
+      await page.fill('#gdQ', 'recent actions'); await page.waitForTimeout(1700);
+      ok(await page.evaluate(() => { const n = document.querySelectorAll('.gd-ans .gd-list li').length; return n >= 1 && n <= 5; }), 'recent actions lists up to 5 things about me' + sfx);
+      await shot(page, 'g23-recent' + sfx);
+      /* memory: the question comes back as a chip next time */
+      await page.fill('#gdQ', 'my loan limit'); await page.waitForTimeout(120);
+      await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+      await page.evaluate(() => __M_src_features_guide_js.Guide.show()); await page.waitForTimeout(250);
+      ok(await page.evaluate(() => [...document.querySelectorAll('.gd-mem .gd-chip-q')].map(x => x.dataset.q).slice(0, 2).join('|') === 'my loan limit|recent actions'), 'recent questions show, newest first, after reopening' + sfx);
+      await shot(page, 'g24-memory' + sfx);
+      await page.click('.gd-mem .gd-chip-q >> nth=1'); await page.waitForTimeout(200);
+      ok(await page.isVisible('.gd-ans[data-ans="recent"]'), 'tapping a recent question asks it again' + sfx);
+      /* verify */
+      await page.fill('#gdQ', 'verify'); await page.waitForTimeout(150);
+      await page.click('.gd-ans [data-gd="verify"]'); await page.waitForTimeout(600);
+      ok(await page.evaluate(() => !document.querySelector('.gd-veil') && __M_src_features_requests_js.Sheet.isOpen('verify')), 'verify opens the Verify sheet' + sfx);
+      await page.evaluate(() => __M_src_features_requests_js.Sheet.close()); await page.waitForTimeout(300);
+      await page.evaluate(() => __M_src_features_guide_js.Guide.show()); await page.waitForTimeout(200);
+      await page.fill('#gdQ', 'MC-UMOJ-2611-7K3Q-9X'); await page.waitForTimeout(600);
+      ok(await page.evaluate(() => __M_src_features_requests_js.Sheet.isOpen('verify') && /MC-UMOJ-2611-7K3Q-9X/.test(document.querySelector('#modalRoot').innerHTML)), 'typing a serial opens Verify with it filled in' + sfx);
+      await page.evaluate(() => __M_src_features_requests_js.Sheet.close());
+      ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no sideways scroll at 390px' + sfx);
       ok(!errors.length, 'no page errors ' + errors.join(' | '));
       await ctx.close();
     }

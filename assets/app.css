@@ -2964,7 +2964,7 @@ html.a-simple .rl-list p { font-size: 1.05em; }
 .gd-ans.t-bad > small, .gd-ans.t-bad > small .ic { color: var(--bad); }
 .gd-kv { margin: 8px 0 2px; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .gd-kv > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.gd-kv dt { color: var(--ink-3); font-size: .9em; }
+.gd-kv dt { color: var(--ink-3); font-size: .9em; white-space: nowrap; }
 .gd-kv dd { margin: 0; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
 .gd-list { list-style: none; margin: 8px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .gd-list li { display: flex; flex-direction: column; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); }

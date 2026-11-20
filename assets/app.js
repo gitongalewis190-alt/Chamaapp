@@ -8765,7 +8765,8 @@ const SM = () => __M_src_features_smart_js.Smart;
 const U_ = () => __M_src_core_utils_js;
 const has = (W, ...xs) => xs.some(x => W.has(x));
 const dayOf = (mk, day) => new Date(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)) - 1, Math.min(28, Number(day) || 10)).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
-const fmtD = d => { const t = typeof d === 'number' ? d : d instanceof Date ? d.getTime() : Date.parse(d); return isNaN(t) ? String(d || '') : new Date(t).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }); };
+const fmtD = d => { const t = typeof d === 'number' ? d : d instanceof Date ? d.getTime() : Date.parse(d); if (isNaN(t)) return String(d || ''); const x = new Date(t); return x.toLocaleDateString('en-KE', x.getFullYear() === new Date().getFullYear() ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' }); };
+const fmtM = mk => { const [y, m] = String(mk).split('-').map(Number); return y && m ? new Date(y, m - 1, 1).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' }) : String(mk || ''); };
 const ROLE_W = { treasurer: 'Treasurer', secretary: 'Secretary', member: 'Member' };
 const NOLINK = { kicker: 'Not linked yet', title: 'Your sign-in is not linked to a member yet', text: 'Ask the treasurer to link you to the member list.', btn: { t: 'Message the treasurer', act: 'chatNew' } };
 /* the pot for a month: what was paid out, or what everyone owes that month (the same sum as the Home payout card) */
@@ -8786,7 +8787,7 @@ function adviceFor(s) {
   if (ln) out.push(`Next loan instalment: ${kes(ln.amt)} ${ln.late ? 'was due ' : 'by '}${fmtD(ln.due)}.`);
   const st = Domain.streak(s, id); if (st >= 2 && !o) out.push(`Keep your ${st}-month on-time streak going.`);
   try { const lim = SM().loanLimit(s, id); if (lim > 0) out.push(`You can borrow up to ${kes(lim)}.`); } catch (e) {}
-  try { const t = SM().nextTurn(s, id); if (t) out.push(t.months ? `Your payout comes in ${monthLabel(t.mk)}. Stay paid up until then.` : 'Your payout is this month.'); } catch (e) {}
+  try { const t = SM().nextTurn(s, id); if (t) out.push(t.months ? `Your payout comes in ${fmtM(t.mk)}. Stay paid up until then.` : 'Your payout is this month.'); } catch (e) {}
   if (!out.length) out.push('You are on track. Nothing to do right now.');
   return out;
 }
@@ -8830,7 +8831,7 @@ const ANSWERS = [
   } },
   { id: 'joined', m: (W, r) => !/how (do|can|to) .*join|invite/.test(r) && (/\b(joined|member since|nilijiunga|nimejiunga|tangu lini|how long have i)\b/.test(r) || (/\bjoin\b/.test(r) && has(W, 'when', 'lini', 'date', 'since'))), run(s) {
     const me = meOf(s); if (!me) return NOLINK; const jm = Domain.joinMonth(s, me.id), cur = Domain.now(), n = Math.max(0, U_().monthDiff(jm, cur));
-    return { kicker: 'You joined', big: monthLabel(jm), title: n ? 'A member for ' + n + (n === 1 ? ' month' : ' months') : 'You joined this month', text: 'Saved since then: ' + kes(Domain.memberSaved(s, me.id)) + '.', btn: { t: 'Open my profile', go: '#/profile' } };
+    return { kicker: 'You joined', big: fmtM(jm), title: n ? 'A member for ' + n + (n === 1 ? ' month' : ' months') : 'You joined this month', text: 'Saved since then: ' + kes(Domain.memberSaved(s, me.id)) + '.', btn: { t: 'Open my profile', go: '#/profile' } };
   } },
   { id: 'limit', m: (W, r) => has(W, 'limit', 'qualify', 'kiwango', 'nastahili', 'stahili', 'eligible', 'kukopa') || (/\b(can i|could i|how much can|naweza)\b/.test(r) && (has(W, 'loan') || /borrow|kopa/.test(r))), run(s) {
     const id = meId(s); if (!id) return NOLINK; const lim = SM().loanLimit(s, id), rel = Domain.reliability(s, id), bal = Domain.memberLoanBalance(s, id);
@@ -8859,7 +8860,7 @@ const ANSWERS = [
     return late.length ? { kicker: 'Not paid for ' + monthLabel(cur), big: String(late.length), title: (late.length === 1 ? 'person owes ' : 'people owe ') + kes(U_().sum(late, m => Domain.outstanding(s, m.id, cur))), list: late.slice(0, 6).map(m => [m.name, kes(Domain.outstanding(s, m.id, cur))]), btn: { t: 'Remind them', tour: 'remind' } }
       : { kicker: monthLabel(cur), big: 'All paid', tone: 'ok', title: 'Everyone is paid up', text: 'Nobody owes anything this month.' };
   } },
-  { id: 'owe', m: (W, r) => !has(W, 'who', 'nani') && (/\b(how much|what)\b.*\b(i|me)\b.*\b(owe|pay|due)|\bmy balance\b|\bnadaiwa\b|am i (late|behind)|nimechelewa|\barrears?\b/.test(r) || has(W, 'owe', 'arrear')), run(s) {
+  { id: 'owe', m: (W, r) => !has(W, 'who', 'nani') && (/\b(how much|what)\b.*\b(i|me)\b.*\b(owe|pay|due)\b|\bmy balance\b|\bnadaiwa\b|am i (late|behind)|nimechelewa|\barrears?\b/.test(r) || has(W, 'owe', 'arrear')), run(s) {
     const id = meId(s), cur = Domain.now(), c = s.chama || {}; if (!id) return NOLINK;
     const o = Domain.outstanding(s, id, cur), before = Domain.outstanding(s, id, U_().addMonths(cur, -1)), a = Domain.ahead(s, id, cur), over = Domain.isOverdue(s, cur), fine = Number(c.finePerLate) || 0;
     if (!o) return { kicker: 'Your balance', big: a ? kes(a) + ' ahead' : 'Paid up', tone: 'ok', title: a ? 'You have paid ahead' : 'Nothing is due for ' + monthLabel(cur), text: 'Next due: day ' + (c.dueDay || 10) + ' of ' + monthLabel(U_().addMonths(cur, 1)) + '.', btn: { t: 'See my payments', tour: 'mypay' } };
@@ -8873,7 +8874,7 @@ const ANSWERS = [
     const t = SM().nextTurn(s, id), rec = Domain.recipient(s, cur);
     if (!t) return { kicker: 'Your payout', big: 'Not yet', title: 'You are not in the payout order', text: 'Ask the treasurer to add you.', btn: { t: 'See the order', tour: 'order' } };
     const line = Domain.payoutOrder(s, cur).filter(x => !(x.mk === cur && x.sent)), pos = line.findIndex(x => x.member.id === id) + 1 || line.length;
-    return { kicker: 'Your payout', big: kes(potFor(s, t.mk)), tone: t.months ? '' : 'ok', title: t.months ? 'Your turn: ' + monthLabel(t.mk) : 'It is your turn this month',
+    return { kicker: 'Your payout', big: kes(potFor(s, t.mk)), tone: t.months ? '' : 'ok', title: t.months ? 'Your turn: ' + fmtM(t.mk) : 'It is your turn this month',
       rows: [['When', t.months ? 'In ' + t.months + (t.months === 1 ? ' month' : ' months') : 'This month'], ['Place in line', nth(pos) + ' of ' + Domain.turnNo(s, id).of], rec && rec.id !== id ? ['This month', rec.name] : null].filter(Boolean), btn: { t: 'See the order', tour: 'order' } };
   } },
   { id: 'payout', m: (W, r) => /\b(next|this month'?s?|who)\b.*\b(payout|pot|receive|turn)|\bzamu\b/.test(r), run(s) {
@@ -8959,8 +8960,11 @@ const Guide = {
     const ws = words(q), vi = verifyIntent(q);
     let ans = null;
     if (vi) ans = { id: 'verify', kicker: 'Verify', big: vi.serial || '', title: vi.serial ? 'Check this serial' : 'Check if a receipt or paper is real', text: 'Every receipt, statement and loan paper from My Chama has a serial. Type it or scan its QR code.', btn: { t: vi.serial ? 'Verify ' + (vi.full ? 'now' : 'this serial') : 'Verify a serial', verify: vi.serial || '' } };
-    if (!ans) try { ans = calc(q, s); } catch (e) { ans = null; }
+    /* a sum when there are numbers or signs; otherwise the answer about you first ("my loan" is not the sum "myloan") */
+    const sum = /[\d+*/^×÷%=]|\s-\s|\b(times|plus|minus|divided)\b/.test(q);
+    if (!ans && sum) try { ans = calc(q, s); } catch (e) { ans = null; }
     if (!ans) ans = answer(q, s);
+    if (!ans && !sum) try { ans = calc(q, s); } catch (e) { ans = null; }
     const ranked = this.tasks().map(t => ({ t, sc: this.score(t.t + ' ' + t.k, ws) })).sort((a, b) => b.sc - a.sc);
     let tasks = ranked.filter(x => x.sc >= 2).map(x => x.t).slice(0, ans ? 2 : 4), near = false;
     if (!tasks.length && !ans) { tasks = ranked.filter(x => x.sc >= 1).map(x => x.t).slice(0, 4); near = true; }
@@ -9098,7 +9102,9 @@ document.addEventListener('click', e => {
     try { (typeof A === 'function' ? A : A.run).call(A, { id: x.id }); } catch (err) { toast(err.message); }
   }
 });
-document.addEventListener('input', e => { if (e.target && e.target.id === 'gdQ') { Guide.q = e.target.value; const v = verifyIntent(Guide.q); if (v && v.full) return openVerify(v.serial); Guide.paint(); } });
+document.addEventListener('input', e => { if (e.target && e.target.id === 'gdQ') { Guide.q = e.target.value; const v = verifyIntent(Guide.q); if (v && v.full) return openVerify(v.serial); Guide.paint();
+  /* a question left on screen for a moment counts as asked, so it is remembered */
+  clearTimeout(Guide._mt); Guide._mt = setTimeout(() => { if (Guide.open) Guide.remember(); }, 1400); } });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && Tour.steps.length) { Tour.end(false); return; }
   if (e.key === 'Escape' && Guide.open) { Guide.hide(); return; }
