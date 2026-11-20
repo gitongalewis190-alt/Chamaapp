@@ -2666,7 +2666,7 @@ html.a-rm .sgn-ring { display: none; } html.a-rm .sgn-bar i { width: 100%; opaci
 /* lock screen: the phone's own unlock symbol */
 .lk-pad .lk-bio .bio-g { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 /* toasts never cover an open sheet: they move to the top and the sheet makes room under them */
-#toast.t-top { bottom: auto; top: calc(var(--safe-t) + 10px); z-index: 450; transform: translate(-50%, -24px) scale(.96); }
+#toast.t-top, body.no-tabs #toast.t-top, body.in-thread #toast.t-top { bottom: auto; top: calc(var(--safe-t) + 10px); z-index: 450; transform: translate(-50%, -24px) scale(.96); }
 #toast.t-top.on { transform: translate(-50%, 0) scale(1); }
 html.toast-top #modalRoot .sheet { max-height: calc(100dvh - 20px - var(--safe-t) - var(--toast-room, 76px)); transition: max-height .25s ease; }
 html.toast-top .lg-sheet { max-height: calc(100dvh - 20px - var(--safe-t) - var(--toast-room, 76px)); }
