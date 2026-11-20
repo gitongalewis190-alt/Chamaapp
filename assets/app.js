@@ -251,7 +251,7 @@ const Pop = {
 
 /* Toasts are neutral (no colour) and stay until dismissed or 7 s. Warnings and errors open a centred alert instead. */
 let toastTimer = 0, toastAct = null;
-const hideToast = () => { clearTimeout(toastTimer); const t = $('#toast'); if (t) t.classList.remove('on'); };
+const hideToast = () => { clearTimeout(toastTimer); const t = $('#toast'); if (t) t.classList.remove('on'); document.documentElement.classList.remove('toast-top'); };
 const toast = (msg, kind, opt) => {
   const k = kind || TOAST_KIND(msg);
   if (k === 'bad') return Pop.alert(msg, { title: /connection|internet|reach|offline/i.test(msg) ? 'Connection problem' : 'Please check' });
@@ -265,7 +265,24 @@ const toast = (msg, kind, opt) => {
     + (o.label ? '<button type="button" class="tbtn" data-t="act">' + esc_(o.label) + '</button>' : '')
     + '<button type="button" class="tbtn tx" data-t="x" aria-label="Dismiss"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></svg></button><i class="t-bar" style="animation-duration:' + ms + 'ms" aria-hidden="true"></i>';
   clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, ms);
+  toastPlace();
 };
+/* AUTH 0.20: while a sheet or popup is open the toast moves to the top, and the sheet makes room under it,
+   so a message never covers the sheet's buttons or boxes */
+const OVERLAY_Q = '#modalRoot .veil, #popRoot .pop-veil, .jm-veil, .lg-sheet.on, #lockRoot .lock, .gd-veil, .pal-veil';
+function toastPlace() {
+  const t = $('#toast'); if (!t) return;
+  const over = t.classList.contains('on') && !!document.querySelector(OVERLAY_Q);
+  t.classList.toggle('t-top', over);
+  document.documentElement.classList.toggle('toast-top', over);
+  if (over) requestAnimationFrame(() => { try { document.documentElement.style.setProperty('--toast-room', Math.ceil(t.getBoundingClientRect().height + 16) + 'px'); } catch (e) {} });
+}
+/* a sheet that opens (or closes) while a toast is showing moves it too */
+{
+  let raf = 0;
+  const watch = () => { try { new MutationObserver(() => { const t = $('#toast'); if (!t || !t.classList.contains('on') || raf) return; raf = requestAnimationFrame(() => { raf = 0; toastPlace(); }); }).observe(document.body, { childList: true, subtree: true }); } catch (e) {} };
+  if (document.body) watch(); else document.addEventListener('DOMContentLoaded', watch);
+}
 document.addEventListener('pointerenter', e => { if (e.target && e.target.id === 'toast') clearTimeout(toastTimer); }, true);
 document.addEventListener('pointerleave', e => { if (e.target && e.target.id === 'toast' && e.target.classList.contains('on')) { clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 1800); } }, true);
 document.addEventListener('click', e => {
@@ -274,6 +291,49 @@ document.addEventListener('click', e => {
 });
 
 return { get toastLong() { return toastLong; }, get setToastLong() { return setToastLong; }, get TOAST_KIND() { return TOAST_KIND; }, get toast() { return toast; }, get Pop() { return Pop; }, get Sfx() { return Sfx; }, get hideToast() { return hideToast; }, };
+})();
+
+/* ---- src/ui/countup.js ----
+   Live number count (M4): big figures count up when a page opens (Home, Contributions, My profile, payout card,
+   summary tiles) and from the old value to the new one when a number changes. Quiet re-renders of the same page
+   never replay a count for an unchanged number (that was the flicker). Reduced motion shows the final number. */
+const __M_src_ui_countup_js = (function () {
+const SEL = '.hero-v[data-to], .stats b, .mtile b, .po-amt, .jn-stats b, .st-grid b, .rc-grid b, .me-strip b, [data-count]';
+const last = {};
+const calm = () => document.documentElement.classList.contains('a-rm') || !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+/* "KES 12,500", "12,500 ahead", "7" -> parts; anything with two numbers ("3/5") or decimals is left alone */
+function parse(t) {
+  const m = /^(\D*?)(\d{1,3}(?:,\d{3})+|\d+)(\D*)$/.exec(String(t || '').trim()); if (!m) return null;
+  const n = Number(m[2].replace(/,/g, '')); return isFinite(n) ? { pre: m[1], n, post: m[3] } : null;
+}
+const fmt = (p, v) => p.pre + Math.round(v).toLocaleString('en-KE') + p.post;
+/* root: the element just painted; arrive: true when the person just opened this page (counts from zero) */
+function run(root, arrive) {
+  root = root || document.getElementById('view'); if (!root || !root.querySelectorAll) return 0;
+  const page = (location.hash || '#/home').split('?')[0], jobs = [], still = calm();
+  root.querySelectorAll(SEL).forEach((el, i) => {
+    if (el.children.length) return;
+    const p = el.dataset.to != null ? { pre: el.dataset.pre || '', n: Math.round(Number(el.dataset.to) || 0), post: el.dataset.post || '' } : parse(el.textContent);
+    if (!p) return;
+    const k = page + '|' + (el.dataset.k || el.dataset.count || (el.className || el.tagName) + ':' + i), prev = last[k];
+    last[k] = p.n;
+    const from = arrive ? 0 : prev;
+    if (still || from == null || from === p.n) return;
+    el.textContent = fmt(p, from);
+    jobs.push({ el, p, from });
+  });
+  if (!jobs.length) return 0;
+  const t0 = performance.now(), dur = arrive ? 800 : 900;
+  jobs.forEach(j => j.el.classList.add('counting', 'cu-run'));
+  const step = now => {
+    const q = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - q, 3);
+    for (const j of jobs) { if (!j.el.isConnected) continue; const s = fmt(j.p, q >= 1 ? j.p.n : j.from + (j.p.n - j.from) * e); if (j.el.textContent !== s) j.el.textContent = s; if (q >= 1) j.el.classList.remove('counting', 'cu-run'); }
+    if (q < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  return jobs.length;
+}
+return { get CountUp() { return { run, parse }; } };
 })();
 
 /* ---- src/core/a11y.js ---- */
@@ -825,11 +885,25 @@ const RESET_KEY = 'mca-reset';
 const markReset = email => { try { localStorage.setItem(RESET_KEY, JSON.stringify({ e: String(email || '').trim().toLowerCase(), t: Date.now() })); } catch (e) {} };
 const resetPending = email => { try { const v = JSON.parse(localStorage.getItem(RESET_KEY) || 'null'); return !!(v && v.e && v.e === String(email || '').trim().toLowerCase() && Date.now() - v.t < 30 * 60000); } catch (e) { return false; } };
 const clearReset = () => { try { localStorage.removeItem(RESET_KEY); } catch (e) {} };
+/* AUTH 0.20: a reset asked for on this phone, and this sign-in happened after it (so it was the emailed code, not an old session or Google) */
+const resetFresh = (email, user) => { try { if (!resetPending(email)) return false; const v = JSON.parse(localStorage.getItem(RESET_KEY) || 'null'), at = Date.parse((user && user.last_sign_in_at) || ''); return !at || at >= v.t - 60000; } catch (e) { return false; } };
 /* a code link only signs in on the phone that asked for a code for that email, within 30 minutes.
    A link forwarded to (or opened by) anyone else never signs them in as that person. */
 const OTP_REQ = 'mca-otp-req';
 const markCodeAsked = email => { try { const v = JSON.parse(localStorage.getItem(OTP_REQ) || '{}') || {}; v[String(email || '').trim().toLowerCase()] = Date.now(); Object.keys(v).forEach(k => { if (Date.now() - v[k] > 30 * 60000) delete v[k]; }); localStorage.setItem(OTP_REQ, JSON.stringify(v)); } catch (e) {} };
 const codeAskedHere = email => { try { const v = JSON.parse(localStorage.getItem(OTP_REQ) || '{}') || {}, t = v[String(email || '').trim().toLowerCase()]; return !!t && Date.now() - t < 30 * 60000; } catch (e) { return false; } };
+/* AUTH 0.20: shown when the server says this phone's session no longer exists (password changed or "sign out everywhere" elsewhere) */
+const DEAD_MSG = 'Your password was changed on another device, or you signed out everywhere, so you were signed out here. Sign in again to continue. Everything already saved to the cloud is safe.';
+/* Only a definite answer from the sign-in server ends a session. No internet, a timeout or a busy server never does. */
+const isDeadAuth = err => {
+  if (!err) return false;
+  const name = String(err.name || ''), code = String(err.code || ''), st = Number(err.status) || 0, msg = String(err.message || '');
+  if (/RetryableFetch|FetchError|AbortError|TimeoutError/i.test(name) || /failed to fetch|network|load failed|timed? ?out|offline|fetch/i.test(msg)) return false;
+  if (/^(session_not_found|refresh_token_not_found|refresh_token_already_used|user_not_found|bad_jwt|session_expired|user_banned)$/.test(code)) return true;
+  if (/AuthSessionMissing/i.test(name) || /session missing/i.test(msg)) return true;
+  if (/session.*(not found|does not exist)|refresh token|invalid jwt|user from sub claim|user not found/i.test(msg)) return true;
+  return st === 401 || st === 403;
+};
 const { esc } = __M_src_core_utils_js;
 const { Policy } = __M_src_core_policy_js;
 const { CONFIG } = __M_src_config_js;
@@ -954,6 +1028,8 @@ const Session = {
     return false;
   },
   set(st) {
+    /* AUTH 0.20: "Signing you in" hands over to Home with a short fade, never a blank frame */
+    if (st === 'ready' && this.status === 'loading') { try { const h = document.documentElement; h.classList.add('sgn-handoff'); clearTimeout(this._ho); this._ho = setTimeout(() => h.classList.remove('sgn-handoff'), 700); } catch (e) {} }
     this.status = st;
     /* watchdog: a sign-in check that never finishes becomes a visible error with a way out, never a silent hang */
     clearTimeout(this._wd);
@@ -994,7 +1070,9 @@ const Session = {
   },
   async boot() {
     if (!CONFIG.supabase) { this.status = 'demo'; this.role = 'treasurer'; await Store.init(); render(); return; }
-    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, lock: authLock } }); }
+    this.oauthReturn = /[?&]code=/.test(location.search);
+    /* the storage key stays the library default (sb-<ref>-auth-token): changing it would sign every phone out once */
+    try { await loadLib(); Backend.sb = window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true, lock: authLock } }); }
     catch (e) { this.error = 'The sign-in service could not be reached. Check your internet and try again.'; return this.set('error'); }
     let settle = false;
     Backend.sb.auth.onAuthStateChange((ev, sess) => {
@@ -1003,7 +1081,7 @@ const Session = {
         /* not asked for on this phone: the session ended on the server (expired, signed out elsewhere, password changed) */
         const unasked = !this.leaving && !!this.user;
         this.leaving = false;
-        if (unasked) { try { const G = __M_src_features_auth_gate_js.Gate; G.notice = 'Your session ended, so you were signed out for safety. Sign in again to continue. Everything already saved to the cloud is safe.'; G.mode = 'in'; G.sent = false; } catch (e) {} try { __M_src_features_smart_js.Lock.unlock(); } catch (e) {} }
+        if (unasked) { try { const G = __M_src_features_auth_gate_js.Gate; G.notice = DEAD_MSG; G.mode = 'in'; G.sent = false; } catch (e) {} try { __M_src_features_smart_js.Lock.unlock(); } catch (e) {} }
         Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out'); return;
       }
       if ((ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION') && sess && !this.verifying && (!this.user || this.user.id !== sess.user.id || this.status === 'signed-out')) this.after(sess.user);
@@ -1023,7 +1101,14 @@ const Session = {
       data = {};
       try { __M_src_features_auth_gate_js.Gate.notice = 'Your session ended on this device. Sign in again to continue.'; __M_src_features_auth_gate_js.Gate.mode = 'in'; } catch (e) {}
     }
-    if (data && data.session) { OtpLink.clear(); try { if (/^#otp=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) {} if (!this.user) await this.after(data.session.user); }
+    if (data && data.session) {
+      /* AUTH 0.20: a code link opened while someone is already signed in on this phone is never used as the current account */
+      const link = OtpLink.take(); OtpLink.clear();
+      try { if (/^#otp=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      const cur = String(data.session.user.email || '').toLowerCase();
+      if (!this.user) await this.after(data.session.user);
+      if (link) await this.linkWhileSignedIn(link, cur);
+    }
     else {
       if (oauthMsg) { try { __M_src_features_auth_gate_js.Gate.notice = oauthMsg; } catch (e) {} }
       this.prepareGoogle();
@@ -1049,6 +1134,46 @@ const Session = {
       if (!this.user) this.set('signed-out');
     }
   },
+  /* AUTH 0.20: wait for a running account check to finish (at most 10 s) */
+  async settled() { for (let i = 0; i < 100 && (this.busy || this.status === 'loading'); i++) await new Promise(r => setTimeout(r, 100)); },
+  /* a "Fill it in for me" link opened while an account is signed in on this phone */
+  async linkWhileSignedIn(link, cur) {
+    await this.settled();
+    if (!this.user) return;
+    if (link.email === cur) {
+      /* the same account: a forgot-password code still opens "Choose a new password" */
+      if (resetPending(cur) && this.status !== 'setup') { this.resetOffered = true; this.setupMode = 'reset'; this.set('setup'); }
+      return;
+    }
+    const hint = link.email.replace(/^(.)[^@]*(@.*)$/, '$1•••$2');
+    __M_src_ui_toast_js.Pop.confirm({
+      title: 'This code is for another account',
+      html: `<p>This code is for <b>${esc(hint)}</b>.</p><p>You’re signed in as <b>${esc(cur)}</b>.</p><p>Switch to use the code, or stay as you are.</p>`,
+      confirmLabel: 'Switch account', cancelLabel: 'Stay',
+      onYes: () => this.switchForLink(link),
+    });
+  },
+  /* sign out of this phone only, then use the code for the other email (only if that code was asked for on this phone) */
+  async switchForLink(link) {
+    this.leaving = true;
+    try { await Backend.sb.auth.signOut({ scope: 'local' }); } catch (e) { /* cleared below */ }
+    try { const mr = document.getElementById('modalRoot'); if (mr) mr.innerHTML = ''; document.body.style.overflow = ''; } catch (e) {}
+    try { __M_src_features_smart_js.Lock.unlock(); } catch (e) {}
+    clearIntent(); this.account = null; this.workspaces = [];
+    Store.wipeLocal(); this.user = null; this.email = ''; this.role = null; this.memberId = null;
+    setTimeout(() => { this.leaving = false; }, 0);
+    const G = __M_src_features_auth_gate_js.Gate, O = __M_src_features_auth_gate_js.Otp;
+    if (!codeAskedHere(link.email)) {
+      const hint = link.email.replace(/^(.)[^@]*(@.*)$/, '$1•••$2');
+      G.mode = 'in'; G.sent = false; G.email = '';
+      G.notice = 'This sign-in link is for ' + hint + ' and was asked for on another phone or browser, so it was not used. If it is yours, type the code in the app where you asked for it, or ask for a new code here.';
+      this.set('signed-out');
+      return;
+    }
+    G.email = link.email; G.sent = true; G.mode = resetPending(link.email) ? 'forgot' : 'in'; G.notice = ''; this.viaCode = true;
+    this.set('signed-out');
+    setTimeout(() => { const inp = document.getElementById('otpIn'); if (!inp) return; O.len = link.code.length; inp.value = link.code; inp.dispatchEvent(new Event('input', { bubbles: true })); }, 400);
+  },
   /* A saved session can outlive the server's copy (signed out elsewhere, refresh token reused, account changed).
      The database still accepts its token until it expires, so the app looked signed in while the invitation service
      (which checks the session strictly) said "Sign in first". Ask the server once; refresh if it is only stale. */
@@ -1056,10 +1181,43 @@ const Session = {
     try {
       const { data, error } = await Backend.sb.auth.getUser();
       if (!error && data && data.user) return true;
-      if (error && !/session|jwt|token|not found|expired|invalid|401|403/i.test((error.message || '') + ' ' + (error.status || ''))) return true;   /* offline or server busy: keep the session */
+      if (!isDeadAuth(error)) return true;   /* offline or server busy: keep the session */
       const { data: r, error: e2 } = await Backend.sb.auth.refreshSession();
-      return !e2 && !!(r && r.session);
+      if (!e2 && r && r.session) return true;
+      return !isDeadAuth(e2);   /* only a definite "this session is gone" signs out; a failed network refresh keeps it */
     } catch (e) { return true; }
+  },
+  /* AUTH 0.20: asked on every return to the app and every 5 minutes while it is open. getUser asks the server
+     (getSession only reads this phone), so a password change or "sign out everywhere" on another phone ends this one too. */
+  _aliveAt: 0, _aliveRun: null,
+  async checkAlive(force) {
+    if (!Backend.sb || !this.user || this.leaving || this.verifying || this.status === 'signed-out' || this.status === 'demo') return true;
+    if (!force && Date.now() - this._aliveAt < 20000) return true;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+    if (this._aliveRun) return this._aliveRun;
+    this._aliveAt = Date.now();
+    this._aliveRun = (async () => {
+      let res;
+      try { res = await Promise.race([Backend.sb.auth.getUser(), new Promise(r => setTimeout(() => r({ timeout: true }), 12000))]); } catch (e) { return true; }
+      if (!res || res.timeout) return true;
+      if (!res.error && res.data && res.data.user) return true;
+      if (!isDeadAuth(res.error)) return true;
+      await this.sessionDead();
+      return false;
+    })();
+    try { return await this._aliveRun; } finally { this._aliveRun = null; }
+  },
+  /* the server ended this session: sign out on this phone only (the server copy is already gone) and say why */
+  async sessionDead() {
+    if (!this.user) return;
+    this.leaving = true;
+    try { const G = __M_src_features_auth_gate_js.Gate; G.notice = DEAD_MSG; G.mode = 'in'; G.sent = false; } catch (e) {}
+    try { __M_src_features_smart_js.Lock.unlock(); } catch (e) {}
+    try { const mr = document.getElementById('modalRoot'); if (mr) mr.innerHTML = ''; document.body.style.overflow = ''; } catch (e) {}
+    try { await Backend.sb.auth.signOut({ scope: 'local' }); } catch (e) { /* cleared below */ }
+    clearIntent(); this.account = null; this.workspaces = [];
+    Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out');
+    setTimeout(() => { this.leaving = false; }, 0);
   },
   /* After any sign-in: (1) is the account finished? (2) is there an invitation to accept? (3) which Chama opens? */
   async after(user) {
@@ -1080,7 +1238,9 @@ const Session = {
       /* signing in with an emailed code means the person asked to reset (or to create an account that already exists):
          always offer a new password, also when the account has Google linked. Google sign-in itself never asks. */
       const viaCode = this.viaCode; this.viaCode = false;
-      const wantsReset = (viaCode || !google) && (intentIs('forgot') || resetPending(this.email) || (viaCode && (acct.has_password || google)));
+      /* AUTH 0.20: with Google linked, another tab that finished a forgot-password code (it reaches this tab as a plain
+         sign-in) also lands on "Choose a new password", not straight into the Chama */
+      const wantsReset = (viaCode || !google || (!this.oauthReturn && resetFresh(this.email, user))) && (intentIs('forgot') || resetPending(this.email) || (viaCode && (acct.has_password || google)));
       if (wantsReset) this.resetOffered = true;
       if (!acct.has_profile || !canEnter || acct.needs_username || wantsReset) { this.setupMode = acct.has_profile && canEnter && !acct.needs_username ? 'reset' : 'new'; this.busy = false; this.set('setup'); return; }
       if (Invite.token && Invite.info && Invite.info.ok) { this.role = null; this.memberId = null; this.busy = false; this.set('invite'); return; }
@@ -1330,10 +1490,11 @@ const Session = {
     if (password) {
       const { error: e2 } = await Backend.sb.auth.updateUser({ password });
       if (e2 && /AAL2|MFA/i.test(e2.message)) {
-        try { await Backend.sb.auth.signOut(); } catch (e) {}
+        try { await Backend.sb.auth.signOut({ scope: 'local' }); } catch (e) {}
         throw new Error('Your sign-in session was closed for safety. Press Start again and enter a new email code.');
       }
       if (e2) throw new Error(/same|different/i.test(e2.message) ? 'Choose a password you have not used before' : e2.message);
+      await this.signOutOthers();
     }
     clearIntent(); clearReset(); this.resetOffered = false; this.viaCode = false; this.account = null; this.busy = false;
     await this.after(this.user);
@@ -1428,6 +1589,21 @@ const Session = {
     if (r.error) throw new Error(/password is not right/.test(r.error) ? 'Your current password is not right' : r.error);
     const { error } = await Backend.sb.auth.updateUser({ password: next });
     if (error) throw new Error(/same|different|previous/i.test(error.message) ? 'Choose a password you have not used before' : error.message);
+    await this.signOutOthers();
+  },
+  /* AUTH 0.20: after a new password, every other phone and browser is signed out; this one stays in */
+  async signOutOthers() {
+    if (!Backend.sb) return false;
+    try { const { error } = await Backend.sb.auth.signOut({ scope: 'others' }); return !error; } catch (e) { return false; }
+  },
+  /* "Sign out everywhere": the other devices first, then this one */
+  async signOutEverywhere() {
+    if (!Backend.sb) return false;
+    let ok = false;
+    try { const { error } = await Backend.sb.auth.signOut({ scope: 'others' }); ok = !error; } catch (e) { ok = false; }
+    if (!ok) return false;
+    await this.signOut();
+    return true;
   },
   async loadAccess() {
     if (this.role !== 'treasurer' || !Backend.sb) return;
@@ -1524,7 +1700,9 @@ const Session = {
   },
   async signOut() {
     this.leaving = true;
-    try { await Backend.sb.auth.signOut(); } catch {}
+    /* AUTH 0.20: this phone only. The library default ('global') signed out every other phone and browser too,
+       so signing out (or a wrong PIN five times) on one device threw the person out everywhere. */
+    try { await Backend.sb.auth.signOut({ scope: 'local' }); } catch {}
     clearIntent(); this.account = null; this.workspaces = [];
     Store.wipeLocal(); this.user = null; this.role = null; this.memberId = null; this.set('signed-out');
   }
@@ -2045,33 +2223,38 @@ const UserCheck = {
     const f = p[0].slice(0, 12), l = (p[p.length - 1] || '').slice(0, 12), n = String(10 + Math.floor(Math.random() * 89));
     return [...new Set([f + '.' + l, f + l, f[0] + l, f + n].filter(x => /^[a-z0-9._-]{3,20}$/.test(x) && x !== f + '.'))].slice(0, 4);
   },
-  show(state, text) { const el = document.getElementById('userSt'); if (!el) return; el.className = 'u-st ' + state; el.innerHTML = (state === 'ok' ? icon('check', 's') : state === 'bad' ? icon('alert', 's') : state === 'wait' ? '<span class="spin sm" aria-hidden="true"></span>' : '') + '<span>' + esc(text) + '</span>'; const f = document.getElementById('setUser'); if (f) f.setAttribute('aria-invalid', state === 'bad' ? 'true' : 'false'); },
+  /* go: the Save button that belongs to this field ([data-uc-save], used on My profile) may be pressed */
+  show(state, text, go) { const sv = document.querySelector('[data-uc-save]'); if (sv) sv.disabled = !(go || state === 'ok'); const el = document.getElementById('userSt'); if (!el) return; el.className = 'u-st ' + state; el.innerHTML = (state === 'ok' ? icon('check', 's') : state === 'bad' ? icon('alert', 's') : state === 'wait' ? '<span class="spin sm" aria-hidden="true"></span>' : '') + '<span>' + esc(text) + '</span>'; const f = document.getElementById('setUser'); if (f) f.setAttribute('aria-invalid', state === 'bad' ? 'true' : 'false'); },
+  /* My profile sets these: the person's name for suggestions, and their current username (no need to check it) */
+  name: '', mine: '',
   async check(v) {
     const u = String(v || '').trim().toLowerCase(), me = ++this.seq;
     if (!u) return this.show('', GL().usernameHint);
     if (!/^[a-z0-9._-]{3,20}$/.test(u)) return this.show('bad', u.length < 3 ? 'At least 3 characters' : u.length > 20 ? '20 characters at most' : 'Only letters, numbers, dot, dash or underscore');
-    if (!this.server || !Backend.sb) return this.show('', 'Looks fine. Checked again when you save.');
+    if (this.mine && u === this.mine) return this.show('', 'This is your username now');
+    if (!this.server || !Backend.sb) return this.show('', 'Looks fine. Checked again when you save.', true);
     this.show('wait', 'Checking…');
     try {
       const { data, error } = await Backend.sb.rpc('username_available', { p_username: u });
       if (me !== this.seq) return;
-      if (error) { if (/Could not find the function|PGRST202|schema cache/i.test(error.message || '')) this.server = false; return this.show('', 'Looks fine. Checked again when you save.'); }
+      if (error) { if (/Could not find the function|PGRST202|schema cache/i.test(error.message || '')) this.server = false; return this.show('', 'Looks fine. Checked again when you save.', true); }
       if (data && data.available) return this.show('ok', '@' + u + ' is yours if you want it');
       const why = { taken: 'Someone already has this username', retired: 'This username was used before and cannot be reused', reserved: 'This username is reserved', format: 'Only letters, numbers, dot, dash or underscore' };
       this.show('bad', why[(data && data.reason) || 'taken'] || 'Not available');
-    } catch (e) { if (me === this.seq) this.show('', 'Could not check now. Checked again when you save.'); }
+    } catch (e) { if (me === this.seq) this.show('', 'Could not check now. Checked again when you save.', true); }
   },
   async suggest() {
     const box = document.getElementById('userSugg'); if (!box) return;
-    const name = ((document.getElementById('setName') || {}).value || '').trim(); if (name.length < 2) { box.innerHTML = ''; return; }
+    const nf = document.getElementById('setName'), name = (nf ? nf.value : this.name || '').trim(); if (name.length < 2) { box.innerHTML = ''; return; }
     let list = [];
     if (this.server && Backend.sb) { try { const { data, error } = await Backend.sb.rpc('username_suggestions', { p_full_name: name }); if (!error && Array.isArray(data)) list = data; else if (error && /Could not find the function|PGRST202|schema cache/i.test(error.message || '')) this.server = false; } catch (e) {} }
     if (!list.length) list = this.local(name);
     box.innerHTML = list.length ? `<span>Try:</span>${list.map(x => `<button type="button" class="u-chip" data-uname="${esc(x)}">${esc(x)}</button>`).join('')}` : '';
   },
-  init() {
+  init(o = {}) {
+    this.name = o.name || ''; this.mine = o.mine || '';
     const f = document.getElementById('setUser'); if (!f) return;
-    if (f.value) this.check(f.value);
+    if (f.value) this.check(f.value); else this.show('', GL().usernameHint);
     this.suggest();
   }
 };
@@ -2404,6 +2587,16 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
     return this.card('You’re invited', `<p class="auth-s">Signed in as <b>${esc(Session.email)}</b></p>${rows}${note}${msg}<div class="btns col" style="margin-top:22px"><button class="btn pri block" data-act="inviteAccept"${Invite.busy ? ' disabled' : ''}>Accept invitation</button><button class="btn block" data-act="inviteDecline">Decline</button><button class="btn ghost block" data-act="gateSignOut">Use another email</button></div>`, 'invite');
   },
   card(t, body, artName) { return shell(`${artName ? `<div class="auth-art">${art(artName)}</div>` : ''}<h1 class="auth-t" style="margin-top:${artName ? 6 : 0}px">${esc(t)}</h1>${body}`, { top: !artName, lang: false }); },
+  /* AUTH 0.20: the "Signing you in" screen: the brand mark breathing inside two soft rings, a slow progress line,
+     and Cancel only after a few seconds. Colours come from the theme boot.js set before the first paint. */
+  signingIn(text) {
+    const sw = OB.lang() === 'sw';
+    return `<section class="sgn" role="status" aria-live="polite" aria-busy="true"><div class="sgn-in">
+<div class="sgn-mark" aria-hidden="true"><span class="sgn-ring"></span><span class="sgn-ring r2"></span>${markTile('lg')}</div>
+<p class="sgn-t">${esc(text)}</p><p class="sgn-s">${sw ? 'Tunafungua Chama chako kwa usalama' : 'Opening your Chama safely'}</p>
+<div class="sgn-bar" aria-hidden="true"><i></i></div>
+<button type="button" class="btn ghost sgn-x" data-act="gateCancel">${esc(GL().cancel)}</button></div></section>`;
+  },
   loading(text, cancel) {
     return shell(`<div class="loader"><span class="spin" aria-hidden="true"></span><p>${esc(text)}</p>${cancel ? `<button class="btn ghost" data-act="gateCancel">${esc(GL().cancel)}</button>` : ''}</div>`, { lang: false, foot: false });
   },
@@ -2417,7 +2610,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
     const st = Session.status; let html; const G = GL();
     if (st === 'invite' || (st === 'signed-out' && Invite.token && !Invite.signin && !this.sent)) { $('#view').innerHTML = this.inviteCard(); return; }
     try { if (st === 'signed-out') sessionStorage.setItem('mca-gate', JSON.stringify({ email: this.email, sent: this.sent, mode: this.mode })); else sessionStorage.removeItem('mca-gate'); } catch (e) {}
-    if (st === 'loading') html = this.loading(G.signingIn, true);
+    if (st === 'loading') html = this.signingIn(G.signingIn);
     else if (st === 'signed-out') {
       Otp.kind = 'email'; Otp.len = Session.otpLength;
       html = this.sending && this.mode !== 'up'
@@ -2427,7 +2620,7 @@ ${I.inviter_name ? `<div class="kv"><span>Invited by</span><b>${esc(I.inviter_na
         : this.authCard();
     }
     else if (st === 'setup') { html = this.setupCard(); setTimeout(() => UserCheck.init(), 0); }
-    else if (st === 'welcome') html = (() => { try { const F = __M_src_features_guide_js; if (!F.About.done()) return shell(F.About.card(), { top: true, lang: false }); if (!F.Personal.done()) return shell(F.Personal.card(), { top: true, lang: false }); } catch (e) {} return this.welcomeCard(); })();
+    else if (st === 'welcome') html = (() => { try { const F = __M_src_features_guide_js; if (!F.About.done()) return shell(F.About.gateCard(), { top: true, lang: false }); if (!F.Personal.done()) return shell(F.Personal.card(), { top: true, lang: false }); } catch (e) {} return this.welcomeCard(); })();
     else if (st === 'choose') html = this.chooseCard();
     else html = this.card('Something went wrong', `<p class="auth-s">${esc(Session.error || 'We could not reach the server.')}</p><div class="btns col" style="margin-top:24px"><button class="btn pri block" data-act="gateRetry">Try again</button>${Session.user ? '<button class="btn ghost block" data-act="gateSignOut">Sign out</button>' : ''}</div>`, 'lost');
     $('#view').innerHTML = html;
@@ -2494,7 +2687,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'joinLink') { e.preventDefault(); Gate.submitJoin(); }
 });
 
-return { get Gate() { return Gate; }, get Haptic() { return Haptic; }, get Otp() { return Otp; }, get OB() { return OB; }, get GL() { return GL; }, get GT() { return GT; }, get AUTH_T() { return AUTH_T; }, get LG_ALL() { return LG_ALL; }, get lgMatches() { return lgMatches; }, get LEGAL() { return LEGAL; }, get OB_POLICY_VERSION() { return OB_POLICY_VERSION; }, };
+return { get UserCheck() { return UserCheck; }, get Gate() { return Gate; }, get Haptic() { return Haptic; }, get Otp() { return Otp; }, get OB() { return OB; }, get GL() { return GL; }, get GT() { return GT; }, get AUTH_T() { return AUTH_T; }, get LG_ALL() { return LG_ALL; }, get lgMatches() { return lgMatches; }, get LEGAL() { return LEGAL; }, get OB_POLICY_VERSION() { return OB_POLICY_VERSION; }, };
 })();
 
 /* ---- src/core/state.js ---- */
@@ -2555,32 +2748,72 @@ const newRequestKey = () => (crypto.randomUUID ? crypto.randomUUID()
 const pendingPayKeys = new Map();
 async function savePayments(list) {
   const Backend = __M_src_core_backend_js.Backend, Store = __M_src_core_store_js.Store, uid = __M_src_core_utils_js.uid, Matcher = __M_src_lib_matcher_js.Matcher;
-  const saved = [];
+  const Session = __M_src_core_session_js.Session, Pop = __M_src_ui_toast_js.Pop;
+  const saved = []; let stop = null;
   try {
     for (const p of list) {
+      /* anti-cheat: a treasurer recording their OWN payment must bring proof (the M-Pesa SMS, or a photo of it).
+         It goes through record_payment_v2 only: if the server does not have it yet, nothing is saved. */
+      const self = !!Session.memberId && p.memberId === Session.memberId;
+      if (self && !p.ev && p.sms && p.code) p.ev = { kind: 'sms', text: String(p.sms).slice(0, 1000), code: p.code };
+      if (self && !p.ev && !p.evFile) throw new Error('Your own payment needs proof. Paste the M-Pesa message or add a photo of it.');
       const sig = [p.memberId, p.month, p.amount, p.code || ''].join('|');
       if (!pendingPayKeys.has(sig)) pendingPayKeys.set(sig, newRequestKey());
-      const { data, error } = await Backend.sb.rpc('record_payment', {
-        p_cid: Store.chamaId, p_member: p.memberId, p_month: p.month, p_amount: p.amount,
-        p_code: p.code || null, p_date: p.date, p_idem: pendingPayKeys.get(sig) });
+      if (self && !p.ev && p.evFile) p.ev = { kind: 'image', path: await uploadEvidence(p.evFile) };
+      const args = { p_cid: Store.chamaId, p_member: p.memberId, p_month: p.month, p_amount: p.amount, p_code: p.code || null, p_date: p.date, p_idem: pendingPayKeys.get(sig) };
+      let { data, error } = await Backend.sb.rpc('record_payment_v2', { ...args, p_evidence: self ? p.ev : null });
+      if (error && payNotReady(error)) {
+        if (self) throw new Error('Nothing was changed. Recording your own payment needs the server update.');
+        ({ data, error } = await Backend.sb.rpc('record_payment', args));
+      }
       if (error) throw error;
-      if (!data || !data.ok) { if (data && data.status === 'duplicate_code') pendingPayKeys.delete(sig); throw new Error((data && data.error) || 'Payment not recorded'); }
+      if (!data || !data.ok) {
+        if (data && data.status === 'duplicate_code') pendingPayKeys.delete(sig);
+        const st = data && data.status;
+        throw new Error(st === 'needs_evidence' ? 'Your own payment needs proof. Paste the M-Pesa message or add a photo of it.'
+          : st === 'evidence_mismatch' ? 'The M-Pesa message does not match this payment. Check the code and the amount.' : (data && data.error) || 'Payment not recorded');
+      }
       pendingPayKeys.delete(sig);
-      saved.push(p);
+      saved.push({ ...p, sid: data.id || null, serial: data.serial || null, selfRec: !!(data.self_recorded || self), flags: Array.isArray(data.flags) ? data.flags.filter(f => typeof f === 'string').slice(0, 4) : [] });
     }
   } catch (err) {
-    toast(err && err.message && !/fetch|network|Failed/i.test(err.message) ? err.message : 'Payment not saved. Check your connection and try again.');
+    stop = err && err.message && !/fetch|network|Failed/i.test(err.message) ? err.message : 'Payment not saved. Check your connection and try again.';
   }
   if (saved.length) {
-    /* the payments and the names learned from them are saved together, so a confirmed sender is recognised next time */
+    /* the payments and the names learned from them are saved together, so a confirmed sender is recognised next time.
+       sid ties the record to the server row: the server refuses a new payment without it. */
     Store.commit(st => saved.forEach(p => {
+      const sms = p.sms || (p.ev && p.ev.kind === 'sms' ? p.ev.text : '');
       st.payments.push({ id: uid(), memberId: p.memberId, month: p.month, amount: p.amount, code: p.code || '', date: p.date, at: Date.now(),
-        ...(p.from ? { from: String(p.from).slice(0, 80) } : {}), ...(p.phone ? { fromPhone: String(p.phone).slice(0, 16) } : {}), ...(p.sms ? { sms: String(p.sms).slice(0, 360), via: 'mpesa' } : {}) });
+        ...(p.sid ? { sid: p.sid } : {}), ...(p.serial ? { serial: p.serial } : {}), ...(p.selfRec ? { selfRec: true } : {}), ...(p.flags.length ? { flags: p.flags } : {}),
+        ...(p.ev ? { ev: { kind: p.ev.kind, ...(p.ev.code ? { code: p.ev.code } : {}), ...(p.ev.path ? { path: p.ev.path } : {}) } } : {}),
+        ...(p.from ? { from: String(p.from).slice(0, 80) } : {}), ...(p.phone ? { fromPhone: String(p.phone).slice(0, 16) } : {}), ...(sms ? { sms: String(sms).slice(0, 600), via: 'mpesa' } : {}) });
       if (p.learn) { const mm = st.members.find(x => x.id === p.memberId); if (mm) Matcher.learn(mm, p.learn.t); }
     }));
-    toast(saved.length === 1 ? 'Payment recorded: ' + __M_src_core_utils_js.kes(saved[0].amount) + (saved[0].name ? ' from ' + saved[0].name : '') : saved.length + ' payments recorded', 'ok');
+    const selfOne = saved.find(p => p.selfRec);
+    if (selfOne && !stop) Pop.alert('', { title: 'Saved. Awaiting check', html: `<p>Your own payment of ${esc(__M_src_core_utils_js.kes(selfOne.amount))} is saved with its proof. It shows <b>Awaiting check</b> until the secretary confirms it.</p>`, label: 'OK' });
+    else toast(saved.length === 1 ? 'Payment recorded: ' + __M_src_core_utils_js.kes(saved[0].amount) + (saved[0].name ? ' from ' + saved[0].name : '') : saved.length + ' payments recorded', 'ok');
     try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
+    try { __M_src_features_paychecks_js.PayChecks.load(true); } catch (e) {}
   }
+  if (stop) { if (saved.length) setTimeout(() => toast(stop), 400); else toast(stop); }
+  return saved;
+}
+const payNotReady = e => /Could not find the function|PGRST202|schema cache|does not exist|Bucket not found|bucket/i.test((e && e.message) || '');
+/* the photo proof: made smaller (long side 1600, JPEG), then put in the private payment-evidence folder of this Chama */
+async function uploadEvidence(file) {
+  const Backend = __M_src_core_backend_js.Backend, Store = __M_src_core_store_js.Store, Session = __M_src_core_session_js.Session;
+  let blob = file;
+  try {
+    const bmp = await createImageBitmap(file), k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    blob = await new Promise(ok => c.toBlob(b => ok(b || file), 'image/jpeg', 0.85));
+  } catch (e) { throw new Error('That file is not a picture. Use a JPG or PNG screenshot.'); }
+  if (blob.size > 8 * 1024 * 1024) throw new Error('That picture is too big. Use a screenshot.');
+  const path = Store.chamaId + '/' + ((Session.user && Session.user.id) || 'me') + '/' + newRequestKey() + '.jpg';
+  const { error } = await Backend.sb.storage.from('payment-evidence').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw new Error(payNotReady(error) ? 'Nothing was changed. Photo proof needs the server update. Paste the M-Pesa message instead.' : 'The photo did not upload. Check your connection and try again.');
+  return path;
 }
 /* shows cash on hand and what is left after the amount being typed, updating with every key */
 const cashMeter = (cash, start) => `<div class="cash-live" id="cashLive" data-cash="${Number(cash) || 0}" aria-live="polite">${cashMeterInner(Number(cash) || 0, Number(start) || 0)}</div>`;
@@ -2646,13 +2879,25 @@ const { esc } = __M_src_core_utils_js;
 const { $ } = __M_src_lib_dom_js;
 const { Modal } = __M_src_ui_modal_js;
 
-const sigImg = (v, alt) => /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(v || '') ? `<img src="${v}" alt="${esc(alt)}" style="height:44px;margin-top:8px;display:block">` : '';
+/* 0.20: one standard signature size everywhere (screen 160×56, paper 42×14.7 mm): a fixed box, the picture fitted inside */
+const sigImg = (v, alt) => /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(v || '') ? `<span class="sig-box"><img src="${v}" alt="${esc(alt)}"></span>` : '';
+/* crop the empty space around the ink, then scale to fit 480×168 (three times the box), so every stored signature is the same shape */
+const sigTrim = c => {
+  const w = c.width, h = c.height, d = c.getContext('2d').getImageData(0, 0, w, h).data; let t = h, l = w, r = -1, b = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 24) { if (y < t) t = y; if (y > b) b = y; if (x < l) l = x; if (x > r) r = x; }
+  if (r < 0) return null;
+  const pad = 6; l = Math.max(0, l - pad); t = Math.max(0, t - pad); r = Math.min(w - 1, r + pad); b = Math.min(h - 1, b + pad);
+  const cw = r - l + 1, ch = b - t + 1, k = Math.min(480 / cw, 168 / ch, 1.5), o = document.createElement('canvas');
+  o.width = Math.max(1, Math.round(cw * k)); o.height = Math.max(1, Math.round(ch * k));
+  const ox = o.getContext('2d'); ox.imageSmoothingQuality = 'high'; ox.drawImage(c, l, t, cw, ch, 0, 0, o.width, o.height);
+  return o.toDataURL('image/png');
+};
 
 
 const Signature = {
   open(title, onSave) {
     Modal.open({ title, submitLabel: 'Save signature', body: '<canvas id="sigPad" width="600" height="240" aria-label="Signature pad" style="width:100%;height:170px;border:1.5px dashed var(--line-2);border-radius:16px;touch-action:none;background:#fff;margin-top:6px"></canvas><p class="mute small" style="margin-top:8px">Sign with a finger inside the box. <button type="button" class="linkish" data-act="sigClear">Clear</button></p>',
-      onSubmit: () => { const c = $('#sigPad'); if (!c._ink) throw new Error('Please sign first'); const o = document.createElement('canvas'); o.width = 300; o.height = 120; o.getContext('2d').drawImage(c, 0, 0, 300, 120); onSave(o.toDataURL('image/png')); } });
+      onSubmit: () => { const c = $('#sigPad'); if (!c._ink) throw new Error('Please sign first'); const t = sigTrim(c); if (!t) throw new Error('Please sign first'); onSave(t); } });
     const c = $('#sigPad'), x = c.getContext('2d'); x.lineWidth = 3; x.lineCap = 'round'; x.strokeStyle = '#12231f'; let down = false, last = null;
     const pt = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
     c.addEventListener('pointerdown', e => { down = true; c.setPointerCapture(e.pointerId); const p = pt(e); last = p; c._ink = true; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(p[0] + .1, p[1] + .1); x.stroke(); });
@@ -2661,7 +2906,7 @@ const Signature = {
   }
 };
 
-return { get sigImg() { return sigImg; }, get Signature() { return Signature; }, };
+return { get sigImg() { return sigImg; }, get sigTrim() { return sigTrim; }, get Signature() { return Signature; }, };
 })();
 
 /* ---- src/features/home/index.js ---- */
@@ -2677,19 +2922,10 @@ const { Modal, confirmBox } = __M_src_ui_modal_js;
 const { Signature, sigImg } = __M_src_ui_signature_js;
 const { toast } = __M_src_ui_toast_js;
 
-/* the card's figure counts from what was shown before to the new value, only when it changes */
-const heroLast = {};
 function heroCount() {
   /* keep the breathing in phase with the clock, so a repaint continues it instead of restarting it */
   const card = document.querySelector('#view .hero'); if (card) { const t = (Date.now() / 1000) % 28; card.style.animationDelay = card.classList.contains('tn-late') ? `-${t}s, -${t % 3.2}s` : `-${t}s`; }
-  const el = document.querySelector('#view .hero-v[data-to]'); if (!el) return;
-  const to = Number(el.dataset.to) || 0, k = el.dataset.k, from = heroLast[k], pre = el.dataset.pre || '', post = el.dataset.post || '';
-  heroLast[k] = to;
-  if (from == null || from === to || document.documentElement.classList.contains('a-rm') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const t0 = performance.now(), dur = 900;
-  el.classList.add('counting');
-  const step = now => { const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3), v = Math.round(from + (to - from) * e); if (!el.isConnected) return; el.textContent = pre + v.toLocaleString('en-KE') + post; if (p < 1) requestAnimationFrame(step); else el.classList.remove('counting'); };
-  requestAnimationFrame(step);
+  /* the figure itself is counted by CountUp (src/ui/countup.js) right after the page is painted */
 }
 /* the live line on the card: one fact at a time, every few seconds, without repainting the page */
 setInterval(() => {
@@ -2757,10 +2993,10 @@ const views = {
     if (s.shared) {
       const value = !me ? '<div class="hero-v">Not linked yet</div>' : tone === 'ahead' ? big(myAhead, 'KES ', ' ahead', 'ahead') : (tone === 'late' || tone === 'part' || tone === 'due') ? big(myBal, 'KES ', ' due', 'due') : `<div class="hero-v">${esc(tone === 'idle' ? 'Nothing due' : 'Paid up')}</div>`;
       const sub = !me ? 'Ask your treasurer to link your sign-in to your member record.' : { late: 'It was due by day ' + dueD + '. Pay to ' + (s.chama.payTo || 'the treasurer') + ' as soon as you can.', part: kes(myBal) + ' still to go for ' + longMonth(cur) + '.', due: 'Due by day ' + dueD + ' of ' + longMonth(cur) + (s.chama.payTo ? '. Pay to ' + s.chama.payTo : '') + '.', paid: 'Thank you. Your ' + longMonth(cur) + ' contribution is in.', ahead: 'Your ' + longMonth(cur) + ' is paid and the extra covers the coming months.', gold: payoutMine ? 'It is your turn to receive the pot this month.' : 'Paid on time ' + streak + ' months in a row. Thank you.', idle: 'Nothing is due from you this month.' }[tone];
-      hero = `<section class="hero tn-${tone}" aria-label="Your month">${top(TIER[tone][0], TIER[tone][1])}<div class="hero-l">Your ${esc(longMonth(cur))}</div>${value}<div class="hero-s">${esc(sub)}</div>${tick}${bar('Group collected ' + kes(got) + ' of ' + kes(exp))}</section>`;
+      hero = `<section class="hero tn-${tone}" aria-label="Your month">${top(TIER[tone][0], TIER[tone][1])}<div class="hero-l">Your ${esc(longMonth(cur))}</div>${value}<div class="hero-s">${esc(sub)}</div>${tick}${bar(got > exp ? 'Group: ' + kes(got) + ' collected · target ' + kes(exp) : 'Group collected ' + kes(got) + ' of ' + kes(exp))}</section>`;
     } else {
       const mine = me ? ({ late: 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' late', part: 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' to go', due: 'Your own ' + longMonth(cur) + ': ' + kes(myBal) + ' due', ahead: 'Your own contribution: ' + kes(myAhead) + ' ahead', gold: payoutMine ? 'Your own payout month' : 'Your own streak: ' + streak + ' months', paid: 'Your own contribution is paid', idle: '' })[tone] : '';
-      hero = `<section class="hero tn-${me ? tone : 'brand'}" aria-label="Cash on hand">${me ? top('You · ' + TIER[tone][0], TIER[tone][1]) : top('Treasurer', 'wallet')}<div class="hero-l">Cash on hand</div>${big(Domain.cashOnHand(s), 'KES ', '', 'cash')}<div class="hero-s">${esc(mine || 'After loans, payouts and expenses')}</div>${tick}${bar('Collected in ' + longMonth(cur) + ': ' + kes(got) + ' of ' + kes(exp))}</section>`;
+      hero = `<section class="hero tn-${me ? tone : 'brand'}" aria-label="Cash on hand">${me ? top('You · ' + TIER[tone][0], TIER[tone][1]) : top('Treasurer', 'wallet')}<div class="hero-l">Cash on hand</div>${big(Domain.cashOnHand(s), 'KES ', '', 'cash')}<div class="hero-s">${esc(mine || 'After loans, payouts and expenses')}</div>${tick}${bar(got > exp ? kes(got) + ' collected · target ' + kes(exp) : 'Collected in ' + longMonth(cur) + ': ' + kes(got) + ' of ' + kes(exp))}</section>`;
     }
     setTimeout(heroCount, 0);
 
@@ -2780,16 +3016,21 @@ const views = {
     if (s.chama.mode !== 'savings' && rec) {
       const amt = po ? po.amount : exp;
       const dueDate = new Date(Number(cur.slice(0, 4)), Number(cur.slice(5, 7)) - 1, Math.min(28, Number(s.chama.dueDay) || 10) + 1).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
-      const status = po ? `<span class="tag ok">${icon('check', 's')}Sent ${esc(po.date)}</span>` : `<span class="tag warn">Not sent yet</span>`;
+      const dShort = d => { const t = Date.parse(d); return isNaN(t) ? String(d || '') : new Date(t).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); };
+      const status = po ? `<span class="po-pill ok">${icon('check', 's')}Sent ${esc(dShort(po.date))}</span>` : `<span class="po-pill warn">${icon('clock', 's')}Not sent yet</span>`;
+      /* HOME 0.20: the signature sits in a fixed small box, the actions are real buttons */
       const acts = admin ? (po
-        ? `<div class="po-act">${po.sig ? sigImg(po.sig, 'Recipient signature').replace('<img', '<img class="po-sig"') : `<button class="btn sm" data-act="signPayout" data-id="${esc(po.id)}">${icon('sign', 's')}Get signature</button>`}<button class="btn sm ghost" data-act="undoPayout" data-id="${esc(po.id)}">Undo</button></div>`
-        : `<div class="po-act"><button class="btn pri" data-act="markPayout" data-amt="${esc(exp)}">${icon('check')}Mark the payout sent</button></div>`) : '';
+        ? `<div class="po-act">${po.sig ? `<button type="button" class="po-sigbox" data-act="signPayout" data-id="${esc(po.id)}" aria-label="Signature of ${esc(rec.name)}. Tap to sign again"><small>Signed</small>${sigImg(po.sig, 'Recipient signature').replace('<img', '<img class="po-sig"')}</button>` : `<button type="button" class="btn sm tint" data-act="signPayout" data-id="${esc(po.id)}">${icon('sign', 's')}Get signature</button>`}<button type="button" class="btn sm ghost po-undo" data-act="undoPayout" data-id="${esc(po.id)}">${icon('undo', 's')}Undo</button></div>`
+        : `<div class="po-act"><button type="button" class="btn pri block" data-act="markPayout" data-amt="${esc(exp)}">${icon('check')}Mark the payout sent</button></div>`) : '';
       const nextLine = Domain.payoutOrder(s, addMonths(cur, 1), 4).filter(t => t.member.id !== rec.id).slice(0, 3).map(t => [t.mk, t.member]);   /* the one payout order (Domain.payoutOrder) */
-      const stop = (mk, x, cls) => `<li class="${cls}"><span class="po-dot">${av(x, cls.includes('now') ? 34 : 30)}</span><b>${esc(longMonth(mk).slice(0, 3))}</b><small>${esc(me && x.id === me.id ? 'You' : x.name.split(' ')[0])}</small></li>`;
-      const rail = nextLine.length ? `<ol class="po-rail" aria-label="Payout order">${stop(cur, rec, 'now' + (me && rec.id === me.id ? ' me' : ''))}${nextLine.map(([mk, x]) => stop(mk, x, me && x.id === me.id ? 'me' : '')).join('')}</ol>` : '';
+      const stop = (mk, x, cls) => { const st = cls.includes('now') ? 'Now' : cls.includes('next') ? 'Next' : ''; return `<li class="${cls}"><button type="button" class="po-stop" data-act="poStop" data-mk="${esc(mk)}" data-id="${esc(x.id)}" aria-label="${esc(longMonth(mk) + ': ' + x.name + (st ? ' (' + st.toLowerCase() + ')' : ''))}"><span class="po-dot">${av(x, cls.includes('now') ? 34 : 30)}</span><b>${esc(longMonth(mk).slice(0, 3))}</b><small>${esc(me && x.id === me.id ? 'You' : x.name.split(' ')[0])}</small>${st ? `<em class="po-st">${st}</em>` : ''}</button></li>`; };
+      const rail = nextLine.length ? `<ol class="po-rail" aria-label="Payout order">${stop(cur, rec, 'now' + (me && rec.id === me.id ? ' me' : ''))}${nextLine.map(([mk, x], i) => stop(mk, x, (i === 0 ? 'next ' : '') + (me && x.id === me.id ? 'me' : ''))).join('')}</ol>` : '';
       const closeTxt = po ? '' : (Domain.isOverdue(s, cur) ? 'Collections closed ' : 'Collections close ') + dueDate;
-      payout = `<section class="po-card" aria-label="This month's payout"><div class="po-top"><span class="po-av">${av(rec, 52)}</span><div class="po-main"><small>Payout · ${esc(longMonth(cur).slice(0, 3))}</small><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b></div><div class="po-end"><div class="po-amt num">${esc(kes(amt))}</div>${status}</div></div>
-${rail}<div class="po-meta"><span>${icon('clock', 's')}Turn ${Math.max(1, Domain.turnNo(s, rec.id).n)} of ${Domain.turnNo(s, rec.id).of}</span>${closeTxt ? `<span>${esc(closeTxt)}</span>` : ''}</div>${acts}</section>`;
+      /* HOME 0.20: its own card, separate from the live card: a header row (label + month chip), who and how much, the order, then the actions */
+      payout = `<section class="po-card po-v2" aria-label="This month's payout"><div class="po-head"><span class="po-label">${icon('coins', 's')}Payout</span><span class="po-month">${esc(longMonth(cur) + ' ' + cur.slice(0, 4))}</span></div>
+<div class="po-top"><span class="po-av">${av(rec, 52)}</span><div class="po-main"><b>${esc(rec.name)}${me && rec.id === me.id ? ' (you)' : ''}</b><small>Turn ${Math.max(1, Domain.turnNo(s, rec.id).n)} of ${Domain.turnNo(s, rec.id).of}</small></div></div>
+<div class="po-money"><div class="po-amt num">${esc(kes(amt))}</div>${status}</div>
+${rail}${closeTxt ? `<div class="po-meta"><span>${icon('clock', 's')}${esc(closeTxt)}</span></div>` : ''}${acts}</section>`;
     }
 
     /* who is behind (treasurer only) */
@@ -2812,7 +3053,7 @@ ${rail}<div class="po-meta"><span>${icon('clock', 's')}Turn ${Math.max(1, Domain
     const recentHtml = `<section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your recent payments' : 'Recent payments'}</h2>${recent.length ? '<a href="#/grid">See all</a>' : ''}</div><div class="list">${recent.length
       ? recent.map(p => { const m = s.members.find(x => x.id === p.memberId); return s.shared
           ? `<div class="li has-ic"><span class="li-ic">${icon('check')}</span><div class="li-main"><b>${esc(longMonth(p.month))}</b><small>${esc(p.date)}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`
-          : `<div class="li has-av">${av(m || { name: 'Removed member' }, 40)}<div class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`; }).join('')
+          : `<div class="li has-av">${av(m || { name: 'Removed member' }, 40)}<div class="li-main"><b>${esc(m ? m.name : 'Removed member')}</b><small>${esc(monthLabel(p.month))}${p.code ? ' · ' + esc(p.code) : ''} · ${esc(p.date)}</small>${p.selfRec ? `<span class="pc-chips">${__M_src_features_paychecks_js.PayChecks.chips(p, true)}</span>` : ''}</div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span></div></div>`; }).join('')
       : `<div class="li empty">No payments recorded yet</div>`}</div></section>`;
 
     /* the group's next meeting and its pinned announcement, from Chat */
@@ -2827,12 +3068,17 @@ ${rail}<div class="po-meta"><span>${icon('clock', 's')}Turn ${Math.max(1, Domain
       <button type="button" data-act="chatForm" data-k="poll" data-th="group"><span class="qa-i">${icon('chart')}</span>Start a vote</button>
       <button type="button" data-act="chatForm" data-k="announcement" data-th="group"><span class="qa-i">${icon('bell')}</span>Announce</button>
     </div>` : '';
-    const reqs = Sess.role !== 'member' ? __M_src_features_requests_js.Requests.listHtml(true) : '';
+    const reqs = (Sess.role !== 'member' ? __M_src_features_requests_js.Requests.listHtml(true) : '') + (() => { try { const PC = __M_src_features_paychecks_js.PayChecks; if (Sess.role && Sess.role !== 'member') PC.ensure(); return PC.card(); } catch (e) { return ''; } })();
     const smart = __M_src_features_smart_js.homeBlocks(s);
     /* order: who you are this month, then the pot, then what to do, then what needs attention, then the record */
     /* the borrower signs loan terms on their own phone */
-    const help = `<button type="button" class="simple-help" data-act="guide"><span class="gd-chip">${icon('guide')}</span><span><b>Need help?</b><small>Ask me, or let me show you how</small></span></button>`;
-    return `${greet}<div class="home-top">${hero}${payout}</div>${help}${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
+    /* HOME 0.20: the Guide card. Big mark, one line, quick questions for this person's role, one clear button */
+    const chips = admin ? ['Record a payment', 'Who has not paid?', 'Verify a receipt'] : Sess.role === 'secretary' ? ['Call a meeting', 'When is my turn?', 'Verify a receipt'] : ['What do I owe?', 'When is my turn?', 'Verify a receipt'];
+    const help = `<section class="hm-help" aria-label="Guide"><div class="hh-top"><span class="hh-mark">${icon('guide')}</span><div class="hh-txt"><b>Need a hand?</b><small>Ask me anything. I can show you on the screen, step by step.</small></div></div>
+<div class="hh-chips">${chips.map(q => `<button type="button" class="hh-chip" data-act="guide" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+<button type="button" class="btn pri block hh-go" data-act="guide">${icon('search', 's')}Ask the Guide</button></section>`;
+    const setup = Setup.card(s);
+    return `${greet}<div class="home-top">${hero}${setup}${payout}</div>${help}${qa}${sec}${reqs}${month}<div class="hm-extra">${smart}</div>${group}<div class="hm-extra">${stats}</div>${recentHtml}`;
   }
 };
 
@@ -2850,6 +3096,86 @@ const actions = {
     Signature.open(`Signature of ${Domain.memberName(s, p.memberId)}`, sig => Store.commit(st => { const x = st.payouts.find(y => y.id === d.id); if (x) x.sig = sig; }));
   } },
   undoPayout: { admin: true, run: d => confirmBox('Undo this payout? It is removed from the records and the change is kept in History.', () => Store.commit(s => { s.payouts = s.payouts.filter(p => p.id !== d.id); })) },
+  /* HOME 0.20: a stop on the payout rail says who receives that month */
+  poStop(d) { const s = S(), m = s.members.find(x => x.id === d.id); if (!m || !d.mk) return; const meId = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId, now = d.mk === Domain.now();
+    toast(longMonth(d.mk) + ' ' + d.mk.slice(0, 4) + ': ' + (m.id === meId ? 'your turn' : m.name) + (now ? ' receives the pot this month' : ' receives the pot'), 'info'); },
+  setupStep: d => Setup.go(d.k),
+  setupGuide: () => { const on = Setup.off(); Setup.set('mca-setup-guide-off:' + Store.chamaId, on ? null : '1'); if (on) Setup.set('mca-urgent-setup:' + Store.chamaId, null); __M_src_core_rerender_js.render(); toast(on ? 'Setup reminders are on' : 'Setup reminders are off. The card stays on Home.', 'ok'); },
+};
+
+/* HOME 0.20: the treasurer's setup guide. One list of steps, shown as a card under the live card while setup is not
+   finished, a full-screen welcome the first time (and at most once a day after, until done or turned off), and a live
+   tour for each step where the Guide has one. When a step gets done, Home shows the next one. Treasurers only. */
+const SETUP_TOUR = { members: 'member', rules: 'rules', invite: 'invite', pay: 'pay' };
+const Setup = {
+  pend: null, flash: '',
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} },
+  can(s) { return !!(s && !s.shared && __M_src_core_session_js.Session.role === 'treasurer'); },
+  hidden() { return this.get('mca-setup-done:' + Store.chamaId) === 'true'; },
+  off() { return this.get('mca-setup-guide-off:' + Store.chamaId) === '1'; },
+  steps(s) {
+    const Sess = __M_src_core_session_js.Session, ws = (Sess.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
+    let msgs = []; try { msgs = __M_src_features_chat_index_js.Chat.msgs || []; } catch (e) {}
+    return [
+      { k: 'members', t: 'Add your members', h: 'Everyone who contributes', ic: 'userPlus', ok: s.members.length >= 2 },
+      { k: 'payTo', t: 'Set where members pay', h: 'Till, paybill or phone number', ic: 'wallet', ok: !!s.chama.payTo },
+      { k: 'rules', t: 'Write the group rules', h: 'Fines, loans, meetings', ic: 'doc', ok: !!String(s.chama.rules || '').trim() },
+      { k: 'invite', t: 'Invite people to the app', h: 'Share a code by WhatsApp', ic: 'invite', ok: (Sess.access || []).filter(a => a.status === 'active').length > 1 },
+      { k: 'pay', t: 'Record the first payment', h: 'From M-Pesa or by hand', ic: 'receipt', ok: s.payments.length > 0 },
+      { k: 'meeting', t: 'Call your first meeting', h: 'Members reply in Chat', ic: 'clock', ok: msgs.some(m => m.kind === 'meeting') },
+      { k: 'tag', t: 'Give the Chama a tag', h: 'Four letters on receipts', ic: 'tag', ok: !!ws.display_tag }
+    ];
+  },
+  state(s) { const st = this.steps(s), done = st.filter(x => x.ok).length; return { st, done, n: st.length, pct: Math.round(done / st.length * 100), next: st.find(x => !x.ok) }; },
+  pending(s) { return this.can(s) && !this.hidden() && this.state(s).done < 7; },
+  ring(pct, label) { return `<span class="su2-ring" style="--p:${pct}" role="img" aria-label="${pct}% done"><b class="num">${esc(label)}</b></span>`; },
+  card(s) {
+    if (!this.pending(s)) return '';
+    const { st, done, n, pct, next } = this.state(s), todo = st.filter(x => !x.ok && x !== next), fin = st.filter(x => x.ok);
+    const row = x => `<button type="button" class="su2-i" data-act="setupStep" data-k="${x.k}"><span class="su2-i-ic">${icon(x.ic, 's')}</span><span>${esc(x.t)}</span>${icon('chev', 's')}</button>`;
+    return `<section class="su2" aria-label="Set up ${esc(s.chama.name)}"><div class="su2-top">${this.ring(pct, done + '/' + n)}<div class="su2-h"><small>${icon('sparkle', 's')}Setup guide</small><h3>Set up ${esc(s.chama.name)}</h3><span>${done} of ${n} done${n - done > 1 ? ' · about ' + (n - done) * 2 + ' minutes left' : ''}</span></div></div>
+<button type="button" class="su2-next${this.flash === next.k ? ' flash' : ''}" data-act="setupStep" data-k="${next.k}"><span class="su2-n-ic">${icon(next.ic)}</span><span class="su2-n-t"><small>Next step</small><b>${esc(next.t)}</b><em>${esc(next.h)}</em></span><span class="su2-go">${icon('chev')}</span></button>
+${todo.length ? `<div class="su2-list">${todo.map(row).join('')}</div>` : ''}
+${fin.length ? `<details class="su2-done"><summary>${icon('check', 's')}${fin.length} done</summary><div>${fin.map(x => `<span>${icon('check', 's')}${esc(x.t)}</span>`).join('')}</div></details>` : ''}
+<div class="su2-foot"><button type="button" class="linkish" data-act="setupGuide">${this.off() ? 'Turn on reminders' : 'Turn off reminders'}</button><button type="button" class="linkish su-x" data-act="setupHide">Hide this</button></div></section>`;
+  },
+  /* a step: the live tour when the Guide has one for it, otherwise straight to the right screen */
+  go(k) {
+    const s = S(); if (!this.can(s)) return; const x = this.steps(s).find(y => y.k === k); if (!x) return;
+    this.pend = { k, cid: Store.chamaId }; this.flash = '';
+    const G = __M_src_features_guide_js, tid = SETUP_TOUR[k];
+    try { if (tid && (G.TASKS || []).some(t => t.id === tid && t.tour)) return G.Tour.start(tid); } catch (e) {}
+    const A = __M_src_features_index_js.Actions || {}, run = (name, d) => { const a = A[name], f = a && (typeof a === 'function' ? a : a.run); if (f) f.call(a, d || {}); };
+    try {
+      if (k === 'members') run('addMember');
+      else if (k === 'payTo') run('chamaEdit', { f: 'payTo' });
+      else if (k === 'rules') run('chamaEdit', { f: 'rules' });
+      else if (k === 'invite') run('inviteSheet', { v: 'code' });
+      else if (k === 'pay') location.hash = '#/grid';
+      else if (k === 'meeting') run('chatForm', { k: 'meeting', th: 'group' });
+      else if (k === 'tag') run('tagEdit');
+    } catch (e) { toast(e.message); }
+  },
+  /* after a step is done: back to Home with the next step lit up */
+  watch(s, r) {
+    const p = this.pend; if (!p || p.cid !== Store.chamaId || !this.can(s)) return;
+    const st = this.state(s), x = st.st.find(y => y.k === p.k); if (!x || !x.ok) return;
+    this.pend = null; this.flash = st.next ? st.next.k : '';
+    const say = () => st.next ? toast('Done. Next: ' + st.next.t, 'ok', { label: 'Start', run: () => this.go(st.next.k) }) : toast('Your Chama is set up. Well done!', 'ok');
+    setTimeout(() => {
+      if (r !== 'home' && !document.querySelector('.modal-veil, .pop-veil, .sx-veil.on')) location.hash = '#/home';
+      setTimeout(() => { say(); const b = document.querySelector('#view .su2-next'); if (b) try { b.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} }, 350);
+    }, 500);
+  },
+  welcome(s) {
+    if (!this.pending(s) || this.off()) return null;
+    const cid = Store.chamaId, { st, done, n, pct, next } = this.state(s), first = !this.get('mca-setup-seen:' + cid);
+    const list = `<div class="su2-wl">${this.ring(pct, done + '/' + n)}<ol>${st.map(x => `<li class="${x.ok ? 'ok' : x === next ? 'nx' : ''}">${icon(x.ok ? 'check' : x.ic, 's')}<span>${esc(x.t)}</span></li>`).join('')}</ol></div>`;
+    return { k: 'setup:' + cid, ic: 'guide', tone: 'setup', kicker: first ? 'Welcome, treasurer' : 'Setup guide', title: first ? 'Let’s set up ' + s.chama.name : s.chama.name + ' is ' + pct + '% set up', text: first ? 'A few short steps and your members can start. I will show you each one on the screen.' : (n - done) + (n - done === 1 ? ' step is' : ' steps are') + ' left. Pick up where you stopped.',
+      body: list, go: 'Start: ' + next.t, run: () => this.go(next.k), later: 24 * 3600e3, off: { label: 'Turn off setup guide', run: () => { this.set('mca-setup-guide-off:' + cid, '1'); toast('Setup guide is off. The card stays on Home.', 'ok'); } },
+      seen: () => this.set('mca-setup-seen:' + cid, String(Date.now())) };
+  }
 };
 
 /* High-priority things the person must act on (sign loan terms, a removal notice, an account about to be deleted)
@@ -2858,7 +3184,7 @@ const actions = {
 const Urgent = {
   open: null,
   snoozed(k) { try { return Number(localStorage.getItem('mca-urgent-' + k) || 0) > Date.now(); } catch (e) { return false; } },
-  snooze(k) { try { localStorage.setItem('mca-urgent-' + k, String(Date.now() + 2 * 3600e3)); } catch (e) {} },
+  snooze(k, ms) { try { localStorage.setItem('mca-urgent-' + k, String(Date.now() + (ms || 2 * 3600e3))); } catch (e) {} },
   items(s) {
     const out = [], Sess = __M_src_core_session_js.Session, meId = s.shared ? s.shared.me : Sess.memberId;
     (meId ? (s.loans || []).filter(l => l.memberId === meId && !l.agreement && Domain.loan(l).balance > 0) : []).forEach(l => {
@@ -2867,31 +3193,39 @@ const Urgent = {
     });
     try { const n = __M_src_features_requests_js.Roles.myNotice; if (n) out.push({ k: 'notice:' + n.id + (n.reply ? ':r' : ''), ic: 'alert', tone: 'bad', kicker: 'Notice from the treasurer', title: 'Your access ends on ' + new Date(n.effective_at).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' }), text: 'Reason: ' + n.reason, go: n.reply ? 'OK' : 'Reply', act: n.reply ? '' : 'noticeReply', id: n.id }); } catch (e) {}
     try { const A = __M_src_features_account_deletion_js.Account; if (A.pending) out.push({ k: 'del', ic: 'trash', tone: 'bad', kicker: 'Your account', title: 'Account deletion scheduled', text: 'It will be deleted on ' + new Date(A.pending.purgeAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'long' }) + '. Restore it before then and nothing is lost.', go: 'Restore my account', act: 'restoreAccount' }); } catch (e) {}
+    try { const w = Setup.welcome(s); if (w) out.push(w); } catch (e) {}
     return out;
   },
   check(s, r) {
+    try { Setup.watch(s, r); } catch (e) {}
     if (!s || this.open || /^chat\/./.test(r || '') || document.querySelector('.modal-veil, .pop-veil, .sx-veil.on, .gd-veil.on')) return;
+    { const tr = document.getElementById('tourRoot'); if (tr && tr.childElementCount) return; }
+    /* a live Guide tour between steps: never cover the button it is about to ring */
+    try { if (__M_src_features_guide_js.Tour.steps.length) return; } catch (e) {}
     const it = this.items(s).find(x => !this.snoozed(x.k)); if (!it) return;
     this.show(it);
   },
   show(it) {
     const box = document.createElement('div'); box.className = 'urgent u-' + it.tone; box.setAttribute('role', 'alertdialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'urgT');
-    box.innerHTML = `<div class="urgent-in"><span class="urgent-ic">${icon(it.ic)}</span><small>${esc(it.kicker)}</small><h2 id="urgT">${esc(it.title)}</h2><p>${esc(it.text)}</p>
-<div class="urgent-btns"><button type="button" class="btn pri block lg" data-u="go">${esc(it.go)}</button><button type="button" class="btn ghost block" data-u="later">Remind me later</button></div></div>`;
+    box.innerHTML = `<div class="urgent-in"><span class="urgent-ic">${icon(it.ic)}</span><small>${esc(it.kicker)}</small><h2 id="urgT">${esc(it.title)}</h2><p>${esc(it.text)}</p>${it.body || ''}
+<div class="urgent-btns"><button type="button" class="btn pri block lg" data-u="go">${esc(it.go)}</button><button type="button" class="btn ghost block" data-u="later">Remind me later</button>${it.off ? `<button type="button" class="linkish u-off" data-u="off">${esc(it.off.label)}</button>` : ''}</div></div>`;
     document.body.appendChild(box); this.open = it;
+    if (it.seen) try { it.seen(); } catch (e) {}
     requestAnimationFrame(() => box.classList.add('on'));
     try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
     const close = () => { box.classList.remove('on'); this.open = null; setTimeout(() => box.remove(), 260); };
     box.addEventListener('click', e => {
       const b = e.target.closest('[data-u]'); if (!b) return;
-      this.snooze(it.k); close();
+      this.snooze(it.k, it.later); close();
+      if (b.dataset.u === 'off' && it.off) { try { it.off.run(); } catch (err) {} return; }
+      if (b.dataset.u === 'go' && it.run) { setTimeout(() => { try { it.run(); } catch (err) { console.error(err); } }, 280); return; }
       if (b.dataset.u === 'go' && it.act) { const run = (__M_src_features_index_js.Actions || {})[it.act]; const f = run && (typeof run === 'function' ? run : run.run); setTimeout(() => { try { f.call(run, { id: it.id }); } catch (err) { console.error(err); } }, 280); }
     });
     setTimeout(() => { const g = box.querySelector('[data-u="go"]'); if (g) g.focus(); }, 60);
   }
 };
 
-return { get views() { return views; }, get actions() { return actions; }, get Urgent() { return Urgent; }, get heroCount() { return heroCount; } };
+return { get views() { return views; }, get actions() { return actions; }, get Urgent() { return Urgent; }, get Setup() { return Setup; }, get heroCount() { return heroCount; } };
 })();
 
 /* ---- src/lib/matcher.js ---- */
@@ -2943,15 +3277,32 @@ const __M_src_lib_mpesa_js = (function () {
    Handles personal ("You have received Ksh… from NAME 0712***678 on …") and till / paybill ("Ksh… received from NAME 2547******78 …")
    messages, masked phone numbers, and the small mistakes OCR makes (Ksh1.000,00, KSh, missing spaces). */
 const Mpesa = {
-  amount(raw) { let n = String(raw).replace(/\s/g, ''); if (/^\d{1,3}(\.\d{3})+,\d{2}$/.test(n)) n = n.replace(/\./g, '').replace(',', '.'); n = n.replace(/,/g, ''); const p = n.split('.'); if (p.length > 2) n = p.slice(0, -1).join('') + '.' + p[p.length - 1]; return parseFloat(n); },
+  amount(raw) { let n = String(raw).replace(/\s/g, '').replace(/[Oo]/g, '0').replace(/[Il|]/g, '1'); if (/^\d{1,3}(\.\d{3})+,\d{2}$/.test(n)) n = n.replace(/\./g, '').replace(',', '.');
+    /* OCR often reads the decimal point as a comma: "2,000,00" is 2,000.00 */
+    if (/^\d{1,3}(,\d{3})+,\d{2}$/.test(n)) n = n.replace(/,(\d{2})$/, '.$1');
+    n = n.replace(/,/g, ''); const p = n.split('.'); if (p.length > 2) n = p.slice(0, -1).join('') + '.' + p[p.length - 1]; return parseFloat(n); },
   PHONE: /(?:\+?254|0)\s?[17][\d\s*xX•#.]{5,12}\d/,
   clean(raw) {
     return String(raw || '').replace(/[   ]/g, ' ').replace(/[“”]/g, '"').replace(/\bK\s?sh(?:s)?\b\.?/gi, 'Ksh').replace(/Ksh\s*\.?\s*/g, 'Ksh')
-      .replace(/C[o0]nf[il1]rmed/gi, 'Confirmed').replace(/rece[il1]ved/gi, 'received').replace(/\s+/g, ' ');
+      .replace(/C[o0]nf[il1|]rm[e3]d/gi, 'Confirmed').replace(/rece[il1|]v[e3]d/gi, 'received').replace(/\s+/g, ' ')
+      /* inside an amount OCR reads 0 as O and 1 as l or I */
+      .replace(/Ksh([0-9OoIl|][0-9OoIl|,.]*)/g, (x, n) => 'Ksh' + n.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1'));
+  },
+  /* a transaction code is 10 letters and digits and starts with a letter; OCR may split it or read S as 5 */
+  CODE: /\b([A-Z0-9](?:\s?[A-Z0-9]){9})\s*[.,:]?\s*Confirmed/gi,
+  code(raw) { const c = String(raw || '').toUpperCase().replace(/\s+/g, ''); return ({ 5: 'S', 0: 'O', 8: 'B', 1: 'I' }[c[0]] || c[0] || '') + c.slice(1); },
+  /* the same code typed or read with the usual mix-ups (O/0, I/1/L, S/5, B/8) compares equal */
+  codeKey: c => String(c || '').toUpperCase().replace(/\s+/g, '').replace(/O/g, '0').replace(/[IL]/g, '1').replace(/S/g, '5').replace(/B/g, '8'),
+  /* any M-Pesa message (received, sent or paid): the first code and amount. Used as proof for a treasurer's own payment. */
+  any(raw) {
+    const t = this.clean(raw); this.CODE.lastIndex = 0; const m = this.CODE.exec(t); this.CODE.lastIndex = 0; if (!m) return null;
+    const seg = t.slice(m.index), a = seg.match(/Ksh\s?(\d[\d,.]*\d|\d)/i), d = seg.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    let date = ''; if (d) { const y = d[3].length === 2 ? '20' + d[3] : d[3]; date = `${y}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`; if (isNaN(Date.parse(date))) date = ''; }
+    return { code: this.code(m[1]), amount: a ? this.amount(a[1]) : 0, date };
   },
   parse(raw) {
-    const t = this.clean(raw), re = /\b([A-Z0-9]{10})\s*[.,]?\s*Confirmed/gi, hits = [], seen = new Set(), out = [];
-    let m; while ((m = re.exec(t))) hits.push({ code: m[1].toUpperCase(), at: m.index });
+    const t = this.clean(raw), re = new RegExp(this.CODE.source, 'gi'), hits = [], seen = new Set(), out = [];
+    let m; while ((m = re.exec(t))) hits.push({ code: this.code(m[1]), at: m.index });
     hits.forEach((h, k) => {
       const seg = t.slice(h.at, k + 1 < hits.length ? hits[k + 1].at : undefined);
       if (!/received/i.test(seg) || /\b(sent to|paid to|withdraw|transferred to|bought)\b/i.test(seg.split(/received/i)[0]) || seen.has(h.code)) return;
@@ -2962,7 +3313,7 @@ const Mpesa = {
       const name = who.replace(ph ? ph[0] : '', '').replace(/[-:,.]/g, ' ').replace(/\b(account|acc|a\/c)\b.*$/i, '').replace(/\s+/g, ' ').trim();
       const d = seg.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); let date = '';
       if (d) { const y = d[3].length === 2 ? '20' + d[3] : d[3]; date = `${y}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`; if (isNaN(Date.parse(date))) date = ''; }
-      seen.add(h.code); out.push({ code: h.code, amount, name, phone, date, masked: /\*/.test(phone), sms: seg.trim().slice(0, 360) });
+      seen.add(h.code); out.push({ code: h.code, amount, name, phone, date, masked: /\*/.test(phone), sms: seg.trim().slice(0, 600) });
     });
     return out;
   },
@@ -2989,20 +3340,29 @@ const Import = {
   /* screenshots are scaled so text is ~30px high, turned grey, stretched in contrast and, for dark-mode screenshots, inverted */
   async prepare(file, mode) {
     const bmp = await createImageBitmap(file);
-    const k = Math.min(2.2, Math.max(1, 1400 / bmp.width)) * Math.min(1, 2600 / Math.max(bmp.width, bmp.height));
+    const k = Math.min(3, Math.max(1, 1600 / bmp.width)) * Math.min(1, 3200 / Math.max(bmp.width, bmp.height));
     const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
     const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingQuality = 'high'; x.drawImage(bmp, 0, 0, c.width, c.height);
     const img = x.getImageData(0, 0, c.width, c.height), d = img.data; let lo = 255, hi = 0, total = 0;
     for (let i = 0; i < d.length; i += 4) { const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; d[i] = g; total += g; if (g < lo) lo = g; if (g > hi) hi = g; }
     const dark = total / (d.length / 4) < 128, span = Math.max(1, hi - lo);
-    for (let i = 0; i < d.length; i += 4) { let g = (d[i] - lo) * 255 / span; if (dark) g = 255 - g; g = mode === 'bw' ? (g < 165 ? 0 : 255) : g < 150 ? Math.max(0, g - 40) : Math.min(255, g + 30); d[i] = d[i + 1] = d[i + 2] = g; }
+    /* black and white: the cut-off is worked out from this picture (Otsu), not guessed */
+    let cut = 165;
+    if (mode === 'bw') {
+      const h = new Array(256).fill(0); let n = 0;
+      for (let i = 0; i < d.length; i += 16) { let g = (d[i] - lo) * 255 / span; if (dark) g = 255 - g; h[Math.max(0, Math.min(255, g | 0))]++; n++; }
+      let sAll = 0; for (let i = 0; i < 256; i++) sAll += i * h[i];
+      let sB = 0, wB = 0, best = 0; for (let i = 0; i < 256; i++) { wB += h[i]; if (!wB) continue; const wF = n - wB; if (!wF) break; sB += i * h[i]; const mB = sB / wB, mF = (sAll - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; cut = i + 8; } }
+    }
+    for (let i = 0; i < d.length; i += 4) { let g = (d[i] - lo) * 255 / span; if (dark) g = 255 - g; g = mode === 'bw' ? (g < cut ? 0 : 255) : g < 150 ? Math.max(0, g - 40) : Math.min(255, g + 30); d[i] = d[i + 1] = d[i + 2] = g; }
     x.putImageData(img, 0, 0); return c;
   },
   async worker() {
     if (this._w) return this._w;
     if (!window.Tesseract) await this.lib('vendor/tesseract/tesseract.min.js');
     const base = new URL('vendor/tesseract/', location.href).href;
-    this._w = await Tesseract.createWorker('eng', 1, { workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang', gzip: true });
+    this._w = await Tesseract.createWorker('eng', 1, { workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang', gzip: true,
+      logger: m => { try { if (this._log && m && m.status === 'recognizing text') this._log(m.progress || 0); } catch (e) {} } });
     await this._w.setParameters({ preserve_interword_spaces: '1', user_defined_dpi: '300' });
     return this._w;
   },
@@ -3013,42 +3373,87 @@ const Import = {
     return (await w.recognize(await this.prepare(file, mode))).data.text;
   },
   ui: null,
-  /* the start: two big choices; what was added shows as thumbnails right away */
+  /* two tabs. Paste comes first: it is the most accurate. A screenshot starts reading the moment it is chosen and each
+     one shows its own state (Reading… with progress, then found or nothing), so the sheet is never blank. If no payment
+     is read from the pictures, the sheet moves to Paste with a plain message and the box ready. */
   sheet() {
-    const u = this.ui, R = __M_src_features_requests_js, n = u.files.length, t = u.text.trim();
-    const shots = n ? `<div class="im-shots">${u.files.map((f, i) => `<figure class="im-shot${u.res && u.res[i] ? ' ' + u.res[i].k : ''}"><img src="${u.urls[i]}" alt="Screenshot ${i + 1}">${u.res && u.res[i] ? `<figcaption>${esc(u.res[i].t)}</figcaption>` : `<button type="button" class="im-x" data-im="rm" data-i="${i}" aria-label="Remove screenshot ${i + 1}">${icon('close', 's')}</button>`}</figure>`).join('')}${n < 10 && !u.busy ? `<label class="im-add" for="imFiles">${icon('plus')}<span>Add</span></label>` : ''}</div>` : '';
-    const html = `<div class="sx-head"><span class="sx-badge">${icon('import')}</span><h3>Add M-Pesa payments</h3><p>Read on this phone. Nothing is uploaded.</p></div>
-${n || u.paste ? '' : `<div class="im-pick"><label class="im-tile" for="imFiles">${icon('camera')}<b>Screenshots</b><small>of the M-Pesa messages</small></label><button type="button" class="im-tile" data-im="paste">${icon('chat')}<b>Paste</b><small>copied messages</small></button></div>`}
+    const u = this.ui, R = __M_src_features_requests_js, n = u.files.length, paste = u.tab !== 'shot';
+    const found = paste ? Mpesa.parse(u.text).length : 0;
+    const tabs = `<div class="im-tabs" role="tablist" aria-label="How to add">
+<button type="button" role="tab" class="im-tab${paste ? ' on' : ''}" aria-selected="${paste}" data-im="tab" data-v="paste">${icon('chat')}<span><small>Recommended</small><b>Paste the M-Pesa SMS</b></span></button>
+<button type="button" role="tab" class="im-tab${paste ? '' : ' on'}" aria-selected="${!paste}" data-im="tab" data-v="shot">${icon('camera')}<span><small>May miss some</small><b>Screenshot</b></span></button></div>`;
+    const body = paste ? `${u.note ? `<p class="im-note" role="alert">${icon('alert', 's')}<span>${esc(u.note)}</span></p>` : ''}
+<label class="im-lab" for="imText">Recommended: paste the M-Pesa SMS</label>
+<textarea id="imText" class="im-text" rows="6" placeholder="Long-press the M-Pesa SMS, tap Copy, then paste it here">${esc(u.text)}</textarea>
+<p class="im-live${found ? ' ok' : ''}" id="imLive" aria-live="polite">${this.liveText(u.text)}</p>
+<div class="im-btns">${navigator.clipboard && navigator.clipboard.readText ? `<button type="button" class="btn lg" data-im="clip">${icon('import')}Paste</button>` : ''}<button type="button" class="btn pri lg grow" data-im="go">Find payments</button></div>`
+      : `${n ? `<div class="im-shots">${u.files.map((f, i) => this.shotHtml(i)).join('')}${n < 10 && !u.busy ? `<label class="im-add" for="imFiles">${icon('plus')}<span>Add</span></label>` : ''}</div>`
+        : `<label class="im-drop" for="imFiles">${icon('camera')}<b>Choose screenshots</b><small>Of M-Pesa messages. Pasting the SMS is more accurate.</small></label>`}
 <input type="file" id="imFiles" accept="image/*" multiple hidden>
-${shots}
-${u.paste ? `<label class="fgrp" for="imText"><span class="flab">Paste the messages</span><textarea id="imText" rows="5" placeholder="SKB7H2LQ4P Confirmed. You have received Ksh2,000.00 from…">${esc(u.text)}</textarea></label>` : ''}
-${u.busy ? `<div class="imp-prog" id="impProg"><span>${esc(u.busy)}</span><div class="cl-bar"><i style="width:${u.pct || 5}%"></i></div></div>` : ''}
-${(n || u.paste) && !u.busy ? `<button type="button" class="btn pri block lg" data-im="go">${n ? `Read ${n} screenshot${n > 1 ? 's' : ''}` : 'Find payments'}${n && t ? ' and the messages' : ''}</button>` : ''}
-${!u.paste && n && !u.busy ? `<button type="button" class="linkish im-more" data-im="paste">Also paste messages</button>` : ''}`;
+${!u.busy && u.txs && u.txs.length ? `<button type="button" class="btn pri block lg" data-im="review">Check ${u.txs.length} payment${u.txs.length > 1 ? 's' : ''}</button>` : ''}`;
+    const html = `<div class="sx-head im-head"><span class="sx-badge">${icon('import')}</span><h3>Add M-Pesa payments</h3><p>Read on this phone. Nothing is uploaded.</p></div>${tabs}<div class="im-pane">${body}</div>`;
     if (R.Sheet.isOpen('import')) R.Sheet.update(html); else R.Sheet.open(html, { key: 'import', label: 'Add M-Pesa payments' });
     const inp = document.getElementById('imFiles');
-    if (inp) inp.onchange = () => { const add = [...inp.files].slice(0, 10 - u.files.length); add.forEach(f => { u.files.push(f); u.urls.push(URL.createObjectURL(f)); }); u.res = null; this.sheet(); };
+    if (inp) inp.onchange = () => {
+      const add = [...inp.files].filter(f => /^image\//.test(f.type || 'image/')).slice(0, 10 - u.files.length); if (!add.length) return;
+      add.forEach(f => { u.files.push(f); u.urls.push(URL.createObjectURL(f)); u.res.push({ k: 'wait' }); u.texts.push(''); });
+      u.txs = null; u.busy = true; this.sheet(); this.read();
+    };
   },
-  async go() {
-    const u = this.ui, files = u.files, R = __M_src_features_requests_js;
-    u.res = files.map(() => null); let all = u.text || '', found = 0;
-    for (let i = 0; i < files.length; i++) {
-      u.busy = `Reading screenshot ${i + 1} of ${files.length}…`; u.pct = Math.round((i + .3) / files.length * 100); this.sheet();
-      let txt = '';
-      try { txt = await this.ocr(files[i], m => { u.busy = `Screenshot ${i + 1} of ${files.length}: ${m}`; this.sheet(); }); } catch (e) { console.warn('OCR failed', e); }
-      let got = Mpesa.parse(txt);
-      /* nothing found: read it again another way (sharper black and white) before giving up */
-      if (!got.length) { try { const t2 = await this.ocr(files[i], null, 'bw'); const g2 = Mpesa.parse(t2); if (g2.length) { txt = t2; got = g2; } } catch (e) {} }
-      all += '\n' + txt; found += got.length;
-      u.res[i] = got.length ? { k: 'ok', t: got.length + (got.length > 1 ? ' payments' : ' payment') } : { k: 'no', t: 'Nothing found' };
-      this.sheet();
+  liveText(t) {
+    const n = Mpesa.parse(t).length;
+    return n ? `${icon('check', 's')}${n} payment${n > 1 ? 's' : ''} found` : String(t || '').trim() ? 'No money received found yet. Paste the whole message.' : 'You can paste many messages at once.';
+  },
+  shotHtml(i) {
+    const u = this.ui, r = u.res[i] || { k: 'wait' };
+    return `<figure class="im-shot is-${r.k}" id="imShot${i}"><img src="${u.urls[i]}" alt="Screenshot ${i + 1}"><figcaption>${this.capHtml(r)}</figcaption>${u.busy ? '' : `<button type="button" class="im-x" data-im="rm" data-i="${i}" aria-label="Remove screenshot ${i + 1}">${icon('close', 's')}</button>`}</figure>`;
+  },
+  capHtml(r) {
+    if (r.k === 'ok') return `${icon('check', 's')}<b>${esc(r.t)}</b>`;
+    if (r.k === 'no') return `${icon('alert', 's')}<b>Nothing found</b>`;
+    const pct = Math.round((r.pct || 0) * 100);
+    return `<span class="im-spin" aria-hidden="true"></span><b>${r.k === 'wait' ? 'Waiting…' : esc(r.t || 'Reading…')}</b>${r.k === 'read' ? `<span class="im-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.max(4, pct)}%"></i></span>` : ''}`;
+  },
+  paintShot(i) {
+    const el = document.getElementById('imShot' + i), r = this.ui && this.ui.res[i]; if (!el || !r) return;
+    el.className = 'im-shot is-' + r.k; const c = el.querySelector('figcaption'); if (c) c.innerHTML = this.capHtml(r);
+  },
+  async read() {
+    const u = this.ui, R = __M_src_features_requests_js; if (!u || u.reading) return; u.reading = true; u.busy = true;
+    try {
+      for (let i = 0; i < u.files.length; i++) {
+        if (this.ui !== u) return;
+        if (u.res[i] && u.res[i].k !== 'wait') continue;
+        const r = u.res[i] = { k: 'read', pct: 0.03, t: this._w ? 'Reading…' : 'Getting ready…' }; this.paintShot(i);
+        this._log = p => { r.t = 'Reading…'; r.pct = Math.max(r.pct, (r.bw ? 0.85 + p * 0.14 : 0.05 + p * 0.8)); this.paintShot(i); };
+        let txt = '';
+        try { txt = await this.ocr(u.files[i]); } catch (e) { console.warn('OCR failed', e); }
+        let got = Mpesa.parse(txt);
+        /* nothing found: read it again another way (sharper black and white) before giving up */
+        if (!got.length) { r.bw = true; r.pct = Math.max(r.pct, 0.85); this.paintShot(i); try { const t2 = await this.ocr(u.files[i], null, 'bw'); const g2 = Mpesa.parse(t2); if (g2.length || !txt) { txt = t2; got = g2; } } catch (e) {} }
+        u.texts[i] = txt;
+        u.res[i] = got.length ? { k: 'ok', t: got.length + (got.length > 1 ? ' payments' : ' payment') } : { k: 'no' };
+        this.paintShot(i);
+      }
+    } finally { u.reading = false; u.busy = false; this._log = null; }
+    if (this.ui !== u || !R.Sheet.isOpen('import')) return;
+    u.txs = Mpesa.parse(u.texts.join('\n'));
+    if (!u.txs.length) {
+      u.tab = 'paste'; u.note = 'We could not read that picture. Copy the M-Pesa message and paste it here.';
+      this.sheet(); setTimeout(() => { const t = document.getElementById('imText'); if (t) try { t.focus(); } catch (e) {} }, 120);
+      return;
     }
-    u.busy = ''; u.pct = 0;
-    const txs = Mpesa.parse(all);
-    if (!txs.length) { this.sheet(); return __M_src_ui_toast_js.Pop.alert(files.length ? 'No money received was found in these. Make sure the whole message shows in the screenshot, or paste the message text instead.' : 'No money received was found. Only messages that say "received" are added.', { title: 'No payments found', label: 'OK' }); }
-    R.Sheet.close(); u.urls.forEach(x => URL.revokeObjectURL(x));
-    setTimeout(() => this.review(txs), 260);
+    this.sheet();
   },
+  go() {
+    const u = this.ui, txs = Mpesa.parse(u.text);
+    if (!txs.length) {
+      u.note = u.text.trim() ? 'No money received was found. Paste the whole M-Pesa message, from the code to the balance.' : 'Paste an M-Pesa message first.';
+      this.sheet(); const t = document.getElementById('imText'); if (t) try { t.focus(); } catch (e) {} return;
+    }
+    this.done(txs);
+  },
+  done(txs) { const u = this.ui, R = __M_src_features_requests_js; R.Sheet.close(); u.urls.forEach(x => URL.revokeObjectURL(x)); this.ui = null; setTimeout(() => this.review(txs), 260); },
   progress(msg, i, n) {
     const el = document.getElementById('impProg'); if (!el) return;
     el.hidden = false; el.querySelector('span').textContent = msg; el.querySelector('i').style.width = Math.round((i / Math.max(1, n)) * 100) + '%';
@@ -3106,7 +3511,7 @@ ${t.dup ? '' : `<div class="imp-why"><span class="imp-conf"><i style="width:${pc
 <select name="mo_${i}" aria-label="Month for ${esc(t.code)}">${months.map(k => `<option value="${k}" ${k === mo ? 'selected' : ''}>${monthLabel(k)}</option>`).join('')}</select></div>`}</div></div>`;
     }).join('');
     const sumHtml = `<div class="imp-sum"><div><b>${sure}</b><span>Matched</span></div><div><b>${check}</b><span>To check</span></div><div><b>${none}</b><span>No match</span></div><div><b>${dup}</b><span>Already in</span></div></div>
-<p class="fhelp">M-Pesa hides part of each phone number, so matches use the digits that show and the name. Check every “Please check”. Once you confirm a match, the app remembers that name for next time.</p>`;
+<p class="fhelp">Check each “Please check”. The app remembers the names you confirm.</p>`;
     Modal.open({ title: `${txs.length} payment${txs.length > 1 ? 's' : ''} found`, submitLabel: 'Record ticked payments', body: sumHtml + `<div class="imp-list">${rows}</div>`, onSubmit: v => {
       const picks = txs.map((t, i) => ({ t, i })).filter(x => v['inc_' + x.i] != null);
       if (!picks.length) throw new Error('Nothing is ticked');
@@ -3119,11 +3524,20 @@ ${t.dup ? '' : `<div class="imp-why"><span class="imp-conf"><i style="width:${pc
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('[data-im]'); if (!b || !Import.ui) return;
   const u = Import.ui, k = b.dataset.im, ta = document.getElementById('imText'); if (ta) u.text = ta.value;
-  if (k === 'rm') { const i = Number(b.dataset.i); URL.revokeObjectURL(u.urls[i]); u.files.splice(i, 1); u.urls.splice(i, 1); u.res = null; return Import.sheet(); }
-  if (k === 'paste') { u.paste = true; Import.sheet(); setTimeout(() => { const t = document.getElementById('imText'); if (t) t.focus(); }, 80); return; }
-  if (k === 'go') { if (!u.files.length && !u.text.trim()) return toast('Paste a message or add a screenshot'); return Import.go(); }
+  if (k === 'rm') { if (u.busy) return; const i = Number(b.dataset.i); URL.revokeObjectURL(u.urls[i]); [u.files, u.urls, u.res, u.texts].forEach(a => a.splice(i, 1)); u.txs = u.files.length ? Mpesa.parse(u.texts.join('\n')) : null; return Import.sheet(); }
+  if (k === 'tab') { u.tab = b.dataset.v === 'shot' ? 'shot' : 'paste'; if (u.tab === 'shot') u.note = ''; Import.sheet(); if (u.tab === 'paste') setTimeout(() => { const t = document.getElementById('imText'); if (t) try { t.focus(); } catch (e) {} }, 80); return; }
+  if (k === 'clip') {
+    return navigator.clipboard.readText().then(t => { if (!Import.ui) return; u.text = (u.text.trim() ? u.text.trim() + '\n' : '') + String(t || '').trim(); u.note = ''; Import.sheet(); })
+      .catch(() => toast('Long-press the box, then tap Paste'));
+  }
+  if (k === 'go') return Import.go();
+  if (k === 'review' && u.txs && u.txs.length) return Import.done(u.txs);
 });
-document.addEventListener('input', e => { if (e.target && e.target.id === 'imText' && Import.ui) Import.ui.text = e.target.value; });
+document.addEventListener('input', e => {
+  if (!e.target || e.target.id !== 'imText' || !Import.ui) return;
+  Import.ui.text = e.target.value;
+  const live = document.getElementById('imLive'); if (live) { live.innerHTML = Import.liveText(e.target.value); live.classList.toggle('ok', Mpesa.parse(e.target.value).length > 0); }
+});
 
 return { get Import() { return Import; }, };
 })();
@@ -3133,7 +3547,199 @@ const __M_src_ui_forms_js = (function () {
 
 const memberOptions = s => s.members.map(m => [m.id, m.name]);
 
-return { get memberOptions() { return memberOptions; }, };
+/* @@AGENT-FINES@@ MemberPicker: the one way money actions choose a person (fines, loans). In the form it is a large
+   "who" card (photo or coloured initials, name, how they stand this month); tapping it opens a full picker with
+   search, big rows, a status chip on each, a tick on the chosen one and a sticky confirm button.
+   cfg: { s, name, value, label, title, verb, ids (who is listed by default; null = everyone), hiddenNote, allLabel, sub(m) } */
+const MemberPicker = {
+  cfg: {}, layer: null,
+  /* how a member stands this month: { tone: late|due|paid|ahead|left|idle, text, owes, days } */
+  standing(s, m, mk) {
+    const D = __M_src_core_domain_js.Domain, U = __M_src_core_utils_js; mk = mk || D.now();
+    if (!m) return { tone: 'idle', text: 'Removed member', owes: 0, days: 0 };
+    if (m.left && mk > m.left) return { tone: 'left', text: 'Left the Chama', owes: 0, days: 0 };
+    if (D.joinMonth(s, m.id) > mk) return { tone: 'idle', text: 'Joins ' + U.monthLabel(D.joinMonth(s, m.id)), owes: 0, days: 0 };
+    const owes = D.outstanding(s, m.id, mk);
+    if (owes <= 0) { const ah = D.ahead(s, m.id, mk); return { tone: ah > 0 ? 'ahead' : 'paid', text: ah > 0 ? 'Paid ahead · ' + U.kes(ah) + ' extra' : 'Paid up', owes: 0, days: 0 }; }
+    /* the oldest month not fully covered decides how late they are */
+    let k = D.joinMonth(s, m.id); for (let i = 0; i < 240 && k < mk && D.paidThrough(s, m.id, k) >= D.dueThrough(s, m.id, k); i++) k = U.addMonths(k, 1);
+    const [y, mo] = k.split('-').map(Number), dd = Math.min(Number(s.chama.dueDay) || 1, new Date(y, mo, 0).getDate());
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const days = Math.round((t - new Date(y, mo - 1, dd)) / 864e5);
+    if (days > 0) return { tone: 'late', text: 'Late ' + days + (days === 1 ? ' day' : ' days') + ' · owes ' + U.kes(owes), owes, days };
+    return { tone: 'due', text: (days === 0 ? 'Due today' : 'Due in ' + -days + (days === -1 ? ' day' : ' days')) + ' · owes ' + U.kes(owes), owes, days };
+  },
+  chip(st) { return `<span class="mpk-chip t-${st.tone}">${st.tone === 'paid' || st.tone === 'ahead' ? icon('check') : st.tone === 'late' ? icon('clock') : ''}${__M_src_core_utils_js.esc(st.text)}</span>`; },
+  row(c, m) {
+    const esc = __M_src_core_utils_js.esc, st = this.standing(c.s, m), sub = c.sub ? c.sub(m, st) : '';
+    return { st, html: `${__M_src_ui_avatar_js.av(m, 48)}<span class="mpk-txt"><b>${esc(m.name)}</b>${this.chip(st)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>` };
+  },
+  /* the "who" card inside a form; returns HTML. The chosen id travels in a hidden input named cfg.name */
+  field(c) {
+    c = { name: 'memberId', label: 'Member', title: 'Choose a member', verb: 'Choose', allLabel: 'Show everyone', ...c, all: false, q: '' };
+    this.cfg[c.name] = c;
+    return `<div class="mpk-field" data-mpk-field="${c.name}"><span class="mpk-lab">${__M_src_core_utils_js.esc(c.label)}</span><input type="hidden" name="${c.name}" value="${__M_src_core_utils_js.esc(c.value || '')}">${this.cardHtml(c)}</div>`;
+  },
+  cardHtml(c) {
+    const m = (c.s.members || []).find(x => x.id === c.value);
+    if (!m) return `<button type="button" class="mpk-card empty" data-mpk="open" data-name="${c.name}"><span class="mpk-plus">${icon('userPlus')}</span><span class="mpk-txt"><b>${__M_src_core_utils_js.esc(c.title)}</b><small>Tap to choose</small></span>${icon('chev', 'chev')}</button>`;
+    return `<button type="button" class="mpk-card" data-mpk="open" data-name="${c.name}" aria-label="${__M_src_core_utils_js.esc(m.name)}. Tap to change">${this.row(c, m).html}<span class="mpk-chg">Change</span></button>`;
+  },
+  /* who is shown now: the default set, or everyone; the search narrows it */
+  list(c) {
+    const all = (c.s.members || []).filter(m => !m.left || m.id === c.value);
+    const base = c.all || !c.ids ? all : all.filter(m => c.ids.includes(m.id) || m.id === c.value);
+    const q = String(c.q || '').trim().toLowerCase(), hit = m => !q || m.name.toLowerCase().includes(q) || m.name.toLowerCase().split(/\s+/).map(w => w[0]).join('').startsWith(q);
+    const order = { late: 0, due: 1, paid: 2, ahead: 3, idle: 4, left: 5 };
+    const rows = base.filter(hit).map(m => ({ m, ...this.row(c, m) })).sort((a, b) => (order[a.st.tone] - order[b.st.tone]) || (b.st.owes - a.st.owes) || a.m.name.localeCompare(b.m.name));
+    return { rows, hiddenHits: c.all || !c.ids ? 0 : all.filter(m => !base.includes(m) && hit(m)).length, hiddenAll: c.all || !c.ids ? 0 : all.length - base.length };
+  },
+  open(name) {
+    const c = this.cfg[name], form = document.querySelector(`#modalRoot [data-mpk-field="${name}"]`); if (!c || !form) return;
+    c.q = ''; c.pick = c.value;
+    if (c.ids && c.value && !c.ids.includes(c.value)) c.all = true;
+    this.close(); const el = document.createElement('div');
+    el.className = 'mpk-layer'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', c.title); el.dataset.name = name;
+    el.innerHTML = `<div class="mpk-panel"><div class="mpk-head"><button type="button" class="xbtn" data-mpk="close" aria-label="Back">${icon('back')}</button><h3>${__M_src_core_utils_js.esc(c.title)}</h3><span class="xsp"></span></div>
+      <div class="mpk-search">${icon('search')}<input type="search" id="mpkQ" placeholder="Search by name" autocomplete="off" enterkeyhint="search" aria-label="Search members"></div>
+      <div class="mpk-bar" id="mpkBar"></div><div class="mpk-list" id="mpkList" role="listbox" aria-label="${__M_src_core_utils_js.esc(c.title)}"></div>
+      <div class="mpk-foot"><button type="button" class="btn pri" id="mpkOk" data-mpk="confirm"></button></div></div>`;
+    form.closest('form').appendChild(el); this.layer = el;
+    const q = el.querySelector('#mpkQ');
+    q.addEventListener('input', () => { c.q = q.value; this.paint(); });
+    q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const one = this.list(c).rows; if (one.length === 1) { c.pick = one[0].m.id; this.paint(); } } });
+    this.paint();
+    requestAnimationFrame(() => el.classList.add('on'));
+  },
+  paint() {
+    const el = this.layer; if (!el) return; const c = this.cfg[el.dataset.name]; if (!c) return;
+    const esc = __M_src_core_utils_js.esc, { rows, hiddenHits, hiddenAll } = this.list(c);
+    el.querySelector('#mpkBar').innerHTML = c.ids ? `<button type="button" class="mpk-tog" role="switch" aria-checked="${!!c.all}" data-mpk="all"><span class="mpk-sw"><i></i></span><span>${esc(c.allLabel)}</span></button>${!c.all && hiddenAll ? `<small>${hiddenAll} ${esc(c.hiddenNote || 'hidden')}</small>` : ''}` : '';
+    el.querySelector('#mpkList').innerHTML = rows.map(r => `<button type="button" class="mpk-row${r.m.id === c.pick ? ' sel' : ''}" role="option" aria-selected="${r.m.id === c.pick}" data-mpk="row" data-id="${esc(r.m.id)}">${r.html}<span class="mpk-tick">${icon('check')}</span></button>`).join('')
+      || `<div class="mpk-none">${icon(c.q ? 'search' : 'check')}<b>${c.q ? 'Nobody called “' + esc(c.q) + '”' : esc(c.emptyText || 'Nobody to choose')}</b>${hiddenHits ? `<button type="button" class="btn tint sm" data-mpk="all">Show ${hiddenHits} more</button>` : (!c.q && hiddenAll ? `<button type="button" class="btn tint sm" data-mpk="all">${esc(c.allLabel)}</button>` : '')}</div>`;
+    if (rows.length && hiddenHits && c.q) el.querySelector('#mpkList').insertAdjacentHTML('beforeend', `<button type="button" class="mpk-more" data-mpk="all">+ ${hiddenHits} more ${esc(c.hiddenNote || 'hidden')}</button>`);
+    const m = (c.s.members || []).find(x => x.id === c.pick), ok = el.querySelector('#mpkOk');
+    ok.disabled = !m; ok.innerHTML = m ? `${icon('check')}${esc(c.verb + ' ' + m.name.split(/\s+/)[0])}` : 'Choose someone';
+  },
+  close() { if (this.layer) { const l = this.layer; this.layer = null; l.classList.remove('on'); setTimeout(() => l.remove(), 180); } },
+  confirm() {
+    const el = this.layer; if (!el) return; const name = el.dataset.name, c = this.cfg[name]; if (!c || !c.pick) return;
+    c.value = c.pick;
+    const box = document.querySelector(`#modalRoot [data-mpk-field="${name}"]`);
+    if (box) { const inp = box.querySelector('input[type=hidden]'); inp.value = c.value; box.querySelector('.mpk-card').outerHTML = this.cardHtml(c); inp.dispatchEvent(new Event('change', { bubbles: true })); }
+    this.close();
+    try { __M_src_features_auth_gate_js.Haptic.tap && __M_src_features_auth_gate_js.Haptic.tap(); } catch (e) {}
+  }
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-mpk]'); if (!b) return;
+  const P = MemberPicker, k = b.dataset.mpk, c = P.layer && P.cfg[P.layer.dataset.name];
+  if (k === 'open') return P.open(b.dataset.name);
+  if (!c) return;
+  if (k === 'close') P.close();
+  else if (k === 'all') { c.all = !c.all; P.paint(); }
+  else if (k === 'row') { c.pick = b.dataset.id; P.paint(); }
+  else if (k === 'confirm') P.confirm();
+}, true);   /* capture: the sheet stops clicks that are not data-act from bubbling */
+/* Escape steps back from the picker to the form, not out of the whole sheet */
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && MemberPicker.layer) { e.preventDefault(); e.stopImmediatePropagation(); MemberPicker.close(); } }, true);
+
+return { get memberOptions() { return memberOptions; }, get MemberPicker() { return MemberPicker; }, };
+})();
+
+/* ---- src/features/paychecks.js ---- */
+const __M_src_features_paychecks_js = (function () {
+const { Store } = __M_src_core_store_js;
+const { Session } = __M_src_core_session_js;
+const { esc, kes, monthLabel } = __M_src_core_utils_js;
+const { av } = __M_src_ui_avatar_js;
+const { toast } = __M_src_ui_toast_js;
+const { render } = __M_src_core_rerender_js;
+const notReady = e => /Could not find the function|PGRST202|schema cache|does not exist|Bucket not found|bucket/i.test((e && e.message) || '');
+
+/* Payments a treasurer recorded for THEMSELVES carry proof and wait for a second officer (usually the secretary) to check
+   them. payment_checks (any member can read) lists them; confirm_payment marks one checked. */
+const FLAG = { large: 'Large amount', backdated: 'Backdated' };
+const PayChecks = {
+  rows: [], state: 'idle', at: 0, cid: null, busy: false, urls: new Map(),
+  async load(force) {
+    const B = __M_src_core_backend_js.Backend, cid = Store.chamaId;
+    if (!B.sb || !cid || !Session.role || this.busy) return;
+    if (!force && this.cid === cid && Date.now() - this.at < 60000) return;
+    this.busy = true; let changed = false;
+    try {
+      const { data, error } = await B.sb.rpc('payment_checks', { p_cid: cid });
+      const next = error ? [] : (Array.isArray(data) ? data : []);
+      changed = this.cid !== cid || JSON.stringify(next) !== JSON.stringify(this.rows);
+      this.rows = next; this.state = error ? (notReady(error) ? 'off' : 'err') : 'on'; this.cid = cid; this.at = Date.now();
+    } catch (e) { this.state = 'err'; } finally { this.busy = false; }
+    if (changed && Store.chamaId === cid) { try { render(); } catch (e) {} if (__M_src_features_requests_js.Sheet.isOpen('paychecks')) this.open(true); }
+  },
+  ensure() { setTimeout(() => this.load(), 0); },
+  mine() { return this.cid === Store.chamaId ? this.rows : []; },
+  waiting() { return this.mine().filter(r => r.self_recorded && !r.checked_at); },
+  row(sid) { return sid ? this.mine().find(r => r.id === sid) : null; },
+  /* a self-recorded payment shows "Awaiting check" until someone else checks it */
+  awaiting(p) { if (!p || !p.selfRec || p.chk) return false; const r = this.row(p.sid); return !(r && r.checked_at); },
+  canConfirm(r) { return !!Session.role && Session.role !== 'member' && !(Session.memberId && r.member_id === Session.memberId); },
+  toConfirm() { return this.waiting().filter(r => this.canConfirm(r)); },
+  chips(p, officer) {
+    const out = [];
+    if (this.awaiting(p)) out.push(`<span class="pc-chip wait">${icon('clock', 's')}Awaiting check</span>`);
+    else if (p.selfRec) out.push(`<span class="pc-chip ok">${icon('check', 's')}Checked</span>`);
+    if (officer) (p.flags || []).forEach(f => { if (FLAG[f]) out.push(`<span class="pc-chip warn">${icon('alert', 's')}${FLAG[f]}</span>`); });
+    return out.join('');
+  },
+  /* Home card for the officer who checks */
+  card() {
+    const n = this.toConfirm().length; if (!n) return '';
+    return `<button type="button" class="pc-card" data-act="payChecks"><span class="pc-ic">${icon('shield')}</span><span class="pc-t"><b>${n} ${n === 1 ? 'payment' : 'payments'} to check</b><small>The treasurer recorded their own. Look at the proof, then confirm.</small></span>${icon('chev', 'chev')}</button>`;
+  },
+  /* for everyone who is not the treasurer: the treasurer's own payments and whether they are checked */
+  section(s) {
+    const rows = this.mine().filter(r => r.self_recorded).slice(-6).reverse(); if (!rows.length) return '';
+    const name = id => ((s.members || []).find(m => m.id === id) || { name: 'Removed member' }).name;
+    return `<section class="sec"><div class="sec-h"><h2>Treasurer's own payments</h2>${this.toConfirm().length ? '<button type="button" data-act="payChecks">Check now</button>' : ''}</div><div class="list">${rows.map(r => `<div class="li has-av">${av({ name: name(r.member_id) }, 38)}<div class="li-main"><b>${esc(name(r.member_id))}</b><small class="num">${esc(kes(r.amount))} · ${esc(monthLabel(r.month))}</small></div><div class="li-end">${r.checked_at ? `<span class="pc-chip ok">${icon('check', 's')}Checked</span>` : `<span class="pc-chip wait">${icon('clock', 's')}Awaiting check</span>`}</div></div>`).join('')}</div></section>`;
+  },
+  evidence(r) {
+    const e = r.evidence;
+    if (e && e.kind === 'sms' && e.text) return `<div class="pay-sms"><small>${icon('chat', 's')}The M-Pesa message</small><p>${esc(e.text)}</p></div>`;
+    if (e && e.kind === 'image' && e.path) { const u = this.urls.get(e.path); return u ? `<img class="pc-img" src="${esc(u)}" alt="Photo of the M-Pesa message">` : `<button type="button" class="btn block" data-act="pcPhoto" data-id="${esc(r.id)}">${icon('image')}See the photo</button>`; }
+    if (e === undefined) return `<p class="fhelp">Ask the treasurer to show you the M-Pesa message.</p>`;
+    return `<p class="fhelp">No proof is attached.</p>`;
+  },
+  html() {
+    const s = Store.get() || { members: [] }, rows = this.toConfirm();
+    const name = id => ((s.members || []).find(m => m.id === id) || { name: 'Removed member' }).name;
+    const items = rows.map(r => `<div class="pc-item" id="pc-${esc(r.id)}">
+<div class="pc-top">${av({ name: name(r.member_id) }, 42)}<div class="pc-who"><b>${esc(name(r.member_id))}</b><small>${esc(monthLabel(r.month))}${r.recorded_by_name ? ' · recorded by ' + esc(r.recorded_by_name) : ''}</small></div><b class="num pc-amt">${esc(kes(r.amount))}</b></div>
+<div class="pc-chips">${r.mpesa_code ? `<span class="pc-chip mono">${esc(r.mpesa_code)}</span>` : ''}${(r.flags || []).map(f => FLAG[f] ? `<span class="pc-chip warn">${icon('alert', 's')}${FLAG[f]}</span>` : '').join('')}${r.date ? `<span class="pc-chip">${esc(r.date)}</span>` : ''}</div>
+${this.evidence(r)}
+<button type="button" class="btn pri block lg" data-act="pcConfirm" data-id="${esc(r.id)}">${icon('check')}Confirm, it is right</button></div>`).join('');
+    return `<div class="sx-head"><span class="sx-badge">${icon('shield')}</span><h3>Payments to check</h3><p>Check the code and amount match the proof.</p></div>
+${items || `<div class="pc-empty">${icon('check')}<b>All checked</b><small>Nothing waits for you.</small></div>`}`;
+  },
+  open(again) { const R = __M_src_features_requests_js; if (R.Sheet.isOpen('paychecks')) R.Sheet.update(this.html()); else if (!again) R.Sheet.open(this.html(), { key: 'paychecks', label: 'Payments to check' }); },
+  async photo(id) {
+    const r = this.row(id), e = r && r.evidence; if (!e || !e.path) return;
+    const B = __M_src_core_backend_js.Backend;
+    const { data, error } = await B.sb.storage.from('payment-evidence').createSignedUrl(e.path, 600);
+    if (error || !data) return toast(notReady(error) ? 'Photos need the server update.' : 'The photo could not be opened. Try again.');
+    this.urls.set(e.path, data.signedUrl); this.open(true);
+  },
+  async confirm(id) {
+    const B = __M_src_core_backend_js.Backend, btn = document.querySelector(`[data-act="pcConfirm"][data-id="${CSS.escape(id)}"]`);
+    if (btn) { if (btn.disabled) return; btn.disabled = true; }
+    const { data, error } = await B.sb.rpc('confirm_payment', { p_cid: Store.chamaId, p_payment: id });
+    if (error || !data || !data.ok) { if (btn) btn.disabled = false; return toast(error ? (notReady(error) ? 'Nothing was changed. Checking payments needs the server update.' : 'Not confirmed. Check your connection and try again.') : (data && data.error) || 'Not confirmed'); }
+    const r = this.row(id); if (r) { r.checked_at = new Date().toISOString(); r.checked_by_name = Session.displayName ? Session.displayName() : ''; }
+    toast('Confirmed. It no longer shows Awaiting check.', 'ok');
+    try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
+    this.open(true); render(); this.load(true);
+  },
+};
+
+return { get PayChecks() { return PayChecks; }, };
 })();
 
 /* ---- src/features/contributions/index.js ---- */
@@ -3151,7 +3757,55 @@ const { memberOptions } = __M_src_ui_forms_js;
 const { Modal, confirmBox, savePayments } = __M_src_ui_modal_js;
 const { toast } = __M_src_ui_toast_js;
 const { render } = __M_src_core_rerender_js;
+const { PayChecks } = __M_src_features_paychecks_js;
+const { Mpesa } = __M_src_lib_mpesa_js;
+const { Session: PaySession } = __M_src_core_session_js;
 let cgMonth = null;   // selected month, UI state only
+/* proof for a payment. The treasurer's OWN payment must have it (paste the M-Pesa SMS, or a photo of it); for anyone
+   else pasting the SMS is optional and simply keeps the message with the payment. The code and amount must match. */
+const proofHtml = self => self ? `<div class="ev-box" id="evBox" data-mode="sms"><div class="ev-h"><span class="ev-ic">${icon('shield')}</span><span><b>Your own payment needs proof</b><small>The secretary checks it.</small></span></div>
+<div class="ev-seg" role="tablist" aria-label="Proof"><button type="button" role="tab" class="on" aria-selected="true" data-ev="sms">${icon('chat', 's')}Paste SMS</button><button type="button" role="tab" aria-selected="false" data-ev="img">${icon('camera', 's')}Add photo</button></div>
+<div class="ev-pane" data-pane="sms"><textarea name="evsms" rows="4" maxlength="1200" aria-label="The M-Pesa message" placeholder="Paste the M-Pesa message for this payment"></textarea><p class="ev-live" id="evLive" aria-live="polite"></p></div>
+<div class="ev-pane" data-pane="img" hidden><label class="ev-photo"><span class="ev-thumb" id="evThumb">${icon('camera')}</span><b id="evImgName">Choose a photo of the message</b><input type="file" name="evimg" accept="image/*" hidden></label></div></div>`
+  : `<details class="ev-opt" id="evBox" data-mode="sms"><summary>${icon('chat', 's')}Paste the M-Pesa message <small>optional</small></summary><textarea name="evsms" rows="4" maxlength="1200" aria-label="The M-Pesa message" placeholder="It fills in the code and is kept with the payment"></textarea><p class="ev-live" id="evLive" aria-live="polite"></p></details>`;
+/* the proof goes under the amount and code, just above the buttons */
+const proofPlace = () => { const b = document.getElementById('evBox'), f = b && b.closest('form'), a = f && f.querySelector('.actions'); if (a) f.insertBefore(b, a); };
+function proofCheck(v, amount, code, self) {
+  const box = document.getElementById('evBox'), mode = (box && box.dataset.mode) || 'sms';
+  const text = String(v.evsms || '').trim(), file = v.evimg && v.evimg.size ? v.evimg : null;
+  if (self && mode === 'img') { if (!file) throw new Error('Add a photo of the M-Pesa message, or paste the message.'); return { code, file }; }
+  if (!text) { if (self) throw new Error('Your own payment needs proof. Paste the M-Pesa message or add a photo of it.'); return { code }; }
+  const got = Mpesa.any(text);
+  if (!got) throw new Error('That does not look like an M-Pesa message. Paste the whole SMS, from the code to the end.');
+  if (code && Mpesa.codeKey(code) !== Mpesa.codeKey(got.code)) throw new Error('The message has code ' + got.code + ', not ' + code + '.');
+  if (got.amount && Math.abs(got.amount - amount) > 0.5) throw new Error('The message says ' + kes(got.amount) + ', not ' + kes(amount) + '.');
+  if (self && !got.amount) throw new Error('No amount was found in the message. Paste the whole SMS.');
+  return { code: got.code, sms: text.slice(0, 1000), ev: self ? { kind: 'sms', text: text.slice(0, 1000), code: got.code } : null };
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#evBox [data-ev]'); if (!b) return;
+  const box = document.getElementById('evBox'); box.dataset.mode = b.dataset.ev;
+  box.querySelectorAll('[data-ev]').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', String(on)); });
+  box.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== b.dataset.ev; });
+  if (b.dataset.ev === 'sms') { const t = box.querySelector('textarea'); if (t) try { t.focus(); } catch (er) {} }
+}, true);
+document.addEventListener('input', e => {
+  const t = e.target; if (!t || t.name !== 'evsms' || !t.closest('#evBox')) return;
+  const live = document.getElementById('evLive'), f = t.closest('form'), got = Mpesa.any(t.value); if (!live) return;
+  if (!t.value.trim()) { live.className = 'ev-live'; live.textContent = ''; return; }
+  if (!got) { live.className = 'ev-live bad'; live.textContent = 'Not an M-Pesa message yet. Paste the whole SMS.'; return; }
+  const ci = f && f.querySelector('input[name="code"]'), ai = f && f.querySelector('input[name="amount"]');
+  if (ci && !ci.value.trim()) ci.value = got.code;
+  const amt = ai ? Number(ai.value) : 0, codeOk = !ci || !ci.value.trim() || Mpesa.codeKey(ci.value) === Mpesa.codeKey(got.code), amtOk = !got.amount || !amt || Math.abs(got.amount - amt) < 0.5;
+  live.className = 'ev-live ' + (codeOk && amtOk ? 'ok' : 'bad');
+  live.innerHTML = `${icon(codeOk && amtOk ? 'check' : 'alert', 's')}<span>${esc(got.code)}${got.amount ? ' · ' + esc(kes(got.amount)) : ''}${codeOk && amtOk ? ' · matches' : !codeOk ? ' · code does not match' : ' · amount does not match'}</span>`;
+});
+document.addEventListener('change', e => {
+  const t = e.target; if (!t || t.name !== 'evimg' || !t.closest('#evBox')) return;
+  const f = t.files && t.files[0], nm = document.getElementById('evImgName'), th = document.getElementById('evThumb');
+  if (nm) nm.textContent = f ? 'Photo added. Tap to change' : 'Choose a photo of the message';
+  if (th && f && /^image\//.test(f.type)) { const u = URL.createObjectURL(f); th.innerHTML = `<img src="${u}" alt="The photo chosen as proof">`; }
+});
 const shortDay = d => { const t = Date.parse(d); return isNaN(t) ? String(d || '') : new Date(t).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }); };
 
 const views = {
@@ -3208,12 +3862,14 @@ const views = {
 
     const payRow = p => {
       const m = s.members.find(x => x.id === p.memberId), forOther = String(p.date || '').slice(0, 7) !== p.month;
-      const inner = `<span class="cg-pay-ic">${admin ? av(m || { name: 'Removed member' }, 36) : icon('receipt')}</span><span class="cg-pay-main"><b class="num">${esc(kes(p.amount))}</b><small>${admin ? esc(m ? m.name : 'Removed member') + ' · ' : ''}${esc(shortDay(p.date))}${p.code ? ' · <span class="mono">' + esc(p.code) + '</span>' : ''}</small></span>${forOther ? `<span class="cg-for">for ${esc(monthLabel(p.month))}</span>` : ''}`;
-      return admin ? `<button type="button" class="cg-pay" data-act="payMenu" data-id="${esc(p.id)}">${inner}</button>` : `<div class="cg-pay">${inner}</div>`;
+      const inner = `<span class="cg-pay-ic">${admin ? av(m || { name: 'Removed member' }, 36) : icon('receipt')}</span><span class="cg-pay-main"><b class="num">${esc(kes(p.amount))}</b><small>${admin ? esc(m ? m.name : 'Removed member') + ' · ' : ''}${esc(shortDay(p.date))}${p.code ? ' · <span class="mono">' + esc(p.code) + '</span>' : ''}</small>${p.sms && admin ? `<small class="cg-sms">${icon('chat', 's')}${esc(p.from ? 'From ' + p.from : 'M-Pesa message kept')}</small>` : ''}${p.selfRec || (admin && (p.flags || []).length) ? `<span class="pc-chips">${PayChecks.chips(p, admin)}</span>` : ''}</span>${forOther ? `<span class="cg-for">for ${esc(monthLabel(p.month))}</span>` : ''}`;
+      return admin ? `<button type="button" class="cg-pay" data-act="payMenu" data-id="${esc(p.id)}">${inner}</button>` : `<button type="button" class="cg-pay" data-act="payView" data-id="${esc(p.id)}">${inner}</button>`;
     };
 
+    PayChecks.ensure();
     return `${head}
       ${admin ? `<div class="btns" style="margin-top:0"><button class="btn tint sm" data-act="importPay">${icon('import')}Import from M-Pesa</button></div>` : ''}
+      ${PayChecks.card()}
       <div class="months" role="tablist" aria-label="Month" style="--n:6;--i:${idx}"><span class="pill" aria-hidden="true"></span>${pills}</div>
       ${hero}
       <section class="sec"><div class="sec-h"><h2>${s.shared ? 'You this month' : 'Members'}</h2></div>
@@ -3222,7 +3878,8 @@ const views = {
       </section>
       <section class="sec"><div class="sec-h"><h2>${s.shared ? 'Your payments' : 'Recent payments'}</h2></div>
         <div class="cg-pays">${recent.length ? recent.map(payRow).join('') : '<div class="li empty">No payments recorded yet</div>'}</div>
-      </section>`;
+      </section>
+      ${admin ? '' : PayChecks.section(s)}`;
   }
 };
 
@@ -3230,7 +3887,7 @@ const actions = {
   pay: { admin: true, run(d) {
     const s = S(), m = s.members.find(x => x.id === d.m); if (!m) return;
     const due = Domain.dueFor(s, m.id), left = Math.max(0, due - Domain.paidIn(s, m.id, d.mo));
-    const paidUp = !left, ahead = Domain.ahead(s, m.id);
+    const paidUp = !left, ahead = Domain.ahead(s, m.id), self = !!PaySession.memberId && m.id === PaySession.memberId;
     /* extra money goes to the first month after this one that is not yet covered, and carries forward from there */
     const nextMo = Domain.firstUncovered(s, m.id, addMonths(d.mo, 1));
     Modal.open({ title: `${m.name}`, submitLabel: paidUp ? 'Record extra' : 'Record payment', fields: [
@@ -3238,22 +3895,29 @@ const actions = {
       { name: 'amount', label: 'Amount (KES)', type: 'number', value: paidUp ? '' : (left || due), placeholder: 'e.g. ' + due.toLocaleString('en-KE') },
       { name: 'code', label: 'M-Pesa code (optional)', placeholder: 'e.g. SJK4L2P9QX' }],
       body: `<div class="pay-sum"><div><span>${esc(monthLabel(d.mo))}</span><b class="num">${paidUp ? 'Paid' : esc(kes(left)) + ' due'}</b></div><div><span>Paid ahead</span><b class="num">${esc(kes(ahead))}</b></div><div><span>Monthly</span><b class="num">${esc(kes(due))}</b></div></div>
-<p class="fhelp">${paidUp ? 'This month is paid. Extra money is kept for the coming months, so they show as paid in turn.' : 'Paying more than is due? Choose Extra, or just enter the bigger amount: the rest carries forward.'}</p>`,
+<p class="fhelp">${paidUp ? 'This month is paid. Extra money is kept for the coming months, so they show as paid in turn.' : 'Paying more than is due? Choose Extra, or just enter the bigger amount: the rest carries forward.'}</p>${proofHtml(self)}`,
       onSubmit: v => {
         const amount = num(v.amount, 'Amount');
         if (amount > 10000000) throw new Error('That amount is too large. Check the number.');
-        const code = (v.code || '').trim().toUpperCase().replace(/\s+/g, '');
+        let code = (v.code || '').trim().toUpperCase().replace(/\s+/g, '');
         if (code && !/^[A-Z0-9]{6,15}$/.test(code)) throw new Error('An M-Pesa code has 6 to 15 letters and numbers');
+        const pr = proofCheck(v, amount, code, self); code = pr.code;
         if (code && S().payments.some(p => p.code === code)) throw new Error('That M-Pesa code is already recorded');
         const month = v.kind === 'ahead' ? Domain.firstUncovered(S(), m.id, addMonths(d.mo, 1)) : d.mo;
-        savePayments([{ memberId: m.id, month, amount, code, date: todayISO(), name: m.name }]);
+        savePayments([{ memberId: m.id, month, amount, code, date: todayISO(), name: m.name, ...(pr.sms ? { sms: pr.sms } : {}), ...(pr.ev ? { ev: pr.ev } : {}), ...(pr.file ? { evFile: pr.file } : {}) }]);
       } });
+    proofPlace();
   } },
   payMenu: { admin: true, run(d) {
     const s = S(), p = s.payments.find(x => x.id === d.id); if (!p) return;
     Modal.open({ title: 'Payment', body: `<div class="kv"><span>Member</span><b>${esc(Domain.memberName(s, p.memberId))}</b></div><div class="kv"><span>Amount</span><b class="num">${esc(kes(p.amount))}</b></div><div class="kv"><span>For month</span><b>${esc(monthLabel(p.month))}</b></div><div class="kv"><span>Date</span><b>${esc(p.date)}</b></div><div class="kv"><span>M-Pesa code</span><b>${esc(p.code || 'None')}</b></div>
       ${p.from || p.fromPhone ? `<div class="kv"><span>Sent by</span><b>${esc(p.from || '')}${p.fromPhone ? ' · ' + esc(String(p.fromPhone).replace(/\*+/g, m => '•'.repeat(Math.min(m.length, 6)))) : ''}</b></div>` : ''}
-      ${p.sms ? `<div class="pay-sms"><small>${icon('chat', 's')}The M-Pesa message</small><p>${esc(p.sms)}</p></div>` : ''}
+      ${__M_src_features_docs_js.Serial.row('payment', p)}
+      ${p.selfRec ? `<div class="kv"><span>Check</span><b>${PayChecks.awaiting(p) ? 'Awaiting check by the secretary' : 'Checked' + ((PayChecks.row(p.sid) || {}).checked_by_name || p.chkBy ? ' by ' + esc((PayChecks.row(p.sid) || {}).checked_by_name || p.chkBy) : '')}</b></div>` : ''}
+      ${p.selfRec || (p.flags || []).length ? `<div class="pc-chips">${PayChecks.chips(p, true)}</div>` : ''}
+      ${p.sms ? `<details class="pay-sms"${p.sms.length < 200 ? ' open' : ''}><summary>${icon('chat', 's')}M-Pesa message</summary><p>${esc(p.sms)}</p></details>` : ''}
+      ${p.ev && p.ev.kind === 'image' && p.ev.path ? `<div id="evShow"><button type="button" class="btn block" data-act="payEvPhoto" data-id="${esc(p.id)}">${icon('image')}See the photo proof</button></div>` : ''}
+      <button type="button" class="btn pri block" data-act="receiptOpen" data-id="${esc(p.id)}" style="margin-top:12px">${icon('receipt')}Receipt</button>
       <div class="btns"><button type="button" class="btn grow" data-act="editPay" data-id="${esc(p.id)}">${icon('pencil')}Edit</button><button type="button" class="btn bad grow" data-act="delPay" data-id="${esc(p.id)}">${icon('trash')}Remove</button></div>` });
   } },
   delPay: { admin: true, run: d => { Modal.close(); confirmBox('Remove this payment? It is taken off the records. The change is kept in History and can be undone from the menu.', () => Store.commit(s => { s.payments = s.payments.filter(p => p.id !== d.id); })); } },
@@ -3266,9 +3930,19 @@ const actions = {
       { name: 'code', label: 'M-Pesa code', value: p.code }],
       onSubmit: v => { const amount = num(v.amount, 'Amount'); const code = (v.code || '').trim().toUpperCase().replace(/\s+/g, ''); if (code && !/^[A-Z0-9]{6,15}$/.test(code)) throw new Error('An M-Pesa code has 6 to 15 letters and numbers'); if (code && S().payments.some(x => x.code === code && x.id !== p.id)) throw new Error('That M-Pesa code is already recorded'); if (!/^\d{4}-\d{2}$/.test(v.month)) throw new Error('Pick a month'); if (!S().members.some(m => m.id === v.memberId)) throw new Error('Choose a member'); Store.commit(st => Object.assign(st.payments.find(x => x.id === p.id), { memberId: v.memberId, month: v.month, amount, code })); toast('Payment updated'); } });
   } },
+  /* the officer who checks the treasurer's own payments: the list, the photo proof, and Confirm */
+  payChecks: { run() { PayChecks.open(); PayChecks.load(true); } },
+  pcConfirm: { run(d) { PayChecks.confirm(d.id); } },
+  pcPhoto: { run(d) { PayChecks.photo(d.id); } },
+  payEvPhoto: { admin: true, async run(d) {
+    const p = S().payments.find(x => x.id === d.id), box = document.getElementById('evShow'); if (!p || !p.ev || !p.ev.path) return;
+    const { data, error } = await __M_src_core_backend_js.Backend.sb.storage.from('payment-evidence').createSignedUrl(p.ev.path, 600);
+    if (error || !data) return toast(error && /Bucket not found|bucket/i.test(error.message || '') ? 'Photos need the server update.' : 'The photo could not be opened. Try again.');
+    if (box) box.innerHTML = `<img class="pc-img" src="${esc(data.signedUrl)}" alt="Photo proof of the M-Pesa message">`;
+  } },
   importPay: { admin: true, run() {
     if (!S().members.length) return toast('Add members first');
-    Import.ui = { files: [], urls: [], text: '' };
+    Import.ui = { tab: 'paste', files: [], urls: [], res: [], texts: [], text: '', note: '', txs: null, busy: false };
     Import.sheet();
   } },
   cgMonth: { run(d) { cgMonth = d.mo; render(); } },
@@ -3286,7 +3960,7 @@ const { Store } = __M_src_core_store_js;
 const { esc, kes, todayISO, uid, sum } = __M_src_core_utils_js;
 const { num } = __M_src_lib_validate_js;
 const { av } = __M_src_ui_avatar_js;
-const { memberOptions } = __M_src_ui_forms_js;
+const { memberOptions, MemberPicker } = __M_src_ui_forms_js;
 const { Modal } = __M_src_ui_modal_js;
 const { Signature, sigImg } = __M_src_ui_signature_js;
 const { toast } = __M_src_ui_toast_js;
@@ -3322,6 +3996,31 @@ function loanTerms(s, id, mode) {
       }), 80);
     } });
 }
+/* @@AGENT-FINES@@ M5: the signed terms as kept with the loan (written by sign_loan_terms on the borrower's phone, or by
+   loanTerms on the treasurer's phone): when, where, what was agreed, and the signature. Shown on the loan and in its PDF. */
+const fmtSigned = at => { const d = new Date(at); return isNaN(d) ? '' : d.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + d.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }); };
+const signedWhere = a => /borrower/.test(a.on || '') ? 'on their own phone' : /treasurer/.test(a.on || '') ? 'on the treasurer’s phone' : '';
+const termsChanged = (l, a) => a && a.total != null && Math.abs(Number(a.total) - Domain.loan(l).total) > 0.5;
+function signedTerms(s, l) {
+  const a = l.agreement, who = Domain.memberName(s, l.memberId), d = a.lastDue ? new Date(a.lastDue) : null;
+  return `<section class="lsig" aria-label="Signed loan terms"><div class="lsig-h"><span class="lsig-ic">${icon('check')}</span><span><b>Terms signed</b><small>${esc(fmtSigned(a.at))}${signedWhere(a) ? ' · ' + esc(signedWhere(a)) : ''}</small></span></div>
+    <div class="lsig-g"><div><span>Pay back</span><b class="num">${esc(kes(a.total != null ? a.total : Domain.loan(l).total))}</b></div><div><span>Each month</span><b class="num">${esc(kes(a.installment != null ? a.installment : Domain.loan(l).installment))}</b></div><div><span>Last day</span><b>${esc(d && !isNaN(d) ? d.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—')}</b></div></div>
+    <p class="lsig-t">${esc(who)} agreed to repay ${esc(kes(a.total != null ? a.total : Domain.loan(l).total))} for a loan of ${esc(kes(l.principal))} at ${esc(String(l.rate))}% a month over ${esc(String(l.months))} ${l.months === 1 ? 'month' : 'months'}.</p>
+    <div class="lsig-img">${sigImg(a.sig, 'Signature of ' + who + ' on the loan terms')}</div>
+    ${termsChanged(l, a) ? `<div class="notice">${icon('alert', 's')}<span>The loan was changed after it was signed. Ask ${esc(who.split(' ')[0])} to sign again.</span></div>` : ''}
+    <button type="button" class="btn tint sm" data-act="loanPdf" data-id="${esc(l.id)}">${icon('doc')}Loan agreement (PDF)</button></section>`;
+}
+function agreementDoc(s, l) {
+  const Doc = __M_src_lib_reports_js.Doc, a = l.agreement || {}, c = Domain.loan(l), who = Domain.memberName(s, l.memberId), e = Doc.e;
+  const due = Array.from({ length: Math.min(l.months, 36) }, (_, i) => { const x = new Date(l.date || Date.now()); x.setMonth(x.getMonth() + i + 1); return [String(i + 1), x.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }), kes(i === l.months - 1 ? Math.round((c.total - c.installment * (l.months - 1)) * 100) / 100 : c.installment)]; });
+  const sig = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(a.sig || '') ? `<img src="${a.sig}" alt="Signature" style="height:70px;max-width:260px;object-fit:contain;border-bottom:1.5px solid #12231f;display:block;margin:6px 0 4px">` : '<p class="none">Not signed yet.</p>';
+  const body = `<div class="cards"><div class="card hl"><span>Borrowed</span><b>${e(kes(l.principal))}</b></div><div class="card"><span>Pay back</span><b>${e(kes(a.total != null ? a.total : c.total))}</b></div><div class="card"><span>Each month</span><b>${e(kes(a.installment != null ? a.installment : c.installment))}</b></div><div class="card"><span>Balance now</span><b>${e(kes(c.balance))}</b></div></div>
+<h2>Terms</h2><p>${e(who)} borrows ${e(kes(l.principal))} from ${e(s.chama.name)} on ${e(l.date || '')}, at ${e(String(l.rate))}% a month (flat) for ${e(String(l.months))} ${l.months === 1 ? 'month' : 'months'}, and agrees to pay back ${e(kes(a.total != null ? a.total : c.total))}${a.lastDue ? ' by ' + e(new Date(a.lastDue).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' })) : ''}. Late instalments may be fined under the Chama rules.</p>
+<h2>Repayment plan</h2>${Doc.table(['#', 'Due', 'Amount'], due, { num: [2] })}
+<h2>Signature</h2>${sig}<p><b>${e(who)}</b><br>${a.at ? 'Signed ' + e(fmtSigned(a.at)) + (signedWhere(a) ? ', ' + e(signedWhere(a)) : '') : ''}</p>
+${termsChanged(l, a) ? '<div class="note">The loan was changed after it was signed. The signed amounts above are what was agreed.</div>' : ''}`;
+  return Doc.html('Loan agreement', who + ' · ' + kes(l.principal), s.chama.name, body, s.chama.photo);
+}
 /* the borrower's own unsigned loans */
 const unsignedMine = s => { const me = s.shared ? s.shared.me : __M_src_core_session_js.Session.memberId; return me ? (s.loans || []).filter(l => l.memberId === me && !l.agreement && Domain.loan(l).balance > 0) : []; };
 
@@ -3338,7 +4037,7 @@ const views = {
     if (!all.length) return head + btn + `<div class="card" style="margin-top:14px">${emptyState('loan', 'No loans yet', admin ? 'When the chama lends to a member, record it here with the interest and repayment period.' : 'Loans you take from your chama will show here.')}</div>`;
     const row = ({ l, c }) => {
       const m = s.members.find(x => x.id === l.memberId), pct = c.total ? Math.min(100, Math.round(c.paid / c.total * 100)) : 100;
-      return `<button type="button" class="li has-av" data-act="loanMenu" data-id="${esc(l.id)}">${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(Domain.memberName(s, l.memberId))}</b><small class="num">${esc(kes(l.principal))} · ${esc(l.rate)}% × ${esc(l.months)} mo · ${esc(l.date)}</small><span class="bar ${c.balance ? '' : 'ok'}" style="margin-top:7px"><i style="width:${pct}%"></i></span></span><span class="li-end"><span><span class="num">${esc(kes(c.balance))}</span><small>${c.balance ? 'left' : 'cleared'}</small></span>${icon('chev', 'chev')}</span></button>`;
+      return `<button type="button" class="li has-av" data-act="loanMenu" data-id="${esc(l.id)}">${av(m || { name: 'Removed member' }, 40)}<span class="li-main"><b>${esc(Domain.memberName(s, l.memberId))}</b><small class="num">${esc(kes(l.principal))} · ${esc(l.rate)}% × ${esc(l.months)} mo · ${esc(l.date)}</small>${l.agreement && c.balance ? `<span class="lsig-tag">${icon('check')}Terms signed</span>` : ''}<span class="bar ${c.balance ? '' : 'ok'}" style="margin-top:7px"><i style="width:${pct}%"></i></span></span><span class="li-end"><span><span class="num">${esc(kes(c.balance))}</span><small>${c.balance ? 'left' : 'cleared'}</small></span>${icon('chev', 'chev')}</span></button>`;
     };
     return `${head}${btn}${stats}
       ${active.length ? `<section class="sec"><div class="sec-h"><h2>Active</h2></div><div class="list">${active.map(row).join('')}</div></section>` : ''}
@@ -3360,7 +4059,7 @@ const actions = {
       <div class="kv"><span>Balance</span><b class="num">${esc(kes(c.balance))}</b></div>
       <div class="kv"><span>About each month</span><b class="num">${esc(kes(c.installment))}</b></div>
       <div class="kv"><span>Issued</span><b>${esc(l.date)}</b></div>
-      ${l.agreement ? `<div class="kv"><span>Terms agreed</span><b>${esc(new Date(l.agreement.at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }))}${sigImg(l.agreement.sig, 'Borrower signature on the terms')}</b></div>` : admin ? `<div class="notice">${icon('alert', 's')}<span>The borrower has not signed the terms yet. <button type="button" class="linkish" data-act="loanAgree" data-id="${esc(l.id)}">Read and sign now</button></span></div>` : ''}
+      ${l.agreement ? signedTerms(s, l) : admin ? `<div class="notice">${icon('alert', 's')}<span>The borrower has not signed the terms yet. <button type="button" class="linkish" data-act="loanAgree" data-id="${esc(l.id)}">Read and sign now</button></span></div>` : ''}
       ${l.sig ? `<div class="kv"><span>Signature</span><b>${sigImg(l.sig, 'Borrower signature')}</b></div>` : ''}
       ${reps.length ? `<h3 style="font-size:.9em;margin:18px 0 4px">Repayments</h3>${reps.map(r => `<div class="kv"><span>${esc(r.date)}</span><b class="num">${esc(kes(r.amount))}</b></div>`).join('')}` : ''}
       ${admin ? `<div class="btns">${c.balance ? `<button type="button" class="btn pri grow" data-act="repay" data-id="${esc(l.id)}">Record repayment</button>` : ''}<button type="button" class="btn grow" data-act="signLoan" data-id="${esc(l.id)}">${icon('sign')}${l.sig ? 'Sign again' : 'Get signature'}</button><button type="button" class="btn grow" data-act="editLoan" data-id="${esc(l.id)}">${icon('pencil')}Edit</button></div>` : ''}` });
@@ -3372,7 +4071,10 @@ const actions = {
       { name: 'principal', label: 'Amount (KES)', type: 'number', value: l.principal },
       { name: 'rate', label: 'Interest (% per month, flat)', type: 'number', value: l.rate },
       { name: 'months', label: 'Repay over (months)', type: 'number', value: l.months }],
-      onSubmit: v => { const principal = num(v.principal, 'Amount'), rate = num(v.rate, 'Rate', { allowZero: true }), months = Math.round(num(v.months, 'Months')); if (rate > 100) throw new Error('Interest above 100% a month is not allowed'); if (months > 120) throw new Error('Repay over 120 months or fewer'); Store.commit(st => Object.assign(st.loans.find(x => x.id === l.id), { memberId: v.memberId, principal, rate, months })); toast('Loan updated'); } });
+      onSubmit: v => { const principal = num(v.principal, 'Amount'), rate = num(v.rate, 'Rate', { allowZero: true }), months = Math.round(num(v.months, 'Months')); if (rate > 100) throw new Error('Interest above 100% a month is not allowed'); if (months > 120) throw new Error('Repay over 120 months or fewer'); const resign = !!l.agreement && (principal !== l.principal || rate !== l.rate || months !== l.months || v.memberId !== l.memberId);
+        /* signed terms are never rewritten: changed terms keep the old signature in prevAgreements and need a new one */
+        Store.commit(st => { const x = st.loans.find(y => y.id === l.id); Object.assign(x, { memberId: v.memberId, principal, rate, months }); if (resign) { x.prevAgreements = [...(x.prevAgreements || []), x.agreement].slice(-2); delete x.agreement; } });
+        toast(resign ? 'Loan updated. The terms changed, so the borrower signs again.' : 'Loan updated'); } });
   } },
   signLoan: { admin: true, run(d) {
     const l = S().loans.find(x => x.id === d.id); if (!l) return;
@@ -3381,12 +4083,13 @@ const actions = {
   addLoan: { admin: true, run() {
     const s = S(); if (!s.members.length) return toast('Add members first');
     Modal.open({ title: 'New loan', submitLabel: 'Issue loan', fields: [
-      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s) },
       { name: 'principal', label: 'Amount (KES)', type: 'number' },
       { name: 'rate', label: 'Interest (% per month, flat)', type: 'number', value: s.chama.loanRate },
       { name: 'months', label: 'Repay over (months)', type: 'number', value: 3 }],
-      body: `${__M_src_ui_modal_js.cashMeter(Domain.cashOnHand(s), 0)}<div id="loanAdvice" class="advice" aria-live="polite"></div>`,
+      body: MemberPicker.field({ s, label: 'Borrower', title: 'Who is borrowing?', verb: 'Lend to', value: '', sub: m => { const b = Domain.memberLoanBalance(S(), m.id); return b > 0 ? 'Loan balance ' + kes(b) : ''; } })
+        + `${__M_src_ui_modal_js.cashMeter(Domain.cashOnHand(s), 0)}<div id="loanAdvice" class="advice" aria-live="polite"></div>`,
       onSubmit: v => {
+        if (!v.memberId || !S().members.some(m => m.id === v.memberId)) throw new Error('Choose who is borrowing');
         const principal = num(v.principal, 'Amount'), rate = num(v.rate, 'Rate', { allowZero: true }), months = Math.round(num(v.months, 'Months'));
         if (rate > 100) throw new Error('Interest above 100% a month is not allowed');
         if (months < 1 || months > 120) throw new Error('Repay over 1 to 120 months');
@@ -3410,6 +4113,7 @@ const actions = {
     __M_src_ui_toast_js.Pop.alert('They get a message to read the terms and sign on their own phone. You are told when they sign, and the signed terms are kept with the loan.', { title: 'Sent for signing', label: 'OK', calm: true });
   } },
   signLoanMine: d => loanTerms(S(), d.id, 'mine'),
+  loanPdf(d) { const s = S(), l = (s.loans || []).find(x => x.id === d.id); if (!l) return; __M_src_lib_reports_js.Doc.print(agreementDoc(s, l), 'Loan agreement - ' + Domain.memberName(s, l.memberId)); toast('Choose “Save as PDF” to keep it', 'info'); },
   repay: { admin: true, run(d) {
     const l = S().loans.find(x => x.id === d.id); if (!l) return; const c = Domain.loan(l);
     Modal.open({ title: 'Record repayment', submitLabel: 'Save repayment', fields: [{ name: 'amount', label: `Amount (balance ${kes(c.balance)})`, type: 'number', value: Math.round(Math.min(c.installment, c.balance)), placeholder: 'e.g. ' + kes(Math.round(Math.min(c.installment, c.balance))) }],
@@ -3559,7 +4263,7 @@ ${outs.length ? `<h2>Payouts received</h2>${Doc.table(['Month', 'Date', 'Amount'
     const body = `<div class="cards"><div class="card hl"><span>Cash on hand</span><b>${Doc.e(kes(Domain.cashOnHand(s)))}</b></div><div class="card"><span>All contributions</span><b>${Doc.e(kes(inn))}</b></div><div class="card"><span>Loans out</span><b>${Doc.e(kes(loansOut))}</b></div><div class="card"><span>Members</span><b>${active.length}</b></div></div>
 <h2>Collections by month</h2>${Doc.table(['Month', 'Expected', 'Collected', 'Share', 'Paid up'], months.map(k => { const exp = sum(s.members.filter(m => Domain.joinMonth(s, m.id) <= k), m => Domain.dueFor(s, m.id, k)), got = sum(s.payments.filter(p => p.month === k), p => p.amount), up = s.members.filter(m => !(m.left && k > m.left) && Domain.joinMonth(s, m.id) <= k && Domain.status(s, m.id, k) === 'paid').length; return [monthLabel(k), kes(exp), kes(got), exp ? Math.round(got / exp * 100) + '%' : '—', String(up)]; }), { num: [1, 2, 3, 4] })}
 <h2>Members</h2>${Doc.table(['Member', 'Shares', 'Saved', 'Owing now', 'Loan balance', 'Status'], s.members.map(m => { const t = Domain.tone(s, m.id, cur), map = { late: ['late', 'Late'], part: ['part', 'Part paid'], due: ['part', 'Due'], paid: ['ok', 'Paid up'], ahead: ['ahead', 'Ahead'], gold: ['gold', 'Gold'], idle: ['ok', m.left ? 'Left' : '—'] }[t] || ['ok', '—']; return [m.name, String(m.shares || 1), kes(Domain.memberSaved(s, m.id)), kes(Domain.outstanding(s, m.id, cur)), kes(Domain.memberLoanBalance(s, m.id)), { html: `<span class="tag ${map[0]}">${map[1]}</span>` }]; }), { num: [1, 2, 3, 4], foot: ['Total', '', kes(inn), kes(sum(s.members, m => Domain.outstanding(s, m.id, cur))), kes(loansOut), ''] })}
-<h2>Loans</h2>${Doc.table(['Member', 'Issued', 'Borrowed', 'To repay', 'Balance', 'Terms signed'], s.loans.map(l => { const c = Domain.loan(l); return [Domain.memberName(s, l.memberId), l.date || '', kes(l.principal), kes(c.total), kes(c.balance), l.agreement ? 'Yes' : 'No']; }), { num: [2, 3, 4], empty: 'No loans.' })}
+<h2>Loans</h2>${Doc.table(['Member', 'Issued', 'Borrowed', 'To repay', 'Balance', 'Terms signed'], s.loans.map(l => { const c = Domain.loan(l); return [Domain.memberName(s, l.memberId), l.date || '', kes(l.principal), kes(c.total), kes(c.balance), l.agreement ? (new Date(l.agreement.at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) || 'Yes') + (/borrower/.test(l.agreement.on || '') ? ', own phone' : '') : 'No']; }), { num: [2, 3, 4], empty: 'No loans.' })}
 <h2>Payouts</h2>${Doc.table(['Month', 'Member', 'Date', 'Amount', 'Signed'], s.payouts.slice().sort((a, b) => a.month.localeCompare(b.month)).map(p => [monthLabel(p.month), Domain.memberName(s, p.memberId), p.date || '', kes(p.amount), p.sig ? 'Yes' : 'No']), { num: [3], empty: 'No payouts yet.' })}
 ${s.chama.mode === 'savings' ? '' : `<h2>Payout order</h2>${Doc.table(['Turn', 'Month', 'Member'], Domain.payoutOrder(s).map((t, i) => [String(i + 1), monthLabel(t.mk), t.member.name + (t.sent ? ' (sent)' : '')]), { empty: 'No members yet.' })}`}
 <h2>Expenses</h2>${Doc.table(['Date', 'For', 'Type', 'Amount'], s.expenses.map(x => [x.date || '', x.title || '', x.category || '', kes(x.amount)]), { num: [3], empty: 'No expenses.', foot: s.expenses.length ? ['', '', 'Total', kes(sum(s.expenses, x => x.amount))] : null })}
@@ -3755,7 +4459,7 @@ const { Store } = __M_src_core_store_js;
 const { esc, kes, todayISO, uid, sum } = __M_src_core_utils_js;
 const { num } = __M_src_lib_validate_js;
 const { memberChip, av } = __M_src_ui_avatar_js;
-const { memberOptions } = __M_src_ui_forms_js;
+const { MemberPicker } = __M_src_ui_forms_js;
 const { Modal, confirmBox } = __M_src_ui_modal_js;
 const { toast } = __M_src_ui_toast_js;
 
@@ -3782,23 +4486,27 @@ const actions = {
   } },
   editFine: { admin: true, run(d) {
     const s = S(), f = s.fines.find(x => x.id === d.id); if (!f) return;
-    Modal.open({ title: 'Edit fine', fields: [
-      { name: 'memberId', label: 'Member', type: 'select', options: memberOptions(s), value: f.memberId },
+    Modal.open({ title: 'Edit fine', body: MemberPicker.field({ s, label: 'Who', title: 'Who gets the fine?', verb: 'Fine', value: f.memberId }), fields: [
       { name: 'amount', label: 'Amount (KES)', type: 'number', value: f.amount },
       { name: 'reason', label: 'Reason', value: f.reason, required: true }],
       onSubmit: v => { const amount = num(v.amount, 'Amount'); const reason = String(v.reason || '').trim(); if (!reason) throw new Error('Give a reason'); Store.commit(st => Object.assign(st.fines.find(x => x.id === f.id), { memberId: v.memberId, amount, reason })); toast('Fine updated'); } });
   } },
   addFine: { admin: true, run() {
     const s = S(); if (!s.members.length) return toast('Add members first');
-    /* members who still owe come first, so the usual case is one tap */
-    const cur = Domain.now(), owing = Domain.active(s).map(m => ({ m, bal: Domain.outstanding(s, m.id, cur) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal);
-    const rest = s.members.filter(m => !owing.some(x => x.m.id === m.id));
-    const opts = [...owing.map(x => [x.m.id, `${x.m.name} · ${kes(x.bal)} behind`]), ...rest.map(m => [m.id, m.name + (m.left ? ' · left' : ' · paid up')])];
-    Modal.open({ title: 'Add fine', submitLabel: 'Add fine', body: owing.length ? `<p class="fhelp">${owing.length} ${owing.length === 1 ? 'member owes' : 'members owe'} for ${esc(__M_src_core_utils_js.monthLabel(cur))}. They are listed first.</p>` : `<p class="fhelp">Everyone is paid up for ${esc(__M_src_core_utils_js.monthLabel(cur))}.</p>`, fields: [
-      { name: 'memberId', label: 'Member', type: 'select', options: opts, value: owing.length ? owing[0].m.id : (opts[0] || [])[0] },
+    /* only people who still owe are offered by default: someone fully paid up is never fined for lateness by mistake.
+       "Show everyone" is there for other fines, such as a missed meeting. */
+    const cur = Domain.now(), owing = Domain.active(s).map(m => ({ m, st: MemberPicker.standing(s, m, cur) })).filter(x => x.st.owes > 0).sort((a, b) => (b.st.days - a.st.days) || (b.st.owes - a.st.owes));
+    const paidUp = Domain.active(s).length - owing.length, ml = __M_src_core_utils_js.monthLabel(cur);
+    const REASONS = [['Late payment', 'Late contribution ' + ml], ['Missed meeting', 'Missed meeting'], ['Came late', 'Came late to the meeting'], ['Other', '']];
+    Modal.open({ title: 'Add fine', submitLabel: 'Add fine', body: `<p class="fhelp fine-help">${owing.length ? `${icon('clock', 's')}<span>${owing.length} ${owing.length === 1 ? 'member owes' : 'members owe'} for ${esc(ml)}.${paidUp ? ` ${paidUp} paid up ${paidUp === 1 ? 'is' : 'are'} not listed.` : ''}</span>` : `${icon('check', 's')}<span>Everyone is paid up for ${esc(ml)}. Nobody should get a late fine.</span>`}</p>`
+      + MemberPicker.field({ s, label: 'Who', title: 'Who gets the fine?', verb: 'Fine', value: owing.length ? owing[0].m.id : '', ids: owing.map(x => x.m.id), allLabel: 'Show everyone', hiddenNote: 'paid up, hidden', emptyText: 'Everyone is paid up' })
+      + `<div class="fine-why" role="group" aria-label="Quick reasons">${REASONS.map(([t, r]) => `<button type="button" class="fine-r${t === 'Late payment' && owing.length ? ' on' : ''}" data-fr="${esc(r)}" data-all="${t === 'Late payment' ? '' : '1'}">${esc(t)}</button>`).join('')}</div>`, fields: [
       { name: 'amount', label: 'Amount (KES)', type: 'number', value: s.chama.finePerLate || '', placeholder: 'e.g. ' + kes(s.chama.finePerLate) },
-      { name: 'reason', label: 'Reason', placeholder: 'e.g. Missed meeting', required: true }],
-      onSubmit: v => { const reason = String(v.reason || '').trim(); if (!reason) throw new Error('Give a reason'); const amount = num(v.amount, 'Amount'); Store.commit(st => st.fines.push({ id: uid(), memberId: v.memberId, amount, reason, date: todayISO(), paid: false })); toast('Fine added'); } });
+      { name: 'reason', label: 'Reason', placeholder: 'e.g. Missed meeting', required: true, value: owing.length ? 'Late contribution ' + ml : '' }],
+      onSubmit: v => { if (!v.memberId || !S().members.some(m => m.id === v.memberId)) throw new Error('Choose who gets the fine'); const reason = String(v.reason || '').trim(); if (!reason) throw new Error('Give a reason'); const amount = num(v.amount, 'Amount');
+        const lateFine = /\blate\b/i.test(reason) && !/meeting/i.test(reason), st = MemberPicker.standing(S(), S().members.find(m => m.id === v.memberId), cur);
+        if (lateFine && st.owes <= 0) throw new Error(Domain.memberName(S(), v.memberId).split(' ')[0] + ' is paid up. A late fine is not fair. Change the reason if this is for something else.');
+        Store.commit(st2 => st2.fines.push({ id: uid(), memberId: v.memberId, amount, reason, date: todayISO(), paid: false, ...(lateFine ? { period: cur } : {}) })); toast('Fine added'); } });
   } },
   autoFines: { admin: true, run() {
     const s = S(), cur = Domain.now(), reason = 'Late contribution ' + cur, late = Domain.lateMembers(s, cur).filter(m => !s.fines.some(f => f.memberId === m.id && (f.period === cur || (!f.period && f.reason === reason))));
@@ -3809,6 +4517,14 @@ const actions = {
   payFine: { admin: true, run: d => { Modal.close(); Store.commit(s => { const f = s.fines.find(x => x.id === d.id); if (f) f.paid = true; }); toast('Fine marked paid'); } },
   delFine: { admin: true, run: d => { Modal.close(); confirmBox('Remove this fine?', () => Store.commit(s => { s.fines = s.fines.filter(f => f.id !== d.id); })); } },
 };
+/* @@AGENT-FINES@@ quick reasons on Add fine. A fine that is not about lateness (a missed meeting) lists everyone. */
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#modalRoot [data-fr]'); if (!b) return;
+  const f = b.closest('form'), r = f && f.querySelector('input[name="reason"]'); if (!r) return;
+  f.querySelectorAll('[data-fr]').forEach(x => x.classList.toggle('on', x === b));
+  r.value = b.dataset.fr; if (!b.dataset.fr) r.focus();
+  const c = MemberPicker.cfg.memberId; if (c && b.dataset.all) c.all = true;
+}, true);
 
 return { get views() { return views; }, get actions() { return actions; }, };
 })();
@@ -3960,10 +4676,9 @@ const views = {
     </section>
     ${money}
     ${m ? `<section class="sec"><div class="sec-h"><h2>My recent payments</h2>${recent.length ? `<button type="button" data-act="statement" data-id="${esc(m.id)}">Statement</button>` : ''}</div><div class="list">${recent.length ? recent.map(p => `<div class="li has-ic"><span class="li-ic t-ok">${icon('check')}</span><div class="li-main"><b>${esc(monthLabel(p.month))}</b><small>${esc(p.date || '')}${p.code ? ' · ' + esc(p.code) : ''}</small></div><div class="li-end"><span class="num">${esc(kes(p.amount))}</span><button type="button" class="hb sm" data-act="shareReceipt" data-id="${esc(p.id)}" aria-label="Share a receipt">${icon('share', 's')}</button></div></div>`).join('') : '<div class="li empty">No payments recorded yet</div>'}</div></section>` : ''}
-    <section class="sec"><div class="sec-h"><h2>My details</h2></div><div class="list">
-      ${row('name', 'profile', 'Full name', name)}
+    ${aboutSec(me, m, name, row)}
+    <section class="sec"><div class="sec-h"><h2>Account</h2></div><div class="list">
       ${row('user', 'tag', 'Username', /^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || ''), 't-ink')}
-      ${row('phone', 'phone', 'Phone number', me.phone || (m && m.phone) || '', 't-info')}
       ${row('email', 'mail', 'Contact email', me.email || '', 't-gold')}
     </div><p class="foot-note">The same details are used in every Chama you belong to.</p></section>
     <section class="sec"><div class="sec-h"><h2>Sign-in and security</h2></div><div class="list">
@@ -3974,6 +4689,167 @@ const views = {
     </div></section>`;
   },
 };
+
+/* ---- About you on My profile (F-U2): the answers given once, seen and changed here. Saving goes to the server
+   (set_my_details / set_phone_sharing / set_dob_source) and the app is set up for the new age at once. ---- */
+const AB_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const AB_GENDER = { female: 'Female', male: 'Male', other: 'Other', prefer_not: 'Prefer not to say' };
+const AB_OLD = e => /Could not find the function|PGRST202|schema cache/i.test((e && e.message) || '');
+const abAbout = () => __M_src_features_guide_js.About;
+const abRpc = (n, a) => __M_src_core_backend_js.Backend.sb.rpc(n, a);
+const ageOf = iso => { const b = String(iso || '').split('-'), y = Number(b[0]); if (!y) return null; const now = new Date(), mo = Number(b[1]) || 1, d = Number(b[2]) || 1; let a = now.getFullYear() - y; if (now.getMonth() + 1 < mo || (now.getMonth() + 1 === mo && now.getDate() < d)) a--; return a; };
+const dobText = (iso, exact) => { const b = String(iso || '').split('-').map(Number); if (!b[0]) return ''; return exact === false ? 'Born ' + b[0] : `${b[2]} ${AB_MONTHS[b[1] - 1]} ${b[0]}`; };
+const SRC_TEXT = { self: 'Self-declared', id_scan: 'Self-declared · ID scanned', verified: 'Verified' };
+/* the details as the server has them; read once per visit (falls back to what this phone knows) */
+const abDetails = () => {
+  const A = abAbout(), loc = A.local();
+  if (!A.info && !A._ld) {
+    A._ld = true;
+    Promise.resolve().then(() => abRpc('get_my_details')).then(r => { A.info = !r.error && r.data ? r.data : { ...loc, _na: true }; if (!r.error && r.data) A.cache(r.data); })
+      .catch(() => { A.info = { ...loc, _na: true }; }).finally(() => { A._ld = false; render(); });
+  }
+  const v = A.info || loc;
+  return { birth: v.birth_date || null, gender: v.gender || null, src: v.dob_source || loc.dob_source || null, shared: A.info && 'phone_shared_at' in A.info ? !!A.info.phone_shared_at : null, exact: loc.birth_date && loc.birth_date === v.birth_date ? loc.exact : undefined, loading: !A.info };
+};
+const aboutSec = (me, m, name, row) => {
+  const x = abDetails(), age = ageOf(x.birth);
+  const item = (act, ic, k, v, tone, extra) => `<button type="button" class="li has-ic" data-act="${act}"><span class="li-ic ${tone || ''}">${icon(ic)}</span><span class="li-main"><small>${esc(k)}</small><b>${v || '<span class="mute">Add</span>'}</b>${extra || ''}</span>${icon('chev', 'chev')}</button>`;
+  const dob = x.birth ? `${esc(dobText(x.birth, x.exact))}${age != null ? ` <span class="ay-age">${age} years</span>` : ''}` : (x.loading ? '<span class="mute">…</span>' : '');
+  const badge = x.birth ? `<span class="ay-src${x.src === 'id_scan' || x.src === 'verified' ? ' on' : ''}">${x.src === 'id_scan' || x.src === 'verified' ? icon('check', 's') : ''}${esc(SRC_TEXT[x.src] || SRC_TEXT.self)}</span>` : '';
+  const share = x.shared == null ? (x.loading ? '<span class="mute">…</span>' : '<span class="mute">Not known yet</span>') : x.shared ? 'Shared with my Chama' : 'Not shared';
+  return `<section class="sec" id="aboutYou"><div class="sec-h"><h2>About you</h2></div><div class="list ay-list">
+      ${row('name', 'profile', 'Full name', name)}
+      ${row('phone', 'phone', 'Phone number', me.phone || (m && m.phone) || '', 't-info')}
+      ${item('aboutDob', 'clock', 'Date of birth', dob, 't-gold', badge)}
+      ${item('aboutGender', 'people', 'Gender', x.gender ? esc(AB_GENDER[x.gender] || x.gender) : (x.loading ? '<span class="mute">…</span>' : ''), 't-ink')}
+      ${item('aboutShare', 'chat', 'Phone sharing', share, x.shared ? 't-ok' : '')}
+    </div><p class="foot-note">Only you see your date of birth and gender. Your age sets the text size and Simple view; you can still choose your own in Settings, Display.</p></section>`;
+};
+
+/* save a new date of birth, mark where it came from, and set the app up for the new age at once */
+const saveDob = async (iso, src) => {
+  const A = abAbout(), G = __M_src_features_guide_js;
+  const { error } = await abRpc('set_my_details', { p_full_name: null, p_phone: null, p_birth_date: iso, p_gender: null });
+  if (error) throw new Error(AB_OLD(error) ? 'Nothing was changed. This needs the latest server update.' : rpcMessage(error));
+  let srcSaved = true;
+  const r2 = await abRpc('set_dob_source', { p_source: src });
+  if (r2.error) { if (AB_OLD(r2.error)) srcSaved = false; else throw new Error(rpcMessage(r2.error)); }
+  const prev = A.info && !A.info._na ? A.info : A.local();
+  A.info = { ...prev, birth_date: iso, dob_source: srcSaved ? src : (prev.dob_source || null), details_at: new Date().toISOString() };
+  A.cache(A.info);
+  const band = G.Adapt.reapply();
+  render();
+  return { srcSaved, band };
+};
+
+/* Reading the date of birth from a Kenyan ID, on this phone only. The picture stays in memory: it is never uploaded or
+   stored, the object URL is revoked and the canvas is wiped as soon as it has been read. (Stage (b), checking it with a
+   KYC service, is not built.) */
+const IdScan = {
+  /* OCR mixes up letters and digits; inside a date these are always digits */
+  digits: s => String(s).toUpperCase().replace(/[OQD]/g, '0').replace(/[IL|!\]\[]/g, '1').replace(/Z/g, '2').replace(/S/g, '5').replace(/B/g, '8').replace(/G/g, '6').replace(/T/g, '7').replace(/[^0-9]/g, ''),
+  /* every DD.MM.YYYY-like date in the text, with where it was found */
+  dates(text) {
+    const out = [], re = /([0-3OIL|]?[0-9OQDILSBZ|])\s?[.,\/\-:\s]\s?([01OIL|]?[0-9OQDILSBZ|])\s?[.,\/\-:\s]\s?([12IL|][9O0Q][0-9OQDILSBZ|]{2})/gi;
+    let mm; while ((mm = re.exec(text))) {
+      const d = Number(this.digits(mm[1])), mo = Number(this.digits(mm[2])), y = Number(this.digits(mm[3]));
+      if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y >= 1900) { const dt = new Date(y, mo - 1, d); if (dt.getMonth() === mo - 1) out.push({ at: mm.index, y, m: mo, d }); }
+    }
+    return out;
+  },
+  /* the date after "DATE OF BIRTH" (spelled however the reader saw it); else the oldest date that makes a sensible age */
+  find(text) {
+    const t = String(text || '').replace(/\r/g, ''), all = this.dates(t), age = x => ageOf(`${x.y}-${String(x.m).padStart(2, '0')}-${String(x.d).padStart(2, '0')}`);
+    const ok = all.filter(x => { const a = age(x); return a != null && a >= 16 && a <= 110; });
+    const lab = /D\s*[A4]\s*[T7]\s*[E3]\s*[O0]\s*[FE]\s*B\s*[I1l|]\s*R\s*[T7]\s*H|BIRTH|B[I1l]RTH|BIRT/i.exec(t);
+    let pick = null;
+    if (lab) pick = ok.find(x => x.at >= lab.index && x.at - lab.index < 120) || null;
+    if (!pick && ok.length) pick = ok.slice().sort((a, b) => a.y - b.y || a.m - b.m || a.d - b.d)[0];
+    return pick ? `${pick.y}-${String(pick.m).padStart(2, '0')}-${String(pick.d).padStart(2, '0')}` : null;
+  },
+  /* larger, grey, stretched contrast: what Tesseract reads best */
+  async canvas(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('That file is not a picture. Try a JPG or PNG.')); i.src = url; });
+      const k = Math.min(3, Math.max(1, 1800 / (img.naturalWidth || 1))) * Math.min(1, 3200 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+      const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height);
+      const im = x.getImageData(0, 0, c.width, c.height), d = im.data; let lo = 255, hi = 0;
+      for (let i = 0; i < d.length; i += 4) { const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; d[i] = g; if (g < lo) lo = g; if (g > hi) hi = g; }
+      const span = Math.max(1, hi - lo);
+      for (let i = 0; i < d.length; i += 4) { let g = (d[i] - lo) * 255 / span; g = g < 140 ? Math.max(0, g - 35) : Math.min(255, g + 25); d[i] = d[i + 1] = d[i + 2] = g; }
+      x.putImageData(im, 0, 0);
+      return c;
+    } finally { URL.revokeObjectURL(url); }
+  },
+  wipe(c) { if (!c) return; try { c.getContext('2d').clearRect(0, 0, c.width, c.height); } catch (e) {} c.width = c.height = 0; },
+  async worker() {
+    const I = __M_src_lib_mpesa_js && __M_src_lib_mpesa_js.Import;
+    if (I && typeof I.worker === 'function') return I.worker();
+    if (this._w) return this._w;
+    if (!window.Tesseract) await new Promise((ok, no) => { const el = document.createElement('script'); el.src = 'vendor/tesseract/tesseract.min.js'; el.onload = ok; el.onerror = no; document.head.appendChild(el); });
+    const base = new URL('vendor/tesseract/', location.href).href;
+    this._w = await Tesseract.createWorker('eng', 1, { workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang', gzip: true });
+    return this._w;
+  },
+  async read(file) {
+    let c = null;
+    try { c = await this.canvas(file); const w = await this.worker(); const r = await w.recognize(c); return this.find(r && r.data ? r.data.text : ''); }
+    finally { this.wipe(c); }
+  }
+};
+
+/* the date of birth editor: day, month and year as three big lists, or read it from the ID */
+const dobEd = { y: null, m: null, d: null, scan: '', found: null, src: 'self' };
+const dobSheet = () => {
+  const Sheet = __M_src_features_requests_js.Sheet, e = dobEd, yr = new Date().getFullYear();
+  let body;
+  if (e.scan === 'consent' || e.scan === 'busy' || e.scan === 'none') {
+    body = `<div class="sx-head"><span class="sx-badge">${icon('camera')}</span><h3>Scan my ID</h3><p>Take or choose a photo of the front of your Kenyan ID. We read the date of birth on this phone. The photo is never uploaded or kept.</p></div>
+${e.scan === 'busy' ? `<div class="ay-busy" role="status"><span class="spin" aria-hidden="true"></span><span>Reading your ID…</span></div>` : `
+${e.scan === 'none' ? `<p class="ay-warn" role="alert">${icon('alert', 's')}<span>We could not find the date of birth. Try again in good light with the whole card in the photo, or choose the date yourself.</span></p>` : ''}
+<div class="ay-pick"><label class="ay-tile" for="idScanCam">${icon('camera')}<b>Take a photo</b><small>with the camera</small></label><label class="ay-tile" for="idScanPick">${icon('image')}<b>Choose a photo</b><small>from this phone</small></label></div>
+<input type="file" id="idScanCam" accept="image/*" capture="environment" hidden><input type="file" id="idScanPick" accept="image/*" hidden>
+<button type="button" class="btn ghost block" data-act="aboutIdBack">Choose the date myself</button>`}`;
+  } else {
+    const opt = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${esc(t)}</option>`;
+    const years = []; for (let y = yr - 13; y >= 1920; y--) years.push(y);
+    const age = e.y ? ageOf(`${e.y}-${String(e.m || 1).padStart(2, '0')}-${String(e.d || 1).padStart(2, '0')}`) : null;
+    body = `<div class="sx-head"><span class="sx-badge">${icon('clock')}</span><h3>Date of birth</h3><p>Only you see it. Your age sets up the app for you.</p></div>
+${e.found ? `<p class="ay-found" role="status">${icon('check', 's')}<span>Found on your ID: <b>${esc(dobText(e.found))}</b>. Is this right?</span></p>` : ''}
+<div class="ay-dob">
+<label class="fgrp" for="ayD"><span class="flab">Day</span><select id="ayD" class="ay-sel">${opt('', '—', !e.d)}${Array.from({ length: 31 }, (_, i) => opt(i + 1, String(i + 1), e.d === i + 1)).join('')}</select></label>
+<label class="fgrp" for="ayM"><span class="flab">Month</span><select id="ayM" class="ay-sel">${opt('', '—', !e.m)}${AB_MONTHS.map((x, i) => opt(i + 1, x, e.m === i + 1)).join('')}</select></label>
+<label class="fgrp" for="ayY"><span class="flab">Year</span><select id="ayY" class="ay-sel">${opt('', '—', !e.y)}${years.map(y => opt(y, String(y), e.y === y)).join('')}</select></label>
+</div>
+<p class="ay-agenow" id="ayAge">${age != null ? `${age} years` : ''}</p>
+<button type="button" class="btn pri block lg" data-act="aboutDobSave"${e.y ? '' : ' disabled'}>${e.found ? 'Yes, save' : 'Save'}</button>
+<button type="button" class="btn tint block ay-scan" data-act="aboutIdScan">${icon('camera', 's')}Scan my ID</button>`;
+  }
+  if (Sheet.isOpen && Sheet.isOpen('aboutDob')) Sheet.update(body); else Sheet.open(body, { key: 'aboutDob', label: 'Date of birth' });
+  ['idScanCam', 'idScanPick'].forEach(id => { const inp = document.getElementById(id); if (inp) inp.onchange = () => { const f = inp.files && inp.files[0]; inp.value = ''; if (f) scanFile(f); }; });
+};
+const scanFile = async f => {
+  dobEd.scan = 'busy'; dobSheet();
+  let iso = null;
+  try { iso = await IdScan.read(f); } catch (e) { console.warn('ID scan failed', e); }
+  if (!__M_src_features_requests_js.Sheet.isOpen('aboutDob')) return;
+  if (!iso) { dobEd.scan = 'none'; return dobSheet(); }
+  const b = iso.split('-').map(Number);
+  Object.assign(dobEd, { y: b[0], m: b[1], d: b[2], scan: '', found: iso, src: 'id_scan' });
+  dobSheet();
+};
+const dobRead = () => { const g = id => Number((document.getElementById(id) || {}).value) || null; return { d: g('ayD'), m: g('ayM'), y: g('ayY') }; };
+document.addEventListener('change', e => {
+  if (!e.target || !/^ay[DMY]$/.test(e.target.id)) return;
+  Object.assign(dobEd, dobRead());
+  const iso = dobEd.found ? dobEd.found.split('-').map(Number) : null;
+  if (iso && (iso[0] !== dobEd.y || iso[1] !== dobEd.m || iso[2] !== dobEd.d)) { dobEd.found = null; dobEd.src = 'self'; }
+  const a = dobEd.y ? ageOf(`${dobEd.y}-${String(dobEd.m || 1).padStart(2, '0')}-${String(dobEd.d || 1).padStart(2, '0')}`) : null;
+  const el = document.getElementById('ayAge'); if (el) el.textContent = a != null ? a + ' years' : '';
+  const sv = document.querySelector('[data-act="aboutDobSave"]'); if (sv) { sv.disabled = !dobEd.y; sv.textContent = dobEd.found ? 'Yes, save' : 'Save'; }
+});
 
 /* one field at a time, in a sheet: fewer taps than a long form, and nothing else on the page moves */
 const editSheet = f => {
@@ -3987,6 +4863,17 @@ const editSheet = f => {
     password: ['Change password', 'lock', '', '']
   }[f];
   if (!F) return;
+  /* the username: the same live check as account setup (tick when free, the reason when not, suggestions from the name);
+     Save stays off until the new name is free */
+  if (f === 'user') {
+    const cur = /^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || '');
+    Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('tag')}</span><h3>Username</h3><p>You can sign in with it. Letters, numbers, dot, dash or underscore.</p></div>
+<label class="fgrp" for="setUser"><span class="field">${icon('tag')}<input id="setUser" value="${esc(cur)}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" placeholder="e.g. john.kamau" autofocus></span><small class="u-st" id="userSt" aria-live="polite"></small></label>
+<div class="u-sugg" id="userSugg" aria-label="Suggested usernames"></div>
+<button type="button" class="btn pri block lg" data-act="meSave" data-f="user" data-uc-save disabled>Save</button>`, { key: 'edit', label: 'Username' });
+    setTimeout(() => __M_src_features_auth_gate_js.UserCheck.init({ name: me.name || (m && m.name) || '', mine: cur }), 0);
+    return;
+  }
   if (f === 'password') return Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('lock')}</span><h3>Change password</h3><p>At least 6 characters, with a capital letter, a number and a symbol.</p></div>
 <label class="fgrp" for="pwCur"><span class="flab">Current password</span><span class="field pw">${icon('lock')}<input id="pwCur" type="password" autocomplete="current-password" autofocus><button type="button" class="eye" data-act="togglePw" data-for="pwCur" aria-pressed="false">Show</button></span></label>
 <label class="fgrp" for="pwNew"><span class="flab">New password</span><span class="field pw">${icon('lock')}<input id="pwNew" type="password" autocomplete="new-password"><button type="button" class="eye" data-act="togglePw" data-for="pwNew" aria-pressed="false">Show</button></span></label>
@@ -3998,6 +4885,54 @@ const editSheet = f => {
 
 const actions = {
   meEdit: d => editSheet(d.f),
+  aboutDob() {
+    const x = abDetails(), b = String(x.birth || '').split('-').map(Number);
+    Object.assign(dobEd, { y: b[0] || null, m: x.exact === false ? null : (b[1] || null), d: x.exact === false ? null : (b[2] || null), scan: '', found: null, src: 'self' });
+    dobSheet();
+  },
+  aboutIdScan() { dobEd.scan = 'consent'; dobSheet(); },
+  aboutIdBack() { dobEd.scan = ''; dobSheet(); },
+  async aboutDobSave() {
+    const e = Object.assign(dobEd, dobRead()), btn = document.querySelector('[data-act="aboutDobSave"]');
+    if (!e.y) return toast('Choose at least the year');
+    if (e.d && e.m && new Date(e.y, e.m - 1, e.d).getMonth() !== e.m - 1) return toast('That day is not in ' + AB_MONTHS[e.m - 1]);
+    const iso = `${e.y}-${String(e.m || 1).padStart(2, '0')}-${String(e.m && e.d ? e.d : 1).padStart(2, '0')}`;
+    const src = e.found && e.found === iso ? 'id_scan' : 'self';
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    try {
+      const r = await saveDob(iso, src);
+      if (!(e.m && e.d)) { try { const k = 'mca-about:data:' + abAbout().uid(), v = JSON.parse(localStorage.getItem(k) || '{}'); v.exact = false; localStorage.setItem(k, JSON.stringify(v)); } catch (err) {} render(); }
+      __M_src_features_requests_js.Sheet.close();
+      if (src === 'id_scan' && !r.srcSaved) toast('Date of birth saved. Marking it as read from your ID needs the latest server update.', 'info');
+      else toast(r.band && r.band !== 'std' ? 'Saved. The app is set up for your age.' : 'Saved', 'ok');
+    } catch (err) { toast(err.message || 'Could not save. Check your internet and try again.'); if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = 'Save'; } }
+  },
+  aboutGender() {
+    const g = abDetails().gender;
+    __M_src_features_requests_js.Sheet.open(`<div class="sx-head"><span class="sx-badge">${icon('people')}</span><h3>Gender</h3><p>Never shown to other members.</p></div>
+<div class="ay-opts">${Object.entries(AB_GENDER).map(([v, t]) => `<button type="button" class="ab-opt wide${g === v ? ' on' : ''}" data-act="aboutGenderSet" data-v="${v}" aria-pressed="${g === v}">${esc(t)}</button>`).join('')}</div>`, { key: 'aboutGender', label: 'Gender' });
+  },
+  async aboutGenderSet(d) {
+    const A = abAbout();
+    try {
+      const { error } = await abRpc('set_my_details', { p_full_name: null, p_phone: null, p_birth_date: null, p_gender: d.v });
+      if (error) return toast(AB_OLD(error) ? 'Nothing was changed. This needs the latest server update.' : rpcMessage(error));
+    } catch (e) { return toast('Could not save. Check your internet and try again.'); }
+    A.info = { ...(A.info && !A.info._na ? A.info : A.local()), gender: d.v }; A.cache(A.info);
+    __M_src_features_requests_js.Sheet.close(); toast('Saved', 'ok'); render();
+  },
+  aboutShare() {
+    const A = abAbout(), on = abDetails().shared;
+    const flip = async to => {
+      const { error } = await abRpc('set_phone_sharing', { p_on: to });
+      if (error) return toast(AB_OLD(error) ? 'Nothing was changed. Sharing numbers needs the latest server update.' : rpcMessage(error));
+      if (A.info) A.info = { ...A.info, phone_shared_at: to ? new Date().toISOString() : null };
+      toast(to ? 'Your number is now shared with your group' : 'Your number is no longer shared', 'ok'); render();
+      try { __M_src_features_chat_index_js.Phones.load(true); } catch (e) {}
+    };
+    if (on) __M_src_ui_toast_js.Pop.confirm({ title: 'Stop sharing your phone number?', text: 'Members will no longer see your number, and you will no longer see theirs. The treasurer still has it for reminders and M-Pesa matching.', confirmLabel: 'Stop sharing', danger: true, onYes: () => flip(false) });
+    else __M_src_ui_toast_js.Pop.confirm({ title: 'Share your phone number with your group?', text: 'People in your Chama will see your number so they can call or WhatsApp you. You can stop any time.', confirmLabel: 'Yes, share it', onYes: () => flip(true) });
+  },
   askLink: async () => {
     const C = __M_src_features_chat_index_js.Chat;
     try {
@@ -4010,7 +4945,8 @@ const actions = {
   },
   async meSave(d) {
     const me = Me.get(), s = S(), m = s && me.memberId ? s.members.find(x => x.id === me.memberId) : null;
-    const v = String(($('#edV') || {}).value || '').trim();
+    const v = String(((d.f === 'user' ? $('#setUser') : null) || $('#edV') || {}).value || '').trim();
+    if (d.f === 'user') { const sv = document.querySelector('[data-uc-save]'); if (sv && sv.disabled) return; }
     const cur = { name: me.name || (m && m.name) || '', phone: me.phone || (m && m.phone) || '', email: me.email || '', username: /^user[0-9a-f]{8}$/.test(me.username || '') ? '' : (me.username || '') };
     try {
       if (d.f === 'name') { cur.name = v.replace(/\s+/g, ' '); if (!cur.name) throw new Error('Please type your name'); if (cur.name.length > 120) throw new Error('Keep your name to 120 characters or fewer'); }
@@ -4384,7 +5320,7 @@ const views = {
       + grp('Security and tools', [act('lockSetup', 'lock', 't-ink', 'App lock', (() => { try { return (() => { const c = JSON.parse(localStorage.getItem('mca-lock') || 'null'); return c && c.hash; })() ? (JSON.parse(localStorage.getItem('mca-lock')).on === false ? 'Off · PIN kept for next time' : 'On · asks for your PIN') : 'Off · ask for a PIN on this phone'; } catch (e) { return ''; } })()), act('moneyToggle', 'eye', 't-info', 'Hide amounts', document.documentElement.classList.contains('hide-money') ? 'On · tap a number to peek' : 'Off · for using the app in public'), act('icsExport', 'clock', 't-gold', 'Add dates to my calendar', 'Due dates and meetings, with reminders'), act('palette', 'search', 't-ink', 'Search', 'People, payments and pages · press / on a keyboard'),
         ...(admin ? [li('insights', 'chart', '', 'Insights', 'Forecast, members to watch, loan limits')] : []), ...(Session.role && Session.role !== 'member' ? [li('register', 'doc', 't-info', 'Member register', 'Contacts for officers, with export')] : [])])
       + grp('Support and legal', [li('settings/help', 'help', 't-info', 'Help', 'Guides and troubleshooting'), act('feedback', 'chat', '', 'Send feedback', 'Rate the app, report a problem, suggest an idea'), li('settings/privacy', 'shield', '', 'Privacy and my data', 'Download or delete your data'), li('legal/terms', 'scale', 't-ink', 'Terms of Use', ''), li('legal/privacy', 'doc', 't-ink', 'Privacy Policy', ''), li('settings/about', 'info', 't-ink', 'About', 'Version ' + APP.version)])
-      + `<section class="sec"><div class="list">${act('signOutAsk', 'out', 't-bad', 'Sign out', '', 'danger')}</div></section>`;
+      + `<section class="sec"><div class="list">${act('signOutAsk', 'out', 't-bad', 'Sign out', '', 'danger')}${Session.user ? act('signOutAllAsk', 'shield', 't-bad', 'Sign out everywhere', 'Every phone and browser, including this one', 'danger') : ''}</div></section>`;
     if (r.startsWith('settings/app')) {
       const sub = r.slice('settings/app'.length).replace(/^\//, '');
       const show = k => !sub || sub === k;
@@ -4587,7 +5523,8 @@ ${has ? '<button type="button" class="btn ghost block" style="margin-top:8px" da
     });
   } },
   chamaPhotoRemove: { admin: true, run() { Store.commit(st => { const c = { ...st.chama }; delete c.photo; st.chama = c; }); __M_src_features_requests_js.Sheet.close(); toast('Chama photo removed', 'info'); } },
-  aboutEdit: () => { try { localStorage.removeItem('mca-about-v3:' + ((Session.user && Session.user.id) || '')); } catch (e) {} __M_src_features_guide_js.About.check(); },
+  /* answered once: from here on the details are seen and changed on My profile, never by running the questions again */
+  aboutEdit: () => { __M_src_features_guide_js.About.info = null; location.hash = '#/profile'; setTimeout(() => { const el = document.getElementById('aboutYou'); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 350); },
   aboutClear: () => __M_src_ui_toast_js.Pop.confirm({ title: 'Remove these details?', text: 'Your date of birth, gender and phone number are deleted. Simple view stays as it is.', confirmLabel: 'Remove', danger: true,
     onYes: async () => {
       const uid = (Session.user && Session.user.id) || '';
@@ -4595,7 +5532,7 @@ ${has ? '<button type="button" class="btn ghost block" style="margin-top:8px" da
       const { error } = await Backend.sb.rpc('clear_my_details', { p_what: ['phone', 'birth_date', 'gender'] });
       if (error && !/Could not find the function|PGRST202|schema cache/i.test(error.message || '')) return toast(error.message);
       if (error) { const r = await Backend.sb.rpc('set_my_profile', { p_full_name: null, p_phone: '', p_username: null }); if (r.error) return toast('Removed from this phone. The server part needs the latest update.'); }
-      toast('Removed', 'ok');
+      __M_src_features_guide_js.About.info = null; toast('Removed', 'ok');
     } }),
   chamaSave: { admin: true, run(d) {
     const raw = String(($('#chV') || {}).value || '').trim(), f = d.f; let val;
@@ -4687,6 +5624,8 @@ const NOTE_TYPES = {
   access_removed_reason: { cat: 'group', icon: 'alert', tone: 'danger', label: 'Access removed', high: true, mandatory: true },
   member_left_reason:    { cat: 'group', icon: 'users', tone: 'warn', label: 'Reason for leaving' },
   payment_claimed:       { cat: 'financial', icon: 'wallet', tone: 'warn', label: 'Says they paid', high: true },
+  loan_terms:            { cat: 'financial', icon: 'doc', tone: 'warn', label: 'Loan terms to sign', high: true },
+  loan_signed:           { cat: 'financial', icon: 'doc', tone: 'financial', label: 'Loan terms signed', high: true },
   message_announcement:  { cat: 'messages', icon: 'bell', tone: 'group', label: 'Announcement', high: true },
   message_meeting:       { cat: 'messages', icon: 'doc', tone: 'group', label: 'Meeting', high: true },
   message_minutes:       { cat: 'messages', icon: 'doc', tone: 'system', label: 'Minutes' },
@@ -5070,7 +6009,7 @@ const actions = {
     if (!email) return up ? showUp(OB.lang() === 'sw' ? 'Weka barua pepe yako.' : 'Enter your email address.') : toast('Email address does not look right');
     if (!validEmail(email)) return up ? showUp(OB.lang() === 'sw' ? 'Barua pepe hiyo haionekani sawa. Iangalie kisha ujaribu tena.' : 'That email does not look right. Check it and try again.') : toast('Email address does not look right');
     if (!Backend.sb) return up ? showUp('Sign-in is not set up in this app yet') : toast('Sign-in is not set up in this app yet');
-    try { const { data: cur } = await Backend.sb.auth.getSession(); const curEmail = String((cur && cur.session && cur.session.user && cur.session.user.email) || '').toLowerCase(); if (curEmail && curEmail !== email) await Backend.sb.auth.signOut(); } catch (e) { /* the code step checks the session again */ }
+    try { const { data: cur } = await Backend.sb.auth.getSession(); const curEmail = String((cur && cur.session && cur.session.user && cur.session.user.email) || '').toLowerCase(); if (curEmail && curEmail !== email) await Backend.sb.auth.signOut({ scope: 'local' }); } catch (e) { /* the code step checks the session again */ }
     return gateSendCode(email, btn);
   },
   gateKeepPw: async () => { if (Gate.signing) return; Gate.signing = true; try { await Session.keepPassword(); } finally { Gate.signing = false; } },
@@ -5226,6 +6165,19 @@ const actions = {
       html: (() => { try { return '<p>This removes the Chama’s records from this phone. You can sign in again at any time.</p>' + (Store.hasUnsent() ? '<p class="notice" role="alert">Some changes on this phone have not reached the cloud yet. Signing out now will lose them. Wait until you are online.</p>' : ''); } catch (e) { return ''; } })(),
       confirmLabel: 'Sign out', danger: true,
       onYes: () => { setTimeout(() => actions.signOutApp(), 0); },
+    });
+  },
+  signOutAllAsk: () => {
+    __M_src_ui_toast_js.Pop.confirm({
+      title: 'Sign out everywhere?',
+      text: 'Every phone and browser signed in to your account is signed out, and this one too. Use this if you lost a phone or signed in on someone else’s.',
+      confirmLabel: 'Sign out everywhere', danger: true,
+      onYes: async () => {
+        const ok = await Session.signOutEverywhere();
+        if (!ok) return __M_src_ui_toast_js.Pop.alert('Nothing was changed. Check your internet, then try again.', { title: 'Could not reach the server' });
+        try { sessionStorage.removeItem('mca-splash'); sessionStorage.removeItem('mca-gate'); sessionStorage.removeItem('mca-intent'); } catch (e) {}
+        location.reload();
+      },
     });
   },
   signOutApp: async () => {
@@ -6547,52 +7499,97 @@ document.addEventListener('keydown', e => {
 document.addEventListener('visibilitychange', () => { if (document.hidden) { try { __M_src_features_chat_index_js.Rec.stop(); } catch (e) {} } });
 
 /* ---- edge-reveal scroll feel (self-contained) ----
-   Items near the top/bottom viewport edges are softened; CSS reads --rv (0..1). */
+   Items near the top/bottom edges of a page that really scrolls are softened; CSS reads --rv (0..1).
+   0.20.0 (F-N12, F-M6): never on a page or sheet that does not scroll; an item that can never be scrolled
+   into the middle (the last grids of a page, the first cards at the top) shows fully; summary tiles, heroes and the
+   payout card are never softened. Low-end phones get opacity only (no blur), and the work is one read pass and one
+   write pass per animation frame. */
 (function () {
   if (typeof window === 'undefined' || !window.IntersectionObserver || !window.MutationObserver) return;
-  const SEL = '.li, .cg-row, .cg-pay, .ci-row, .bub-row, .ch-card-wrap, .card, .list > *, .m-row, .sx-list > *, .gd-task, .ncard, .aw-card, .decl-card, .pin-card, .lk-row, .cl-row, .ab-row, .mv-row, .mt-row, .lt-row, .rx-row, .reg-row, .ty-row, .tr-card, .po-card, .ph-card';
+  const SEL = '.li, .cg-row, .cg-pay, .ci-row, .bub-row, .ch-card-wrap, .card, .list > *, .m-row, .sx-list > *, .gd-task, .ncard, .aw-card, .decl-card, .pin-card, .lk-row, .cl-row, .ab-row, .mv-row, .mt-row, .lt-row, .rx-row, .reg-row, .ty-row, .tr-card, .ph-card';
   const FIXED = '.cp-wrap, .composer, .ch-bar, #nav, header, [data-rv-skip]';
-  const EDGE = 96;
-  const live = new Set();
-  let raf = 0, lastY = 0, dir = 1;
+  /* important numbers and headline cards are never softened */
+  const NEVER = '.stats, .mtile, .mtiles, .cg-hero, .hero, .po-card, .po-rail, .qa, .greet';
+  const ROOTS = '.sheet, .modal, [role="dialog"]';
+  const EDGE = 96, SLACK = 40;
+  const html = document.documentElement;
+  try {
+    const low = (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+    if (low) html.classList.add('lowend');
+  } catch (e) {}
+  const live = new Set(), box = new WeakMap();
+  let raf = 0, lastY = 0, dir = 1, dirShown = 1;
   const io = new IntersectionObserver(es => {
-    for (const e of es) { if (e.isIntersecting) live.add(e.target); else { live.delete(e.target); } }
+    for (const e of es) { if (e.isIntersecting) live.add(e.target); else live.delete(e.target); }
     kick();
   }, { rootMargin: '40px 0px' });
-  function off() { const d = document.documentElement.classList; return d.contains('a-rm') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
-  function calc(r, vh) {
-    const m = Math.min(r.top + r.height * .5, vh - (r.top + r.height * .5));
-    const v = m / EDGE; return v >= 1 ? 1 : v <= 0 ? 0 : Math.round(v * 20) / 20;
+  function off() { return html.classList.contains('a-rm') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  /* the element that scrolls this item: an overflow container inside a sheet, else the page; null inside a sheet that does not scroll */
+  function scroller(el) {
+    if (box.has(el)) { const b = box.get(el); if (b === null || b === window || b.isConnected) return b; }
+    let b = window;
+    const root = el.closest(ROOTS);
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const oy = getComputedStyle(p).overflowY;
+      if (oy === 'auto' || oy === 'scroll') { b = p; break; }
+      if (p === root) { b = null; break; }
+    }
+    if (b === window && root) b = null;
+    box.set(el, b); return b;
+  }
+  /* view rectangle and how far it can still move, for a scroller (read once per frame) */
+  function metrics(b) {
+    if (b === window) { const se = document.scrollingElement || html, vh = window.innerHeight; return { top: 0, bot: vh, above: window.scrollY, below: se.scrollHeight - vh - window.scrollY, room: se.scrollHeight - vh }; }
+    const r = b.getBoundingClientRect(); return { top: r.top, bot: r.top + b.clientHeight, above: b.scrollTop, below: b.scrollHeight - b.clientHeight - b.scrollTop, room: b.scrollHeight - b.clientHeight };
+  }
+  /* 1 in the middle, toward 0 at an edge the content can still scroll past; 1 everywhere when nothing scrolls */
+  function calc(r, m) {
+    if (!m || m.room <= SLACK) return 1;
+    const c = r.top + r.height * .5;
+    const dTop = (c - m.top) + Math.max(0, EDGE - Math.max(0, m.above));
+    const dBot = (m.bot - c) + Math.max(0, EDGE - Math.max(0, m.below));
+    const v = Math.min(dTop, dBot) / EDGE; return v >= 1 ? 1 : v <= 0 ? 0 : Math.round(v * 20) / 20;
   }
   function frame() {
-    raf = 0; if (off()) return;
-    const vh = window.innerHeight, els = [], vals = [];
-    live.forEach(el => { if (!el.isConnected) { live.delete(el); return; } els.push(el); vals.push(calc(el.getBoundingClientRect(), vh)); });
-    for (let i = 0; i < els.length; i++) { const s = String(vals[i]); if (els[i].style.getPropertyValue('--rv') !== s) els[i].style.setProperty('--rv', s); }
+    raf = 0;
+    if (dir !== dirShown) { dirShown = dir; html.style.setProperty('--rvd', String(dir)); }
+    const quiet = off(), els = [], vals = [], cache = new Map();
+    /* read pass */
+    live.forEach(el => {
+      if (!el.isConnected) { live.delete(el); return; }
+      let v = 1;
+      if (!quiet) { const b = scroller(el); if (b) { let m = cache.get(b); if (!m) { m = metrics(b); cache.set(b, m); } v = calc(el.getBoundingClientRect(), m); } }
+      els.push(el); vals.push(v);
+    });
+    /* write pass */
+    for (let i = 0; i < els.length; i++) { const s = String(vals[i]); if (els[i]._rv !== s) { els[i]._rv = s; els[i].style.setProperty('--rv', s); } }
   }
   function kick() { if (!raf) raf = requestAnimationFrame(frame); }
   function adopt(el) {
     if (el.hasAttribute('data-rv') || el.closest('[data-rv]') || el.querySelector('[data-rv]') || el.matches(FIXED) || el.querySelector(FIXED) || el.closest(FIXED)) return;
+    if (el.matches(NEVER) || el.closest(NEVER) || el.querySelector(NEVER)) return;
     if (el.querySelector(SEL)) return; /* prefer leaf rows over their containers */
     const pos = getComputedStyle(el).position; if (pos === 'fixed' || pos === 'sticky') return;
     const r = el.getBoundingClientRect();
     if (r.height > window.innerHeight * .7) return; /* huge cards: leave alone */
-    el.style.setProperty('--rv', String(calc(r, window.innerHeight)));
+    const b = scroller(el), v = b ? calc(r, metrics(b)) : 1;
+    el._rv = String(v); el.style.setProperty('--rv', el._rv);
     el.classList.add('rv-now'); el.setAttribute('data-rv', '');
     io.observe(el);
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('rv-now')));
   }
   let pend = 0;
-  function scan() { pend = 0; const roots = document.querySelectorAll('#view, .sheet, .modal, [role="dialog"]'); roots.forEach(root => root.querySelectorAll(SEL).forEach(adopt)); }
+  function scan() { pend = 0; const roots = document.querySelectorAll('#view, .sheet, .modal, [role="dialog"]'); roots.forEach(root => root.querySelectorAll(SEL).forEach(adopt)); kick(); }
   function queue() { if (!pend) pend = requestAnimationFrame(scan); }
-  new MutationObserver(queue).observe(document.body || document.documentElement, { childList: true, subtree: true });
+  new MutationObserver(queue).observe(document.body || html, { childList: true, subtree: true });
   document.addEventListener('scroll', () => {
-    const y = window.scrollY; if (y !== lastY) { dir = y > lastY ? 1 : -1; lastY = y; document.documentElement.style.setProperty('--rvd', String(dir)); }
+    const y = window.scrollY; if (y !== lastY) { dir = y > lastY ? 1 : -1; lastY = y; }
     kick();
   }, { capture: true, passive: true });
   window.addEventListener('resize', kick, { passive: true });
   document.addEventListener('pointerdown', e => { const t = e.target && e.target.closest && e.target.closest('[data-rv]'); if (t) { t.classList.add('rv-touch'); const done = () => { setTimeout(() => t.classList.remove('rv-touch'), 250); document.removeEventListener('pointerup', done, true); document.removeEventListener('pointercancel', done, true); }; document.addEventListener('pointerup', done, true); document.addEventListener('pointercancel', done, true); } }, { capture: true, passive: true });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', queue); else queue();
+  window.__rvFrame = () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } frame(); };   /* tests: settle now */
 })();
 
 
@@ -6765,7 +7762,8 @@ const homeBlocks = s => {
 ${rc.top && rc.top.n >= 3 ? `<p class="rc-star">${icon('sparkle', 's')}${esc(rc.top.m.name)} is on a ${rc.top.n}-month streak</p>` : ''}</section>`;
   if (ls.get('mca-recap-hide', '') === (rc && rc.mk)) out = '';
   out += taskHtml(s);
-  if (Session.role === 'treasurer' && !s.shared && !ls.get('mca-setup-done:' + Store.chamaId, false)) {
+  /* HOME 0.20: the setup checklist moved to Home itself (home Setup.card, right under the live card) */
+  if (false && Session.role === 'treasurer' && !s.shared && !ls.get('mca-setup-done:' + Store.chamaId, false)) {
     const ws = (Session.workspaces || []).find(w => w.chama_id === Store.chamaId) || {};
     const steps = [['Add your members', s.members.length >= 2, 'addMember', ''], ['Set where members pay', !!s.chama.payTo, 'chamaEdit', 'payTo'], ['Write the group rules', !!String(s.chama.rules || '').trim(), 'chamaEdit', 'rules'], ['Invite people to the app', (Session.access || []).filter(a => a.status === 'active').length > 1, 'inviteSheet', 'code'], ['Record the first payment', s.payments.length > 0, 'go', '#/grid'], ['Call your first meeting', (C().msgs || []).some(m => m.kind === 'meeting'), 'chatForm', 'meeting'], ['Give the Chama a tag', !!ws.display_tag, 'tagEdit', '']];
     const done = steps.filter(x => x[1]).length;
@@ -6782,7 +7780,7 @@ ${rc.top && rc.top.n >= 3 ? `<p class="rc-star">${icon('sparkle', 's')}${esc(rc.
     out += `<section class="goal${pc >= 100 ? ' done' : ''}"${Auth.isAdmin() ? ` data-act="goalEdit" data-id="${esc(g.id)}" role="button" tabindex="0"` : ''}><div class="gl-top"><span>${icon('sparkle', 's')}${pc >= 100 ? 'Goal reached' : 'Goal'}${g.since ? ' · since ' + esc(__M_src_core_utils_js.monthLabel(g.since)) : ''}</span><b class="num">${pc}%</b></div><h3>${esc(g.title || 'Our goal')}</h3>
 <div class="bar"><i style="width:${pc}%"></i></div><p class="mute small">${esc(kes(have))} of ${esc(kes(g.amount))}${left != null ? ` · ${left} months left${need ? ' · about ' + esc(kes(need)) + ' a month' : ''}` : ''}</p></section>`;
   });
-  if (Auth.isAdmin() && s.members.length && goals.length < 6) out += `<button type="button" class="goal-add" data-act="goalEdit">${icon('plus', 's')}${goals.length ? 'Add another goal' : 'Set a savings goal for the group'}</button>`;
+  if (Auth.isAdmin() && s.members.length && goals.length < 6) out += `<button type="button" class="goal-add" data-act="goalAdd">${icon('plus', 's')}${goals.length ? 'Add another goal' : 'Set a savings goal for the group'}</button>`;
   const meId = s.shared ? s.shared.me : Session.memberId, me = meId ? s.members.find(m => m.id === meId) : null;
   if (me) {
     const nt = Smart.nextTurn(s, me.id), pj = Smart.projection(s, me.id), st = Smart.streak(s, me.id);
@@ -6840,7 +7838,7 @@ const Palette = {
     const pages = [['Home', '#/home', 'home'], ['Payments', '#/grid', 'grid'], ['Chat', '#/chat', 'chat'], ['Members', '#/members', 'members'], ['My profile', '#/profile', 'profile'], ['Loans', '#/loans', 'loans'], ['Fines', '#/fines', 'receipt'], ['Expenses', '#/expenses', 'wallet'], ['Notifications', '#/notifications', 'bell'], ['Meetings, minutes and votes', '#/chat/records', 'doc'], ['Settings', '#/settings', 'gear'], ['Display and accessibility', '#/settings/app', 'text'], ['Privacy and my data', '#/settings/privacy', 'shield'], ['Help', '#/settings/help', 'help'],
       ...(admin ? [['Insights', '#/insights', 'chart'], ['People and access', '#/settings/actions', 'members'], ['Chama settings', '#/settings/chama', 'gear'], ['History', '#/history', 'clock'], ['Reports and backup', '#/reports', 'download']] : []), ...(off ? [['Member register', '#/register', 'doc'], ['Join requests', '#/requests', 'key']] : [])]
       .map(([t, h, ic]) => ({ t, sub: 'Page', ic, href: h }));
-    const acts = [...(admin ? [['Record a payment', 'quickPay', 'wallet'], ['New loan', 'addLoan', 'loans'], ['Add a member', 'addMember', 'userPlus'], ['Invite someone', 'inviteSheet', 'key'], ['Remind everyone who is late', 'remindAll', 'chat'], ['Set a savings goal', 'goalEdit', 'sparkle']] : []), ['New message', 'chatNew', 'pencil'], ['Add due dates to my calendar', 'icsExport', 'clock'], ['Send feedback', 'feedback', 'chat'], ['Hide or show amounts', 'moneyToggle', 'eye']]
+    const acts = [...(admin ? [['Record a payment', 'quickPay', 'wallet'], ['New loan', 'addLoan', 'loans'], ['Add a member', 'addMember', 'userPlus'], ['Invite someone', 'inviteSheet', 'key'], ['Remind everyone who is late', 'remindAll', 'chat'], ['Set a savings goal', 'goalAdd', 'sparkle']] : []), ['New message', 'chatNew', 'pencil'], ['Add due dates to my calendar', 'icsExport', 'clock'], ['Send feedback', 'feedback', 'chat'], ['Hide or show amounts', 'moneyToggle', 'eye']]
       .map(([t, a, ic]) => ({ t, sub: 'Action', ic, act: a }));
     const mem = (s.members || []).map(m => ({ t: m.name, sub: 'Member' + (m.phone && admin ? ' · ' + m.phone : ''), ic: 'profile', act: 'memberMenu', id: m.id }));
     const pay = admin ? (s.payments || []).slice(-400).map(p => ({ t: (p.code || 'No code') + ' · ' + kes(p.amount), sub: Domain.memberName(s, p.memberId) + ' · ' + monthLabel(p.month) + ' · ' + (p.date || ''), ic: 'receipt', act: 'memberMenu', id: p.memberId })) : [];
@@ -6877,6 +7875,17 @@ const Palette = {
    key presses only change the dots, so nothing behind it can flash through. */
 const b64u = buf => btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = str => { const t = String(str || '').replace(/-/g, '+').replace(/_/g, '/'); const bin = atob(t + '==='.slice((t.length + 3) % 4)); return Uint8Array.from(bin, c => c.charCodeAt(0)); };
+/* AUTH 0.20: the unlock button shows this phone's own symbol: Face ID on iPhone and iPad, a fingerprint on Android */
+const bioKind = () => {
+  const ua = navigator.userAgent || '', ipad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  return /iPhone|iPad|iPod/.test(ua) || ipad ? 'face' : /Android/i.test(ua) ? 'finger' : 'any';
+};
+const bioGlyph = () => {
+  const k = bioKind();
+  if (k === 'face') return '<svg class="bio-g" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8V5.8A2.3 2.3 0 0 1 5.8 3.5H8M16 3.5h2.2a2.3 2.3 0 0 1 2.3 2.3V8M20.5 16v2.2a2.3 2.3 0 0 1-2.3 2.3H16M8 20.5H5.8a2.3 2.3 0 0 1-2.3-2.3V16"/><path d="M8.6 9v1.4M15.4 9v1.4"/><path d="M12.2 9v3.9c0 .5-.3.8-.9.8h-.5"/><path d="M8.9 15.6a4.6 4.6 0 0 0 6.2 0"/></svg>';
+  if (k === 'finger') return '<svg class="bio-g" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.3 5.6A8.4 8.4 0 0 1 20.4 11.4"/><path d="M3.6 9.6a8.6 8.6 0 0 1 1.3-2.4"/><path d="M4 14.6c-.4-1.3-.5-2.4-.4-3.6"/><path d="M7.1 18.6a12.6 12.6 0 0 1-1.6-6.7 6.5 6.5 0 0 1 13 0v.8"/><path d="M18.4 15.6c-.3 1.7-.9 3.3-1.8 4.6"/><path d="M10.2 20.6a10.6 10.6 0 0 1-2-8.7 3.8 3.8 0 0 1 7.6.1c.1 2.4-.3 4.6-1.2 6.6"/><path d="M12 12v.6c0 2.7-.6 5.4-1.6 7.4"/></svg>';
+  return '<svg class="bio-g" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8V5.8A2.3 2.3 0 0 1 5.8 3.5H8M16 3.5h2.2a2.3 2.3 0 0 1 2.3 2.3V8M20.5 16v2.2a2.3 2.3 0 0 1-2.3 2.3H16M8 20.5H5.8a2.3 2.3 0 0 1-2.3-2.3V16"/><path d="M8.3 12.6v-.8a3.7 3.7 0 0 1 7.4 0v.6"/><path d="M10.4 16.6a8 8 0 0 0 .5-3.4v-1.3a1.1 1.1 0 0 1 2.2 0v1.4c0 1.4-.2 2.7-.7 3.9"/><path d="M15.6 14.6a9 9 0 0 1-.6 2.4"/></svg>';
+};
 const Lock = {
   cfg() { const c = ls.get('mca-lock', null); return c && c.hash ? c : null; },
   active() { const c = this.cfg(); return !!(c && c.on !== false); },
@@ -6920,7 +7929,7 @@ const Lock = {
     const c = this.cfg() || {};
     root.innerHTML = `<div class="lock" role="dialog" aria-modal="true" aria-labelledby="lkTitle"><div class="lk-in">${markTile('lg')}<h2 id="lkTitle">Enter your app PIN</h2><p id="lkMsg" aria-live="polite">My Chama is locked on this phone</p>
 <div class="lk-dots" id="lkDots">${[0, 1, 2, 3].map(() => '<i></i>').join('')}</div>
-<div class="lk-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, c.bio ? 'bio' : '', 0, '⌫'].map(k => k === '' ? '<span></span>' : k === 'bio' ? `<button type="button" data-lk="bio" class="lk-bio" aria-label="Unlock with fingerprint or face">${icon('hand')}</button>` : `<button type="button" data-lk="${k}" aria-label="${k === '⌫' ? 'Delete' : k}">${k}</button>`).join('')}</div>
+<div class="lk-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, c.bio ? 'bio' : '', 0, '⌫'].map(k => k === '' ? '<span></span>' : k === 'bio' ? `<button type="button" data-lk="bio" class="lk-bio lk-bio-${bioKind()}" aria-label="${bioKind() === 'face' ? 'Unlock with Face ID' : bioKind() === 'finger' ? 'Unlock with fingerprint' : 'Unlock with fingerprint or face'}">${bioGlyph()}</button>` : `<button type="button" data-lk="${k}" aria-label="${k === '⌫' ? 'Delete' : k}">${k}</button>`).join('')}</div>
 <button type="button" class="linkish" data-lk="forgot">Forgot the PIN? Sign out</button></div></div>`;
   },
   dots(bad) { const d = document.getElementById('lkDots'); if (!d) return; d.querySelectorAll('i').forEach((el, i) => el.classList.toggle('on', i < this.entry.length)); d.classList.remove('bad'); if (bad) { void d.offsetWidth; d.classList.add('bad'); } },
@@ -7012,6 +8021,8 @@ const actions = {
     const q = Reports.cell, rows = [['Name', 'Role', 'Email', 'Phone', 'Since', 'On member list'], ...(regRows || []).map(r => [r.name, Perm.label(r.role), r.email, r.phone || '', String(r.joined_at || '').slice(0, 10), r.member_id ? 'Yes' : 'No'])];
     Reports.download((Store.get().chama.name || 'chama') + '-register.csv', '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
   },
+  /* a new goal: never opens an existing one */
+  goalAdd: { admin: true, run() { return __M_src_features_index_js.Actions.goalEdit.run({}); } },
   goalEdit: { admin: true, run(d) {
     const g = (d && d.id && goalsOf(Store.get()).find(x => x.id === d.id)) || {};
     sheet().open(`<div class="sx-head"><span class="sx-badge">${icon('sparkle')}</span><h3>${g.id ? 'Edit goal' : 'New savings goal'}</h3><p>Give the group something to aim for. Everyone sees the progress on Home${g.id ? '' : '. A new goal counts what is collected from this month on'}.</p></div>
@@ -7049,7 +8060,8 @@ const actions = {
     sheet().close(); toast('Thank you. Your feedback was sent.', 'ok');
   },
   lockSetup: async (d) => {
-    const c = Lock.cfg(), changing = !!(d && d.change) || !c, bioOk = await Lock.bioSupported();
+    /* the phone's fingerprint check can answer slowly; the sheet never waits more than a moment for it */
+    const c = Lock.cfg(), changing = !!(d && d.change) || !c, bioOk = changing ? false : await Promise.race([Lock.bioSupported(), new Promise(r => setTimeout(() => r(false), 800))]);
     const after = (c && c.after) || 1;
     const chips = `<div class="fgrp"><span class="flab">Lock after this long without use</span><div class="chips2">${[[1, '1 min'], [5, '5 min'], [15, '15 min'], [30, '30 min']].map(([v, t]) => `<button type="button" class="chip2${v === after ? ' on' : ''}" data-act="lkAfter" data-v="${v}">${t}</button>`).join('')}</div></div>`;
     const pinFields = `<label class="fgrp" for="lk1"><span class="flab">${c ? 'New PIN' : 'Choose a 4-digit PIN'}</span><span class="field">${icon('lock')}<input id="lk1" type="password" inputmode="numeric" maxlength="4" pattern="\\d{4}" autocomplete="off" autofocus></span></label>
@@ -7057,7 +8069,7 @@ const actions = {
     const body = changing
       ? `${pinFields}${c ? '' : chips}<button type="button" class="btn pri block lg" data-act="lockSave">${c ? 'Save the new PIN' : 'Turn on the lock'}</button>${c ? '<button type="button" class="btn ghost block" style="margin-top:8px" data-act="lockSetup">Back</button>' : ''}`
       : `<div class="lk-row"><span><b>App lock</b><small>${c.on !== false ? 'On · asks for your PIN' : 'Off · your PIN is kept for next time'}</small></span><button type="button" class="sw-toggle${c.on !== false ? ' on' : ''}" role="switch" aria-checked="${c.on !== false}" aria-label="App lock" data-act="lockToggle"><i></i></button></div>
-${bioOk ? `<div class="lk-row"><span><b>Fingerprint or face</b><small>${c.bio ? 'On · tap the hand on the lock screen any time' : 'Unlock with this phone’s own fingerprint or face check'}</small></span><button type="button" class="sw-toggle${c.bio ? ' on' : ''}" role="switch" aria-checked="${!!c.bio}" aria-label="Fingerprint or face unlock" data-act="lockBio"><i></i></button></div>` : `<p class="fhelp">Fingerprint or face unlock appears here on phones that support it (installed app or a secure browser).</p>`}
+${bioOk ? `<div class="lk-row"><span><b>Fingerprint or face</b><small>${c.bio ? 'On · tap the ' + (bioKind() === 'face' ? 'Face ID' : bioKind() === 'finger' ? 'fingerprint' : 'fingerprint or face') + ' button on the lock screen any time' : 'Unlock with this phone’s own fingerprint or face check'}</small></span><button type="button" class="sw-toggle${c.bio ? ' on' : ''}" role="switch" aria-checked="${!!c.bio}" aria-label="Fingerprint or face unlock" data-act="lockBio"><i></i></button></div>` : `<p class="fhelp">Fingerprint or face unlock appears here on phones that support it (installed app or a secure browser).</p>`}
 ${chips}
 <button type="button" class="btn block" data-act="lockSetup" data-change="1">${icon('key')}Change PIN</button>
 <button type="button" class="btn ghost block" style="margin-top:8px" data-act="lockNow">${icon('lock')}Lock now</button>`;
@@ -7127,7 +8139,8 @@ document.addEventListener('click', e => {
   let y0 = null, pulled = 0;
   const bar = () => { let b = document.getElementById('ptr'); if (!b) { b = document.createElement('div'); b.id = 'ptr'; b.innerHTML = '<span class="spin" aria-hidden="true"></span>'; document.body.appendChild(b); } return b; };
   addEventListener('touchstart', e => { y0 = window.scrollY <= 0 && __M_src_core_session_js.Session.ready() && !document.querySelector('#modalRoot .veil, .pal-veil, #lockRoot .lock') ? e.touches[0].clientY : null; pulled = 0; }, { passive: true });
-  addEventListener('touchmove', e => { if (y0 == null) return; pulled = Math.max(0, e.touches[0].clientY - y0); const b = bar(); b.style.setProperty('--y', Math.min(90, pulled * 0.5) + 'px'); b.classList.toggle('ready', pulled > 110); b.classList.add('show'); }, { passive: true });
+  let pRaf = 0;
+  addEventListener('touchmove', e => { if (y0 == null) return; pulled = Math.max(0, e.touches[0].clientY - y0); if (pRaf) return; pRaf = requestAnimationFrame(() => { pRaf = 0; if (y0 == null) return; const b = bar(); b.style.setProperty('--y', Math.min(90, pulled * 0.5) + 'px'); b.classList.toggle('ready', pulled > 110); b.classList.add('show'); }); }, { passive: true });
   addEventListener('touchend', async () => {
     if (y0 == null) return; y0 = null; const b = bar();
     if (pulled > 110) {
@@ -7250,8 +8263,7 @@ const TASKS = [
     { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Record payment. Done.', click: true }] },
   { id: 'import', t: 'Import M-Pesa messages or screenshots', k: 'mpesa import payment', admin: true, act: 'importPay', tour: [
     { go: '#/grid', sel: '[data-act="importPay"]', text: 'Tap Import from M-Pesa.', click: true },
-    { sel: '#modalRoot textarea[name="text"]', text: 'Paste the messages here, or add screenshots below. Hidden digits are fine.' },
-    { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Find payments, then check each match before recording.', click: true }] },
+    { sel: '#modalRoot .im-pick || #modalRoot .sx-body', text: 'Choose Screenshots of the M-Pesa messages, or Paste the messages you copied. Hidden digits are fine. You check each match before anything is recorded.' }] },
   { id: 'member', t: 'Add a member', k: 'add member', admin: true, act: 'addMember', tour: [
     { go: '#/home', sel: '[data-act="addMember"]', text: 'Tap Add member.', click: true },
     { sel: '#modalRoot input[name="name"]', text: 'Type their full name.' },
@@ -7263,12 +8275,12 @@ const TASKS = [
     { sel: '#modalRoot .sx', text: 'Choose their role, then share the code by WhatsApp or SMS. You approve them when they ask.' }] },
   { id: 'loan', t: 'Give a loan', k: 'add loan', admin: true, act: 'addLoan', tour: [
     { go: '#/home', sel: '[data-act="addLoan"]', text: 'Tap New loan.', click: true },
-    { sel: '#modalRoot select[name="memberId"]', text: 'Choose who is borrowing. A suggested limit appears.' },
+    { sel: '#modalRoot .mpk-card', text: 'Tap here and choose who is borrowing. A suggested limit appears.' },
     { sel: '#modalRoot input[name="principal"]', text: 'Type the amount. The bar shows what is left in the cash box.' },
     { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Issue loan. The borrower then reads and signs the terms.', click: true }] },
   { id: 'fine', t: 'Add a fine', k: 'add fine', admin: true, act: 'addFine', tour: [
     { go: '#/fines', sel: '[data-act="addFine"]', text: 'Tap Add fine.', click: true },
-    { sel: '#modalRoot select[name="memberId"]', text: 'People who still owe are listed first.' },
+    { sel: '#modalRoot .mpk-card', text: 'Only people who still owe are listed. Tap to change who.' },
     { sel: '#modalRoot input[name="reason"]', text: 'Say why, for example “Late for March”.' },
     { sel: '#modalRoot form .actions .btn.pri', text: 'Tap Add fine.', click: true }] },
   { id: 'expense', t: 'Record an expense', k: 'add expense', admin: true, act: 'addExpense', tour: [
@@ -7284,8 +8296,9 @@ const TASKS = [
   { id: 'turn', t: 'Change someone’s payout turn', k: 'payout member', admin: true, tour: [
     { go: '#/members', sel: '[data-act="memberMenu"]', text: 'Tap the person.', click: true },
     { sel: '#modalRoot [data-act="moveMember"]', text: 'Tap Change payout turn, then choose their new turn.', click: true }] },
-  { id: 'goal', t: 'Set a savings goal', k: 'add goal', admin: true, act: 'goalEdit', tour: [
-    { go: '#/home', sel: '[data-act="goalEdit"]', text: 'Tap here to set a goal. You can have several.', click: true }] },
+  { id: 'goal', t: 'Set a savings goal', k: 'add goal', admin: true, act: 'goalAdd', tour: [
+    { go: '#/home', sel: '.goal-add[data-act="goalAdd"]', text: 'Tap here to add a new goal. Your goals stay as they are: you can have several.', click: true },
+    { sel: '#modalRoot #gTitle', text: 'Say what it is for, the amount, and by when. Then tap Save goal.' }] },
   { id: 'chat', t: 'Send a message', k: 'chat', act: 'chatNew', tour: [
     { go: '#/chat', sel: '[data-act="chatNew"]', text: 'Tap New message.', click: true },
     { sel: '#modalRoot .sx-list', text: 'Choose the group, or the person you want to write to.' }] },
@@ -7309,7 +8322,8 @@ const TASKS = [
   { id: 'loanmine', t: 'See my loan', k: 'loan balance my loan repay mkopo', ic: 'loans', tour: [
     { go: '#/loans', sel: '#view .stats, #view .card', text: 'Your loan, what is left to pay and every repayment are here.' }] },
   { id: 'voice', t: 'Send a voice note', k: 'voice note record audio sauti chat message', ic: 'mic', tour: [
-    { go: '#/chat/group', sel: '#cpMic', text: 'Tap the microphone to start recording. Tap stop when you finish.', click: true },
+    { go: '#/chat/group', sel: '#cpMic', text: 'Tap the microphone to start recording.', click: true },
+    { sel: '[data-act="recStop"]', text: 'Speak, then tap stop when you finish.', click: true },
     { sel: '.vn-review', text: 'Listen back, trim the start or end, and choose View once if it should play only one time. Then send.' }] },
   { id: 'attach', t: 'Send a photo or a file', k: 'photo picture image file document attach send chat picha', ic: 'image', tour: [
     { go: '#/chat/group', sel: '#cpAttach', text: 'Tap the clip to choose a photo or a file.', click: true },
@@ -7329,7 +8343,7 @@ const TASKS = [
     { go: '#/home', sel: '#bell', text: 'The bell shows what is new. Tap it to read everything.', click: true }] },
   { id: 'aware', t: 'How this Chama works (rules, money, people)', k: 'rule member how works chama payment payout', act: 'awareShow' },
   { id: 'report', t: 'Download a report', k: 'report', tour: [
-    { go: '#/reports', sel: '#view .card, #view .sec', text: 'Choose a report or a full backup here.' }] }
+    { go: '#/reports', sel: '#view .list || #view .card', text: 'Choose a report, your statement or a full backup here.' }] }
 ];
 
 /* questions answered from the records themselves */
@@ -7402,6 +8416,8 @@ ${r.items.length ? `<div class="gd-sec"><h4>Found in your Chama</h4>${r.items.ma
 /* ---- live tour: a spotlight on the real button, a card that says what to do, and it waits for the tap ---- */
 const Tour = {
   steps: [], i: 0, el: null, timer: null, name: '',
+  /* "a || b": try a first, then b (a fallback when a screen has two layouts); the first one on screen wins */
+  find(sel) { for (const one of String(sel).split(' || ')) { const el = [...document.querySelectorAll(one)].find(x => x.offsetParent !== null || x.getClientRects().length); if (el) return el; } return null; },
   start(id) {
     const t = TASKS.find(x => x.id === id); if (!t || !t.tour) return;
     Guide.hide(); this.steps = t.tour; this.i = 0; this.name = t.t;
@@ -7413,7 +8429,7 @@ const Tour = {
     if (st.go && location.hash !== st.go) location.hash = st.go;
     let tries = 0; clearInterval(this.timer);
     this.timer = setInterval(() => {
-      const el = [...document.querySelectorAll(st.sel)].find(x => x.offsetParent !== null || x.getClientRects().length);
+      const el = this.find(st.sel);
       if (el) { clearInterval(this.timer); this.el = el; try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} setTimeout(() => this.paint(), 260); return; }
       if (++tries > 30) { clearInterval(this.timer); this.paint(true); }
     }, 120);
@@ -7423,7 +8439,8 @@ const Tour = {
      button where there is room, kept clear of the button itself and of the bottom bar, with an arrow pointing at it. */
   paint(missing) {
     const root = document.getElementById('tourRoot'); if (!root) return;
-    const st = this.steps[this.i], n = this.steps.length, r = !missing && this.el ? this.el.getBoundingClientRect() : null;
+    const st = this.steps[this.i], n = this.steps.length; if (!st) return;
+    const r = !missing && this.el ? this.el.getBoundingClientRect() : null;
     const pad = 8, vw = innerWidth, vh = (window.visualViewport && visualViewport.height) || innerHeight;
     const hole = r ? `<div class="tr-hole" style="top:${r.top - pad}px;left:${r.left - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px"></div><div class="tr-ping" style="top:${r.top - pad}px;left:${r.left - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px"></div>` : '<div class="tr-dim"></div>';
     const dots = this.steps.map((_, k) => `<i class="${k < this.i ? 'done' : k === this.i ? 'on' : ''}"></i>`).join('');
@@ -7508,6 +8525,14 @@ const Adapt = {
   },
   standard() { const A = __M_src_core_a11y_js.A11y; Object.assign(A.d, { ageMode: 'off', simple: 0, size: 'n', tg: 0, rm: 0 }); A.save(); },
   again() { const A = __M_src_core_a11y_js.A11y; A.d.ageMode = 'auto'; A.save(); return this.apply(this.age()); },
+  /* the date of birth changed: set the app up for the new age at once. What an older age band switched on is undone first,
+     so a corrected birthday can also make the app standard again. A person's own choices (off / custom) are never touched. */
+  reapply() {
+    const A = __M_src_core_a11y_js.A11y, d = A.d; if (d.ageMode === 'off' || d.ageMode === 'custom') return null;
+    const band = this.band(this.age());
+    if (d.ageMode === 'auto' && d.ageBand && d.ageBand !== band) Object.assign(d, { simple: 0, size: 'n', tg: 0, rm: 0 });
+    return this.apply(this.age());
+  },
   explain(band, age) {
     if (!band || band === 'std') return;
     __M_src_ui_toast_js.Pop.confirm({ title: 'We set up the app for you', html: `<p>Because you are ${esc(String(age))}, My Chama now uses <b>${esc(this.LABEL[band])}</b>, so it is easier to read and use.</p><p class="fhelp keep">You can change this any time in Settings, Display.</p>`,
@@ -7568,6 +8593,9 @@ const About = {
     if (k === 'share') { q = 'Share your phone number with your group'; body = `<div class="ab-share"><span class="ab-sh-ic">${icon('phone')}</span><p>People in your Chama will see <b>${esc(s.phone || 'your number')}</b> so they can call or WhatsApp you, and so shared services like reminders and payment matching work.</p></div>
 <button type="button" class="ab-agree${s.share ? ' on' : ''}" data-ab="share" aria-pressed="${!!s.share}"><span class="box">${icon('check')}</span><span>I agree that my phone number is shared with the members of my Chama for communication and shared services.</span></button><p class="ab-hint">You can stop sharing later in Settings, Privacy and my data.</p>`; ok = !!s.share; }
     const last = s.step === steps.length - 1;
+    /* everything else is already answered: only this one step, no counter, no way back into the questions */
+    if (s.only === 'share') return `<div class="ab ab-only"><h2 class="ab-q">${esc(q)}</h2>${why}<div class="ab-body">${body}</div>
+<div class="ab-nav"><span></span><button type="button" class="btn pri lg" data-ab="save"${ok ? '' : ' disabled'}>Done</button></div></div>`;
     return `<div class="ab"><div class="ab-top">${dots}<small>${s.step + 1} of ${steps.length}</small></div><h2 class="ab-q">${esc(q)}</h2>${why}<div class="ab-body">${body}</div>
 <div class="ab-nav">${s.step > 0 ? '<button type="button" class="btn ghost" data-ab="prev">Back</button>' : '<span></span>'}<button type="button" class="btn pri lg" data-ab="${last ? 'save' : 'next'}"${ok ? '' : ' disabled'}>${last ? 'Finish' : 'Next'}</button></div></div>`;
   },
@@ -7578,19 +8606,65 @@ const About = {
     if (this.local().birth_date) return;
     try {
       const r = await __M_src_core_backend_js.Backend.sb.rpc('get_my_details'); if (r.error || !r.data || !r.data.birth_date) return;
-      localStorage.setItem('mca-about:data:' + this.uid(), JSON.stringify({ birth_date: r.data.birth_date, gender: r.data.gender, phone: r.data.phone }));
+      this.info = r.data; this.cache(r.data);
       if (Adapt.apply(Adapt.age())) { try { __M_src_core_rerender_js.render(); } catch (e) {} }
     } catch (e) { /* stays as it is */ }
   },
+  /* the server's copy of the details, kept on this phone (Adapt reads the birth date from here) */
+  info: null,
+  cache(v) {
+    if (!v) return; const loc = this.local();
+    const exact = loc.birth_date && loc.birth_date === v.birth_date && loc.exact === false ? false : undefined;
+    try { localStorage.setItem('mca-about:data:' + this.uid(), JSON.stringify({ birth_date: v.birth_date || null, gender: v.gender || null, phone: v.phone || null, dob_source: v.dob_source || null, ...(exact === false ? { exact: false } : {}) })); } catch (e) {}
+  },
+  /* Has this person already answered? The SERVER decides (details_at, or every answer present), so a new phone or a
+     cleared browser never runs the questions again. Answers: done | consent (only the phone-sharing agreement is
+     missing) | full | unknown (no answer from the server: ask nothing now, try again next time). One request at a time. */
+  resolve() {
+    if (this._rq) return this._rq;
+    this._rq = (async () => {
+      let r; try { r = await __M_src_core_backend_js.Backend.sb.rpc('get_my_details'); } catch (e) { return { kind: 'unknown' }; }
+      if (r.error) return { kind: /Could not find the function|PGRST202|schema cache/i.test(r.error.message || '') ? 'full' : 'unknown' };
+      const v = r.data; if (!v) return { kind: 'full', srv: null };
+      this.info = v;
+      const answered = !!v.details_at || !!(v.full_name && this.phoneOk(v.phone) && v.birth_date && v.gender);
+      if (!answered) return { kind: 'full', srv: v };
+      this.cache(v);
+      if ('phone_shared_at' in v && !v.phone_shared_at && this.phoneOk(v.phone)) return { kind: 'consent', srv: v };
+      try { localStorage.setItem(this.key(), 'done'); } catch (e) {}
+      return { kind: 'done', srv: v };
+    })().finally(() => { setTimeout(() => { this._rq = null; }, 0); });
+    return this._rq;
+  },
+  /* begin the questions the server says are still needed */
+  begin(r) {
+    this.start(r.srv, r.kind === 'full' && !!r.intro);
+    if (r.kind === 'consent') { this.st.only = 'share'; this.st.step = 4; }
+  },
+  /* the sign-in screen (no Chama yet) shows About you as a page: ask the server first, with a calm wait, no flicker */
+  gateCard() {
+    if (this.st) return this.card();
+    if (!this._gq) this._gq = this.resolve().then(r => {
+      if (r.kind === 'done') { if (Adapt.apply(Adapt.age())) { try { __M_src_core_rerender_js.render(); } catch (e) {} } }
+      else this.begin(r.kind === 'unknown' ? { kind: 'full', srv: null } : r);
+      try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {}
+    });
+    return `<div class="pz-page"><div class="ab ab-wait" aria-busy="true"><span class="spin" aria-hidden="true"></span><p>One moment…</p></div></div>`;
+  },
   async check() {
-    if (this.done() || !Session.ready()) { if (this.done()) this.syncAge(); return Personal.check(); }
-    let srv = null; try { const r = await __M_src_core_backend_js.Backend.sb.rpc('get_my_details'); if (!r.error) srv = r.data; } catch (e) {}
-    this.start(srv, true);
-    const s = this.st;
-    if (srv && srv.full_name && this.phoneOk(srv.phone) && srv.birth_date && srv.gender) {
-      try { localStorage.setItem('mca-about:data:' + this.uid(), JSON.stringify({ birth_date: srv.birth_date, gender: srv.gender, phone: srv.phone })); } catch (e) {}
-      s.complete = true; s.shared = !!srv.phone_shared_at; s.share = s.shared;
+    if (!Session.ready()) return Personal.check();
+    if (this.done()) { this.syncAge(); return Personal.check(); }
+    /* never start it twice (sign-in events can arrive more than once), and never again once it is finished:
+       this is what made the app say "updated" and then run the questions a second time */
+    if (this.overlay || this._checking) return;
+    this._checking = true;
+    let r; try { r = await this.resolve(); } finally { this._checking = false; }
+    if (this.overlay || this.done() || !Session.ready()) {
+      if (r.kind === 'done' && Adapt.apply(Adapt.age())) { try { __M_src_core_rerender_js.render(); } catch (e) {} }
+      return Personal.check();
     }
+    if (r.kind === 'unknown') return Personal.check();
+    this.begin({ ...r, intro: true });
     let root = document.getElementById('awRoot'); if (!root) { root = document.createElement('div'); root.id = 'awRoot'; document.body.appendChild(root); }
     root.innerHTML = `<div class="aw" role="dialog" aria-modal="true" aria-label="About you"><div class="aw-in"><div class="aw-card ab-card">${this.html()}</div></div></div>`;
     document.body.classList.add('aw-on'); this.overlay = true;
@@ -7600,18 +8674,28 @@ const About = {
     else { try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {} }
     const f = document.querySelector('#abName, #abPhone'); if (f && document.activeElement !== f) setTimeout(() => { try { f.focus({ preventScroll: true }); } catch (e) {} }, 60);
   },
-  close() {
+  close(quiet) {
     try { localStorage.setItem(this.key(), 'done'); } catch (e) {}
-    const band = Adapt.apply(this.age()), age = this.age();
+    const band = Adapt.apply(this.age()), age = quiet ? null : this.age();
+    this.info = null; /* read fresh from the server next time My profile opens */
     if (this.overlay) { this.overlay = false; const r = document.getElementById('awRoot'); if (r) r.innerHTML = ''; document.body.classList.remove('aw-on'); }
     else { try { __M_src_features_auth_gate_js.Gate.paint(); } catch (e) {} }
-    setTimeout(() => { if (band && band !== 'std') Adapt.explain(band, age); setTimeout(() => Personal.check(), 400); }, 300);
+    setTimeout(() => { if (band && band !== 'std' && age != null) Adapt.explain(band, age); setTimeout(() => Personal.check(), 400); }, 300);
   },
   async save() {
     const s = this.st, B = __M_src_core_backend_js.Backend, uid = this.uid();
     const dob = s.y ? `${s.y}-${String(s.m || 1).padStart(2, '0')}-${String(s.d || 1).padStart(2, '0')}` : null;
     const phone = s.phone.replace(/[\s-]/g, '') || null;
     let saved = false;
+    if (s.only === 'share') {
+      try {
+        const r = await B.sb.rpc('set_phone_sharing', { p_on: true });
+        if (r.error) return toast(/Could not find the function|PGRST202|schema cache/i.test(r.error.message || '') ? 'Nothing was changed. Sharing numbers needs the latest server update.' : rpcMessage(r.error));
+      } catch (e) { return toast('Could not save. Check your internet and try again.'); }
+      if (this.info) this.info.phone_shared_at = new Date().toISOString();
+      toast('Thank you. Your number is shared with your group.', 'ok');
+      return this.close(true);
+    }
     try {
       const { error } = await B.sb.rpc('set_my_details', { p_full_name: s.name.trim() || null, p_phone: phone, p_birth_date: dob, p_gender: s.gender || null });
       if (!error) saved = true;
@@ -7634,7 +8718,6 @@ document.addEventListener('click', e => {
   const p1 = document.getElementById('abPhone'); if (p1) s.phone = p1.value;
   if (k === 'why') { About.why = !About.why; return About.repaint(); }
   if (k === 'next') {
-    if (s.step === -1 && s.complete) { if (s.shared) return About.close(); s.step = 4; About.why = false; return About.repaint(); }
     s.step = Math.min(4, s.step + 1); About.why = false; if (s.step === 2) s.sub = s.y ? (s.m ? 'day' : 'month') : 'decade'; return About.repaint();
   }
   if (k === 'prev') { s.step = Math.max(0, s.step - 1); About.why = false; return About.repaint(); }
@@ -7775,6 +8858,564 @@ const actions = {
 return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get Personal() { return Personal; }, get About() { return About; }, get Adapt() { return Adapt; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
 })();
 
+/* ---- src/features/docs.js ----
+   0.20 serials, receipts and signatures. Every payment, payout, loan, fine, expense and document carries a serial issued by
+   the server (issue_serial). Older records get theirs the first time an officer opens or prints them.
+   A receipt shows the serial, a QR code of it (encoded here, no outside code), and both signatures in the standard box. */
+const __M_src_features_docs_js = (function () {
+const { Backend } = __M_src_core_backend_js;
+const { Session } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { Auth } = __M_src_core_auth_js;
+const { esc, kes, monthLabel } = __M_src_core_utils_js;
+const { toast } = __M_src_ui_toast_js;
+const R = () => __M_src_features_requests_js;
+const NOTREADY = e => /Could not find the function|PGRST202|schema cache|does not exist/i.test((e && e.message) || '');
+const OFFICERS = ['treasurer', 'secretary'];
+const isOfficer = () => OFFICERS.includes(Session.role);
+const myMember = s => (s && s.shared ? s.shared.me : Session.memberId) || null;
+const SERIAL_RE = /^MC-[A-Z0-9]{4}-\d{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{2}$/, ALPHA = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+/* the two check characters at the end (same sum as the server, migration 030): catches most typing mistakes on the phone */
+const checkChars = body => { const t = body.replace(/-/g, ''); let a = 0, b = 0; for (let i = 0; i < t.length; i++) { a += (i + 1) * t.charCodeAt(i); b += (2 * i + 3) * t.charCodeAt(i); } return ALPHA[a % 31] + ALPHA[b % 31]; };
+const KIND_T = { payment: 'payment', payout: 'payout', loan: 'loan', fine: 'fine', expense: 'expense', document: 'document', receipt: 'receipt' };
+
+/* ---------- QR code: byte mode, error correction M, versions 1 to 4 (up to 62 bytes) ---------- */
+const QR = (() => {
+  const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  for (let i = 0, x = 1; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 256) x ^= 0x11d; }
+  for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  const mul = (a, b) => a && b ? EXP[LOG[a] + LOG[b]] : 0;
+  const ecc = (data, n) => {
+    let g = [1];
+    for (let i = 0; i < n; i++) { const ng = new Array(g.length + 1).fill(0); g.forEach((c, j) => { ng[j] ^= c; ng[j + 1] ^= mul(c, EXP[i]); }); g = ng; }
+    const r = new Array(n).fill(0);
+    data.forEach(d => { const f = d ^ r.shift(); r.push(0); for (let i = 0; i < n; i++) r[i] ^= mul(g[i + 1], f); });
+    return r;
+  };
+  /* data codewords per block, blocks, error-correction codewords per block (level M) */
+  const SPEC = { 1: [16, 1, 10], 2: [28, 1, 16], 3: [44, 1, 26], 4: [32, 2, 18] };
+  const MASKS = [(x, y) => (x + y) % 2 === 0, (x, y) => y % 2 === 0, x => x % 3 === 0, (x, y) => (x + y) % 3 === 0, (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0,
+    (x, y) => x * y % 2 + x * y % 3 === 0, (x, y) => (x * y % 2 + x * y % 3) % 2 === 0, (x, y) => ((x + y) % 2 + x * y % 3) % 2 === 0];
+  function codewords(bytes, ver) {
+    const [dc, nb, ec] = SPEC[ver], cap = dc * nb, bits = [];
+    const put = (v, n) => { for (let i = n - 1; i >= 0; i--) bits.push((v >>> i) & 1); };
+    put(4, 4); put(bytes.length, 8); bytes.forEach(b => put(b, 8));
+    put(0, Math.min(4, cap * 8 - bits.length)); while (bits.length % 8) bits.push(0);
+    const data = []; for (let i = 0; i < bits.length; i += 8) data.push(bits.slice(i, i + 8).reduce((a, b) => a * 2 + b, 0));
+    for (let p = 0; data.length < cap; p ^= 1) data.push(p ? 0x11 : 0xEC);
+    const blocks = []; for (let b = 0; b < nb; b++) { const d = data.slice(b * dc, (b + 1) * dc); blocks.push([d, ecc(d, ec)]); }
+    const out = []; for (let i = 0; i < dc; i++) blocks.forEach(b => out.push(b[0][i])); for (let i = 0; i < ec; i++) blocks.forEach(b => out.push(b[1][i]));
+    return out;
+  }
+  function penalty(g, n) {
+    let p = 0, dark = 0;
+    const runs = get => { let run = 1; for (let i = 1; i < n; i++) { if (get(i) === get(i - 1)) { run++; if (run === 5) p += 3; else if (run > 5) p++; } else run = 1; } };
+    const pat = get => { const a = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0], b = a.slice().reverse(); for (let i = 0; i + 11 <= n; i++) { let ma = true, mb = true; for (let k = 0; k < 11; k++) { const v = get(i + k); if (v !== a[k]) ma = false; if (v !== b[k]) mb = false; } if (ma) p += 40; if (mb) p += 40; } };
+    for (let y = 0; y < n; y++) { runs(i => g[y][i]); pat(i => g[y][i]); }
+    for (let x = 0; x < n; x++) { runs(i => g[i][x]); pat(i => g[i][x]); }
+    for (let y = 0; y < n - 1; y++) for (let x = 0; x < n - 1; x++) { const c = g[y][x]; if (c === g[y][x + 1] && c === g[y + 1][x] && c === g[y + 1][x + 1]) p += 3; }
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) dark += g[y][x];
+    return p + Math.floor(Math.abs(dark * 20 / (n * n) - 10)) * 10;
+  }
+  function encode(text) {
+    const bytes = Array.from(new TextEncoder().encode(String(text)));
+    let ver = 1; while (ver <= 4 && bytes.length > SPEC[ver][0] * SPEC[ver][1] - 2) ver++;
+    if (ver > 4) throw new Error('Too long for this QR code');
+    const n = 17 + 4 * ver, m = Array.from({ length: n }, () => new Array(n).fill(0)), fn = Array.from({ length: n }, () => new Array(n).fill(false));
+    const set = (x, y, v) => { m[y][x] = v ? 1 : 0; fn[y][x] = true; };
+    for (let i = 0; i < n; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+    [[3, 3], [n - 4, 3], [3, n - 4]].forEach(([cx, cy]) => { for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const x = cx + dx, y = cy + dy; if (x >= 0 && y >= 0 && x < n && y < n) { const d = Math.max(Math.abs(dx), Math.abs(dy)); set(x, y, d !== 2 && d !== 4); } } });
+    if (ver > 1) { const c = n - 7; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(c + dx, c + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1); }
+    const format = mask => {
+      const d = mask; let r = d; for (let i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537);
+      const b = ((d << 10) | r) ^ 0x5412, bit = i => (b >>> i) & 1;
+      for (let i = 0; i <= 5; i++) set(8, i, bit(i));
+      set(8, 7, bit(6)); set(8, 8, bit(7)); set(7, 8, bit(8));
+      for (let i = 9; i < 15; i++) set(14 - i, 8, bit(i));
+      for (let i = 0; i < 8; i++) set(n - 1 - i, 8, bit(i));
+      for (let i = 8; i < 15; i++) set(8, n - 15 + i, bit(i));
+      set(8, n - 8, 1);
+    };
+    format(0);
+    const cw = codewords(bytes, ver); let i = 0;
+    for (let right = n - 1; right >= 1; right -= 2) {
+      if (right === 6) right = 5;
+      for (let v = 0; v < n; v++) for (let j = 0; j < 2; j++) {
+        const x = right - j, y = ((right + 1) & 2) === 0 ? n - 1 - v : v;
+        if (!fn[y][x] && i < cw.length * 8) { m[y][x] = (cw[i >>> 3] >>> (7 - (i & 7))) & 1; i++; }
+      }
+    }
+    let best = null, bestP = Infinity, bestMask = 0;
+    for (let k = 0; k < 8; k++) {
+      format(k);
+      const g = m.map((row, y) => row.map((v, x) => fn[y][x] ? v : (v ^ (MASKS[k](x, y) ? 1 : 0))));
+      const p = penalty(g, n); if (p < bestP) { bestP = p; best = g; bestMask = k; }
+    }
+    return { size: n, ver, mask: bestMask, rows: best };
+  }
+  /* an SVG with the 4-module quiet zone, crisp at any size */
+  function svg(text, label) {
+    const q = encode(text), n = q.size + 8; let d = '';
+    q.rows.forEach((row, y) => row.forEach((v, x) => { if (v) d += `M${x + 4} ${y + 4}h1v1h-1z`; }));
+    return `<svg class="qr" viewBox="0 0 ${n} ${n}" role="img" aria-label="${esc(label || 'QR code')}" shape-rendering="crispEdges" data-ver="${q.ver}"><rect width="${n}" height="${n}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+  }
+  function draw(ctx, text, x, y, size) {
+    const q = encode(text), n = q.size + 8, k = size / n;
+    ctx.fillStyle = '#fff'; ctx.fillRect(x, y, size, size); ctx.fillStyle = '#000';
+    q.rows.forEach((row, yy) => row.forEach((v, xx) => { if (v) ctx.fillRect(Math.floor(x + (xx + 4) * k), Math.floor(y + (yy + 4) * k), Math.ceil(k), Math.ceil(k)); }));
+  }
+  return { encode, svg, draw };
+})();
+
+/* ---------- serials ---------- */
+const Serial = {
+  cache: null, cid: null, busy: new Map(), notReady: false, _checks: null,
+  fmt(v) {
+    const r = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16), out = []; let i = 0;
+    for (const n of [2, 4, 4, 4, 2]) { if (i >= r.length) break; out.push(r.slice(i, i + n)); i += n; }
+    return out.join('-');
+  },
+  valid: v => SERIAL_RE.test(String(v || '')),
+  typo: v => SERIAL_RE.test(String(v || '')) && checkChars(String(v).slice(0, -3)) !== String(v).slice(-2),
+  /* serials already fetched are kept on this phone per Chama, so a record shows its serial offline */
+  map() {
+    if (this.cid !== Store.chamaId) { this.cid = Store.chamaId; this._checks = null; try { this.cache = JSON.parse(localStorage.getItem('mca-serials:' + this.cid) || '{}') || {}; } catch (e) { this.cache = {}; } }
+    return this.cache || (this.cache = {});
+  },
+  save() { try { const m = this.map(), k = Object.keys(m); if (k.length > 2000) k.slice(0, k.length - 2000).forEach(x => delete m[x]); localStorage.setItem('mca-serials:' + this.cid, JSON.stringify(m)); } catch (e) {} },
+  ref: (kind, rec) => String(kind === 'payment' ? (rec.sid || rec.id) : rec.id),
+  key(kind, rec) { return kind + ':' + this.ref(kind, rec); },
+  of(kind, rec) { if (!rec) return ''; if (this.valid(rec.serial)) return rec.serial; return this.map()[this.key(kind, rec)] || ''; },
+  canGet: kind => isOfficer() || kind === 'payment' || kind === 'document',
+  args(kind, rec) {
+    const amount = kind === 'loan' ? rec.principal : rec.amount;
+    return { p_cid: Store.chamaId, p_kind: kind, p_ref: this.ref(kind, rec), p_member: rec.memberId || null, p_amount: amount == null || amount === '' ? null : Number(amount),
+      p_date: /^\d{4}-\d{2}-\d{2}$/.test(rec.date || '') ? rec.date : null, p_code: rec.code ? String(rec.code).toUpperCase() : null };
+  },
+  /* the serial for a record: from the record, this phone, or the server (issued once; asking again returns the same one) */
+  async ensure(kind, rec) {
+    const have = this.of(kind, rec); if (have) return have;
+    if (!Backend.sb || !Store.chamaId || !rec) return '';
+    const k = this.key(kind, rec); if (this.busy.has(k)) return this.busy.get(k);
+    const job = (async () => {
+      let sr = '';
+      if (kind === 'payment' && !isOfficer()) sr = await this.fromChecks(rec);
+      else if (isOfficer() || (kind === 'document' && rec.memberId && rec.memberId === myMember(Store.get()))) {
+        const { data, error } = await Backend.sb.rpc('issue_serial', this.args(kind, rec));
+        if (error) { if (NOTREADY(error)) this.notReady = true; return ''; }
+        const row = Array.isArray(data) ? data[0] : data; sr = row && row.serial;
+      }
+      if (sr && this.valid(sr)) { this.map()[k] = sr; this.save(); return sr; }
+      return '';
+    })().catch(() => '').finally(() => this.busy.delete(k));
+    this.busy.set(k, job); return job;
+  },
+  /* members cannot issue serials: they read the one the server gave their payment */
+  async fromChecks(rec) {
+    if (!this._checks) this._checks = Backend.sb.rpc('payment_checks', { p_cid: Store.chamaId }).then(r => { if (r.error && NOTREADY(r.error)) this.notReady = true; return r.error ? [] : (r.data || []); }).catch(() => []);
+    const rows = await this._checks;
+    const hit = rows.find(r => rec.sid && r.id === rec.sid) || rows.find(r => r.member_id === rec.memberId && Number(r.amount) === Number(rec.amount) && (r.mpesa_code || '') === (rec.code || '') && r.month === rec.month);
+    return hit && hit.serial ? hit.serial : '';
+  },
+  chip(sr) { return `<code class="sr-code">${esc(sr)}</code><button type="button" class="sr-copy" data-act="serialCopy" data-v="${esc(sr)}" aria-label="Copy serial ${esc(sr)}">${icon('copy', 's')}</button>`; },
+  wait(kind) { return `<span class="sr-wait">${this.notReady ? 'Needs the server update' : this.canGet(kind) ? 'Getting serial…' : 'Shown once an officer opens it'}</span>`; },
+  /* a detail-view row: Serial  MC-UMOJ-2611-7K3Q-9X [copy]. Fetched in the background when missing. */
+  row(kind, rec, label) {
+    if (!rec) return '';
+    const sr = this.of(kind, rec), k = this.key(kind, rec);
+    if (!sr && this.canGet(kind)) setTimeout(() => this.fill(kind, rec), 0);
+    return `<div class="kv sr-kv"><span>${esc(label || 'Serial')}</span><b class="sr-val" data-sr="${esc(k)}">${sr ? this.chip(sr) : this.wait(kind)}</b></div>`;
+  },
+  /* small inline version for cards */
+  mini(kind, rec) {
+    if (!rec) return '';
+    const sr = this.of(kind, rec), k = this.key(kind, rec);
+    if (!sr && this.canGet(kind)) setTimeout(() => this.fill(kind, rec, true), 0);
+    return `<span class="sr-mini" data-sr="${esc(k)}" data-mini="1">${sr ? this.chip(sr) : ''}</span>`;
+  },
+  async fill(kind, rec) {
+    const sr = await this.ensure(kind, rec), k = this.key(kind, rec);
+    document.querySelectorAll('[data-sr]').forEach(el => { if (el.dataset.sr !== k) return; el.innerHTML = sr ? this.chip(sr) : el.dataset.mini ? '' : this.wait(kind).replace('Getting serial…', 'Not issued yet'); });
+    return sr;
+  }
+};
+
+/* ---------- signatures for receipts ---------- */
+const Sig = {
+  ok: v => /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(v || ''),
+  lkey: () => 'mca-mysig:' + ((Session.user && Session.user.id) || 'me'),
+  local() { try { const v = localStorage.getItem(this.lkey()) || ''; return this.ok(v) ? v : ''; } catch (e) { return ''; } },
+  setLocal(v) { try { localStorage.setItem(this.lkey(), v); } catch (e) {} },
+  /* the member's signature: their own saved one on this phone, else the latest they gave on a loan or payout */
+  member(s, mid) {
+    const mine = myMember(s) === mid ? this.local() : '';
+    if (mine) return mine;
+    const m = (s.members || []).find(x => x.id === mid);
+    if (m && this.ok(m.sig)) return m.sig;
+    const c = [...(s.loans || []).filter(l => l.memberId === mid).flatMap(l => [l.agreement && l.agreement.sig, l.sig]), ...(s.payouts || []).filter(p => p.memberId === mid).map(p => p.sig)].filter(v => this.ok(v));
+    return c.length ? c[c.length - 1] : '';
+  },
+  treasurer(s) { const t = s.chama && s.chama.rcSig; return t && this.ok(t.sig) ? t : null; },
+  box(v, alt) { return this.ok(v) ? `<span class="sig-box"><img src="${v}" alt="${esc(alt)}"></span>` : `<span class="sig-box empty"><i>Not signed</i></span>`; }
+};
+
+const loadImg = src => new Promise(ok => { if (!src) return ok(null); const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; });
+/* old signatures were saved with lots of empty space: crop it before drawing on paper or a picture */
+const trimmed = async src => {
+  const i = await loadImg(src); if (!i) return null;
+  try { const c = document.createElement('canvas'); c.width = i.naturalWidth || i.width; c.height = i.naturalHeight || i.height; c.getContext('2d').drawImage(i, 0, 0); const t = __M_src_ui_signature_js.sigTrim(c); return t ? await loadImg(t) : i; } catch (e) { return i; }
+};
+const chamaPhoto = s => { const ok = v => /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(v || ''); if (ok(s.chama && s.chama.photo)) return s.chama.photo; const w = (Session.workspaces || []).find(x => x.chama_id === Store.chamaId); return w && ok(w.photo) ? w.photo : ''; };
+const initials = n => String(n || 'C').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'C';
+const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');
+/* the QR holds a link that opens Verify with the serial (phone cameras open it); just the serial if the link is too long */
+const qrText = sr => { const u = appUrl() + '#/verify/' + sr; return new TextEncoder().encode(u).length <= 62 && /^https?:/.test(u) ? u : sr; };
+const download = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = String(name).replace(/[^\w .()-]+/g, '-').slice(0, 80); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+
+/* ---------- receipts ---------- */
+const Receipt = {
+  cur: null,
+  data(s, p) {
+    const m = (s.members || []).find(x => x.id === p.memberId), t = Sig.treasurer(s);
+    const nai = { timeZone: 'Africa/Nairobi' };
+    const when = p.at ? new Date(p.at).toLocaleString('en-KE', { ...nai, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : p.date ? new Date(p.date + 'T12:00:00').toLocaleDateString('en-KE', { ...nai, day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    return { id: p.id, memberId: p.memberId, serial: Serial.of('payment', p), chama: (s.chama && s.chama.name) || 'Chama', photo: chamaPhoto(s), member: m ? m.name : 'Member',
+      amount: Number(p.amount) || 0, month: p.month, code: p.code || '', date: p.date || '', when, tName: t ? t.name : '', tSig: t ? t.sig : '', mSig: Sig.member(s, p.memberId) };
+  },
+  qr(d) { return d.serial ? QR.svg(qrText(d.serial), 'QR code of serial ' + d.serial) : `<span class="rc-qr-wait">${Serial.notReady ? 'Needs the server update' : 'QR code comes with the serial'}</span>`; },
+  card(d) {
+    const logo = d.photo ? `<img src="${d.photo}" alt="">` : `<b>${esc(initials(d.chama))}</b>`;
+    return `<article class="rc-card" aria-label="Payment receipt">
+<header class="rc-top"><span class="rc-logo">${logo}</span><span class="rc-tt"><b>${esc(d.chama)}</b><small>Payment receipt</small></span><span class="rc-ok">${icon('check', 's')}Received</span></header>
+<div class="rc-amt"><small>Amount</small><b class="num">${esc(kes(d.amount))}</b><span>for ${esc(monthLabel(d.month))}</span></div>
+<dl class="rc-dl"><div><dt>Member</dt><dd>${esc(d.member)}</dd></div><div><dt>M-Pesa code</dt><dd class="mono">${esc(d.code || '—')}</dd></div><div><dt>Date and time</dt><dd>${esc(d.when || '—')}</dd></div>
+<div><dt>Serial</dt><dd class="rc-sr" data-sr="payment:${esc(d.id)}">${d.serial ? Serial.chip(d.serial) : Serial.wait('payment')}</dd></div></dl>
+<div class="rc-foot"><div class="rc-qr">${this.qr(d)}</div><div class="rc-sigs"><div class="rc-sig">${Sig.box(d.tSig, 'Treasurer signature')}<small>Treasurer${d.tName ? ' · ' + esc(d.tName) : ''}</small></div><div class="rc-sig">${Sig.box(d.mSig, 'Member signature')}<small>Member · ${esc(d.member)}</small></div></div></div>
+<p class="rc-note">${icon('shield', 's')}<span>Check it: scan the code, or type the serial in Guide → Verify.</span></p></article>`;
+  },
+  sheet(s, p) {
+    const d = this.data(s, p), admin = Auth.isAdmin(), mine = myMember(s) === p.memberId;
+    const signs = [!d.tSig && admin ? `<button type="button" class="btn sm tint" data-act="rcSignT">${icon('sign', 's')}Add your signature</button>` : '',
+      !d.mSig && mine ? `<button type="button" class="btn sm tint" data-act="rcSignMe">${icon('sign', 's')}Add my signature</button>` : '',
+      !d.mSig && admin && !mine ? `<button type="button" class="btn sm tint" data-act="rcSignM">${icon('sign', 's')}Member signs here</button>` : ''].filter(Boolean).join('');
+    return `<div class="sx-head"><h3>Receipt</h3><p>Save it, print it, or send it.</p></div>${this.card(d)}
+${signs ? `<div class="rc-signs">${signs}</div>` : ''}
+<div class="btns"><button type="button" class="btn pri grow" data-act="rcPdf">${icon('doc')}Save PDF</button><button type="button" class="btn grow" data-act="rcPng">${icon('image')}Save image</button></div>
+${admin ? `<button type="button" class="btn tint block" data-act="rcChat" style="margin-top:10px">${icon('chat')}Send to ${esc(d.member.split(' ')[0])} in chat</button>` : ''}`;
+  },
+  pay(id) { const s = Store.get(); return s && (s.payments || []).find(x => x.id === id); },
+  allowed(s, p) { return Auth.isAdmin() || isOfficer() || myMember(s) === p.memberId; },
+  async open(id) {
+    const s = Store.get(), p = this.pay(id || this.cur);
+    if (!p) return toast('That payment is no longer on the records');
+    if (!this.allowed(s, p)) return toast('Only the member and the treasurer can open this receipt');
+    this.cur = p.id;
+    R().Sheet.open(this.sheet(s, p), { key: 'receipt', label: 'Payment receipt', cls: 'rc-sheet' });
+    if (!Serial.of('payment', p)) { await Serial.ensure('payment', p); this.repaint(); }
+  },
+  repaint() { if (!R().Sheet.isOpen('receipt')) return; const s = Store.get(), p = this.pay(this.cur), b = document.querySelector('#modalRoot .sx-body'); if (s && p && b) b.innerHTML = this.sheet(s, p); },
+  /* the printable page: A5, the same signature box size on paper (42 × 14.7 mm) */
+  async html(d) {
+    const D = __M_src_lib_reports_js.Doc, e = D.e, c = D.brand().c;
+    const tS = await trimmed(d.tSig), mS = await trimmed(d.mSig);
+    const sig = (img, who) => `<div class="sg"><span class="sig-box">${img ? `<img src="${img.src}" alt="">` : '<i>Not signed</i>'}</span><small>${e(who)}</small></div>`;
+    const logo = d.photo ? `<img src="${d.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px">` : e(initials(d.chama));
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Receipt ${e(d.serial)}</title><style>
+@page { size: A5; margin: 12mm; } * { box-sizing: border-box; } body { margin: 0; font: 10.5pt/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #12231f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.top { display: flex; align-items: center; gap: 10px; background: ${c}; color: #fff; border-radius: 12px; padding: 12px 14px; } .mark { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,.2); display: grid; place-items: center; font-weight: 800; overflow: hidden; }
+.top b { font-size: 13pt; display: block; } .top small { opacity: .85; } .amt { margin: 16px 0 10px; } .amt small { color: #5c6a64; text-transform: uppercase; letter-spacing: .05em; font-size: 8pt; display: block; } .amt b { font-size: 24pt; } .amt span { color: #5c6a64; margin-left: 6px; }
+table { width: 100%; border-collapse: collapse; } td { padding: 6px 0; border-bottom: 1px solid #edf0ee; } td:last-child { text-align: right; font-weight: 600; } .mono { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: .03em; }
+.foot { display: flex; gap: 14px; align-items: flex-end; margin-top: 16px; } .qr { width: 34mm; height: 34mm; } .qr svg { width: 100%; height: 100%; } .sigs { flex: 1; display: grid; gap: 8px; justify-items: end; }
+.sg { text-align: center; } .sig-box { display: flex; align-items: center; justify-content: center; width: 42mm; height: 14.7mm; border-bottom: 1px solid #9aa59f; } .sig-box img { width: 100%; height: 100%; object-fit: contain; } .sig-box i { color: #9aa59f; font-size: 8pt; } .sg small { color: #5c6a64; font-size: 8pt; }
+.note { margin-top: 14px; color: #5c6a64; font-size: 8pt; border-top: 1px solid #e3e7e4; padding-top: 8px; display: flex; justify-content: space-between; gap: 8px; }
+</style></head><body><div class="top"><span class="mark">${logo}</span><div><b>${e(d.chama)}</b><small>Payment receipt · My Chama</small></div></div>
+<div class="amt"><small>Amount received</small><b>${e(kes(d.amount))}</b><span>for ${e(monthLabel(d.month))}</span></div>
+<table><tr><td>Member</td><td>${e(d.member)}</td></tr><tr><td>M-Pesa code</td><td class="mono">${e(d.code || '—')}</td></tr><tr><td>Date and time</td><td>${e(d.when || '—')}</td></tr><tr><td>Serial</td><td class="mono">${e(d.serial || 'Not issued yet')}</td></tr></table>
+<div class="foot"><div class="qr">${d.serial ? QR.svg(qrText(d.serial), 'QR code') : ''}</div><div class="sigs">${sig(tS, 'Treasurer' + (d.tName ? ' · ' + d.tName : ''))}${sig(mS, 'Member · ' + d.member)}</div></div>
+<div class="note"><span>Check this receipt in My Chama: Guide → Verify, then type the serial or scan the code.</span><span>Made ${e(new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span></div></body></html>`;
+  },
+  /* the picture: 1080 × 1480 PNG drawn on a canvas */
+  async canvas(d) {
+    const W = 540, H = 740, k = 2, c = document.createElement('canvas'); c.width = W * k; c.height = H * k;
+    const x = c.getContext('2d'); x.scale(k, k);
+    const brand = __M_src_lib_reports_js.Doc.brand().c, F = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', MONO = 'ui-monospace, Menlo, Consolas, monospace';
+    const rr = (X, Y, w, h, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); };
+    const fit = (t, w) => { let s = String(t); while (s.length > 1 && x.measureText(s).width > w) s = s.slice(0, -2) + '…'; return s; };
+    x.fillStyle = '#f3f5f4'; x.fillRect(0, 0, W, H);
+    rr(16, 16, W - 32, H - 32, 22); x.fillStyle = '#fff'; x.fill();
+    x.save(); rr(16, 16, W - 32, 112, 22); x.clip(); x.fillStyle = brand; x.fillRect(16, 16, W - 32, 112); x.restore();
+    const logo = await loadImg(d.photo);
+    x.save(); rr(36, 40, 64, 64, 16); x.clip(); x.fillStyle = 'rgba(255,255,255,.22)'; x.fillRect(36, 40, 64, 64);
+    if (logo) { const s = Math.max(64 / logo.width, 64 / logo.height); x.drawImage(logo, 68 - logo.width * s / 2, 72 - logo.height * s / 2, logo.width * s, logo.height * s); }
+    else { x.fillStyle = '#fff'; x.font = `800 24px ${F}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(initials(d.chama), 68, 73); }
+    x.restore(); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    x.fillStyle = '#fff'; x.font = `700 22px ${F}`; x.fillText(fit(d.chama, W - 160), 116, 68); x.globalAlpha = .85; x.font = `500 15px ${F}`; x.fillText('Payment receipt · My Chama', 116, 92); x.globalAlpha = 1;
+    x.fillStyle = '#5c6a64'; x.font = `600 12px ${F}`; x.fillText('AMOUNT RECEIVED', 40, 166);
+    x.fillStyle = '#12231f'; x.font = `800 40px ${F}`; x.fillText(kes(d.amount), 40, 210);
+    x.fillStyle = '#5c6a64'; x.font = `500 16px ${F}`; x.fillText('for ' + monthLabel(d.month), 40, 236);
+    const rows = [['Member', d.member], ['M-Pesa code', d.code || '—'], ['Date and time', d.when || '—'], ['Serial', d.serial || 'Not issued yet']];
+    rows.forEach(([l, v], i) => { const y = 284 + i * 44; x.strokeStyle = '#edf0ee'; x.lineWidth = 1; x.beginPath(); x.moveTo(40, y - 28); x.lineTo(W - 40, y - 28); x.stroke(); x.fillStyle = '#5c6a64'; x.font = `500 15px ${F}`; x.textAlign = 'left'; x.fillText(l, 40, y); x.fillStyle = '#12231f'; x.font = (i === 1 || i === 3 ? `700 16px ${MONO}` : `700 16px ${F}`); x.textAlign = 'right'; x.fillText(fit(v, 300), W - 40, y); });
+    x.textAlign = 'left';
+    if (d.serial) { QR.draw(x, qrText(d.serial), 34, 446, 176); x.fillStyle = '#5c6a64'; x.font = `600 12px ${F}`; x.textAlign = 'center'; x.fillText('Scan to verify', 122, 640); x.textAlign = 'left'; }
+    const tS = await trimmed(d.tSig), mS = await trimmed(d.mSig);
+    const box = (img, X, Y, label) => { const w = 160, h = 56; x.strokeStyle = '#9aa59f'; x.beginPath(); x.moveTo(X, Y + h + 2); x.lineTo(X + w, Y + h + 2); x.stroke();
+      if (img) { const s = Math.min(w / img.width, h / img.height); x.drawImage(img, X + (w - img.width * s) / 2, Y + (h - img.height * s) / 2, img.width * s, img.height * s); } else { x.fillStyle = '#9aa59f'; x.font = `italic 12px ${F}`; x.textAlign = 'center'; x.fillText('Not signed', X + w / 2, Y + h / 2 + 4); x.textAlign = 'left'; }
+      x.fillStyle = '#5c6a64'; x.font = `500 12px ${F}`; x.textAlign = 'center'; x.fillText(fit(label, 190), X + w / 2, Y + h + 20); x.textAlign = 'left'; };
+    box(tS, W - 40 - 160, 456, 'Treasurer' + (d.tName ? ' · ' + d.tName : ''));
+    box(mS, W - 40 - 160, 556, 'Member · ' + d.member);
+    x.strokeStyle = '#e3e7e4'; x.beginPath(); x.moveTo(40, 668); x.lineTo(W - 40, 668); x.stroke();
+    x.fillStyle = '#8a958f'; x.font = `500 11.5px ${F}`; x.fillText('Check it in My Chama: Guide → Verify, then type the serial or scan the code.', 40, 690);
+    x.fillText('Made ' + new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }), 40, 708);
+    return c;
+  },
+  async blob(d) { const c = await this.canvas(d); return await new Promise(ok => c.toBlob(b => ok(b), 'image/png')); },
+  async current() {
+    const s = Store.get(), p = this.pay(this.cur); if (!s || !p) throw new Error('That payment is no longer on the records');
+    if (!Serial.of('payment', p)) await Serial.ensure('payment', p);
+    return this.data(s, p);
+  },
+  name(d) { return 'Receipt ' + (d.serial || d.member + ' ' + d.month); },
+  async pdf() { const d = await this.current(); __M_src_lib_reports_js.Doc.print(await this.html(d), this.name(d)); toast('Choose “Save as PDF” to keep it', 'info'); },
+  async png() {
+    const d = await this.current(), b = await this.blob(d); if (!b) throw new Error('Could not make the picture');
+    const file = typeof File === 'function' ? new File([b], this.name(d) + '.png', { type: 'image/png' }) : null;
+    if (file && navigator.canShare && navigator.share && matchMedia('(pointer: coarse)').matches && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: this.name(d) }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    download(b, this.name(d) + '.png'); toast('Receipt picture saved', 'ok');
+  },
+  /* the treasurer sends the receipt picture to the member, privately */
+  async chat() {
+    const d = await this.current(), C = __M_src_features_chat_index_js.Chat;
+    if (!d.serial) return toast(Serial.notReady ? 'Nothing was sent. Receipts need the server update.' : 'The serial is not ready yet. Try again in a moment.');
+    let list = C.contacts || [];
+    if (!list.some(c => c.member_id === d.memberId) && Backend.sb) { const r = await Backend.sb.rpc('chat_contacts', { p_cid: Store.chamaId }); if (!r.error && r.data) { C.contacts = r.data; list = r.data; } }
+    const to = list.find(c => c.member_id === d.memberId && c.user_id && c.user_id !== (Session.user && Session.user.id));
+    if (!to) return toast(d.member.split(' ')[0] + ' is not in the app yet. Save the picture and send it on WhatsApp instead.');
+    const b = await this.blob(d); R().Sheet.close();
+    location.hash = '#/chat/' + to.user_id;
+    await C.sendMedia(to.user_id, 'image', b, { w: 1080, h: 1480, receipt: d.serial }, 'Receipt ' + d.serial + ' · ' + kes(d.amount) + ' for ' + monthLabel(d.month), false);
+  }
+};
+
+/* a payment's detail view, for the member (their own) and officers */
+const payView = id => {
+  const s = Store.get(), p = s && (s.payments || []).find(x => x.id === id); if (!p) return toast('That payment is no longer on the records');
+  if (!Receipt.allowed(s, p)) return;
+  const nm = ((s.members || []).find(m => m.id === p.memberId) || {}).name || 'Member';
+  R().Sheet.open(`<div class="sx-head"><h3>${esc(kes(p.amount))}</h3><p>${esc(nm)} · for ${esc(monthLabel(p.month))}</p></div>
+<div class="card pv-card"><div class="kv"><span>Date</span><b>${esc(p.date || '—')}</b></div><div class="kv"><span>M-Pesa code</span><b class="mono">${esc(p.code || 'None')}</b></div>${Serial.row('payment', p)}</div>
+<button type="button" class="btn pri block lg" data-act="receiptOpen" data-id="${esc(p.id)}">${icon('receipt')}Open receipt</button>`, { key: 'payview', label: 'Payment' });
+};
+
+const sign = (title, save) => __M_src_ui_signature_js.Signature.open(title, sig => { save(sig); setTimeout(() => Receipt.open(Receipt.cur), 80); });
+const run = f => (...a) => Promise.resolve().then(() => f(...a)).catch(e => toast((e && e.message) || 'Something went wrong'));
+
+const actions = {
+  serialCopy(d) {
+    const v = d.v || ''; const done = () => toast('Serial copied', 'ok');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, () => toast(v)); else toast(v);
+  },
+  receiptOpen: run(d => Receipt.open(d.id)),
+  payView: d => payView(d.id),
+  rcPdf: run(() => Receipt.pdf()),
+  rcPng: run(() => Receipt.png()),
+  rcChat: run(() => Receipt.chat()),
+  rcSignT: { admin: true, run() { sign('Your signature for receipts', sig => Store.commit(st => { st.chama.rcSig = { name: Session.displayName(), sig, at: new Date().toISOString() }; }, true)); } },
+  rcSignM: { admin: true, run() { const p = Receipt.pay(Receipt.cur); if (!p) return; const s = Store.get(), nm = ((s.members || []).find(m => m.id === p.memberId) || {}).name || 'the member'; sign('Signature of ' + nm, sig => Store.commit(st => { const m = st.members.find(x => x.id === p.memberId); if (m) m.sig = sig; }, true)); } },
+  rcSignMe() { sign('Your signature', sig => Sig.setLocal(sig)); }
+};
+
+return { get QR() { return QR; }, get Serial() { return Serial; }, get Sig() { return Sig; }, get Receipt() { return Receipt; }, get actions() { return actions; }, get qrText() { return qrText; }, };
+})();
+
+/* ---- src/features/verify.js ----
+   Anyone signed in can check a My Chama serial from any Chama: paste it or scan the QR on a receipt, add details if they
+   have them (name, date, amount, M-Pesa code) and the server says whether it is real and whether each detail matches. */
+const __M_src_features_verify_js = (function () {
+const { Backend } = __M_src_core_backend_js;
+const { Session } = __M_src_core_session_js;
+const { Store } = __M_src_core_store_js;
+const { esc, kes } = __M_src_core_utils_js;
+const { toast } = __M_src_ui_toast_js;
+const R = () => __M_src_features_requests_js;
+const D = () => __M_src_features_docs_js;
+const NOTREADY = e => /Could not find the function|PGRST202|schema cache|does not exist/i.test((e && e.message) || '');
+const rm = () => document.documentElement.classList.contains('a-rm') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const wait = ms => new Promise(ok => setTimeout(ok, ms));
+const KIND = { payment: 'payment', payout: 'payout', loan: 'loan', fine: 'fine', expense: 'expense', document: 'document', receipt: 'receipt' };
+const LABEL = { name: 'Name', date: 'Date', amount: 'Amount', code: 'M-Pesa code' }, LOW = { name: 'name', date: 'date', amount: 'amount', code: 'M-Pesa code' };
+const fmtDate = v => { try { return new Date(v + 'T12:00:00').toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return v; } };
+
+const Verify = {
+  st: null, _stream: null,
+  canScan: () => typeof window.BarcodeDetector === 'function' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+  open(prefill) {
+    try { __M_src_features_guide_js.Guide.hide(); } catch (e) {}
+    const p = typeof prefill === 'string' ? { serial: prefill } : (prefill || {});
+    this.stopCam();
+    this.st = { phase: 'form', serial: D().Serial.fmt(p.serial || ''), name: p.name || '', date: p.date || '', amount: p.amount != null ? String(p.amount) : '', code: p.code || '', more: !!(p.name || p.date || p.amount || p.code), err: '', note: '' };
+    R().Sheet.open(this.html(), { key: 'verify', label: 'Verify a serial', cls: 'vf-sheet' });
+    if (p.auto && D().Serial.valid(this.st.serial)) this.check();
+  },
+  paint(anim) { if (!R().Sheet.isOpen('verify')) return; if (anim) R().Sheet.update(this.html()); else { const b = document.querySelector('#modalRoot .sx-body'); if (b) b.innerHTML = this.html(); } },
+  html() {
+    const st = this.st; if (!st) return '';
+    const head = `<div class="sx-head"><span class="sx-badge vf-badge">${icon('shield')}</span><h3>Verify</h3><p>Check that a My Chama receipt or record is real.</p></div>`;
+    if (st.phase === 'scan') return `${head}<div class="vf-cam" id="vfCam"><video id="vfVideo" playsinline muted autoplay></video><span class="vf-frame" aria-hidden="true"><i></i><i></i><i></i><i></i><b class="vf-laser"></b></span><span class="vf-cam-t">Point at the QR code on the receipt</span></div>
+<button type="button" class="btn block lg" data-act="verifyScanStop" style="margin-top:14px">${icon('close')}Cancel scan</button>`;
+    if (st.phase === 'checking' || st.phase === 'done') return head + this.cardHtml() + (st.phase === 'done' ? `<div class="btns vf-after"><button type="button" class="btn grow" data-act="verifyAgain">${icon('search')}Check another</button><button type="button" class="btn pri grow" data-act="sheetClose">Done</button></div>` : '');
+    const f = (id, k, lab, attrs) => `<label class="fgrp" for="${id}"><span class="flab">${lab}</span><span class="field"><input id="${id}" data-vf="${k}" value="${esc(st[k])}" ${attrs}></span></label>`;
+    return `${head}
+<label class="fgrp" for="vfSerial"><span class="flab">Serial</span><span class="field vf-sr-f"><input id="vfSerial" data-vf="serial" class="mono" value="${esc(st.serial)}" placeholder="MC-XXXX-0000-XXXX-XX" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" maxlength="20"${st.serial ? '' : ' autofocus'}><button type="button" class="vf-paste" data-act="verifyPaste">Paste</button></span></label>
+${this.canScan() ? `<button type="button" class="btn tint block lg vf-scan" data-act="verifyScan">${icon('camera')}Scan the QR code</button>` : `<p class="vf-note">${icon('info', 's')}<span>This phone's browser cannot read QR codes here. Type or paste the serial instead.</span></p>`}
+${st.note ? `<p class="vf-note">${icon('info', 's')}<span>${esc(st.note)}</span></p>` : ''}
+<button type="button" class="vf-more" data-act="verifyMore" aria-expanded="${st.more}">${icon(st.more ? 'up' : 'plus', 's')}${st.more ? 'Details to check' : 'Also check details (optional)'}</button>
+${st.more ? `<div class="vf-details">${f('vfName', 'name', 'Name on it', 'autocomplete="off" placeholder="e.g. Faith Mwende"')}${f('vfAmount', 'amount', 'Amount (KES)', 'inputmode="decimal" placeholder="e.g. 2000"')}${f('vfDate', 'date', 'Date', 'type="date"')}${f('vfCode', 'code', 'M-Pesa code', 'class="mono" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. SJK4L2P9QX"')}</div>` : ''}
+<p class="ferr" role="alert">${esc(st.err)}</p>
+<button type="button" class="btn pri block lg" data-act="verifyCheck">${icon('shield')}Check</button>`;
+  },
+  rows() {
+    const st = this.st, rows = [{ k: 'serial', l: 'Serial', v: st.serial }];
+    if (st.name.trim()) rows.push({ k: 'name', l: LABEL.name, v: st.name.trim() });
+    if (st.amount.trim()) rows.push({ k: 'amount', l: LABEL.amount, v: kes(Number(st.amount.replace(/[^0-9.]/g, '')) || 0) });
+    if (st.date) rows.push({ k: 'date', l: LABEL.date, v: fmtDate(st.date) });
+    if (st.code.trim()) rows.push({ k: 'code', l: LABEL.code, v: st.code.trim().toUpperCase() });
+    return rows;
+  },
+  cardHtml() {
+    const st = this.st, rows = this.rows();
+    return `<div class="vf-card${st.phase === 'checking' ? ' is-checking' : ''}${st.verdict ? ' v-' + st.verdict : ''}" id="vfCard" aria-busy="${st.phase === 'checking'}"><span class="vf-sweep" aria-hidden="true"></span>
+<div class="vf-sr"><small>${st.phase === 'checking' ? 'Checking' : 'Checked'}</small><code>${esc(st.serial)}</code></div>
+<ul class="vf-rows">${rows.map(r => { const s = (st.marks || {})[r.k] || ''; return `<li class="vf-row${s ? ' ' + s : ''}" data-k="${r.k}"><span class="vf-dot" aria-hidden="true">${s === 'ok' ? icon('check', 's') : s === 'bad' ? icon('close', 's') : ''}</span><span class="vf-l">${esc(r.l)}</span><span class="vf-v">${esc(r.v)}</span><span class="vh">${s === 'ok' ? 'matches' : s === 'bad' ? 'does not match' : s === 'skip' ? 'not checked' : 'checking'}</span></li>`; }).join('')}</ul>
+<div class="vf-verdict" id="vfVerdict" aria-live="polite">${st.verdictHtml || ''}</div></div>`;
+  },
+  async check() {
+    const st = this.st; if (!st) return;
+    st.serial = D().Serial.fmt(st.serial);
+    if (!D().Serial.valid(st.serial)) { st.err = 'A serial looks like MC-UMOJ-2611-7K3Q-9X. Check it and try again.'; return this.paint(); }
+    if (D().Serial.typo(st.serial)) { st.err = 'That serial has a typing mistake. Check each letter and number.'; return this.paint(); }
+    const amt = st.amount.trim() ? Number(st.amount.replace(/[^0-9.]/g, '')) : null;
+    if (st.amount.trim() && !(amt > 0)) { st.err = 'Type the amount as a number, e.g. 2000'; return this.paint(); }
+    if (!Backend.sb) { st.err = 'Sign in to check a serial.'; return this.paint(); }
+    Object.assign(st, { phase: 'checking', err: '', marks: {}, verdict: '', verdictHtml: '' }); this.paint(true);
+    const t0 = Date.now(); let res = null, err = null;
+    try {
+      const r = await Backend.sb.rpc('verify_serial', { p_serial: st.serial, p_name: st.name.trim() || null, p_date: st.date || null, p_amount: amt, p_code: st.code.trim().toUpperCase() || null });
+      if (r.error) err = r.error; else res = Array.isArray(r.data) ? r.data[0] : r.data;
+    } catch (e) { err = e; }
+    await wait(Math.max(0, (rm() ? 120 : 1100) - (Date.now() - t0)));
+    if (this.st !== st || !R().Sheet.isOpen('verify')) return;
+    if (err || !res || res.status === 'slow_down') {
+      const msg = err ? (NOTREADY(err) ? 'Nothing was checked. Verify needs the server update.' : 'Could not check. Check your connection and try again.') : res && res.status === 'slow_down' ? 'Too many checks just now. Wait a minute, then try again.' : 'Could not check. Try again.';
+      return this.finish('error', `<div class="vf-seal err"><span class="vf-ic">${icon('alert')}</span><b>Not checked</b><small>${esc(msg)}</small></div>`);
+    }
+    const rows = this.rows(), match = res.match || {}, step = rm() ? 0 : 420;
+    for (const r of rows) {
+      const v = r.k === 'serial' ? (res.found ? 'ok' : 'bad') : !res.found ? 'skip' : match[r.k] === true ? 'ok' : match[r.k] === false ? 'bad' : 'skip';
+      st.marks[r.k] = v; this.mark(r.k, v);
+      if (step) await wait(step);
+      if (this.st !== st) return;
+    }
+    if (!res.found) {
+      const why = res.error ? esc(res.error) + '.' : 'No My Chama record has this serial.';
+      return this.finish('bad', `<div class="vf-seal bad"><span class="vf-ic">${icon('close')}</span><b>Not found</b><small>${why} Check each letter, or ask whoever gave it to you.</small></div>`);
+    }
+    const wrong = Object.keys(LABEL).filter(k => match[k] === false);
+    const what = KIND[res.kind] || 'record';
+    const facts = [['What', what.charAt(0).toUpperCase() + what.slice(1)], ['Chama', res.chama], ['Member', res.member], ['Amount', res.amount != null ? kes(res.amount) : ''], ['Date', res.date ? fmtDate(res.date) : '']].filter(x => x[1]);
+    const factsHtml = `<dl class="vf-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+    if (wrong.length) return this.finish('warn', `<div class="vf-seal warn"><span class="vf-ic">${icon('alert')}</span><b>Details don't match</b><small>The serial is real, but ${wrong.map(k => 'the ' + LOW[k]).join(' and ')} ${wrong.length > 1 ? 'do' : 'does'} not match the record.</small></div><ul class="vf-why">${wrong.map(k => `<li>${icon('close', 's')}${esc(LABEL[k])} does not match</li>`).join('')}</ul>${factsHtml}`);
+    return this.finish('ok', `<div class="vf-seal ok"><span class="vf-ic vf-stamp">${icon('check')}</span><b>Genuine</b><small>This ${esc(what)} is a real My Chama record${rows.length > 1 ? ' and every detail you gave matches' : ''}.</small></div>${factsHtml}`);
+  },
+  mark(k, v) {
+    const li = document.querySelector('#vfCard .vf-row[data-k="' + k + '"]'); if (!li) return;
+    li.classList.add(v); const dot = li.querySelector('.vf-dot'); if (dot) dot.innerHTML = v === 'ok' ? icon('check', 's') : v === 'bad' ? icon('close', 's') : '';
+    const vh = li.querySelector('.vh'); if (vh) vh.textContent = v === 'ok' ? 'matches' : v === 'bad' ? 'does not match' : 'not checked';
+  },
+  finish(verdict, html) {
+    const st = this.st; Object.assign(st, { phase: 'done', verdict, verdictHtml: html });
+    try { const H = __M_src_features_auth_gate_js.Haptic; if (verdict === 'ok' && H.ok) H.ok(); } catch (e) {}
+    const card = document.getElementById('vfCard');
+    if (card) { card.classList.remove('is-checking'); card.classList.add('v-' + verdict); card.setAttribute('aria-busy', 'false'); const sm = card.querySelector('.vf-sr small'); if (sm) sm.textContent = 'Checked'; const v = document.getElementById('vfVerdict'); if (v) v.innerHTML = html; const b = document.querySelector('#modalRoot .sx-body'); if (b && !b.querySelector('.vf-after')) b.insertAdjacentHTML('beforeend', `<div class="btns vf-after"><button type="button" class="btn grow" data-act="verifyAgain">${icon('search')}Check another</button><button type="button" class="btn pri grow" data-act="sheetClose">Done</button></div>`); }
+    else this.paint();
+  },
+  async scan() {
+    const st = this.st; if (!st) return;
+    if (!this.canScan()) { st.note = 'This phone cannot scan here. Type or paste the serial instead.'; return this.paint(); }
+    let det = null;
+    try { const BD = window.BarcodeDetector, f = BD.getSupportedFormats ? await BD.getSupportedFormats() : ['qr_code']; if (!f.includes('qr_code')) throw new Error('no qr'); det = new BD({ formats: ['qr_code'] }); }
+    catch (e) { st.note = 'This phone cannot read QR codes here. Type or paste the serial instead.'; return this.paint(); }
+    let stream = null;
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }); }
+    catch (e) { st.note = e && e.name === 'NotAllowedError' ? 'The camera is blocked for this app. Allow it in your browser settings, or paste the serial.' : 'Could not open the camera. Paste the serial instead.'; return this.paint(); }
+    if (this.st !== st || !R().Sheet.isOpen('verify')) { stream.getTracks().forEach(t => t.stop()); return; }
+    st.phase = 'scan'; st.note = ''; this.paint(true); this._stream = stream;
+    const v = document.getElementById('vfVideo'); if (!v) return this.stopCam();
+    v.srcObject = stream; try { await v.play(); } catch (e) {}
+    const tick = async () => {
+      if (this.st !== st || st.phase !== 'scan' || !v.isConnected) return this.stopCam();
+      try {
+        const codes = v.readyState >= 2 ? await det.detect(v) : [];
+        const hit = codes.map(c => (String(c.rawValue || '').toUpperCase().match(/MC-[A-Z0-9]{4}-\d{4}-[A-Z0-9]{4}-[A-Z0-9]{2}/) || [])[0]).find(Boolean);
+        if (hit) {
+          const cam = document.getElementById('vfCam'); if (cam) cam.classList.add('got');
+          try { __M_src_features_auth_gate_js.Haptic.ok(); } catch (e) {}
+          await wait(rm() ? 0 : 380); this.stopCam(); if (this.st !== st) return;
+          st.serial = D().Serial.fmt(hit); st.phase = 'form'; return this.check();
+        }
+      } catch (e) {}
+      setTimeout(tick, 200);
+    };
+    tick();
+  },
+  stopCam() { if (this._stream) { try { this._stream.getTracks().forEach(t => t.stop()); } catch (e) {} this._stream = null; } },
+  input(k, val) {
+    const st = this.st; if (!st) return;
+    if (k === 'serial') {
+      const el = document.getElementById('vfSerial'), atEnd = el && el.selectionStart === el.value.length, f = D().Serial.fmt(val);
+      st.serial = f; if (el && el.value !== f) { el.value = f; if (atEnd) try { el.setSelectionRange(f.length, f.length); } catch (e) {} }
+      if (st.err) { st.err = ''; const er = document.querySelector('#modalRoot .ferr'); if (er) er.textContent = ''; }
+      return;
+    }
+    if (k === 'code') { const el = document.getElementById('vfCode'), up = val.toUpperCase().replace(/\s+/g, ''); if (el && el.value !== up) el.value = up; st.code = up; return; }
+    st[k] = val;
+  }
+};
+
+/* #/verify and #/verify/<serial> open the sheet over Home (a phone camera that reads the receipt QR lands here) */
+const fromHash = () => { const m = location.hash.match(/^#\/?verify(?:\/([A-Za-z0-9-]{0,40}))?\/?$/i); return m ? { serial: m[1] ? decodeURIComponent(m[1]) : '' } : null; };
+let routeTimer = 0;
+const routeCheck = () => {
+  const p = fromHash(); if (!p) return;
+  clearTimeout(routeTimer); let n = 0;
+  const go = () => {
+    if (Session.ready() && Store.get()) { try { history.replaceState(null, '', location.pathname + location.search + '#/home'); } catch (e) {} try { __M_src_core_rerender_js.render(); } catch (e) {} Verify.open(p.serial ? { serial: p.serial, auto: true } : ''); }
+    else if (n++ < 400 && fromHash()) routeTimer = setTimeout(go, 400);
+  };
+  go();
+};
+addEventListener('hashchange', routeCheck);
+setTimeout(routeCheck, 0);
+document.addEventListener('input', e => { const t = e.target; if (t && t.dataset && t.dataset.vf && t.closest('#modalRoot')) Verify.input(t.dataset.vf, t.value); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.dataset && e.target.dataset.vf && e.target.closest('#modalRoot')) { e.preventDefault(); Verify.check(); } });
+
+const actions = {
+  verifyOpen(d) { Verify.open(d && d.v ? d.v : ''); },
+  verifyCheck() { Verify.check(); },
+  verifyScan() { Verify.scan(); },
+  verifyScanStop() { Verify.stopCam(); if (Verify.st) { Verify.st.phase = 'form'; Verify.paint(true); } },
+  verifyAgain() { Verify.open(''); },
+  verifyMore() { const st = Verify.st; if (!st) return; st.more = !st.more; Verify.paint(); if (st.more) { const i = document.getElementById('vfName'); if (i) try { i.focus({ preventScroll: true }); } catch (e) {} } },
+  async verifyPaste() {
+    const i = document.getElementById('vfSerial');
+    try { const t = await navigator.clipboard.readText(); const m = String(t || '').toUpperCase().match(/MC-?[A-Z0-9]{4}-?\d{4}-?[A-Z0-9]{4}-?[A-Z0-9]{2}/); Verify.input('serial', m ? m[0] : t || ''); if (i) i.value = Verify.st.serial; if (!m) toast('No serial found in what you copied'); }
+    catch (e) { if (i) { i.focus(); toast('Press and hold in the box, then choose Paste'); } }
+  }
+};
+
+return { get Verify() { return Verify; }, get actions() { return actions; }, };
+})();
+
 /* ---- src/features/index.js ---- */
 const __M_src_features_index_js = (function () {
 const homeFeature = __M_src_features_home_index_js;
@@ -7796,11 +9437,13 @@ const requestsFeature = __M_src_features_requests_js;
 const chatFeature = __M_src_features_chat_index_js;
 const smartFeature = __M_src_features_smart_js;
 const guideFeature = __M_src_features_guide_js;
+const docsFeature = __M_src_features_docs_js;
+const verifyFeature = __M_src_features_verify_js;
 /* Feature registry. Each feature folder exports `views` (pages it draws) and/or `actions` (things that change data).
    This file merges them into one table, and stops at start-up if two features claim the same name.
    To add a feature: create its folder, then add one import line and one entry in FEATURE_LIST below. */
 
-const FEATURE_LIST = [guideFeature, homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature, requestsFeature, chatFeature, smartFeature];
+const FEATURE_LIST = [guideFeature, homeFeature, contributionsFeature, loansFeature, membersFeature, historyFeature, finesFeature, expensesFeature, reportsFeature, profileFeature, settingsFeature, notificationsFeature, helpFeature, authFeature, accountFeature, shellFeature, requestsFeature, chatFeature, smartFeature, docsFeature, verifyFeature];
 
 function merge(kind) {
   const out = Object.create(null);
@@ -8001,9 +9644,10 @@ function makeScreen(def, origin) {
     scroll.appendChild(h);
   }
   def.build(scroll, s);
+  let sRaf = 0;
   scroll.addEventListener('scroll', () => {
-    if (nav) nav.classList.toggle('scrolled', scroll.scrollTop > 16);
-  });
+    if (sRaf) return; sRaf = requestAnimationFrame(() => { sRaf = 0; if (nav) nav.classList.toggle('scrolled', scroll.scrollTop > 16); });
+  }, { passive: true });
   if (origin && origin.isConnected && dr) {
     const d = dr.getBoundingClientRect(), r = origin.getBoundingClientRect();
     s.style.setProperty('--sx', String(Math.max(0.2, r.width / d.width)));
@@ -8082,6 +9726,8 @@ const Menu = {
     document.querySelectorAll('#drawer [data-key="user"]').forEach(n => { n.textContent = user.name; });
     document.querySelectorAll('#drawer [data-key="fines"]').forEach(n => { n.hidden = fines < 1; n.textContent = String(fines); });
     { const rq = (__M_src_core_session_js.Session.requests || []).length; document.querySelectorAll('#drawer [data-key="requests"]').forEach(n => { n.hidden = rq < 1; n.textContent = String(rq); }); }
+    /* HOME 0.20: setup steps left (treasurer, while the setup guide is not finished or hidden) */
+    { let left = 0; try { const H = __M_src_features_home_index_js.Setup, st = __M_src_core_state_js.S(); if (H.pending(st)) { const x = H.state(st); left = x.n - x.done; } } catch (e) {} document.querySelectorAll('#drawer [data-key="setup"]').forEach(n => { n.hidden = left < 1; n.textContent = String(left); n.title = left + ' setup steps left'; }); }
     document.querySelectorAll('#drawer [data-key="money"]').forEach(n => { n.textContent = fines ? (fines + (fines === 1 ? ' fine due' : ' fines due')) : 'Fines and expenses'; });
     const av = document.querySelector('#drawer .mn-avatar'); if (av) { if (user.photo) av.innerHTML = '<img alt="" src="' + user.photo + '">'; else av.textContent = user.first; }
     const sub = document.querySelector('#drawer .mn-who em'); if (sub) sub.textContent = (chama.role ? chama.role + ' · ' : '') + chama.name;
@@ -8129,7 +9775,7 @@ const Menu = {
           ...(__M_src_core_session_js.Session.role !== 'member' ? [row({ icon: 'key', tone: '#a8670f', label: 'Join requests', badgeKey: 'requests', onTap: () => go('#/requests') })] : []),
           row({ icon: 'users', tone: '#0b6b4d', label: admin ? 'People and access' : 'My access', onTap: () => go('#/settings/actions') }),
           row({ icon: 'doc', tone: '#2e6bb8', label: 'Meetings, minutes and votes', onTap: () => go('#/chat/records') }),
-          row({ icon: 'pencil', tone: '#47524c', label: 'Chama settings', onTap: () => go('#/settings/chama') }),
+          row({ icon: 'pencil', tone: '#47524c', label: 'Chama settings', badgeKey: 'setup', onTap: () => go('#/settings/chama') }),
           ...(admin ? [row({ icon: 'undo', tone: '#47524c', label: 'Undo last change', chevron: false, onTap: () => window.undoLastChange() })] : [])
         ], 'Chama'));
         scroll.appendChild(group([
@@ -8436,6 +10082,7 @@ function renderPage() {
     viewEl.classList.toggle('quiet', !changed);
     viewEl.innerHTML = html;
     painted = html;
+    try { __M_src_ui_countup_js.CountUp.run(viewEl, changed); } catch (e) {}
     if (y) window.scrollTo(0, y);
     if (keepId) {
       const again = document.getElementById(keepId);
@@ -8596,7 +10243,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.q
   }, { passive: true });
 })();
 document.addEventListener('click', e => { if (e.target && e.target.classList && e.target.classList.contains('veil') && !e.target.classList.contains('locked')) Modal.close(); });
-addEventListener('scroll', () => { const h = document.getElementById('top'); if (h) h.classList.toggle('scrolled', window.scrollY > 4); }, { passive: true });
+/* one class change per frame at most, and only when it flips (low-end phones, J2) */
+{ let hRaf = 0, hOn = null; addEventListener('scroll', () => { if (hRaf) return; hRaf = requestAnimationFrame(() => { hRaf = 0; const on = window.scrollY > 4; if (on === hOn) return; hOn = on; const h = document.getElementById('top'); if (h) h.classList.toggle('scrolled', on); }); }, { passive: true }); }
 
 /* Menu buttons stay inside the drawer until a real screen is opened. */
 
@@ -8643,6 +10291,55 @@ document.addEventListener('paste', e => {
 addEventListener('focus', () => Session.recheck());
 addEventListener('resize', () => { try { __M_src_features_auth_gate_js.Otp.fit(); } catch (e) {} });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Session.recheck(); });
+/* AUTH 0.20: on every return to the app, and every 5 minutes while it is on screen, ask the server whether this
+   session still exists. Token refresh pauses while hidden and restarts on return (the token is renewed before use). */
+{
+  const { Backend } = __M_src_core_backend_js;
+  const back = force => { const a = Backend.sb && Backend.sb.auth; if (a && a.startAutoRefresh && Session.user) { try { a.startAutoRefresh(); } catch (e) {} } Session.checkAlive(force === true); };
+  document.addEventListener('visibilitychange', () => {
+    const a = Backend.sb && Backend.sb.auth;
+    if (document.visibilityState === 'visible') back(true);
+    else if (a && a.stopAutoRefresh) { try { a.stopAutoRefresh(); } catch (e) {} }
+  });
+  addEventListener('focus', back);
+  addEventListener('pageshow', e => { if (e.persisted || document.visibilityState === 'visible') back(); });
+  addEventListener('online', () => Session.checkAlive(true));
+  setInterval(() => { if (document.visibilityState === 'visible') Session.checkAlive(true); }, 5 * 60000);
+}
+/* AUTH 0.20: every password box anywhere in the app (pages, sheets, popups, ones added later) gets a show/hide eye.
+   Boxes that already have their own Show button are left alone. */
+{
+  const EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 3.5l17 17"/><path d="M10.4 5.6c.5-.1 1-.1 1.6-.1 6 0 9.5 6.5 9.5 6.5a16.6 16.6 0 0 1-3 3.8M6.5 6.9A16.4 16.4 0 0 0 2.5 12S6 18.5 12 18.5c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  const set = (inp, b, show) => {
+    inp.type = show ? 'text' : 'password';
+    b.innerHTML = show ? EYE_OFF : EYE;
+    b.setAttribute('aria-pressed', show ? 'true' : 'false');
+    b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  };
+  const enhance = inp => {
+    if (inp.hasAttribute('data-eye')) return;
+    inp.setAttribute('data-eye', '1');
+    const par = inp.parentElement; if (!par) return;
+    if (par.querySelector('[data-act="togglePw"], .eye, .pw-eye')) return;   /* it has its own Show button */
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pw-eye';
+    let host = par;
+    if (!par.classList.contains('field')) { host = document.createElement('span'); host.className = 'pw-wrap'; par.insertBefore(host, inp); host.appendChild(inp); }
+    host.classList.add('has-eye');
+    host.appendChild(b);
+    set(inp, b, false);
+    /* a direct listener: sheets stop clicks that carry no data-act from reaching the page */
+    b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); const show = inp.type === 'password'; set(inp, b, show); try { inp.focus({ preventScroll: true }); const n = inp.value.length; inp.setSelectionRange(n, n); } catch (er) {} });
+    b.addEventListener('mousedown', e => e.preventDefault());
+  };
+  const scan = root => { if (!root || root.nodeType !== 1) return; if (root.matches('input[type="password"]')) enhance(root); root.querySelectorAll('input[type="password"]:not([data-eye])').forEach(enhance); };
+  const start = () => {
+    scan(document.body);
+    try { new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) scan(n); }).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+  };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+}
 
 Welcome.bind(Session);
 Session.boot();

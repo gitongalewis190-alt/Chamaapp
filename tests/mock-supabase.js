@@ -34,6 +34,9 @@
   });
   const listeners = [];
   const fire = (ev, s) => listeners.forEach(f => { try { f(ev, s); } catch (e) { console.error(e); } });
+  /* @@AGENT-AUTH-MOCK@@ another phone changed the password (or signed out everywhere): this phone's session no longer exists on the server */
+  window.__revokeSession = () => { db.sessionDead = true; };
+  window.__setOffline = v => { db.offline = !!v; };
 
   function view(cid) {
     const c = db.chamas[cid], r = db.roles[cid];
@@ -197,7 +200,7 @@
         if (jp) { jp.chk = true; jp.chkBy = db.profile.full_name; jp.chkAt = p.checked_at; c.version++; }
         return ok({ ok: true });
       },
-      payment_checks: a => db.roles[a.p_cid] ? ok(db.payRows.filter(p => p.chama_id === a.p_cid).map(p => ({ id: p.id, member_id: p.member_id, month: p.month, amount: p.amount, mpesa_code: p.mpesa_code, date: p.date, evidence: isOfficer(db.roles[a.p_cid]) ? clone(p.evidence) : null, self_recorded: p.self_recorded, checked_at: p.checked_at, checked_by_name: p.checked_by_name, flags: p.flags, serial: p.serial, recorded_by_name: p.recorded_by_name }))) : err('You are not a member of this Chama'),
+      payment_checks: a => db.roles[a.p_cid] ? ok(db.payRows.filter(p => p.chama_id === a.p_cid && (isOfficer(db.roles[a.p_cid]) || p.member_id === db.roles[a.p_cid].member_id)).map(p => ({ id: p.id, member_id: p.member_id, month: p.month, amount: p.amount, mpesa_code: p.mpesa_code, date: p.date, evidence: isOfficer(db.roles[a.p_cid]) ? clone(p.evidence) : null, self_recorded: p.self_recorded, checked_at: p.checked_at, checked_by_name: p.checked_by_name, flags: p.flags, serial: p.serial, recorded_by_name: p.recorded_by_name }))) : err('You are not a member of this Chama'),
       issue_serial: a => {
         const r = db.roles[a.p_cid], kinds = ['payment', 'payout', 'loan', 'fine', 'expense', 'document', 'receipt'];
         if (!r) return err('You are not a member of this Chama');
@@ -241,6 +244,43 @@
     const oldRecord = RPC.record_payment;
     if (!M.serverOld) RPC.record_payment = a => { const r = db.roles[a.p_cid || a.cid]; const mid = a.p_member || a.p_member_id || a.member_id; return r && r.member_id && mid === r.member_id ? ok({ ok: false, status: 'needs_evidence', error: 'Add the M-Pesa message or a photo' }) : oldRecord(a); };
   })();
+  /* @@AGENT-FINES-MOCK@@ (0.20.0, M5) loan terms signed on the borrower's phone, as migration 026 does it: the agreement is
+     written into the loan in the Chama JSON (version + 1) and the treasurer gets a 'loan_signed' notification.
+     __DB.simBorrowerSigns(cid, loanId, sig, name) does the same from a test running as the treasurer. */
+  (function () {
+    const signInto = (cid, loanId, sig, terms, name) => {
+      const c = db.chamas[cid]; if (!c) return 'That loan was not found';
+      const l = (c.data.loans || []).find(x => x.id === loanId); if (!l) return 'That loan was not found';
+      if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(sig || '')) return 'The signature could not be read. Sign again.';
+      if (l.agreement) return null;
+      l.agreement = { at: new Date().toISOString(), sig, total: terms.total, installment: terms.installment, lastDue: terms.lastDue, on: 'borrower phone', by: 'u-borrower' };
+      c.version++;
+      db.notifications.unshift({ id: 'n-sig-' + Date.now(), chama_id: cid, kind: 'loan_signed', title: (name || 'The borrower') + ' signed the loan terms', body: 'The signed terms are kept with the loan.', link: '#/loans', priority: 'important', created_at: new Date().toISOString(), read_at: null, data: { loan: loanId } });
+      return null;
+    };
+    RPC.sign_loan_terms = a => {
+      const r = db.roles[a.p_cid], c = db.chamas[a.p_cid], l = c && (c.data.loans || []).find(x => x.id === a.p_loan);
+      if (!r || !r.member_id) return err('Your sign-in is not linked to a member yet');
+      if (!l) return err('That loan was not found');
+      if (l.memberId !== r.member_id) return err('Only the borrower can sign these terms');
+      if (l.agreement) return ok({ ok: true, already: true });
+      const e = signInto(a.p_cid, a.p_loan, a.p_sig, { total: a.p_total, installment: a.p_installment, lastDue: a.p_last_due }, db.profile.full_name);
+      return e ? err(e) : ok({ ok: true });
+    };
+    db.simBorrowerSigns = (cid, loanId, sig, name) => {
+      const l = ((db.chamas[cid] || {}).data || { loans: [] }).loans.find(x => x.id === loanId); if (!l) return 'no loan';
+      const total = Math.round(l.principal * (1 + l.rate / 100 * l.months) * 100) / 100, due = new Date(l.date); due.setMonth(due.getMonth() + l.months);
+      return signInto(cid, loanId, sig, { total, installment: Math.round(total / l.months * 100) / 100, lastDue: due.toISOString().slice(0, 10) }, name);
+    };
+  })();
+  /* @@AGENT-PROFILE-MOCK@@ (0.20.0) — get_my_details also reports phone sharing (phone_shared_at, as migration 029 does),
+     following set_phone_sharing. M.details.phone_shared_at seeds it. */
+  (function () {
+    if (!RPC.get_my_details || !db.details) return;
+    if (M.details && 'phone_shared_at' in M.details) db.profile.phone_shared = !!M.details.phone_shared_at;
+    const get = RPC.get_my_details;
+    RPC.get_my_details = a => Promise.resolve(get(a)).then(r => { if (r && r.data) r.data.phone_shared_at = db.profile.phone_shared ? (db.details.phone_shared_at || '2026-11-01T00:00:00Z') : null; return r; });
+  })();
 
   function query(table) {
     const st = { table, filters: {}, op: 'select', patch: null };
@@ -282,7 +322,7 @@
       return {
         auth: {
           getSession: () => ok({ session: db.session }),
-          getUser: () => db.sessionDead ? Promise.resolve({ data: { user: null }, error: { message: 'Session from session_id claim in JWT does not exist', status: 403 } }) : ok({ user: db.session && db.session.user }),
+          getUser: () => { window.__getUserN = (window.__getUserN || 0) + 1; if (db.offline) return Promise.resolve({ data: { user: null }, error: { name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 } }); return db.sessionDead ? Promise.resolve({ data: { user: null }, error: { message: 'Session from session_id claim in JWT does not exist', status: 403, code: 'session_not_found' } }) : ok({ user: db.session && db.session.user }); },
           refreshSession: () => db.sessionDead ? Promise.resolve({ data: { session: null }, error: { message: 'Invalid Refresh Token' } }) : ok({ session: db.session }),
           onAuthStateChange(cb) { listeners.push(cb); setTimeout(() => cb('INITIAL_SESSION', db.session), 0); return { data: { subscription: { unsubscribe() {} } } }; },
           signInWithOtp: a => { calls.push({ kind: 'otp', email: a.email }); return later({ data: {}, error: null }, 50); },
@@ -294,8 +334,12 @@
             return later({ data: { session: db.session }, error: null }, 100);
           },
           setSession: () => ok({}),
-          signOut: () => { db.sessionDead = false; db.session = null; sessionStorage.removeItem('mock-session'); setTimeout(() => fire('SIGNED_OUT', null), 0); return ok({}); },
-          updateUser: () => { db.account.has_password = true; return ok({}); },
+          /* @@AGENT-AUTH-MOCK@@ signOut records its scope; 'others' keeps this phone signed in (as supabase-js does).
+             window.__revokeSession() plays "password changed / signed out everywhere on another phone": getUser then answers session_not_found. */
+          signOut: o => { const scope = (o && o.scope) || 'global'; calls.push({ kind: 'signOut', scope }); if (scope === 'others') return ok({}); db.sessionDead = false; db.session = null; sessionStorage.removeItem('mock-session'); setTimeout(() => fire('SIGNED_OUT', null), 0); return ok({}); },
+          updateUser: a => { calls.push({ kind: 'updateUser', password: !!(a && a.password) }); db.account.has_password = true; return ok({}); },
+          startAutoRefresh: () => { calls.push({ kind: 'autoRefresh', on: true }); return Promise.resolve(); },
+          stopAutoRefresh: () => { calls.push({ kind: 'autoRefresh', on: false }); return Promise.resolve(); },
         },
         rpc(name, args) { calls.push({ kind: 'rpc', name, args: clone(args) }); const f = RPC[name]; return f ? f(args || {}) : err('Could not find the function public.' + name); },
         from: query,

@@ -43,6 +43,8 @@ async function open(browser, key, opt = {}) {
     if (onboard && !localStorage.getItem('mca-onboard')) localStorage.setItem('mca-onboard', JSON.stringify(onboard));
     if (a11y) localStorage.setItem('chama:a11y', JSON.stringify(a11y));
   }, [opt.mock || sc.mock, sc.onboard, opt.a11y || null, !!opt.personal, !!opt.about]);
+  /* HOME: the treasurer's full-screen "set up your Chama" prompt counts as already seen today, unless a test asks for it */
+  if (!opt.setupGuide) await page.addInitScript(() => { ['umoja', 'blank', 'tumaini'].forEach(c => { try { if (!localStorage.getItem('mca-urgent-setup:' + c)) localStorage.setItem('mca-urgent-setup:' + c, String(Date.now() + 365 * 864e5)); } catch (e) {} }); });
   await page.goto(`http://127.0.0.1:${server.address().port}${sc.url || '/'}`);
   await page.waitForTimeout(opt.wait || 500);
   return { page, ctx, errors };
@@ -337,9 +339,11 @@ const TESTS = {
     ok(/Otieno Odhiambo/.test(await text(page)) && /0722000000/.test(await text(page)), 'officers see the member register with contacts');
     await page.goto(page.url().split('#')[0] + '#/settings'); await page.waitForTimeout(300);
     await page.click('[data-act="lockSetup"]'); await page.waitForTimeout(300);
-    await page.fill('#lk1', '2580'); await page.fill('#lk2', '2580'); await page.click('[data-act="lockSave"]'); await page.waitForTimeout(400);
+    await page.fill('#lk1', '2580'); await page.fill('#lk2', '2580'); await page.click('[data-act="lockSave"]');
+    /* wait for the saved PIN instead of a fixed pause: hashing can take longer than 400 ms on a busy machine */
+    await page.waitForFunction(() => { try { return !!(JSON.parse(localStorage.getItem('mca-lock') || 'null') || {}).hash; } catch (e) { return false; } }, null, { timeout: 5000 }).catch(() => {});
     ok(await page.evaluate(() => !!JSON.parse(localStorage.getItem('mca-lock') || 'null')), 'app lock is set with a hashed PIN');
-    await page.evaluate(() => __M_src_features_smart_js.Lock.show()); await page.waitForTimeout(200);
+    await page.evaluate(() => __M_src_features_smart_js.Lock.show()); await page.waitForSelector('#lockRoot .lock [data-lk="2"]', { timeout: 5000 }).catch(() => {});
     await shot(page, '72-lock');
     for (const k of '2580') { await page.click(`[data-lk="${k}"]`); }
     await page.waitForTimeout(400);
@@ -349,7 +353,7 @@ const TESTS = {
     ok((await calls(page)).some(x => x.kind === 'rpc' && x.name === 'submit_feedback' && x.args.p_rating === 5), 'feedback is sent');
     await page.goto(page.url().split('#')[0] + '#/home'); await page.waitForTimeout(300);
     await page.click('[data-act="addLoan"]'); await page.waitForTimeout(400);
-    await page.selectOption('#modalRoot select[name="memberId"]', 'm2'); await page.fill('#modalRoot input[name="principal"]', '50000'); await page.waitForTimeout(200);
+    await page.click('#modalRoot .mpk-card'); await page.click('.mpk-row[data-id="m2"]'); await page.click('#mpkOk'); await page.waitForTimeout(250); await page.fill('#modalRoot input[name="principal"]', '50000'); await page.waitForTimeout(200);
     ok(/Suggested limit/.test(await page.textContent('#loanAdvice')) && /above the suggested limit/.test(await page.textContent('#loanAdvice')), 'the loan form advises a limit');
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
     await ctx.close();
@@ -687,32 +691,40 @@ const TESTS = {
     for (const role of ['treasurer', 'secretary', 'member']) {
       const mock = JSON.parse(JSON.stringify(scenarios[role].mock)); mock.chamas.umoja.data.chama.goals = [{ id: 'gA', title: 'Land', amount: 90000, by: '' }];
       const { page, ctx, errors } = await open(b, role, { wait: 1400, mock });
+      /* a pretend microphone, so the voice-note tour can reach the review step */
+      await page.evaluate(() => { navigator.mediaDevices.getUserMedia = async () => { const ac = new AudioContext(), o = ac.createOscillator(), d = ac.createMediaStreamDestination(); o.connect(d); o.start(); return d.stream; }; });
+      if (await page.isVisible('.urgent [data-u="later"]')) { await page.click('.urgent [data-u="later"]'); await page.waitForTimeout(400); }
       const tasks = await page.evaluate(() => __M_src_features_guide_js.Guide.tasks().filter(t => t.tour).map(t => ({ id: t.id, act: t.act || '', tour: t.tour.map(s => ({ go: s.go || '', sel: s.sel, click: !!s.click })) })));
       const bad = [];
       for (const t of tasks) {
-        await page.evaluate(() => { try { __M_src_features_guide_js.Tour.end(false); } catch (e) {} document.getElementById('modalRoot').innerHTML = ''; document.body.style.overflow = ''; });
+        await page.evaluate(() => { try { __M_src_features_guide_js.Tour.end(false); } catch (e) {} document.getElementById('modalRoot').innerHTML = ''; document.body.style.overflow = ''; const d = document.querySelector('[data-act="vrDiscard"]'); if (d) d.click(); });
         await page.keyboard.press('Escape').catch(() => {});
+        await page.evaluate(id => __M_src_features_guide_js.Tour.start(id), t.id);
+        /* drive the real tour: wait for it to ring each step, check what it rings, tap it like a person would */
         for (let i = 0; i < t.tour.length; i++) {
-          const st = t.tour[i];
-          if (st.go) { await page.evaluate(g => { if (location.hash !== g) location.hash = g; }, st.go); await page.waitForTimeout(700); }
+          const st = t.tour[i], tag = `${role}/${t.id}#${i + 1} ${st.sel}`;
           let info = null;
-          for (let k = 0; k < 20 && !info; k++) {
-            info = await page.evaluate(sel => { const el = [...document.querySelectorAll(sel)].find(x => x.offsetParent !== null || x.getClientRects().length); if (!el) return null;
+          for (let k = 0; k < 40 && !info; k++) {
+            info = await page.evaluate(i => { const T = __M_src_features_guide_js.Tour; if (T.i !== i || !T.el || !document.querySelector('#tourRoot .tr-card')) return null; const el = T.el;
               const r = el.getBoundingClientRect(), cs = getComputedStyle(el), a = el.closest('[data-act]');
-              el.setAttribute('data-tour-hit', '1'); return { vis: r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0, act: a ? a.dataset.act : '', id: el.dataset.id || '', txt: (el.innerText || el.placeholder || el.name || '').slice(0, 60) }; }, st.sel);
+              el.setAttribute('data-tour-hit', '1'); return { vis: r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0, act: a ? a.dataset.act : '', id: el.dataset.id || '', txt: (el.innerText || el.placeholder || el.name || '').slice(0, 60) }; }, i);
             if (!info) await page.waitForTimeout(150);
           }
-          const tag = `${role}/${t.id}#${i + 1} ${st.sel}`;
           if (!info) { bad.push(tag + ' missing'); break; }
           if (!info.vis) bad.push(tag + ' hidden');
           const named = /\[data-act="([^"]+)"\]/.exec(st.sel);
           if (named && info.act !== named[1]) bad.push(tag + ' hits ' + info.act);
           if (BAD.test(info.act) && OK_EDIT[t.id] !== info.act) bad.push(tag + ' is an edit/delete action: ' + info.act);
-          if (t.id === 'goal' && (info.id || !/goal/i.test(info.txt))) bad.push(tag + ' does not point at Add goal: ' + info.txt);
-          if (st.click && i < t.tour.length - 1) { try { await page.click('[data-tour-hit="1"]', { timeout: 3000 }); } catch (e) { bad.push(tag + ' cannot be tapped'); } await page.waitForTimeout(700); }
+          if (t.id === 'goal' && i === 0 && (info.id || !/goal/i.test(info.txt))) bad.push(tag + ' does not point at Add goal: ' + info.txt);
+          if (i < t.tour.length - 1) {
+            if (st.click) { try { await page.click('[data-tour-hit="1"]', { timeout: 3000 }); } catch (e) { bad.push(tag + ' cannot be tapped, covered by ' + await page.evaluate(() => { const el = document.querySelector('[data-tour-hit]'), r = el.getBoundingClientRect(), o = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return o ? o.tagName + '.' + o.className : 'nothing'; })); break; } }
+            else await page.click('#tourRoot [data-tr="next"]');
+            await page.waitForTimeout(info.act === 'recStart' ? 1800 : 300);
+          }
           await page.evaluate(() => document.querySelectorAll('[data-tour-hit]').forEach(x => x.removeAttribute('data-tour-hit')));
         }
       }
+      await page.evaluate(() => __M_src_features_guide_js.Tour.end(false));
       ok(tasks.length > 5 && !bad.length, `every ${role} tour (${tasks.length}) lands on its real button ` + bad.join(' | '));
       /* the real Tour finds the goal button and it is "Add another goal", not the existing goal */
       if (role === 'treasurer') {
@@ -723,6 +735,280 @@ const TESTS = {
       }
       ok(!errors.length, 'no page errors ' + errors.join(' | '));
       await ctx.close();
+    }
+  },
+  /* HOME: the payout card stands apart from the live card, the Guide card is big with quick questions, and the
+     treasurer's setup guide (full-screen welcome, daily reminder, turn off, a tour per step); members never see it. */
+  async v020Home(b) {
+    const gap = (page, a, z) => page.evaluate(([a, z]) => { const x = document.querySelector(a), y = document.querySelector(z); if (!x || !y) return -1; return Math.round(y.getBoundingClientRect().top - x.getBoundingClientRect().bottom); }, [a, z]);
+    for (const dark of [false, true]) {
+      const sfx = dark ? ' (dark)' : '';
+      const t = await open(b, 'treasurer', { wait: 1400, dark });
+      ok(await t.page.isVisible('.home-top .su2'), 'treasurer with setup left sees the setup card under the live card' + sfx);
+      ok(await gap(t.page, '#view .hero', '#view .su2') >= 12 && await gap(t.page, '#view .su2', '#view .po-card') >= 12, 'cards under the live card have a clear gap (≥12px)' + sfx);
+      ok(!(await t.page.isVisible('.urgent.u-setup')), 'the setup welcome stays away once seen today' + sfx);
+      const h = await t.page.evaluate(() => { const c = document.querySelector('#view .hm-help'); return c ? { h: c.getBoundingClientRect().height, mark: !!c.querySelector('.hh-mark svg .gh'), chips: c.querySelectorAll('.hh-chip[data-act="guide"][data-q]').length, go: !!c.querySelector('.hh-go[data-act="guide"]') } : null; });
+      ok(h && h.h >= 120 && h.mark && h.chips >= 2 && h.go, 'the Guide card is big, shows the Guide mark, quick questions and Ask the Guide' + sfx);
+      ok(await t.page.evaluate(() => [...document.querySelectorAll('#view .po-rail .po-stop')].every(x => x.getBoundingClientRect().height >= 44)) && await t.page.isVisible('.po-rail li.now .po-st') && await t.page.isVisible('.po-rail li.next .po-st'), 'payout rail shows Now and Next with big tap targets' + sfx);
+      await shot(t.page, 'h01-home-treasurer' + (dark ? '-dark' : ''));
+      await t.page.evaluate(() => document.querySelector('#view .po-card').scrollIntoView({ block: 'center' })); await t.page.waitForTimeout(300);
+      await shot(t.page, 'h02-payout' + (dark ? '-dark' : ''));
+      await t.page.click('.hh-chip >> nth=0'); await t.page.waitForTimeout(400);
+      ok(await t.page.isVisible('.gd-veil') && (await t.page.inputValue('#gdQ')) === 'Record a payment', 'a quick question opens the Guide with that question' + sfx);
+      await t.page.keyboard.press('Escape'); await t.page.waitForTimeout(200);
+      /* a sent and signed payout: the signature sits in a small fixed box, Undo is a real button */
+      await t.page.evaluate(() => { const c = document.createElement('canvas'); c.width = 300; c.height = 100; const x = c.getContext('2d'); x.lineWidth = 3; x.beginPath(); x.moveTo(10, 70); x.bezierCurveTo(60, 0, 120, 120, 180, 40); x.lineTo(290, 60); x.stroke();
+        const S = __M_src_core_state_js.S(), D = __M_src_core_domain_js.Domain, cur = D.now(), r = D.recipient(S, cur);
+        __M_src_core_store_js.Store.commit(s => { s.payouts.push({ id: 'poH', memberId: r.id, month: cur, amount: 4000, date: cur + '-20', sig: c.toDataURL('image/png') }); }); });
+      await t.page.waitForTimeout(600);
+      const sg = await t.page.evaluate(() => { const b = document.querySelector('#view .po-sigbox'), u = document.querySelector('#view .po-undo'), p = document.querySelector('#view .po-pill.ok'); return b && u && p ? { h: b.getBoundingClientRect().height, img: !!b.querySelector('img.po-sig'), uh: u.getBoundingClientRect().height, pill: p.textContent } : null; });
+      ok(sg && sg.h <= 60 && sg.img && sg.uh >= 40 && /Sent \d+ \w+/.test(sg.pill), 'a signed payout: fixed small signature box, Sent pill with a short date, Undo button' + sfx);
+      await t.page.evaluate(() => document.querySelector('#view .po-card').scrollIntoView({ block: 'center' })); await t.page.waitForTimeout(300);
+      await shot(t.page, 'h02b-payout-signed' + (dark ? '-dark' : ''));
+      ok(!t.errors.length, 'no page errors ' + t.errors.join(' | '));
+      await t.ctx.close();
+      const m = await open(b, 'member', { wait: 1400, dark, setupGuide: true });
+      ok(await gap(m.page, '#view .hero', '#view .po-card') >= 12, 'member: the payout card has a clear gap from the live card' + sfx);
+      ok(!(await m.page.isVisible('.su2')) && !(await m.page.isVisible('.urgent.u-setup')), 'a member never sees the setup guide' + sfx);
+      ok(!/Who has not paid/.test(await m.page.textContent('.hm-help')), 'member quick questions fit a member' + sfx);
+      await shot(m.page, 'h03-home-member' + (dark ? '-dark' : ''));
+      ok(!m.errors.length, 'no page errors ' + m.errors.join(' | '));
+      await m.ctx.close();
+    }
+    /* the setup welcome: once, later hides it for a day, back after 24h, turned off stays off */
+    const w = await open(b, 'treasurer', { wait: 1600, setupGuide: true });
+    const { page, errors } = w;
+    ok(await page.isVisible('.urgent.on.u-setup') && /Let’s set up Umoja Savings/.test(await page.textContent('.urgent')), 'a treasurer with setup left gets the full-screen welcome');
+    await shot(page, 'h04-setup-welcome');
+    await page.click('.urgent [data-u="later"]'); await page.waitForTimeout(400);
+    ok(!(await page.isVisible('.urgent')), 'Remind me later closes it');
+    const until = await page.evaluate(() => Number(localStorage.getItem('mca-urgent-setup:umoja')) - Date.now());
+    ok(until > 23 * 3600e3 && until <= 24 * 3600e3 + 5e3, 'it is put off for a day');
+    await page.reload(); await page.waitForTimeout(1600);
+    ok(!(await page.isVisible('.urgent.u-setup')), 'not shown again on the same day');
+    await page.evaluate(() => localStorage.setItem('mca-urgent-setup:umoja', String(Date.now() - 1000))); await page.reload(); await page.waitForTimeout(1600);
+    ok(await page.isVisible('.urgent.on.u-setup') && /Setup guide/.test(await page.textContent('.urgent small')) && /set up/.test(await page.textContent('#urgT')), 'after 24 hours it comes back as a reminder');
+    await page.click('.urgent [data-u="off"]'); await page.waitForTimeout(400);
+    await page.evaluate(() => localStorage.setItem('mca-urgent-setup:umoja', String(Date.now() - 1000))); await page.reload(); await page.waitForTimeout(1600);
+    ok(!(await page.isVisible('.urgent.u-setup')) && await page.isVisible('.su2'), 'turned off: no more full-screen reminders, the Home card stays');
+    ok(/Turn on reminders/.test(await page.textContent('.su2-foot')), 'reminders can be turned back on from the card');
+    /* the next step: a live tour where the Guide has one, the right screen otherwise; done returns Home with the next step lit */
+    ok((await page.getAttribute('.su2-next', 'data-k')) === 'rules', 'the next step is the first one not done');
+    await page.click('.su2-next'); await page.waitForTimeout(1500);
+    ok(await page.isVisible('.tr-card') && /settings\/chama/.test(page.url()), 'tapping the next step starts its live tour');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    await page.evaluate(() => { __M_src_core_store_js.Store.commit(s => { s.chama.rules = 'Pay by the 10th.'; }); }); await page.waitForTimeout(1500);
+    ok(/#\/home/.test(page.url()) && await page.isVisible('.su2-next.flash') && (await page.getAttribute('.su2-next', 'data-k')) === 'meeting', 'once the step is done Home shows the next one, highlighted');
+    ok(/Next: Call your first meeting/.test(await page.textContent('#toast')), 'a short note names the next step');
+    await shot(page, 'h05-setup-next');
+    await page.click('.su2-next'); await page.waitForTimeout(700);
+    ok(await page.evaluate(() => !!document.querySelector('.sx-veil.on, .modal-veil, #modalRoot .sx, #modalRoot form')), 'a step without a tour opens its screen');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    ok(!errors.length, 'no page errors ' + errors.join(' | '));
+    await w.ctx.close();
+    /* Simple view */
+    const sv = await open(b, 'treasurer', { wait: 1400, a11y: { simple: 1 } });
+    ok(await gap(sv.page, '#view .hero', '#view .su2') >= 12 && await sv.page.isVisible('.hm-help .hh-mark'), 'Simple view: cards apart, Guide card with its mark');
+    await shot(sv.page, 'h06-home-simple');
+    ok(!sv.errors.length, 'no page errors ' + sv.errors.join(' | '));
+    await sv.ctx.close();
+  },
+  /* FINES: the fine chooser leaves out members who are paid up (toggle shows everyone), the picker searches, and a loan
+     signed on the borrower's phone reaches the treasurer's loan view, its PDF, and survives a reload (M3, M5). */
+  async v020Fines(b) {
+    const SHOT = process.env.FINES_SHOTS === '1';
+    for (const v of [{ sfx: '' }, { sfx: '-dark', dark: true }, { sfx: '-simple', a11y: { simple: 1 } }]) {
+      const { page, ctx, errors } = await open(b, 'treasurer', { wait: 1400, dark: v.dark, a11y: v.a11y });
+      await page.evaluate(() => { location.hash = '#/fines'; }); await page.waitForTimeout(600);
+      await page.click('[data-act="addFine"]'); await page.waitForTimeout(500);
+      const card = await page.textContent('#modalRoot .mpk-card');
+      ok(/Otieno|Hassan|Baraka/.test(card) && /Late \d+ days? · owes KES/.test(card), 'Add fine starts on a member who owes, with a status chip' + v.sfx);
+      if (SHOT || !v.sfx) await shot(page, 'v020-fine-form' + v.sfx);
+      await page.click('#modalRoot .mpk-card'); await page.waitForTimeout(400);
+      const ids = () => page.evaluate(() => [...document.querySelectorAll('.mpk-row')].map(r => r.dataset.id).sort().join(','));
+      ok(await ids() === 'm2,m5,m8', 'only members who still owe are listed: ' + await ids() + v.sfx);
+      ok(!(await page.evaluate(() => /Paid up/.test(document.getElementById('mpkList').textContent))), 'no paid-up member is offered for a late fine' + v.sfx);
+      if (SHOT || !v.sfx) await shot(page, 'v020-fine-picker' + v.sfx);
+      await page.click('.mpk-tog'); await page.waitForTimeout(200);
+      ok((await ids()).split(',').length === 8 && /Paid up/.test(await page.textContent('#mpkList')), 'Show everyone lists all eight, paid up marked' + v.sfx);
+      await page.click('.mpk-tog'); await page.waitForTimeout(150);
+      await page.fill('#mpkQ', 'gra'); await page.waitForTimeout(150);
+      ok(await ids() === '' && /1 more/.test(await page.textContent('#mpkList')), 'search for a paid-up name offers to show them' + v.sfx);
+      await page.click('.mpk-list [data-mpk="all"]'); await page.waitForTimeout(150);
+      ok(await ids() === 'm7', 'search finds Grace once everyone is shown' + v.sfx);
+      await page.click('.mpk-row[data-id="m7"]'); await page.waitForTimeout(150);
+      ok(await page.evaluate(() => document.querySelector('.mpk-row[data-id="m7"]').getAttribute('aria-selected') === 'true') && /Fine Grace/.test(await page.textContent('#mpkOk')), 'the chosen row is ticked and the confirm button names her' + v.sfx);
+      if (SHOT || !v.sfx) await shot(page, 'v020-fine-picker-search' + v.sfx);
+      await page.click('#mpkOk'); await page.waitForTimeout(350);
+      ok(await page.inputValue('#modalRoot input[name="memberId"]') === 'm7' && /Grace/.test(await page.textContent('#modalRoot .mpk-card')), 'confirm puts her in the form');
+      const before = await page.evaluate(() => __M_src_core_store_js.Store.get().fines.length);
+      await page.click('#modalRoot form .actions .btn.pri'); await page.waitForTimeout(300);
+      ok(await page.evaluate(() => __M_src_core_store_js.Store.get().fines.length) === before, 'a late fine for someone who is paid up is refused' + v.sfx);
+      ok(/paid up/.test(await page.textContent('#popRoot')), 'and the treasurer is told why' + v.sfx);
+      if (SHOT || !v.sfx) await shot(page, 'v020-fine-refused' + v.sfx);
+      await page.click('#popRoot .pop-btn'); await page.waitForTimeout(250);
+      await page.click('#modalRoot [data-fr="Missed meeting"]'); await page.click('#modalRoot form .actions .btn.pri'); await page.waitForTimeout(400);
+      ok(await page.evaluate(() => { const f = __M_src_core_store_js.Store.get().fines; const x = f[f.length - 1]; return x.memberId === 'm7' && x.reason === 'Missed meeting'; }), 'a missed-meeting fine for a paid-up member is allowed' + v.sfx);
+      /* the same picker chooses the borrower */
+      await page.evaluate(() => { location.hash = '#/loans'; }); await page.waitForTimeout(500);
+      await shot(page, 'dbg-loans' + v.sfx);
+      await page.click('[data-act="addLoan"]'); await page.waitForTimeout(400);
+      await page.click('#modalRoot .mpk-card'); await page.waitForTimeout(300);
+      ok((await ids()).split(',').length === 8, 'New loan lists every member');
+      await page.fill('#mpkQ', 'otie'); await page.waitForTimeout(150);
+      ok(await ids() === 'm2' && /Loan balance/.test(await page.textContent('#mpkList')), 'loan picker search works and shows the loan balance');
+      await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+      ok(!(await page.locator('.mpk-layer').count()) && await page.isVisible('#modalRoot form'), 'Escape steps back to the form, not out of it');
+      await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+      ok(!errors.length, 'no page errors ' + errors.join(' | '));
+      await ctx.close();
+    }
+    /* M5: the borrower signs on their own phone */
+    const sc = require('./fixtures').scenarios, L9 = { id: 'L9', memberId: 'm3', principal: 5000, rate: 10, months: 2, date: '2026-11-01', repayments: [] };
+    const mch = JSON.parse(JSON.stringify(sc.member.mock.chamas)); mch.umoja.data.loans.push(L9);
+    const m = await open(b, 'member', { wait: 1600, mock: { ...sc.member.mock, chamas: mch } });
+    if (await m.page.isVisible('.urgent [data-u="go"]')) await m.page.click('.urgent [data-u="go"]'); else await m.page.evaluate(() => __M_src_features_index_js.Actions.signLoanMine({ id: 'L9' }));
+    await m.page.waitForTimeout(600);
+    await m.page.check('#modalRoot input[name="agree"]'); await m.page.click('#modalRoot form .actions .btn.pri'); await m.page.waitForTimeout(500);
+    const box = await m.page.locator('#sigPad').boundingBox();
+    await m.page.mouse.move(box.x + 30, box.y + 80); await m.page.mouse.down(); await m.page.mouse.move(box.x + 120, box.y + 40, { steps: 6 }); await m.page.mouse.move(box.x + 220, box.y + 110, { steps: 6 }); await m.page.mouse.up();
+    await m.page.click('#modalRoot form .actions .btn.pri'); await m.page.waitForTimeout(1000);
+    const signed = await m.page.evaluate(() => { const l = window.__DB.chamas.umoja.data.loans.find(x => x.id === 'L9'); return l && l.agreement; });
+    ok((await calls(m.page)).some(x => x.name === 'sign_loan_terms' && /^data:image\/png/.test(x.args.p_sig) && x.args.p_total === 6000), 'the borrower signs on their phone and the terms go to the server');
+    ok(signed && signed.on === 'borrower phone' && signed.total === 6000 && signed.lastDue, 'the signed terms are kept with the loan in the Chama record');
+    ok(/Signed/.test(await m.page.textContent('#popRoot')), 'the borrower is told it was sent');
+    ok(!m.errors.length, 'no page errors ' + m.errors.join(' | '));
+    await m.ctx.close();
+    /* the treasurer is told, and sees the signed terms without reloading */
+    const tch = JSON.parse(JSON.stringify(sc.treasurer.mock.chamas)); tch.umoja.data.loans.push(L9);
+    const t = await open(b, 'treasurer', { wait: 1600, mock: { ...sc.treasurer.mock, chamas: tch } });
+    await t.page.evaluate(() => { location.hash = '#/loans'; }); await t.page.waitForTimeout(600);
+    ok(/Faith Mwende has not signed yet/.test(await text(t.page)), 'before: the treasurer sees the loan waiting for a signature');
+    await t.page.evaluate(sig => window.__DB.simBorrowerSigns('umoja', 'L9', sig, 'Faith Mwende'), signed.sig);
+    await t.page.evaluate(() => __M_src_features_notifications_notify_js.Notify.loadServer()); await t.page.waitForTimeout(1200);
+    ok(/Faith Mwende signed the loan terms/.test(await t.page.textContent('#toast')), 'the treasurer gets a notification when the borrower signs');
+    ok(!/Faith Mwende has not signed yet/.test(await text(t.page)) && /Terms signed/.test(await text(t.page)), 'the loans list shows it signed, without a reload');
+    await t.page.click('[data-act="loanMenu"][data-id="L9"]'); await t.page.waitForTimeout(500);
+    const lv = await t.page.textContent('#modalRoot');
+    ok(/Terms signed/.test(lv) && /on their own phone/.test(lv) && /KES 6,000/.test(lv) && await t.page.isVisible('#modalRoot .lsig img'), 'the loan view shows the signed time, where, the amounts and the signature');
+    await shot(t.page, 'v020-loan-signed');
+    const pdf = await t.page.evaluate(() => { const s = __M_src_core_store_js.Store.get(); let h = ''; const P = __M_src_lib_reports_js.Doc.print; __M_src_lib_reports_js.Doc.print = x => { h = x; }; __M_src_features_index_js.Actions.loanPdf({ id: 'L9' }); __M_src_lib_reports_js.Doc.print = P; return h; });
+    ok(/Loan agreement/.test(pdf) && /<img src="data:image\/png/.test(pdf) && /own phone/.test(pdf) && /KES 6,000/.test(pdf), 'the loan agreement PDF carries the signature, time and amounts');
+    ok(!t.errors.length, 'no page errors ' + t.errors.join(' | '));
+    await t.ctx.close();
+    /* after a reload the record from the server still has it */
+    const rch = JSON.parse(JSON.stringify(tch)); rch.umoja.data.loans.find(x => x.id === 'L9').agreement = signed;
+    const r = await open(b, 'treasurer', { wait: 1600, dark: true, mock: { ...sc.treasurer.mock, chamas: rch } });
+    await r.page.evaluate(() => { location.hash = '#/loans'; }); await r.page.waitForTimeout(600);
+    await r.page.click('[data-act="loanMenu"][data-id="L9"]'); await r.page.waitForTimeout(500);
+    ok(/on their own phone/.test(await r.page.textContent('#modalRoot')), 'the signed terms are still there after a reload');
+    await shot(r.page, 'v020-loan-signed-dark');
+    ok(!r.errors.length, 'no page errors ' + r.errors.join(' | '));
+    await r.ctx.close();
+  },
+  /* PROFILE (F-U2, F-X6): About you is answered once (the server decides, so a new phone never repeats it), only a missing
+     phone-sharing agreement is asked again, the answers are seen and changed on My profile (age changes the app at once),
+     the date of birth can be read from a Kenyan ID on the phone, and the username edit uses the live setup checks. */
+  async v020Profile(b) {
+    const done = { full_name: 'Faith Wanjiru', phone: '0711222333', birth_date: '1955-04-02', gender: 'female', details_at: '2026-10-01T08:00:00Z', dob_source: 'self', phone_shared_at: '2026-10-01T08:00:00Z' };
+    /* 1. details complete, nothing on this phone (a new phone): no questions at all, and the app is set up for the age */
+    let r = await open(b, 'member', { about: true, wait: 2600, mock: { ...scenarios.member.mock, details: done } });
+    ok(!(await r.page.locator('#awRoot .ab').count()), 'a person who already answered never sees the questions again, even on a new phone');
+    ok(await r.page.evaluate(() => localStorage.getItem('mca-about-v3:u3') === 'done' && JSON.parse(localStorage.getItem('mca-about:data:u3')).birth_date === '1955-04-02'), 'the server answer is kept on this phone');
+    ok(await r.page.evaluate(() => document.documentElement.classList.contains('a-simple')), 'and the app matches their age here too (Simple view at 71)');
+    await r.page.evaluate(() => __M_src_features_guide_js.About.check()); await r.page.waitForTimeout(600);
+    ok(!(await r.page.locator('#awRoot .ab').count()) && (await calls(r.page)).filter(x => x.name === 'set_my_details').length === 0, 'checking again does nothing and saves nothing (no loop)');
+    ok(!r.errors.length, 'no page errors ' + r.errors.join(' | ')); await r.ctx.close();
+    /* 2. only the phone-sharing agreement is missing: only that one step */
+    r = await open(b, 'member', { about: true, wait: 2600, mock: { ...scenarios.member.mock, details: { ...done, phone_shared_at: null } } });
+    const only = await r.page.evaluate(() => { const a = document.querySelector('#awRoot .ab'); return a ? { only: a.classList.contains('ab-only'), dots: !!a.querySelector('.ab-dots'), txt: a.innerText } : null; });
+    ok(only && only.only && !only.dots && /share your phone number/i.test(only.txt) && !/has been updated/i.test(only.txt), 'when only the agreement is missing, only that step shows');
+    await shot(r.page, 'v020-profile-consent-only');
+    await r.page.click('[data-ab="share"]'); await r.page.click('[data-ab="save"]'); await r.page.waitForTimeout(800);
+    const c2 = await calls(r.page);
+    ok(c2.some(x => x.name === 'set_phone_sharing' && x.args.p_on === true) && !c2.some(x => x.name === 'set_my_details'), 'agreeing turns sharing on and saves nothing else');
+    ok(!(await r.page.locator('#awRoot .ab').count()) && await r.page.evaluate(() => localStorage.getItem('mca-about-v3:u3') === 'done'), 'then it is finished for good');
+    ok(!r.errors.length, 'no page errors ' + r.errors.join(' | ')); await r.ctx.close();
+    /* 3. My profile lists About you; changing the date of birth changes the app at once */
+    const young = { ...done, birth_date: '1990-06-15' };
+    r = await open(b, 'member', { wait: 1400, mock: { ...scenarios.member.mock, details: young } });
+    let page = r.page;
+    await page.evaluate(() => { location.hash = '#/profile'; }); await page.waitForTimeout(900);
+    const sec = await page.evaluate(() => (document.getElementById('aboutYou') || {}).innerText || '');
+    ok(/About you/.test(sec) && /15 June 1990/.test(sec) && /\b3[56] years/.test(sec) && /Female/.test(sec) && /Shared with my Chama/.test(sec) && /Self-declared/.test(sec), 'My profile lists name, phone, date of birth with age, gender, sharing and where the date came from');
+    ok(!(await page.evaluate(() => document.documentElement.classList.contains('a-simple'))), 'at 36 the app is standard');
+    await shot(page, 'v020-profile-about');
+    await page.click('[data-act="aboutDob"]'); await page.waitForTimeout(400);
+    await shot(page, 'v020-profile-dob');
+    await page.selectOption('#ayY', '1950'); await page.waitForTimeout(100);
+    ok(/7[56] years/.test(await page.textContent('#ayAge')), 'the age updates while choosing');
+    await page.click('[data-act="aboutDobSave"]'); await page.waitForTimeout(800);
+    const c3 = await calls(page);
+    ok(c3.some(x => x.name === 'set_my_details' && x.args.p_birth_date === '1950-06-15') && c3.some(x => x.name === 'set_dob_source' && x.args.p_source === 'self'), 'saving sends the new date to the server');
+    const h = await page.evaluate(() => ({ simple: document.documentElement.classList.contains('a-simple'), size: document.documentElement.dataset.size }));
+    ok(h.simple && h.size === 'x', 'the app changes at once: Simple view with the largest text at 76');
+    ok(/15 June 1950/.test(await page.textContent('#aboutYou')), 'and My profile shows the new date');
+    /* back to a younger age: what the age switched on is switched off again */
+    await page.click('[data-act="aboutDob"]'); await page.waitForTimeout(300); await page.selectOption('#ayY', '1990'); await page.click('[data-act="aboutDobSave"]'); await page.waitForTimeout(700);
+    ok(!(await page.evaluate(() => document.documentElement.classList.contains('a-simple'))), 'a corrected younger date makes the app standard again');
+    /* the person's own choice still wins */
+    await page.evaluate(() => { const A = __M_src_core_a11y_js.A11y; A.d.ageMode = 'custom'; A.d.size = 'n'; A.save(); });
+    await page.click('[data-act="aboutDob"]'); await page.waitForTimeout(300); await page.selectOption('#ayY', '1945'); await page.click('[data-act="aboutDobSave"]'); await page.waitForTimeout(700);
+    ok(!(await page.evaluate(() => document.documentElement.classList.contains('a-simple'))), 'someone who chose their own display settings keeps them');
+    /* gender in place */
+    await page.click('[data-act="aboutGender"]'); await page.waitForTimeout(300); await page.click('[data-act="aboutGenderSet"][data-v="prefer_not"]'); await page.waitForTimeout(600);
+    ok((await calls(page)).some(x => x.name === 'set_my_details' && x.args.p_gender === 'prefer_not') && /Prefer not to say/.test(await page.textContent('#aboutYou')), 'gender is changed in place');
+    /* 4. the date of birth read from an ID (Tesseract stubbed, noisy text) */
+    await page.evaluate(() => { window.__ocrText = 'REPUBLIC OF KENYA\nSERIAL NUMBER 234567891\nFULL NAMES FAITH WANJIRU\nDATE 0F B1RTH\n12.O3.l958\nSEX FEMALE\nDATE OF ISSUE 05.06.2010';
+      window.Tesseract = { createWorker: async () => ({ setParameters: async () => {}, recognize: async c => { window.__ocrCanvas = c; return { data: { text: window.__ocrText } }; } }) }; });
+    await page.click('[data-act="aboutDob"]'); await page.waitForTimeout(300);
+    await page.click('[data-act="aboutIdScan"]'); await page.waitForTimeout(300);
+    ok(/never uploaded or kept/i.test(await page.textContent('#modalRoot')), 'Scan my ID says first that the photo stays on the phone');
+    await shot(page, 'v020-profile-idscan');
+    const png = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 200; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 320, 200); x.fillStyle = '#000'; x.font = '20px sans-serif'; x.fillText('DATE OF BIRTH 12.03.1958', 10, 100); return c.toDataURL('image/png').split(',')[1]; });
+    await page.setInputFiles('#idScanPick', { name: 'id.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+    await page.waitForTimeout(1200);
+    const f = await page.evaluate(() => ({ y: (document.getElementById('ayY') || {}).value, m: (document.getElementById('ayM') || {}).value, d: (document.getElementById('ayD') || {}).value, found: (document.querySelector('.ay-found') || {}).innerText || '', imgs: document.querySelectorAll('#modalRoot img').length, wiped: !!window.__ocrCanvas && window.__ocrCanvas.width === 0 }));
+    ok(f.y === '1958' && f.m === '3' && f.d === '12' && /12 March 1958/.test(f.found), 'the date of birth is found despite reading noise, filled in and shown to confirm');
+    ok(f.imgs === 0 && f.wiped, 'the photo is not shown or kept, and the canvas is wiped');
+    await shot(page, 'v020-profile-idfound');
+    await page.click('[data-act="aboutDobSave"]'); await page.waitForTimeout(800);
+    const c4 = await calls(page);
+    ok(c4.some(x => x.name === 'set_my_details' && x.args.p_birth_date === '1958-03-12') && c4.filter(x => x.name === 'set_dob_source').pop().args.p_source === 'id_scan', 'saving stores the date and marks it as read from the ID');
+    ok(/Self-declared · ID scanned/.test(await page.textContent('#aboutYou')), 'My profile shows "Self-declared · ID scanned"');
+    /* nothing readable: a clear message, and the date can still be chosen by hand */
+    await page.evaluate(() => { window.__ocrText = 'blurry'; });
+    await page.click('[data-act="aboutDob"]'); await page.waitForTimeout(300); await page.click('[data-act="aboutIdScan"]'); await page.waitForTimeout(300);
+    await page.setInputFiles('#idScanCam', { name: 'id.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') }); await page.waitForTimeout(1000);
+    ok(/could not find the date of birth/i.test(await page.textContent('#modalRoot')) && await page.isVisible('[data-act="aboutIdBack"]'), 'an unreadable photo says so and offers to choose the date by hand');
+    await page.evaluate(() => __M_src_features_requests_js.Sheet.close()); await page.waitForTimeout(300);
+    /* 5. username: the same live checks as setup */
+    await page.click('[data-act="meEdit"][data-f="user"]'); await page.waitForTimeout(500);
+    ok(await page.isDisabled('[data-uc-save]'), 'Save is off before a new username is chosen');
+    ok((await page.locator('#userSugg .u-chip').count()) >= 1, 'suggestions made from the name show');
+    await page.fill('#setUser', 'taken.name'); await page.waitForTimeout(800);
+    ok(/already has/i.test(await page.textContent('#userSt')) && await page.evaluate(() => document.getElementById('userSt').classList.contains('bad')) && await page.isDisabled('[data-uc-save]'), 'a taken username says why, and Save stays off');
+    await shot(page, 'v020-profile-username');
+    await page.click('#userSugg .u-chip'); await page.waitForTimeout(600);
+    ok(await page.evaluate(() => document.getElementById('userSt').classList.contains('ok')) && !(await page.isDisabled('[data-uc-save]')), 'a free one gets the tick and Save turns on');
+    await page.click('[data-uc-save]'); await page.waitForTimeout(700);
+    ok((await calls(page)).some(x => x.name === 'username_available') && !(await page.locator('#modalRoot .sx').count()), 'the username is checked on the server and saved');
+    ok(!r.errors.length, 'no page errors ' + r.errors.join(' | ')); await r.ctx.close();
+    /* 6. the Settings entry opens My profile, it never runs the questions again */
+    r = await open(b, 'member', { wait: 1400, mock: { ...scenarios.member.mock, details: done } }); page = r.page;
+    await page.evaluate(() => __M_src_features_index_js.Actions.aboutEdit && __M_src_features_index_js.Actions.aboutEdit()); await page.waitForTimeout(900);
+    ok(/#\/profile/.test(page.url()) && !(await page.locator('#awRoot .ab').count()), 'Settings, About you opens My profile instead of the questions');
+    ok(!r.errors.length, 'no page errors ' + r.errors.join(' | ')); await r.ctx.close();
+    /* 7. look: About you in dark and in Simple view at 390px */
+    for (const [tag, o] of [['dark', { dark: true }], ['simple', { a11y: { simple: 1, size: 'l', ageMode: 'custom' } }]]) {
+      r = await open(b, 'member', { wait: 1400, ...o, mock: { ...scenarios.member.mock, details: { ...done, dob_source: 'id_scan' } } });
+      await r.page.evaluate(() => { location.hash = '#/profile'; }); await r.page.waitForTimeout(900);
+      await r.page.evaluate(() => document.getElementById('aboutYou').scrollIntoView()); await r.page.waitForTimeout(200);
+      ok(await r.page.evaluate(() => document.documentElement.scrollWidth <= 390), `About you fits 390px (${tag})`);
+      await shot(r.page, 'v020-profile-about-' + tag);
+      await r.page.click('[data-act="aboutDob"]'); await r.page.waitForTimeout(400); await shot(r.page, 'v020-profile-dob-' + tag);
+      await r.page.click('[data-act="aboutIdScan"]'); await r.page.waitForTimeout(300); await shot(r.page, 'v020-profile-idscan-' + tag);
+      ok(!r.errors.length, 'no page errors ' + r.errors.join(' | ')); await r.ctx.close();
     }
   },
   async offline(b) {
