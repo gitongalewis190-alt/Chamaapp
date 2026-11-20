@@ -1,4 +1,4 @@
-# Handover for the next Claude session (20 November 2026, release 0.18.2 live)
+# Handover for the next Claude session (20 November 2026, release 0.19.0 live)
 
 Read this whole file before you change anything. The owner (Lewis, a founder in Nairobi) prefers short, dense answers. Work out what
 they mean instead of asking, and build real, working features, never placeholders. They will give you **big changes and a
@@ -10,12 +10,12 @@ redesign** as directives. Fix what they report first, then do the redesign.
 | Repo | `gitongalewis190-alt/Chamaapp`. Work on the branch you are given, then push it **and** `HEAD:main`, because Vercel deploys `main` |
 | Live | https://chama-livid.vercel.app |
 | Supabase | project ref **`sgfvjsxmchohawhqraii`** (dashboard name "gitongalewis100-bot's Project"). **Never** use "The lees app" (`emimwlpsfchndxaxzswh`) |
-| Database | Migrations 000-027 are **applied and verified** (20 Nov 2026). `028_local_phone_search_path.sql` is optional and not applied: it is a one-line advisor fix |
+| Database | Migrations 000-027 **and 029** are applied and verified (20 Nov 2026). `028_local_phone_search_path.sql` is optional and not applied: one-line advisor fix. Nothing else to run |
 | Release check | https://claude.ai/artifact/JQV7pav2YSmiWCeBqCzsHq (source `docs/release-check.html`). See section 5 |
 
 ## 2. How the app is built
-- **Plain static PWA, no build step.** `index.html`, `assets/boot.js` (runs early: theme, accent, simple view), `assets/app.js` (about 7,800 lines),
-  `assets/app.css` (about 1,950 lines), `sw.js` (service worker), `vendor/tesseract/` (self-hosted OCR), `legal/`, `vercel.json` (CSP and headers).
+- **Plain static PWA, no build step.** `index.html`, `assets/boot.js` (runs early: theme, accent, simple view), `assets/app.js` (about 8,700 lines),
+  `assets/app.css` (about 2,400 lines), `sw.js` (service worker), `vendor/tesseract/` (self-hosted OCR), `legal/`, `vercel.json` (CSP and headers).
 - `app.js` is a set of IIFE modules named `__M_src_<path>_js`, for example `__M_src_features_guide_js` and `__M_src_core_rerender_js`.
   Views return HTML strings. Actions are `data-act="name"` and are dispatched centrally. A real `<a href>` that has a `data-act` still navigates.
   `render()` diffs the HTML and adds the class `quiet` when it repaints the same route. Hero animations are excluded from that so they don't flicker.
@@ -47,16 +47,51 @@ redesign** as directives. Fix what they report first, then do the redesign.
   - **One phone number for every Chama:** handled by database triggers.
   - **Chama photo:** only the treasurer can set it. It shows in the Chama chooser and in PDFs (`my_chama_faces`).
 
+
+## 0.19.0: what shipped and where it lives (read before fixing)
+- **Home** (`__M_src_features_home_index_js`): nothing renders above the hero. `Urgent` (same module, exported) shows full-screen
+  priority prompts after each render (`renderPage` calls `Urgent.check`): unsigned loan terms, removal notice, account deletion.
+  "Remind me later" snoozes 2 h in localStorage `mca-urgent-<key>`. `Account.banner()` no longer shows on Home. Payout card = `.po-*`,
+  next turns = `.po-rail`. "Need help?" card shows for everyone.
+- **Contributions** (`__M_src_features_contributions_index_js`): `.cg-hero` tiers `g-over/met/near/mid/low/fut` (own palette), gauge,
+  count-up via exported `heroCount`, rows `.cg-row`, payments `.cg-pay`.
+- **Guide** (`__M_src_features_guide_js`): `words()` = stopwords + stemming + Damerau typo fix against a vocab of SYN + TASKS;
+  `calc()` = safe parser with record variables (`vars()`) and loan maths; no help articles in results, every TASK has a `tour`;
+  input focused synchronously in `Guide.show`. `Tour.paint` measures the card and places it above/below the target (inverse theme,
+  CSS vars on `#tourRoot`).
+- **Chat** (`__M_src_features_chat_index_js`, ported from The Lees): `Media` (signed URLs, bucket `chat-media`), `Player`, `Rec`
+  (MediaRecorder), `Review` (decode, trim, WAV 16 kHz), `Chat` (inbox, threadView, bubble, composer, sendMedia, onceOpen, themes,
+  typing via realtime channel `live-<cid>` broadcast `typing`/`read` + presence). Global typing banner `#tyBanner`. No message text
+  appears outside the thread. Kinds: text, voice, image, file (+ cards). Themes: `CHAT_THEMES`, CSS `[data-ct=...]` light+dark.
+- **Phones**: About you is **v3** (`mca-about-v3`), 5th step = required consent to share phone with the group (`set_phone_sharing`).
+  Members list: `Phones` (members module) via `member_phones`; call/WhatsApp/SMS sheet. Privacy page: share / stop sharing.
+- **Settings > Display** reuses the first-run `Pz` components (a11y module), 21 accents (12 solid, 9 gradient, `--brand-grad`),
+  boot.js accepts them. **Scroll reveal**: one IIFE before `src/features/smart` sets `--rv` on list items (`[data-rv]`); off for
+  reduced motion / `a-rm`, lighter in Simple view. Profile tiles `mt-due/saved/loan/fines`.
+- **Server (029)**: kinds voice/image/file; `send_chama_message` validates `meta.path` = `<cid>/<uid>/<uuid>.<ext>`, never notifies
+  for chat kinds; private bucket `chat-media` + 3 storage policies; `chama_once_media` (no policies, functions only),
+  `send_chat_once`, `open_chat_once` (once per person, deletes when all opened); `react_chama_message` (6 emojis), `chat_seen`,
+  `chama_chat_prefs` + `set_chat_theme` (posts a system message); `profiles.phone_shared_at`, `set_phone_sharing`, `member_phones`
+  (only if caller also shares); `get_my_details` returns `phone_shared_at`. Mock has all of these (`tests/mock-supabase.js`,
+  `window.__live(ev,payload)` simulates another member typing).
+- `vercel.json`: microphone allowed (`microphone=(self)`), `media-src 'self' blob: data:`.
+- **Not yet tried on real phones / live data**: voice record + playback (iPhone Safari especially), view once across devices,
+  realtime typing banner, storage policies with real uploads, phone sharing. These are release checks F-N3 to F-N9.
+- **Release check** has group F-N (12 checks); F-N1 marked pass. Read the owner's results first:
+  `ArtifactData list results` on https://claude.ai/artifact/JQV7pav2YSmiWCeBqCzsHq, then fix the fails.
+- Parallel agents work well here if each edits only with exact-string Edits and appends CSS under its own marker; never let two
+  agents rewrite whole files.
+
 ## 3. How to test and release (do this every time)
 - Tests: `NODE_PATH=$(npm root -g) node tests/run.js`. This runs Playwright against a mock Supabase (`tests/mock-supabase.js`, `tests/fixtures.js`).
-  **195 scenarios pass.** The harness marks the first-run screens (`mca-personal-v1`, `mca-about-v2:<uid>`) as done unless a test passes
+  **246 scenarios pass** (test `v019` covers 0.19). The harness marks the first-run screens (`mca-personal-v1`, `mca-about-v3:<uid>`) as done unless a test passes
   `opt.personal` or `opt.about`. When you add an RPC, add it to the mock too.
 - Chromium is already installed: use `require('playwright')` and do not install it again.
 - Lint: `npx eslint@8.57.0 --no-eslintrc -c <config with no-undef, browser globals> --global Tesseract,supabase assets/app.js assets/boot.js sw.js`.
   The result must be clean.
 - Release routine:
-  1. Bump `?v=` in `index.html` and `sw.js` (currently `0.18.2`).
-  2. Bump the cache name `V` in `sw.js` (currently `mca-app-v80`). Change the OCR cache `mca-ocr-v1` only when `vendor/tesseract` changes.
+  1. Bump `?v=` in `index.html` and `sw.js` (currently `0.19.0`).
+  2. Bump the cache name `V` in `sw.js` (currently `mca-app-v81`). Change the OCR cache `mca-ocr-v1` only when `vendor/tesseract` changes.
   3. Bump `APP` version, date and changelog in `app.js`.
   4. Add `RELEASE_NOTES_x.y.z.md`.
   5. Run the tests and lint.
