@@ -689,7 +689,10 @@ const TESTS = {
     ok(/send an apology to the secretary before it starts/.test(t) && /Be kind and respectful/.test(t) && await page.locator('#view .rl-list li').count() >= 10, 'the rules page shows every rule in full, plus chat etiquette');
     ok(await page.isVisible('[data-act="chamaEdit"][data-f="chatRules"]') && await page.isVisible('[data-act="rulesRemind"]'), 'the treasurer can edit chat etiquette and remind everyone');
     await shot(page, 'v020-people-rules');
-    await page.click('[data-act="rulesRemind"]'); await page.waitForTimeout(300); await page.click('#popRoot .pop-btn.pri'); await page.waitForTimeout(1200);
+    await page.click('[data-act="rulesRemind"]'); await page.waitForTimeout(400);
+    console.log('DBG', JSON.stringify(await page.evaluate(() => { const b = document.querySelector('#popRoot .pop-btn.pri'); const r = b.getBoundingClientRect(); const v = document.querySelector('.pop-veil'); return { r: [r.top, r.left, r.width, r.height], vh: innerHeight, sy: scrollY, veil: getComputedStyle(v).position, vr: v.getBoundingClientRect().top, body: getComputedStyle(document.body).transform, html: document.documentElement.style.cssText }; })));
+    await page.screenshot({ path: '/tmp/claude-0/-home-user-Chamaapp/7fd3c94a-154f-5c58-bbea-1fa70940400c/scratchpad/dbg.png' });
+    await page.click('#popRoot .pop-btn.pri', { timeout: 2000 }).catch(e => console.log('DBG fail')); await page.waitForTimeout(1200);
     ok(await page.evaluate(() => (window.__DB.messages || []).some(m => m.kind === 'announcement' && m.meta && m.meta.rules && /follow our group rules/.test(m.body))), 'Remind everyone posts an announcement card in the Chama chat');
     ok(/chat\/group/.test(page.url()) && await page.locator('.cc-ann .cc-rules').count() > 0, 'the card links to the full rules');
     ok(await page.isVisible('.pin-card.rules-pin') && await page.isVisible('.cp-rules'), 'the group chat has a pinned Group rules entry and a gentle reminder by the message box');

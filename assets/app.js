@@ -8570,11 +8570,15 @@ const SYN = { pay: 'payment', paid: 'payment', paying: 'payment', contribution: 
   invite: 'invite', join: 'invite', code: 'invite', karibisha: 'invite', remind: 'remind', reminder: 'remind', kumbusha: 'remind', late: 'late', behind: 'late', owe: 'owe', owes: 'owe', deni: 'owe', debt: 'owe',
   message: 'chat', text: 'chat', ujumbe: 'chat', whatsapp: 'remind', lock: 'lock', pin: 'lock', fingerprint: 'lock', face: 'lock', password: 'password', nenosiri: 'password',
   leave: 'leave', quit: 'leave', exit: 'leave', ondoka: 'leave', goal: 'goal', target: 'goal', lengo: 'goal', mpesa: 'mpesa', 'm-pesa': 'mpesa', import: 'mpesa', screenshot: 'mpesa', sms: 'mpesa',
-  photo: 'photo', picture: 'photo', picha: 'photo', payout: 'payout', pot: 'payout', turn: 'payout', zamu: 'payout', receive: 'payout', cash: 'cash', balance: 'cash', bank: 'cash', treasurer: 'treasurer', handover: 'treasurer', role: 'role', secretary: 'role', remove: 'remove', kick: 'remove', report: 'report', export: 'report', pdf: 'report', backup: 'report' };
+  photo: 'photo', picture: 'photo', picha: 'photo', payout: 'payout', pot: 'payout', turn: 'payout', zamu: 'payout', receive: 'payout', cash: 'cash', balance: 'cash', bank: 'cash', treasurer: 'treasurer', handover: 'treasurer', role: 'role', secretary: 'role', remove: 'remove', kick: 'remove', report: 'report', export: 'report', pdf: 'report', backup: 'report',
+  /* questions about me (Kiswahili and English) */
+  nimelipa: 'payment', nililipa: 'payment', malipo: 'payment', payed: 'payment', ngapi: 'much', kiasi: 'much', lini: 'when', nimejiunga: 'joined', nilijiunga: 'joined', jina: 'name', ushauri: 'advice', shauri: 'advice',
+  akiba: 'savings', kiwango: 'limit', nastahili: 'qualify', stahili: 'qualify', qualified: 'qualify', eligible: 'qualify', wangapi: 'many', mwaka: 'year', mwezi: 'month', karibuni: 'recent', shughuli: 'activity', historia: 'history',
+  nadaiwa: 'owe', arrears: 'arrear', overdue: 'late', nimechelewa: 'late', mfululizo: 'streak', nafasi: 'rank', ranking: 'rank', verification: 'verify', thibitisha: 'verify', hakiki: 'verify', receipt: 'receipt', risiti: 'receipt' };
 /* Smart words: lower case, drop filler, light stemming, then correct typos against the words the app knows
    (Damerau distance 1 for short words, 2 for long ones), then map to the app's own words. "recrod a paymnet",
    "how i add membr", "mkopo" and "lend money" all land on the right guide. */
-const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'for', 'in', 'on', 'my', 'me', 'i', 'is', 'it', 'do', 'does', 'can', 'could', 'please', 'want', 'wanna', 'need', 'and', 'or', 'with', 'this', 'that', 'there', 'some', 'someone', 'somebody', 'na', 'ya', 'wa', 'kwa', 'ni', 'je', 'how', 'what', 'where', 'show', 'teach', 'help', 'guide', 'jinsi', 'wapi', 'nisaidie', 'nionyeshe', 'gani', 'way', 'go', 'get', 'make', 'be', 'am', 'are', 'you', 'we', 'our', 'your']);
+const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'for', 'in', 'on', 'my', 'me', 'i', 'is', 'it', 'do', 'does', 'can', 'could', 'please', 'want', 'wanna', 'need', 'and', 'or', 'with', 'this', 'that', 'there', 'some', 'someone', 'somebody', 'na', 'ya', 'wa', 'kwa', 'ni', 'je', 'how', 'what', 'where', 'show', 'yangu', 'wangu', 'langu', 'zangu', 'changu', 'yako', 'gani', 'teach', 'help', 'guide', 'jinsi', 'wapi', 'nisaidie', 'nionyeshe', 'gani', 'way', 'go', 'get', 'make', 'be', 'am', 'are', 'you', 'we', 'our', 'your']);
 const stem = w => w.length > 5 && /ing$/.test(w) ? w.slice(0, -3) : w.length > 4 && /ed$/.test(w) ? w.slice(0, -2) : w.length > 3 && /[^s]s$/.test(w) ? w.slice(0, -1) : w;
 function dl(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
@@ -8585,10 +8589,12 @@ function dl(a, b, max) {
     best = Math.min(best, d[i][j]); } if (best > max) return max + 1; }
   return d[a.length][b.length];
 }
+/* words the answers about you listen for, so typo fixing keeps them as they are */
+const KNOWN = ['much', 'many', 'when', 'name', 'username', 'limit', 'qualify', 'recent', 'action', 'activity', 'history', 'advice', 'tip', 'streak', 'rank', 'joined', 'since', 'year', 'month', 'total', 'saved', 'savings', 'owe', 'due', 'arrear', 'next', 'instalment', 'installment', 'have', 'left', 'day', 'date', 'cash', 'monthly', 'compare', 'top', 'verify', 'receipt', 'serial', 'check', 'who', 'balance', 'far', 'all', 'time', 'row', 'genuine', 'fake', 'real'];
 let VOCAB = null;
 function vocab() {
   if (VOCAB) return VOCAB;
-  const v = new Set(Object.keys(SYN).concat(Object.values(SYN)));
+  const v = new Set(Object.keys(SYN).concat(Object.values(SYN), KNOWN));
   TASKS.forEach(t => (t.t + ' ' + t.k).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).forEach(w => { if (w.length > 2 && !STOP.has(w)) v.add(w); }));
   return (VOCAB = [...v]);
 }
@@ -8749,25 +8755,184 @@ const TASKS = [
     { go: '#/reports', sel: '#view .list || #view .card', text: 'Choose a report, your statement or a full backup here.' }] }
 ];
 
-/* questions answered from the records themselves */
+/* ---- questions about you and your Chama, answered from the records themselves (English and Kiswahili) ----
+   Each answer is a short card: a label, one big number, one line, at most three facts and one button.
+   Matching uses the same typo-tolerant words() as the guides, plus the raw words typed, so "nimelipa ngapi",
+   "how much have i payed" and "my savngs" all land on the same answer. */
+const meId = s => s.shared ? s.shared.me : Session.memberId;
+const meOf = s => { const id = meId(s); return id ? (s.members || []).find(m => m.id === id) || null : null; };
+const SM = () => __M_src_features_smart_js.Smart;
+const U_ = () => __M_src_core_utils_js;
+const has = (W, ...xs) => xs.some(x => W.has(x));
+const dayOf = (mk, day) => new Date(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)) - 1, Math.min(28, Number(day) || 10)).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+const fmtD = d => { const t = typeof d === 'number' ? d : d instanceof Date ? d.getTime() : Date.parse(d); return isNaN(t) ? String(d || '') : new Date(t).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }); };
+const ROLE_W = { treasurer: 'Treasurer', secretary: 'Secretary', member: 'Member' };
+const NOLINK = { kicker: 'Not linked yet', title: 'Your sign-in is not linked to a member yet', text: 'Ask the treasurer to link you to the member list.', btn: { t: 'Message the treasurer', act: 'chatNew' } };
+/* the pot for a month: what was paid out, or what everyone owes that month (the same sum as the Home payout card) */
+const potFor = (s, mk) => { const p = (s.payouts || []).find(x => x.month === mk); return p ? Number(p.amount) || 0 : U_().sum((s.members || []).filter(m => !m.left), m => Domain.dueFor(s, m.id, mk)); };
+/* the next instalment of a loan: instalment n falls n months after the loan date */
+function loanNext(l) {
+  const c = Domain.loan(l); if (!c.balance) return null;
+  const n = Math.min(Number(l.months) || 1, Math.floor((c.paid + 0.01) / (c.installment || 1)) + 1), due = new Date(l.date || Date.now()); due.setMonth(due.getMonth() + n);
+  return { c, n, of: Number(l.months) || 1, due, amt: Math.min(c.installment, c.balance), late: due < new Date() };
+}
+const nth = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+function adviceFor(s) {
+  const id = meId(s), cur = Domain.now(), c = s.chama || {}, out = []; if (!id) return out;
+  const o = Domain.outstanding(s, id, cur), fine = Number(c.finePerLate) || 0;
+  if (o > 0) out.push(Domain.isOverdue(s, cur) ? `Pay ${kes(o)} now. The due day (${dayOf(cur, c.dueDay)}) has passed${fine ? ', so a fine of ' + kes(fine) + ' may apply' : ''}.` : `Pay ${kes(o)} by ${dayOf(cur, c.dueDay)}${fine ? ' to avoid a fine of ' + kes(fine) : ''}.`);
+  const f = Domain.memberFinesDue(s, id); if (f) out.push(`Clear your unpaid fines of ${kes(f)}.`);
+  const ln = (s.loans || []).filter(l => l.memberId === id).map(loanNext).filter(Boolean).sort((a, b) => a.due - b.due)[0];
+  if (ln) out.push(`Next loan instalment: ${kes(ln.amt)} ${ln.late ? 'was due ' : 'by '}${fmtD(ln.due)}.`);
+  const st = Domain.streak(s, id); if (st >= 2 && !o) out.push(`Keep your ${st}-month on-time streak going.`);
+  try { const lim = SM().loanLimit(s, id); if (lim > 0) out.push(`You can borrow up to ${kes(lim)}.`); } catch (e) {}
+  try { const t = SM().nextTurn(s, id); if (t) out.push(t.months ? `Your payout comes in ${monthLabel(t.mk)}. Stay paid up until then.` : 'Your payout is this month.'); } catch (e) {}
+  if (!out.length) out.push('You are on track. Nothing to do right now.');
+  return out;
+}
+/* what happened that concerns me: the Chama's log when this phone has it, otherwise my own records */
+function recentFor(s) {
+  const me = meOf(s), name = me && me.name, out = [];
+  (s.log || []).forEach(e => { if ((name && String(e.text || '').includes(name)) || (Session.role === 'treasurer' && e.by === 'Treasurer')) out.push({ ts: Number(e.ts) || Date.parse(e.ts) || 0, t: String(e.text || '') }); });
+  if (out.length >= 5 || !me) return out.sort((a, b) => b.ts - a.ts).slice(0, 5);
+  const id = me.id, d = x => Date.parse(x) || 0;
+  (s.payments || []).filter(p => p.memberId === id).forEach(p => out.push({ ts: d(p.date), t: 'Paid ' + kes(p.amount) + ' for ' + monthLabel(p.month) + (p.code ? ' · ' + p.code : '') }));
+  (s.loans || []).filter(l => l.memberId === id).forEach(l => { out.push({ ts: d(l.date), t: 'Loan of ' + kes(l.principal) }); (l.repayments || []).forEach(r => out.push({ ts: d(r.date), t: 'Repaid ' + kes(r.amount) + ' on your loan' })); });
+  (s.fines || []).filter(f => f.memberId === id).forEach(f => out.push({ ts: d(f.date), t: 'Fine ' + kes(f.amount) + (f.reason ? ': ' + f.reason : '') + (f.paid ? ' (paid)' : '') }));
+  (s.payouts || []).filter(p => p.memberId === id).forEach(p => out.push({ ts: d(p.date), t: 'Received the payout, ' + kes(p.amount) }));
+  const seen = new Set();
+  return out.filter(x => !seen.has(x.t + x.ts) && seen.add(x.t + x.ts)).sort((a, b) => b.ts - a.ts).slice(0, 5);
+}
+const SERIAL_RE = /\bMC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{2}\b/i;
+/* "verify", "thibitisha", "check receipt", "is this receipt real", or a serial like MC-UMOJ-2611-7K3Q-9X */
+function verifyIntent(q) {
+  const raw = String(q || '').trim(), m = SERIAL_RE.exec(raw) || /\bMC-[A-Z0-9-]{4,}/i.exec(raw);
+  if (m) return { serial: m[0].toUpperCase(), full: !!SERIAL_RE.exec(raw) };
+  return /\b(verify|verif\w*|thibitisha|genuine|fake|real)\b|\bcheck (a |the |this |my )?(receipt|serial|document|statement)\b|\b(receipt|serial) (check|real)\b/i.test(raw) ? { serial: '' } : null;
+}
+function openVerify(serial) {
+  if (typeof __M_src_features_verify_js === 'undefined' || !__M_src_features_verify_js.Verify) return toast('Verify needs the latest app version');
+  Guide.hide(); try { __M_src_features_verify_js.Verify.open({ serial: serial || '' }); } catch (e) { toast(e.message); }
+}
+
 const ANSWERS = [
-  { re: /\b(who|nani)\b.*\b(late|owe|behind|hasn'?t paid|not paid|haja)|\blate members\b/, admin: true, run(s) {
+  { id: 'advice', m: (W, r) => has(W, 'advice', 'ushauri', 'tip', 'tips', 'suggest', 'suggestion', 'shauri') || /what should i do|nifanye nini/.test(r), run(s) {
+    if (!meId(s)) return NOLINK; const a = adviceFor(s), o = Domain.outstanding(s, meId(s), Domain.now());
+    return { kicker: 'Advice for you', title: a[0], text: a.slice(1, 4).join('\n'), tone: o ? 'warn' : 'ok', btn: o ? { t: 'See what I owe', tour: 'mypay' } : { t: 'Open Home', go: '#/home' } };
+  } },
+  { id: 'recent', m: (W, r) => has(W, 'recent', 'karibuni', 'activity', 'shughuli', 'historia', 'actions', 'action', 'latest') || /\b(my )?history\b|what (did|have) i (do|done)|last (5|five|few) /.test(r), run(s) {
+    const L = recentFor(s); if (!L.length) return { kicker: 'Your recent actions', big: 'None yet', title: 'Nothing recorded about you yet', text: 'Your payments, loans and fines will show here.' };
+    return { kicker: 'Your recent actions', title: 'Your last ' + L.length + (L.length === 1 ? ' action' : ' actions'), list: L.map(x => [x.ts ? fmtD(x.ts) : '', x.t]), btn: Auth.isAdmin() ? { t: 'Open History', go: '#/history' } : { t: 'See my payments', go: '#/grid' } };
+  } },
+  { id: 'name', m: (W, r) => !/change|badilisha|edit|rename/.test(r) && (/\b(my name|my username|who am i|jina langu|mimi ni nani)\b/.test(r) || (has(W, 'name', 'jina', 'username') && !has(W, 'member', 'chama'))), run(s) {
+    const me = meOf(s), A = Session.account || {}, nm = (me && me.name) || A.full_name || ''; if (!nm) return NOLINK;
+    return { kicker: 'You', big: nm, title: (ROLE_W[Session.role] || 'Member') + ' in ' + ((s.chama && s.chama.name) || 'this Chama'), rows: [A.username ? ['Username', '@' + A.username] : null, Session.email ? ['Email', Session.email] : null].filter(Boolean), btn: { t: 'Open my profile', go: '#/profile' } };
+  } },
+  { id: 'joined', m: (W, r) => !/how (do|can|to) .*join|invite/.test(r) && (/\b(joined|member since|nilijiunga|nimejiunga|tangu lini|how long have i)\b/.test(r) || (/\bjoin\b/.test(r) && has(W, 'when', 'lini', 'date', 'since'))), run(s) {
+    const me = meOf(s); if (!me) return NOLINK; const jm = Domain.joinMonth(s, me.id), cur = Domain.now(), n = Math.max(0, U_().monthDiff(jm, cur));
+    return { kicker: 'You joined', big: monthLabel(jm), title: n ? 'A member for ' + n + (n === 1 ? ' month' : ' months') : 'You joined this month', text: 'Saved since then: ' + kes(Domain.memberSaved(s, me.id)) + '.', btn: { t: 'Open my profile', go: '#/profile' } };
+  } },
+  { id: 'limit', m: (W, r) => has(W, 'limit', 'qualify', 'kiwango', 'nastahili', 'stahili', 'eligible', 'kukopa') || (/\b(can i|could i|how much can|naweza)\b/.test(r) && (has(W, 'loan') || /borrow|kopa/.test(r))), run(s) {
+    const id = meId(s); if (!id) return NOLINK; const lim = SM().loanLimit(s, id), rel = Domain.reliability(s, id), bal = Domain.memberLoanBalance(s, id);
+    return { kicker: 'Your loan limit', big: kes(lim), tone: lim ? 'ok' : 'warn', title: lim ? 'You can borrow up to ' + kes(lim) : 'No new loan for now',
+      text: 'Worked out from 3× your savings (' + kes(Domain.memberSaved(s, id)) + ')' + (rel != null ? ', paid on time ' + rel + '% of months' : '') + (bal ? ', minus your loan of ' + kes(bal) : '') + '. Never more than half the cash. The treasurer decides.',
+      btn: Auth.isAdmin() ? { t: 'Give a loan', tour: 'loan' } : { t: 'Ask the treasurer', act: 'chatNew' } };
+  } },
+  { id: 'loan', m: (W, r) => has(W, 'loan') && !/\b(give|issue|new|add|record|lend)\b/.test(r) && (/\b(my|mine|wangu|balance|left|due|next|instal\w*|repay\w*|baki|i owe)\b/.test(r) || has(W, 'when', 'lini', 'much', 'ngapi')), run(s) {
+    const id = meId(s); if (!id) return NOLINK; const L = (s.loans || []).filter(l => l.memberId === id && Domain.loan(l).balance > 0);
+    if (!L.length) { let lim = 0; try { lim = SM().loanLimit(s, id); } catch (e) {} return { kicker: 'Your loan', big: 'No loan', tone: 'ok', title: 'You have no loan right now', text: lim ? 'You can borrow up to ' + kes(lim) + '.' : '', btn: { t: 'See Loans', tour: 'loanmine' } }; }
+    const nx = L.map(loanNext).filter(Boolean).sort((a, b) => a.due - b.due)[0], bal = U_().sum(L, l => Domain.loan(l).balance);
+    return { kicker: 'Your loan', big: kes(bal), tone: nx && nx.late ? 'bad' : 'warn', title: nx ? (nx.late ? 'Instalment late: ' : 'Next: ') + kes(nx.amt) + (nx.late ? ', was due ' : ' by ') + fmtD(nx.due) : 'Left to pay',
+      rows: [['Paid so far', kes(U_().sum(L, l => Domain.loan(l).paid))], nx ? ['Instalment', nx.n + ' of ' + nx.of] : null].filter(Boolean), btn: { t: 'See my loan', tour: 'loanmine' } };
+  } },
+  { id: 'chamafine', m: (W, r) => has(W, 'fine') && /\b(the|a|late|per) fine\b|fine (amount|for being late|for late)|how much is (the |a )?fine|faini ni (ngapi|kiasi)|kiasi cha faini/.test(r), run(s) {
+    const c = s.chama || {}, f = Number(c.finePerLate) || 0;
+    return { kicker: 'Late fine', big: f ? kes(f) : 'No fine', title: f ? 'Charged when you pay after day ' + (c.dueDay || 10) : 'This Chama has no late fine', text: f ? 'Pay by day ' + (c.dueDay || 10) + ' of each month to avoid it.' : '', btn: { t: 'See fines', go: '#/fines' } };
+  } },
+  { id: 'fines', m: (W, r) => has(W, 'fine') && !/\b(add|give|new|record|weka|charge)\b/.test(r), run(s) {
+    const id = meId(s); if (!id) return NOLINK; const F = (s.fines || []).filter(f => f.memberId === id && !f.paid), t = U_().sum(F, f => f.amount), fine = Number((s.chama || {}).finePerLate) || 0;
+    return { kicker: 'Your fines', big: t ? kes(t) : 'No fines', tone: t ? 'bad' : 'ok', title: t ? F.length + ' unpaid ' + (F.length === 1 ? 'fine' : 'fines') : 'You owe no fines', list: F.slice(0, 3).map(f => [fmtD(f.date), kes(f.amount) + (f.reason ? ' · ' + f.reason : '')]),
+      text: fine ? 'Paying by day ' + ((s.chama || {}).dueDay || 10) + ' avoids the ' + kes(fine) + ' late fine.' : '', btn: { t: 'See fines', go: '#/fines' } };
+  } },
+  { id: 'late', admin: true, m: (W, r) => /\b(who|nani)\b.*\b(late|owe|behind|hasn'?t paid|not paid|haja)|\blate members\b|\bwho (owes|is behind)\b/.test(r) || (has(W, 'who', 'nani') && has(W, 'late', 'owe')), run(s) {
     const cur = Domain.now(), late = s.members.filter(m => !m.left && Domain.outstanding(s, m.id, cur) > 0);
-    return late.length ? { title: late.length + ' ' + (late.length === 1 ? 'person owes' : 'people owe') + ' for ' + monthLabel(cur), text: late.slice(0, 8).map(m => m.name + ': ' + kes(Domain.outstanding(s, m.id, cur))).join('\n'), task: 'remind' } : { title: 'Everyone is paid up for ' + monthLabel(cur), text: 'Nobody owes anything this month.' };
+    return late.length ? { kicker: 'Not paid for ' + monthLabel(cur), big: String(late.length), title: (late.length === 1 ? 'person owes ' : 'people owe ') + kes(U_().sum(late, m => Domain.outstanding(s, m.id, cur))), list: late.slice(0, 6).map(m => [m.name, kes(Domain.outstanding(s, m.id, cur))]), btn: { t: 'Remind them', tour: 'remind' } }
+      : { kicker: monthLabel(cur), big: 'All paid', tone: 'ok', title: 'Everyone is paid up', text: 'Nobody owes anything this month.' };
   } },
-  { re: /\b(how much|what)\b.*\b(i|me)\b.*\b(owe|pay|due)|\bmy balance\b|\bnadaiwa\b/, run(s) {
-    const id = s.shared ? s.shared.me : Session.memberId, cur = Domain.now(); if (!id) return { title: 'Your sign-in is not linked to a member yet', text: 'Ask the treasurer to link you to the member list.' };
-    const o = Domain.outstanding(s, id, cur), a = Domain.ahead(s, id, cur);
-    return { title: o ? 'You owe ' + kes(o) : a ? 'You are ' + kes(a) + ' ahead' : 'You are paid up', text: o ? 'Due by day ' + s.chama.dueDay + ' of ' + monthLabel(cur) + (s.chama.payTo ? '. Pay to ' + s.chama.payTo + '.' : '.') : 'Nothing is due for ' + monthLabel(cur) + '.' };
+  { id: 'owe', m: (W, r) => !has(W, 'who', 'nani') && (/\b(how much|what)\b.*\b(i|me)\b.*\b(owe|pay|due)|\bmy balance\b|\bnadaiwa\b|am i (late|behind)|nimechelewa|\barrears?\b/.test(r) || has(W, 'owe', 'arrear')), run(s) {
+    const id = meId(s), cur = Domain.now(), c = s.chama || {}; if (!id) return NOLINK;
+    const o = Domain.outstanding(s, id, cur), before = Domain.outstanding(s, id, U_().addMonths(cur, -1)), a = Domain.ahead(s, id, cur), over = Domain.isOverdue(s, cur), fine = Number(c.finePerLate) || 0;
+    if (!o) return { kicker: 'Your balance', big: a ? kes(a) + ' ahead' : 'Paid up', tone: 'ok', title: a ? 'You have paid ahead' : 'Nothing is due for ' + monthLabel(cur), text: 'Next due: day ' + (c.dueDay || 10) + ' of ' + monthLabel(U_().addMonths(cur, 1)) + '.', btn: { t: 'See my payments', tour: 'mypay' } };
+    return { kicker: over ? 'Late' : 'You owe', big: kes(o), tone: over ? 'bad' : 'warn', title: over ? 'The due day (' + dayOf(cur, c.dueDay) + ') has passed' : 'Pay by ' + dayOf(cur, c.dueDay),
+      rows: [before ? ['From before', kes(before)] : null, before ? ['This month', kes(o - before)] : null, c.payTo ? ['Pay to', c.payTo] : null].filter(Boolean),
+      text: fine ? (over ? 'A late fine of ' + kes(fine) + ' may apply.' : 'Paying on time avoids a fine of ' + kes(fine) + '.') : '', btn: { t: 'See my payments', tour: 'mypay' } };
   } },
-  { re: /\b(next|this month'?s?|who)\b.*\b(payout|pot|receive|turn)|\bwhen\b.*\bmy turn\b|\bzamu\b/, run(s) {
-    const cur = Domain.now(), r = Domain.recipient(s, cur), id = s.shared ? s.shared.me : Session.memberId; if (!r) return null;
-    let mine = ''; if (id) { const mk = Domain.nextTurn(s, id, cur); if (mk) mine = mk === cur ? ' It is your turn this month.' : ' Your turn: ' + monthLabel(mk) + '.'; }
-    return { title: r.name + ' receives the ' + monthLabel(cur) + ' payout', text: 'About ' + kes(__M_src_core_utils_js.sum(s.members.filter(m => !m.left), m => Domain.dueFor(s, m.id, cur))) + '.' + mine };
+  { id: 'mypayout', m: (W, r) => has(W, 'payout') && !has(W, 'who', 'nani') && !/\b(mark|send|sent|record|change|move)\b/.test(r), run(s) {
+    const id = meId(s), cur = Domain.now(); if (!id) return NOLINK;
+    if ((s.chama || {}).mode === 'savings') return { kicker: 'Payout', big: 'No rotation', title: 'This Chama saves together', text: 'There is no monthly payout turn.' };
+    const t = SM().nextTurn(s, id), rec = Domain.recipient(s, cur);
+    if (!t) return { kicker: 'Your payout', big: 'Not yet', title: 'You are not in the payout order', text: 'Ask the treasurer to add you.', btn: { t: 'See the order', tour: 'order' } };
+    const line = Domain.payoutOrder(s, cur).filter(x => !(x.mk === cur && x.sent)), pos = line.findIndex(x => x.member.id === id) + 1 || line.length;
+    return { kicker: 'Your payout', big: kes(potFor(s, t.mk)), tone: t.months ? '' : 'ok', title: t.months ? 'Your turn: ' + monthLabel(t.mk) : 'It is your turn this month',
+      rows: [['When', t.months ? 'In ' + t.months + (t.months === 1 ? ' month' : ' months') : 'This month'], ['Place in line', nth(pos) + ' of ' + Domain.turnNo(s, id).of], rec && rec.id !== id ? ['This month', rec.name] : null].filter(Boolean), btn: { t: 'See the order', tour: 'order' } };
   } },
-  { re: /\b(cash|money|balance|pesa)\b.*\b(hand|have|left|box|group)|\bhow much (do we|does the group)\b/, run(s) { return { title: 'Cash on hand: ' + kes(Domain.cashOnHand(s)), text: 'Money in minus loans out, payouts and expenses.' }; } },
-  { re: /\bmy loan\b|\bloan balance\b|\bmkopo wangu\b/, run(s) { const id = s.shared ? s.shared.me : Session.memberId; if (!id) return null; const b = Domain.memberLoanBalance(s, id); return { title: b ? 'Your loan balance is ' + kes(b) : 'You have no loan', text: b ? 'See Loans for the dates of each instalment.' : 'Ask the treasurer if you need one.' }; } }
+  { id: 'payout', m: (W, r) => /\b(next|this month'?s?|who)\b.*\b(payout|pot|receive|turn)|\bzamu\b/.test(r), run(s) {
+    const cur = Domain.now(), rec = Domain.recipient(s, cur); if (!rec) return null;
+    return { kicker: 'Payout · ' + monthLabel(cur), big: kes(potFor(s, cur)), title: rec.name + ' receives this month', text: (Domain.payoutOrder(s, U_().addMonths(cur, 1), 2).map(x => monthLabel(x.mk) + ': ' + x.member.name).join('\n')), btn: { t: 'See the order', tour: 'order' } };
+  } },
+  { id: 'contribution', m: (W, r) => (/\b(each|every|per|a) month\b|\bmonthly\b|kila mwezi|contribution amount|\bdue (day|date)\b|deadline|tarehe/.test(r) || (has(W, 'when', 'lini') && has(W, 'payment', 'due'))) && !has(W, 'payout', 'loan', 'fine'), run(s) {
+    const c = s.chama || {}, id = meId(s), mine = id ? Domain.dueFor(s, id) : Number(c.monthly) || 0;
+    return { kicker: 'Monthly contribution', big: kes(mine), title: 'Due by day ' + (c.dueDay || 10) + ' of every month', rows: [c.finePerLate ? ['Late fine', kes(c.finePerLate)] : null, c.payTo ? ['Pay to', c.payTo] : null].filter(Boolean), btn: { t: 'See my payments', tour: 'mypay' } };
+  } },
+  { id: 'paid', m: (W, r) => (has(W, 'payment', 'saved', 'savings', 'akiba', 'save', 'contributed') || /nimelipa|i('ve| have)? paid/.test(r)) && (has(W, 'much', 'total', 'ngapi', 'have', 'all', 'year', 'mwaka', 'mwezi', 'far', 'kiasi') || /how much|nimelipa|\bmy (payments|savings|contributions)\b|i('ve| have)? paid|so far|this month/.test(r)) && !has(W, 'owe', 'due', 'fine', 'loan', 'payout', 'when', 'lini', 'who', 'nani', 'add', 'mpesa', 'import'), run(s, W) {
+    const id = meId(s); if (!id) return NOLINK; const cur = Domain.now(), yr = cur.slice(0, 4), mine = (s.payments || []).filter(p => p.memberId === id), tot = f => U_().sum(mine.filter(f), p => p.amount);
+    const all = Domain.memberSaved(s, id), y = tot(p => String(p.month || '').startsWith(yr)), mo = tot(p => p.month === cur), last = [...mine].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0];
+    const which = has(W, 'year', 'mwaka') ? 'y' : has(W, 'mwezi') || /this month/.test(' ' + [...W].join(' ') + ' ') ? 'm' : 'a';
+    return { kicker: which === 'y' ? 'Paid in ' + yr : which === 'm' ? 'Paid for ' + monthLabel(cur) : 'You have paid', big: kes(which === 'y' ? y : which === 'm' ? mo : all), tone: 'ok',
+      title: which === 'a' ? 'In total, over ' + mine.length + (mine.length === 1 ? ' payment' : ' payments') : 'Total saved: ' + kes(all),
+      rows: [which !== 'm' ? ['This month', kes(mo)] : null, which !== 'y' ? ['This year', kes(y)] : null, last ? ['Last payment', kes(last.amount) + ' · ' + fmtD(last.date)] : null].filter(Boolean), btn: { t: 'See my payments', tour: 'mypay' } };
+  } },
+  { id: 'streak', m: (W, r) => has(W, 'streak', 'mfululizo') || /on time|in a row/.test(r), run(s) {
+    const id = meId(s); if (!id) return NOLINK; const st = Domain.streak(s, id), rel = Domain.reliability(s, id);
+    return { kicker: 'Your streak', big: st + (st === 1 ? ' month' : ' months'), tone: st >= 3 ? 'ok' : '', title: st ? 'Paid on time ' + st + (st === 1 ? ' month' : ' months') + ' in a row' : 'No streak yet. Pay on time to start one', text: rel != null ? 'On time ' + rel + '% of the last 6 months.' : '', btn: { t: 'See my payments', tour: 'mypay' } };
+  } },
+  { id: 'rank', m: (W, r) => has(W, 'rank', 'nafasi', 'compare', 'leaderboard') || /\b(top|best) saver|where do i stand|my position\b/.test(r), run(s) {
+    const id = meId(s); if (!id) return NOLINK; const mine = Domain.memberSaved(s, id);
+    if (s.shared) return { kicker: 'Your rank', big: 'Private', title: 'Only the treasurer sees everyone’s savings', text: 'You have saved ' + kes(mine) + '.', btn: { t: 'See my payments', tour: 'mypay' } };
+    const act = s.members.filter(m => !m.left).map(m => ({ m, v: Domain.memberSaved(s, m.id) })).sort((a, b) => b.v - a.v), pos = act.findIndex(x => x.m.id === id) + 1;
+    return { kicker: 'Your rank by savings', big: nth(pos) + ' of ' + act.length, tone: pos <= 3 ? 'ok' : '', title: 'You have saved ' + kes(mine), text: act[0] && act[0].m.id !== id ? 'Top saver: ' + act[0].m.name + ', ' + kes(act[0].v) + '.' : 'You are the top saver.', btn: { t: 'See members', go: '#/members' } };
+  } },
+  { id: 'members', m: (W, r) => /how many (members|people)|wanachama wangapi|number of members|members count/.test(r) || (has(W, 'member') && has(W, 'many', 'wangapi', 'count')), run(s) {
+    const n = s.shared ? (s.members || []).length : s.members.filter(m => !m.left).length;
+    return { kicker: (s.chama && s.chama.name) || 'Your Chama', big: String(n), title: n === 1 ? 'member' : 'members', text: 'Each pays ' + kes((s.chama || {}).monthly || 0) + ' a month (per share).', btn: { t: 'See members', go: '#/members' } };
+  } },
+  { id: 'cash', m: (W, r) => /\b(cash|money|balance|pesa)\b.*\b(hand|have|left|box|group|chama)|\bhow much (do we|does the group|does the chama)\b|\bcash on hand\b/.test(r), run(s) { return { kicker: 'Cash on hand', big: kes(Domain.cashOnHand(s)), title: 'In the Chama now', text: 'Money in, minus loans out, payouts and expenses.', btn: Auth.isAdmin() ? { t: 'See reports', go: '#/reports' } : null }; } },
+  { id: 'chama', m: (W, r) => /about (the|our|this|my) chama|chama (facts|info|details|summary)|kuhusu chama/.test(r), run(s) {
+    const c = s.chama || {}, n = s.shared ? (s.members || []).length : s.members.filter(m => !m.left).length;
+    return { kicker: c.name || 'Your Chama', big: kes(Domain.cashOnHand(s)), title: 'Cash on hand', rows: [['Members', String(n)], ['Monthly', kes(c.monthly || 0) + ' by day ' + (c.dueDay || 10)], c.finePerLate ? ['Late fine', kes(c.finePerLate)] : null, c.loanRate ? ['Loan interest', c.loanRate + '% a month'] : null].filter(Boolean), btn: { t: 'How this Chama works', act: 'awareShow' } };
+  } }
 ];
+/* the first answer that fits the question, or null */
+function answer(q, s) {
+  const raw = ' ' + String(q || '').toLowerCase().replace(/[’]/g, "'").replace(/[^a-z0-9\s'-]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const W = new Set([...words(q), ...raw.trim().split(' ').filter(Boolean)]);
+  for (const a of ANSWERS) {
+    if (a.admin && !Auth.isAdmin()) continue;
+    let hit = false; try { hit = a.m(W, raw); } catch (e) {}
+    if (!hit) continue;
+    let r = null; try { r = a.run(s, W, raw); } catch (e) { r = null; }
+    if (r) return Object.assign({ id: a.id }, r);
+  }
+  return null;
+}
+
+/* the last questions asked on this phone, per person (nothing leaves the phone) */
+const Mem = {
+  key() { return 'mca-guide-recent:' + ((Session.user && Session.user.id) || 'anon'); },
+  list() { try { const a = JSON.parse(localStorage.getItem(this.key()) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x).slice(0, 8) : []; } catch (e) { return []; } },
+  add(q) { q = String(q || '').trim().replace(/\s+/g, ' ').slice(0, 80); if (q.length < 2) return; try { localStorage.setItem(this.key(), JSON.stringify([q, ...this.list().filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, 8))); } catch (e) {} },
+  clear() { try { localStorage.removeItem(this.key()); } catch (e) {} }
+};
 
 const Guide = {
   q: '', open: false,
@@ -8775,31 +8940,62 @@ const Guide = {
   tasks() { const admin = Auth.isAdmin(), off = !!Session.role && Session.role !== 'member'; return TASKS.filter(t => (!t.admin || admin) && (!t.off || off)); },
   score(text, ws) { const hay = this._hay(text); let sc = 0; ws.forEach(w => { if (hay.includes(w)) sc += 2; else if (w.length > 2 && hay.some(h => h.startsWith(w) || w.startsWith(h) && h.length > 3)) sc += 1; }); return sc; },
   _hay(text) { this._hc = this._hc || new Map(); if (!this._hc.has(text)) this._hc.set(text, words(text)); return this._hc.get(text); },
+  /* questions worth asking right now, from this person's own records */
+  smart(s) {
+    const id = meId(s), cur = Domain.now(), out = [], admin = Auth.isAdmin();
+    try { if (admin && s.members.some(m => !m.left && Domain.outstanding(s, m.id, cur) > 0)) out.push('Who has not paid?'); } catch (e) {}
+    if (id) {
+      try { out.push(Domain.outstanding(s, id, cur) > 0 ? 'What do I owe?' : 'How much have I paid?'); } catch (e) {}
+      if ((s.chama || {}).mode !== 'savings') out.push('When is my payout?');
+      try { out.push(Domain.memberLoanBalance(s, id) > 0 ? 'My loan' : 'My loan limit'); } catch (e) {}
+      out.push('Advice for me', 'Recent actions');
+    }
+    if (admin) out.push('Record a payment');
+    return out.slice(0, 6);
+  },
   results() {
     const q = this.q.trim(), s = Store.get() || { members: [], payments: [], chama: {}, loans: [], fines: [] };
-    if (!q) return { tasks: this.tasks().slice(0, 6), items: [], ans: null, near: false };
-    const ws = words(q), lower = ' ' + ws.join(' ') + ' ' + q.toLowerCase();
-    let ans = null; try { ans = calc(q, s); } catch (e) { ans = null; }
-    if (!ans) for (const a of ANSWERS) if ((!a.admin || Auth.isAdmin()) && (a.re.test(q.toLowerCase()) || a.re.test(lower))) { try { ans = a.run(s); } catch (e) { ans = null; } if (ans) break; }
+    if (!q) return { tasks: this.tasks().slice(0, 4), items: [], ans: null, near: false };
+    const ws = words(q), vi = verifyIntent(q);
+    let ans = null;
+    if (vi) ans = { id: 'verify', kicker: 'Verify', big: vi.serial || '', title: vi.serial ? 'Check this serial' : 'Check if a receipt or paper is real', text: 'Every receipt, statement and loan paper from My Chama has a serial. Type it or scan its QR code.', btn: { t: vi.serial ? 'Verify ' + (vi.full ? 'now' : 'this serial') : 'Verify a serial', verify: vi.serial || '' } };
+    if (!ans) try { ans = calc(q, s); } catch (e) { ans = null; }
+    if (!ans) ans = answer(q, s);
     const ranked = this.tasks().map(t => ({ t, sc: this.score(t.t + ' ' + t.k, ws) })).sort((a, b) => b.sc - a.sc);
-    let tasks = ranked.filter(x => x.sc >= 2).map(x => x.t).slice(0, 4), near = false;
+    let tasks = ranked.filter(x => x.sc >= 2).map(x => x.t).slice(0, ans ? 2 : 4), near = false;
     if (!tasks.length && !ans) { tasks = ranked.filter(x => x.sc >= 1).map(x => x.t).slice(0, 4); near = true; }
-    let items = []; try { const P = __M_src_features_smart_js.Palette; P.q = q; items = P.results().filter(x => x.sub !== 'Action').slice(0, 5); } catch (e) {}
+    let items = []; try { const P = __M_src_features_smart_js.Palette; P.q = q; items = P.results().filter(x => x.sub !== 'Action').slice(0, ans ? 3 : 5); } catch (e) {}
     if (!tasks.length && !ans && !items.length) { tasks = this.tasks().slice(0, 4); near = true; }
     this._items = items;
     return { tasks, items, ans, near };
   },
+  ansHtml(a) {
+    const b = a.btn || (a.task ? { t: 'Show me how', tour: a.task } : null);
+    const btn = !b ? '' : b.tour ? `<button type="button" class="btn pri gd-go" data-gd="tour" data-id="${esc(b.tour)}">${icon('hand', 's')}${esc(b.t)}</button>`
+      : b.verify != null ? `<button type="button" class="btn pri gd-go" data-gd="verify" data-s="${esc(b.verify)}">${icon('shield', 's')}${esc(b.t)}</button>`
+      : b.go ? `<button type="button" class="btn pri gd-go" data-gd="go" data-h="${esc(b.go)}">${esc(b.t)}${icon('chev', 's')}</button>`
+      : b.act ? `<button type="button" class="btn pri gd-go" data-gd="act" data-a="${esc(b.act)}">${esc(b.t)}${icon('chev', 's')}</button>` : '';
+    const rows = (a.rows || []).length ? `<dl class="gd-kv">${a.rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : '';
+    const list = (a.list || []).length ? `<ul class="gd-list">${a.list.map(([k, v]) => `<li>${k ? `<small>${esc(k)}</small>` : ''}<span>${esc(v)}</span></li>`).join('')}</ul>` : '';
+    return `<div class="gd-ans${a.calc ? ' calc' : ''}${a.tone ? ' t-' + a.tone : ''}" data-ans="${esc(a.id || (a.calc ? 'calc' : ''))}" aria-live="polite"><small>${icon(a.calc ? 'chart' : a.id === 'verify' ? 'shield' : 'guide', 's')}${esc(a.kicker || (a.calc ? 'Worked out' : 'From your records'))}</small>${a.big ? `<div class="gd-big num">${esc(a.big)}</div>` : ''}<b>${esc(a.title)}</b>${rows}${list}${a.text ? `<p>${esc(a.text).replace(/\n/g, '<br>')}</p>` : ''}${btn}</div>`;
+  },
   html() {
-    const r = this.results(), sugg = Auth.isAdmin() ? ['Who has not paid?', 'Record a payment', 'monthly x 12', 'Import M-Pesa'] : ['What do I owe?', 'When is my turn?', '10000 at 10% for 3 months', 'Send a voice note'];
+    const r = this.results(), s = Store.get() || { members: [], payments: [], chama: {}, loans: [], fines: [] };
     const IC = { pay: 'wallet', import: 'import', member: 'userPlus', invite: 'key', loan: 'loans', fine: 'alert', expense: 'receipt', remind: 'bell', payout: 'check', turn: 'members', goal: 'sparkle', chat: 'chat', lock: 'lock', photo: 'image', leave: 'out', rules: 'doc', report: 'doc', aware: 'help' };
     const task = t => `<div class="gd-task"><span class="gd-t-ic">${icon(t.ic || IC[t.id] || 'guide')}</span><b>${esc(t.t)}</b><span class="gd-btns">${t.tour ? `<button type="button" class="btn sm pri" data-gd="tour" data-id="${t.id}">${icon('hand', 's')}Show me</button>` : ''}${t.act && !t.tour ? `<button type="button" class="btn sm tint" data-gd="do" data-id="${t.id}">Open</button>` : ''}</span></div>`;
-    const ans = r.ans ? `<div class="gd-ans${r.ans.calc ? ' calc' : ''}"><small>${icon(r.ans.calc ? 'chart' : 'guide', 's')}${r.ans.calc ? 'Worked out' : 'From your records'}</small><b>${esc(r.ans.title)}</b>${r.ans.text ? `<p>${esc(r.ans.text).replace(/\n/g, '<br>')}</p>` : ''}${r.ans.task ? `<button type="button" class="btn sm pri" data-gd="tour" data-id="${esc(r.ans.task)}">${icon('hand', 's')}Show me how</button>` : ''}</div>` : '';
-    return `<div class="gd-veil" data-gd="x"><div class="gd" role="dialog" aria-modal="true" aria-label="Guide">
-<div class="gd-head"><span class="gd-mark">${icon('guide')}</span><div><b>Guide</b><small>Ask, search, or work out a sum</small></div><button type="button" class="gd-vf" data-act="verifyOpen" aria-label="Verify a receipt or serial">${icon('shield', 's')}<span>Verify</span></button><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
-<label class="gd-in">${icon('search')}<input id="gdQ" type="search" inputmode="search" placeholder="Type anything, e.g. give a loan" value="${esc(this.q)}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.q ? '<button type="button" class="gd-clear" data-gd="clear" aria-label="Clear">' + icon('close', 's') + '</button>' : ''}</label>
-<div class="gd-body" id="gdBody">${this.q ? '' : `<div class="gd-sugg">${sugg.map(x => `<button type="button" data-gd="ask" data-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`}
-${ans}
-${r.tasks.length ? `<div class="gd-sec"><h4>${r.near ? 'Closest guides to “' + esc(this.q) + '”' : this.q ? 'Live guides' : 'Popular guides'}</h4>${r.tasks.map(task).join('')}</div>` : ''}
+    const chip = (q, ic, cls) => `<button type="button" class="gd-chip-q${cls ? ' ' + cls : ''}" data-gd="ask" data-q="${esc(q)}">${icon(ic, 's')}<span>${esc(q)}</span></button>`;
+    let top = '';
+    if (!this.q) {
+      const mem = Mem.list(), sm = this.smart(s).filter(x => !mem.some(m => m.toLowerCase() === x.toLowerCase()));
+      top = (mem.length ? `<div class="gd-sec gd-mem"><h4>Recent<button type="button" class="gd-forget" data-gd="forget">Clear</button></h4><div class="gd-sugg gd-chips">${mem.map(q => chip(q, 'clock')).join('')}</div></div>` : '')
+        + `<div class="gd-sec"><h4>Ask about you</h4><div class="gd-sugg gd-chips"><button type="button" class="gd-chip-q vf" data-gd="verify" data-s="">${icon('shield', 's')}<span>Verify a receipt</span></button>${sm.map(q => chip(q, 'sparkle')).join('')}</div></div>`;
+    }
+    return `<div class="gd-veil" data-gd="x"><div class="gd gd-v2" role="dialog" aria-modal="true" aria-label="Guide">
+<div class="gd-head"><span class="gd-mark">${icon('guide')}</span><div><b>Guide</b><small>Ask about your money, or how to do anything</small></div><button type="button" class="gd-x" data-gd="x" aria-label="Close">${icon('close')}</button></div>
+<label class="gd-in">${icon('search')}<input id="gdQ" type="search" inputmode="search" placeholder="e.g. When is my payout?" aria-label="Ask the Guide" value="${esc(this.q)}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">${this.q ? '<button type="button" class="gd-clear" data-gd="clear" aria-label="Clear">' + icon('close', 's') + '</button>' : ''}</label>
+<div class="gd-body" id="gdBody">${top}
+${r.ans ? this.ansHtml(r.ans) : ''}
+${r.tasks.length ? `<div class="gd-sec"><h4>${r.near ? 'Closest guides to “' + esc(this.q) + '”' : this.q ? (r.ans ? 'Related guides' : 'Live guides') : 'Popular guides'}</h4>${r.tasks.map(task).join('')}</div>` : ''}
 ${r.items.length ? `<div class="gd-sec"><h4>Found in your Chama</h4>${r.items.map((x, i) => `<button type="button" class="gd-item" data-gd="item" data-i="${i}"><span class="gd-t-ic">${icon(x.ic)}</span><span><b>${esc(x.t)}</b><small>${esc(x.sub)}</small></span>${icon('chev', 'chev')}</button>`).join('')}</div>` : ''}
 </div></div></div>`;
   },
@@ -8810,10 +9006,15 @@ ${r.items.length ? `<div class="gd-sec"><h4>Found in your Chama</h4>${r.items.ma
     /* focus in the same tap, so the phone opens the keyboard at once (iPhone ignores a focus that comes later) */
     const i = document.getElementById('gdQ'); if (i) { try { i.focus({ preventScroll: true }); i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} }
     setTimeout(() => { const j = document.getElementById('gdQ'); if (j && document.activeElement !== j) try { j.focus({ preventScroll: true }); } catch (e) {} }, 60);
+    /* a whole serial pasted straight in: open Verify */
+    if (this.q) { const v = verifyIntent(this.q); if (v && v.full) openVerify(v.serial); }
   },
   paint() { const b = document.getElementById('gdBody'); if (!b) return; const tmp = document.createElement('div'); tmp.innerHTML = this.html(); b.replaceWith(tmp.querySelector('#gdBody')); const lab = document.querySelector('.gd-in'), cl = lab && lab.querySelector('.gd-clear'), want = tmp.querySelector('.gd-clear'); if (lab && !cl && want) lab.appendChild(want); if (cl && !want) cl.remove(); },
-  hide() { this.open = false; const r = document.getElementById('jmRoot'); if (r) r.innerHTML = ''; },
-  run(id) { const t = TASKS.find(x => x.id === id); if (!t || !t.act) return; this.hide(); const A = __M_src_features_index_js.Actions[t.act]; if (!A) return; if (typeof A === 'object' && A.admin && !Auth.isAdmin()) return toast('Only the treasurer can do that'); try { (typeof A === 'function' ? A : A.run).call(A, { v: t.act === 'inviteSheet' ? 'code' : '' }); } catch (e) { toast(e.message); } }
+  /* remember the question when the Guide closes, if it found something */
+  remember() { const q = this.q.trim(); if (q.length < 2) return; try { const r = this.results(); if (r.ans || (r.tasks.length && !r.near) || r.items.length) Mem.add(q); } catch (e) {} },
+  hide() { if (this.open) this.remember(); this.open = false; const r = document.getElementById('jmRoot'); if (r) r.innerHTML = ''; },
+  run(id) { const t = TASKS.find(x => x.id === id); if (!t || !t.act) return; this.hide(); const A = __M_src_features_index_js.Actions[t.act]; if (!A) return; if (typeof A === 'object' && A.admin && !Auth.isAdmin()) return toast('Only the treasurer can do that'); try { (typeof A === 'function' ? A : A.run).call(A, { v: t.act === 'inviteSheet' ? 'code' : '' }); } catch (e) { toast(e.message); } },
+  act(name) { this.hide(); const A = __M_src_features_index_js.Actions[name]; if (!A) return; try { (typeof A === 'function' ? A : A.run).call(A, {}); } catch (e) { toast(e.message); } }
 };
 
 /* ---- live tour: a spotlight on the real button, a card that says what to do, and it waits for the tap ---- */
@@ -8883,7 +9084,11 @@ document.addEventListener('click', e => {
   const k = g.dataset.gd;
   if (k === 'x') { if (e.target === g || g.classList.contains('gd-x') || g.closest('.gd-x')) Guide.hide(); return; }
   if (k === 'clear') { Guide.q = ''; const i = document.getElementById('gdQ'); if (i) { i.value = ''; i.focus(); } return Guide.paint(); }
-  if (k === 'ask') { Guide.q = g.dataset.q; const i = document.getElementById('gdQ'); if (i) i.value = Guide.q; return Guide.paint(); }
+  if (k === 'ask') { Guide.q = g.dataset.q; const i = document.getElementById('gdQ'); if (i) i.value = Guide.q; Mem.add(Guide.q); return Guide.paint(); }
+  if (k === 'forget') { Mem.clear(); return Guide.paint(); }
+  if (k === 'verify') return openVerify(g.dataset.s || '');
+  if (k === 'go') { Guide.hide(); location.hash = g.dataset.h; return; }
+  if (k === 'act') return Guide.act(g.dataset.a);
   if (k === 'tour') return Tour.start(g.dataset.id);
   if (k === 'do') return Guide.run(g.dataset.id);
   if (k === 'item') {
@@ -8893,11 +9098,15 @@ document.addEventListener('click', e => {
     try { (typeof A === 'function' ? A : A.run).call(A, { id: x.id }); } catch (err) { toast(err.message); }
   }
 });
-document.addEventListener('input', e => { if (e.target && e.target.id === 'gdQ') { Guide.q = e.target.value; Guide.paint(); } });
+document.addEventListener('input', e => { if (e.target && e.target.id === 'gdQ') { Guide.q = e.target.value; const v = verifyIntent(Guide.q); if (v && v.full) return openVerify(v.serial); Guide.paint(); } });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && Tour.steps.length) { Tour.end(false); return; }
   if (e.key === 'Escape' && Guide.open) { Guide.hide(); return; }
-  if (e.key === 'Enter' && e.target && e.target.id === 'gdQ') { const r = Guide.results(); if (!r.ans && r.tasks[0] && r.tasks[0].tour && /\b(how|show|jinsi)\b/i.test(Guide.q)) Tour.start(r.tasks[0].id); }
+  if (e.key === 'Enter' && e.target && e.target.id === 'gdQ') {
+    const v = verifyIntent(Guide.q); if (v) { Mem.add(Guide.q); return openVerify(v.serial); }
+    const r = Guide.results(); Guide.remember();
+    if (!r.ans && r.tasks[0] && r.tasks[0].tour && /\b(how|show|jinsi)\b/i.test(Guide.q)) Tour.start(r.tasks[0].id);
+  }
 });
 
 /* ---- Age-matched app. Near reading starts to fade in the mid-40s (presbyopia); from about 60 many people find small text,
@@ -9258,7 +9467,7 @@ const actions = {
   guideTour: d => Tour.start(d.id)
 };
 
-return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get Personal() { return Personal; }, get About() { return About; }, get Adapt() { return Adapt; }, get actions() { return actions; }, get TASKS() { return TASKS; } };
+return { get Guide() { return Guide; }, get Tour() { return Tour; }, get Aware() { return Aware; }, get Personal() { return Personal; }, get About() { return About; }, get Adapt() { return Adapt; }, get actions() { return actions; }, get TASKS() { return TASKS; }, get ANSWERS() { return ANSWERS; }, get answer() { return answer; }, get words() { return words; }, get Mem() { return Mem; }, get verifyIntent() { return verifyIntent; } };
 })();
 
 /* ---- src/features/docs.js ----
